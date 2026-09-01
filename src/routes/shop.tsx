@@ -82,6 +82,7 @@ function ShopPage() {
         q: val.trim() ? val.trim() : undefined,
       }),
       replace: true,
+      scrollToTop: false,
     });
   };
 
@@ -156,63 +157,68 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="sticky top-16 z-30 -mx-6 mb-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/80 px-6 py-4 backdrop-blur-xl md:top-20 md:-mx-10 md:px-10">
-          <div className="flex items-center gap-3 flex-1 min-w-[240px] max-w-md">
-            <div className="relative w-full">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => handleQueryChange(e.target.value)}
-                placeholder="Search products by keyword…"
-                className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
-              />
-              {q && (
-                <button
-                  type="button"
-                  onClick={() => handleQueryChange("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
+        <div className="fixed inset-x-0 top-16 md:top-20 z-40 border-b border-border bg-background/90 px-6 py-4 backdrop-blur-xl md:px-10 shadow-sm">
+          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-[240px] max-w-md">
+              <div className="relative w-full">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={q}
+                  onChange={(e) => handleQueryChange(e.target.value)}
+                  placeholder="Search products by keyword…"
+                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
+                />
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => handleQueryChange("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
+                {filtered.length} item{filtered.length !== 1 && "s"}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
-              {filtered.length} item{filtered.length !== 1 && "s"}
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {sizes.length > 0 && (
-              <Select value={size} onValueChange={setSize}>
-                <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
-                  <SelectValue placeholder="Size" />
+            <div className="flex items-center gap-2">
+              {sizes.length > 0 && (
+                <Select value={size} onValueChange={setSize}>
+                  <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
+                    <SelectValue placeholder="Size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sizes</SelectItem>
+                    {sizes.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={sort} onValueChange={setSort}>
+                <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All sizes</SelectItem>
-                  {sizes.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="featured">Featured</SelectItem>
+                  <SelectItem value="title">A → Z</SelectItem>
+                  <SelectItem value="price-asc">Price: Low to High</SelectItem>
+                  <SelectItem value="price-desc">Price: High to Low</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-            <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="featured">Featured</SelectItem>
-                <SelectItem value="title">A → Z</SelectItem>
-                <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                <SelectItem value="price-desc">Price: High to Low</SelectItem>
-              </SelectContent>
-            </Select>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Spacer to push content down below the fixed filter bar */}
+      {products.length > 0 && <div className="h-16 mb-6" aria-hidden="true" />}
 
       {filtered.length === 0 ? (
         q.trim() ? (

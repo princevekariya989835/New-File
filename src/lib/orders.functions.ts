@@ -72,10 +72,11 @@ export const getMyOrders = createServerFn({ method: "GET" })
 
       const orderIds = orders.map((o) => String(o.id));
       const items = await sql`
-        SELECT i.order_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
-          i.design_submission_id, d.preview_data_url
+        SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
+          i.design_submission_id, d.preview_data_url, p.images as product_images_json
         FROM order_items i
         LEFT JOIN design_submissions d ON i.design_submission_id = d.id
+        LEFT JOIN products p ON i.product_id::text = p.id::text
         WHERE i.order_id::text = ANY(${orderIds}::text[])
       `;
 
@@ -84,10 +85,12 @@ export const getMyOrders = createServerFn({ method: "GET" })
         const oId = String(item.order_id);
         if (!itemsByOrderId.has(oId)) itemsByOrderId.set(oId, []);
         const currency = "INR";
+        const pImages = Array.isArray(item.product_images_json) ? item.product_images_json : [];
+        const fallbackImg = typeof pImages[0] === "string" ? pImages[0] : pImages[0]?.url || null;
         itemsByOrderId.get(oId)!.push({
           title: item.product_name,
           quantity: Number(item.quantity || 1),
-          imageUrl: item.preview_data_url || item.product_image || null,
+          imageUrl: item.preview_data_url || item.product_image || fallbackImg || null,
           size: item.selected_size || null,
           color: item.selected_color || null,
           designSubmissionId: item.design_submission_id || null,
@@ -219,18 +222,39 @@ export const placeOrder = createServerFn({ method: "POST" })
       ON CONFLICT (user_id) DO UPDATE SET items = '[]'::jsonb, updated_at = NOW();
     `;
 
-    // Attempt to notify store admins in background
-    sendTemplateEmail("admin-order-notification", data.shippingEmail, {
-      templateData: {
-        orderId,
-        orderNumber,
-        customerName: data.shippingName,
-        customerEmail: data.shippingEmail,
-        total: `${data.currency} ${total.toLocaleString("en-IN")}`,
-        itemsCount: items.reduce((s, i) => s + i.quantity, 0),
-        placedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      },
-    }).catch((err) => console.warn("[Order Service] Email notification notice:", err));
+    const templateData = {
+      orderNumber,
+      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      customerName: data.shippingName,
+      customerEmail: data.shippingEmail,
+      customerPhone: data.shippingPhone || null,
+      shippingAddress: data.shippingAddress,
+      paymentMethod: "Cash on Delivery (COD)",
+      subtotal: itemsTotal.toLocaleString("en-IN"),
+      shippingCharge: shipping.toLocaleString("en-IN"),
+      total: total.toLocaleString("en-IN"),
+      currency: data.currency,
+      hasCustomDesign: items.some((i) => !!i.designSubmissionId),
+      items: items.map((i) => ({
+        name: i.productName,
+        quantity: i.quantity,
+        size: i.selectedSize || null,
+        color: i.selectedColor || null,
+        price: i.price.toLocaleString("en-IN"),
+        subtotal: i.subtotal.toLocaleString("en-IN"),
+        isCustomDesign: !!i.designSubmissionId,
+      })),
+    };
+
+    // Send customer order confirmation & invoice email in background
+    sendTemplateEmail("customer-order-confirmation", data.shippingEmail, {
+      templateData,
+    }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
+
+    // Send store owner / admin notification & invoice copy email in background
+    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
+      templateData,
+    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
 
     return {
       ok: true,

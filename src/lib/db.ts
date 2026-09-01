@@ -55,6 +55,14 @@ export async function ensureDbSchema() {
       const sql = getSql();
 
       const schemaStatements = [
+        `CREATE TABLE IF NOT EXISTS email_otps (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          otp TEXT NOT NULL,
+          purpose TEXT NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
         `CREATE TABLE IF NOT EXISTS profiles (
           id TEXT PRIMARY KEY,
           email TEXT UNIQUE NOT NULL,
@@ -276,17 +284,66 @@ export async function ensureDbSchema() {
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_variant ON inventory_transactions (variant_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_order ON inventory_transactions (order_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_created ON inventory_transactions (created_at DESC)`,
-        `UPDATE profiles SET role = 'admin' WHERE email IN ('princevekariya9898@gmail.com', 'princevekariya989835@gmail.com', 'admin@riotous.com')`,
+        `UPDATE profiles SET role = CASE WHEN email = 'princevekariya9898@gmail.com' THEN 'admin' ELSE 'customer' END`,
+        `INSERT INTO profiles (id, email, password_hash, full_name, role) VALUES ('usr_admin_prince', 'princevekariya9898@gmail.com', '73b40a85482f9888099f3781d2bd6949f18264b064f705bd18c4fbb251c70d08', 'Prince Vekariya', 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin'`,
         `INSERT INTO return_settings (id, window_days, require_delivered) VALUES ('default', 7, true) ON CONFLICT (id) DO NOTHING`,
-        `ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_order_id_fkey`,
-        `ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_fkey`,
-        `ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_variant_id_fkey`,
-        `ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_user_id_fkey`,
+        `DO $$
+        DECLARE r RECORD;
+        BEGIN
+          FOR r IN (
+            SELECT tc.table_schema, tc.table_name, tc.constraint_name
+            FROM information_schema.table_constraints tc
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = 'public'
+              AND (
+                tc.table_name IN ('order_items', 'cart', 'carts', 'cart_items', 'product_variants', 'product_images', 'reviews', 'favorites', 'inventory_transactions', 'orders')
+                OR tc.constraint_name LIKE '%product%'
+                OR tc.constraint_name LIKE '%variant%'
+              )
+          ) LOOP
+            EXECUTE 'ALTER TABLE ' || quote_ident(r.table_schema) || '.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name) || ' CASCADE';
+          END LOOP;
+        END $$;`,
+        `ALTER TABLE products ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS base_price NUMERIC DEFAULT 0`,
+        `ALTER TABLE products ALTER COLUMN base_price DROP NOT NULL`,
+        `ALTER TABLE products ALTER COLUMN base_price SET DEFAULT 0`,
+        `UPDATE products SET base_price = price WHERE base_price IS NULL`,
+        `ALTER TABLE products ALTER COLUMN price DROP NOT NULL`,
+        `ALTER TABLE products ALTER COLUMN price SET DEFAULT 0`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS vendor TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT`,
+        `ALTER TABLE product_variants ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE product_variants ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
+        `ALTER TABLE product_variants ALTER COLUMN sku DROP NOT NULL`,
+        `ALTER TABLE product_variants ALTER COLUMN sku SET DEFAULT ''`,
+        `ALTER TABLE product_variants ALTER COLUMN color DROP NOT NULL`,
+        `ALTER TABLE product_variants ALTER COLUMN color SET DEFAULT ''`,
+        `ALTER TABLE product_variants ALTER COLUMN size DROP NOT NULL`,
+        `ALTER TABLE product_variants ALTER COLUMN size SET DEFAULT ''`,
+        `ALTER TABLE product_images ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE product_images ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
         `ALTER TABLE orders ALTER COLUMN id TYPE TEXT USING id::text`,
         `ALTER TABLE orders ALTER COLUMN user_id TYPE TEXT USING user_id::text`,
         `ALTER TABLE order_items ALTER COLUMN id TYPE TEXT USING id::text`,
         `ALTER TABLE order_items ALTER COLUMN order_id TYPE TEXT USING order_id::text`,
         `ALTER TABLE order_items ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
+        `ALTER TABLE order_items ALTER COLUMN variant_id TYPE TEXT USING variant_id::text`,
+        `ALTER TABLE reviews ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE reviews ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
+        `ALTER TABLE favorites ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE inventory_transactions ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE inventory_transactions ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
+        `ALTER TABLE inventory_transactions ALTER COLUMN variant_id TYPE TEXT USING variant_id::text`,
+        `ALTER TABLE admin_audit_log ALTER COLUMN id TYPE TEXT USING id::text`,
+        `ALTER TABLE admin_audit_log ALTER COLUMN entity_id TYPE TEXT USING entity_id::text`,
         `ALTER TABLE orders ALTER COLUMN shipping_full_name DROP NOT NULL`,
         `ALTER TABLE orders ALTER COLUMN shipping_phone DROP NOT NULL`,
         `ALTER TABLE orders ALTER COLUMN shipping_address_line1 DROP NOT NULL`,

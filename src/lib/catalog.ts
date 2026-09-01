@@ -98,7 +98,9 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
     if (s) byKey.set(`${s}`, v);
   }
 
-  const sizes = row.sizes?.length ? row.sizes : [null];
+  const DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"];
+  const rawSizes = row.sizes?.length ? row.sizes : DEFAULT_SIZES;
+  const sizes = rawSizes.filter(Boolean);
   const colors = row.colors?.length ? row.colors : [null];
 
   const variants: CatalogVariant[] = [];
@@ -148,7 +150,7 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
   }
 
   const options = [
-    ...(row.sizes?.length ? [{ name: "Size", values: row.sizes }] : []),
+    { name: "Size", values: sizes },
     ...(row.colors?.length ? [{ name: "Color", values: row.colors }] : []),
   ];
 
@@ -378,22 +380,34 @@ async function seedInitialProductsIfNeeded() {
     const existing = await sql`SELECT count(*)::int as count FROM products`;
     if (existing[0]?.count === 0) {
       for (const p of FALLBACK_PRODUCTS) {
-        await sql`
-          INSERT INTO products (
-            id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-          ) VALUES (
-            ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.currency},
-            ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
-            ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-          ) ON CONFLICT (id) DO NOTHING;
-        `;
+        try {
+          await sql`
+            INSERT INTO products (
+              id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            ) VALUES (
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
+              ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
+              ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
+            ) ON CONFLICT (id) DO NOTHING;
+          `;
+        } catch {
+          await sql`
+            INSERT INTO products (
+              id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            ) VALUES (
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.currency},
+              ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
+              ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
+            ) ON CONFLICT (id) DO NOTHING;
+          `;
+        }
         if (p.product_variants) {
           for (const v of p.product_variants) {
             await sql`
               INSERT INTO product_variants (
-                id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
+                id, product_id, size, color, sku, stock_quantity, reserved_stock, low_stock_threshold
               ) VALUES (
-                ${v.id}, ${p.id}, ${v.size}, ${v.color}, ${v.stock_quantity}, ${v.reserved_stock}, ${v.low_stock_threshold}
+                ${v.id}, ${p.id}, ${v.size}, ${v.color}, ${v.sku || v.id}, ${v.stock_quantity}, ${v.reserved_stock}, ${v.low_stock_threshold}
               ) ON CONFLICT (id) DO NOTHING;
             `;
           }
@@ -404,7 +418,7 @@ async function seedInitialProductsIfNeeded() {
       const prods = await sql`
         SELECT id, sizes, colors, stock_quantity
         FROM products
-        WHERE is_active = true
+        WHERE is_active = true OR is_active IS NULL
       `;
       for (const p of prods) {
         const pId = String(p.id);
@@ -431,11 +445,43 @@ async function seedInitialProductsIfNeeded() {
             const sz = sList[i];
             const vId = `var_${pId}_${sz || "default"}`.replace(/[^a-zA-Z0-9_-]/g, "_");
             const vQty = base + (i < rem ? 1 : 0);
-            await sql`
-              INSERT INTO product_variants (id, product_id, size, color, stock_quantity)
-              VALUES (${vId}, ${pId}, ${sz}, '', ${vQty})
-              ON CONFLICT (id) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;
-            `;
+            try {
+              await sql`
+                INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
+                VALUES (${vId}, ${pId}, ${sz}, '', ${vId}, ${vQty})
+                ON CONFLICT (id) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;
+              `;
+            } catch {
+              // If product_variants.id is still integer in legacy database, convert column to text
+              try {
+                await sql`
+                  DO $$
+                  DECLARE r RECORD;
+                  BEGIN
+                    FOR r IN (
+                      SELECT tc.table_schema, tc.table_name, tc.constraint_name
+                      FROM information_schema.table_constraints tc
+                      WHERE tc.constraint_type = 'FOREIGN KEY'
+                        AND tc.table_schema = 'public'
+                        AND (tc.constraint_name LIKE '%variant%' OR tc.table_name LIKE '%variant%')
+                    ) LOOP
+                      EXECUTE 'ALTER TABLE ' || quote_ident(r.table_schema) || '.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name) || ' CASCADE';
+                    END LOOP;
+                  END $$;
+                `;
+                await sql`ALTER TABLE product_variants ALTER COLUMN id TYPE TEXT USING id::text`;
+                await sql`ALTER TABLE product_variants ALTER COLUMN product_id TYPE TEXT USING product_id::text`;
+                await sql`ALTER TABLE product_variants ALTER COLUMN sku DROP NOT NULL`;
+                await sql`ALTER TABLE product_variants ALTER COLUMN sku SET DEFAULT ''`;
+                await sql`
+                  INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
+                  VALUES (${vId}, ${pId}, ${sz}, '', ${vId}, ${vQty})
+                  ON CONFLICT (id) DO UPDATE SET stock_quantity = EXCLUDED.stock_quantity;
+                `;
+              } catch (innerErr) {
+                console.warn("[Catalog] Variant seed warning for product", pId, innerErr);
+              }
+            }
           }
         } else if (total === 0 && prodStock > 0) {
           const vars = await sql`
@@ -474,7 +520,7 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       const products = await sql`
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
         FROM products
-        WHERE is_active = true
+        WHERE is_active = true OR is_active IS NULL
         ORDER BY created_at DESC
         LIMIT ${first}
       `;
@@ -559,7 +605,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       const products = await sql`
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
         FROM products
-        WHERE (slug = ${data.handle} OR id::text = ${data.handle}) AND is_active = true
+        WHERE (slug = ${data.handle} OR id::text = ${data.handle}) AND (is_active = true OR is_active IS NULL)
         LIMIT 1
       `;
 

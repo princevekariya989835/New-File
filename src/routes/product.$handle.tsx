@@ -11,7 +11,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  Ruler,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { fetchProductByHandle } from "@/lib/catalog";
 import { formatPrice } from "@/lib/catalog";
 import { useCartStore } from "@/stores/cart-store";
@@ -97,7 +105,13 @@ function ProductPage() {
   const [selected, setSelected] = useState<Record<string, string>>(() => {
     const inStock = variants.find((v) => v.available > 0) ?? variants[0];
     const opts = inStock?.selectedOptions ?? [];
-    return Object.fromEntries(opts.map((o) => [o.name, o.value]));
+    const initial = Object.fromEntries(opts.map((o) => [o.name, o.value]));
+    // Ensure standard size is selected
+    const sizeOpt = p.options.find((o) => o.name.toLowerCase() === "size");
+    if (sizeOpt && !initial["Size"] && sizeOpt.values.length > 0) {
+      initial["Size"] = sizeOpt.values[0];
+    }
+    return initial;
   });
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -155,7 +169,7 @@ function ProductPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
-      <div className="grid gap-8 md:grid-cols-2 md:gap-16">
+      <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
         {/* Gallery */}
         <div className="flex flex-col gap-4">
           <button
@@ -212,33 +226,114 @@ function ProductPage() {
             )}
           </p>
 
-          {/* Options */}
+          {/* Options & Size Selection */}
           <div className="mt-8 space-y-6">
-            {p.options.map((opt) =>
-              opt.values.length > 1 || opt.name.toLowerCase() !== "title" ? (
-                <div key={opt.name}>
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-medium">{opt.name}</span>
-                    <span className="text-xs text-muted-foreground">{selected[opt.name]}</span>
+            {p.options.map((opt) => {
+              const isSize = opt.name.toLowerCase() === "size";
+
+              return (
+                <div key={opt.name} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tracking-wide">
+                        {isSize ? "Select Size" : opt.name}:
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {selected[opt.name] || opt.values[0]}
+                      </span>
+                    </div>
+
+                    {isSize && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+                          >
+                            <Ruler className="h-3.5 w-3.5" /> Size Guide
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md">
+                          <DialogHeader>
+                            <DialogTitle className="text-lg font-bold">
+                              Oversized Fit Size Guide
+                            </DialogTitle>
+                          </DialogHeader>
+                          <p className="text-xs text-muted-foreground">
+                            All measurements are in inches. Designed for a boxy streetwear drape
+                            with dropped shoulders.
+                          </p>
+                          <div className="mt-4 overflow-hidden rounded-xl border border-border">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-secondary text-foreground font-semibold">
+                                <tr>
+                                  <th className="p-2.5">Size</th>
+                                  <th className="p-2.5">Chest (in)</th>
+                                  <th className="p-2.5">Length (in)</th>
+                                  <th className="p-2.5">Shoulder (in)</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                <tr>
+                                  <td className="p-2.5 font-bold">S</td>
+                                  <td className="p-2.5">42"</td>
+                                  <td className="p-2.5">28"</td>
+                                  <td className="p-2.5">20.5"</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2.5 font-bold">M</td>
+                                  <td className="p-2.5">44"</td>
+                                  <td className="p-2.5">29"</td>
+                                  <td className="p-2.5">21.5"</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2.5 font-bold">L</td>
+                                  <td className="p-2.5">46"</td>
+                                  <td className="p-2.5">30"</td>
+                                  <td className="p-2.5">22.5"</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2.5 font-bold">XL</td>
+                                  <td className="p-2.5">48"</td>
+                                  <td className="p-2.5">31"</td>
+                                  <td className="p-2.5">23.5"</td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2.5 font-bold">XXL</td>
+                                  <td className="p-2.5">50"</td>
+                                  <td className="p-2.5">32"</td>
+                                  <td className="p-2.5">24.5"</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="mt-3 text-[11px] text-muted-foreground">
+                            Tip: For a classic regular fit, size down one size. For the intended
+                            boxy oversized streetwear look, choose your regular size.
+                          </p>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+
+                  <div className="flex flex-wrap gap-2.5">
                     {opt.values.map((v) => {
                       const active = selected[opt.name] === v;
                       const inStock = optionAvailable(opt.name, v);
+
                       return (
                         <button
                           key={v}
+                          type="button"
                           disabled={!inStock}
-                          title={inStock ? undefined : "Out of stock"}
+                          title={inStock ? `Select size ${v}` : `${v} (Out of Stock)`}
                           onClick={() => setSelected((s) => ({ ...s, [opt.name]: v }))}
-                          className={`min-w-12 rounded-full border px-4 py-2.5 text-sm transition-colors ${
+                          className={`relative flex h-11 min-w-[3.25rem] px-4 items-center justify-center rounded-xl border text-sm font-bold tracking-wider transition-all ${
                             active
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border hover:border-foreground"
-                          } ${
-                            inStock
-                              ? ""
-                              : "cursor-not-allowed line-through opacity-40 hover:border-border"
+                              ? "border-foreground bg-foreground text-background shadow-sm ring-2 ring-foreground/20"
+                              : inStock
+                                ? "border-border bg-card text-foreground hover:border-foreground hover:bg-secondary/60"
+                                : "cursor-not-allowed border-border/40 bg-secondary/30 text-muted-foreground line-through opacity-40"
                           }`}
                         >
                           {v}
@@ -247,8 +342,8 @@ function ProductPage() {
                     })}
                   </div>
                 </div>
-              ) : null,
-            )}
+              );
+            })}
 
             {/* Quantity */}
             <div>

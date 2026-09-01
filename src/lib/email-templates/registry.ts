@@ -18,7 +18,11 @@ export interface TemplateEntry {
  *   // then add to TEMPLATES: 'welcome': welcomeTemplate
  */
 import { template as adminOrderNotification } from "./admin-order-notification";
+import { template as customerOrderConfirmation } from "./customer-order-confirmation";
+import { template as otpEmail } from "./otp-email";
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   "admin-order-notification": adminOrderNotification,
+  "customer-order-confirmation": customerOrderConfirmation,
+  "otp-email": otpEmail,
 };

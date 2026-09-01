@@ -119,13 +119,14 @@ function isProviderConfigured() {
 /** The single provider-specific call. Swap this to change email provider. */
 async function deliver(to: string, subject: string, text: string) {
   const key = process.env["RESEND_API_KEY"];
-  const from =
-    process.env["RETURN_EMAIL_FROM"] ||
-    process.env["EMAIL_FROM"] ||
-    "RIOTOUS <onboarding@resend.dev>";
+  const customFrom = process.env["RETURN_EMAIL_FROM"] || process.env["EMAIL_FROM"];
+  const isFreePublicMail =
+    customFrom &&
+    /@(gmail\.com|googlemail\.com|yahoo\.com|hotmail\.com|outlook\.com)/i.test(customFrom);
+  const from = customFrom && !isFreePublicMail ? customFrom : "RIOTOUS <onboarding@resend.dev>";
   if (!key) throw new Error("no_email_provider_configured");
 
-  const res = await fetch("https://api.resend.com/emails", {
+  let res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       authorization: `Bearer ${key}`,
@@ -134,7 +135,19 @@ async function deliver(to: string, subject: string, text: string) {
     body: JSON.stringify({ from, to, subject, text }),
   });
   if (!res.ok) {
-    throw new Error(`Email provider error ${res.status}: ${await res.text()}`);
+    const errText = await res.text();
+    if (errText.includes("not verified") && from !== "RIOTOUS <onboarding@resend.dev>") {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${key}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ from: "RIOTOUS <onboarding@resend.dev>", to, subject, text }),
+      });
+      if (res.ok) return;
+    }
+    throw new Error(`Email provider error ${res.status}: ${errText}`);
   }
 }
 

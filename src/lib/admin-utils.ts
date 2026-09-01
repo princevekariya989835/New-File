@@ -204,8 +204,8 @@ export async function syncProductVariants(
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
         `;
       }
     }
@@ -229,8 +229,8 @@ export async function syncProductVariants(
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
         `;
       }
     }
@@ -241,8 +241,8 @@ export async function syncProductVariants(
       if (!existingMap.has(k)) {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, 0);
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0);
         `;
       }
     }

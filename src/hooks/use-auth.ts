@@ -4,6 +4,9 @@ import {
   getCurrentUserServerFn,
   loginServerFn,
   registerServerFn,
+  sendOtpServerFn,
+  verifyAndRegisterServerFn,
+  verifyAndResetPasswordServerFn,
   type AuthSession,
   type AuthUser,
 } from "@/lib/auth";
@@ -105,6 +108,43 @@ export function useAuth() {
     window.dispatchEvent(new Event("riotous_auth_changed"));
   };
 
+  const sendOtp = async (email: string, purpose: "signup" | "forgot_password") => {
+    return await sendOtpServerFn({ data: { email, purpose } });
+  };
+
+  const verifyAndRegister = async (
+    email: string,
+    password: string,
+    fullName: string | undefined,
+    otp: string,
+  ) => {
+    const res = await verifyAndRegisterServerFn({ data: { email, password, fullName, otp } });
+    if (res.ok && res.session) {
+      localStorage.setItem("riotous_session", res.session.token);
+      document.cookie = `riotous_session=${encodeURIComponent(res.session.token)}; path=/; max-age=2592000; SameSite=Lax`;
+      setUser({
+        ...res.session.user,
+        user_metadata: { full_name: res.session.user.fullName },
+      });
+      window.dispatchEvent(new Event("riotous_auth_changed"));
+    }
+    return res;
+  };
+
+  const verifyAndResetPassword = async (email: string, otp: string, newPassword: string) => {
+    const res = await verifyAndResetPasswordServerFn({ data: { email, otp, newPassword } });
+    if (res.ok && res.session) {
+      localStorage.setItem("riotous_session", res.session.token);
+      document.cookie = `riotous_session=${encodeURIComponent(res.session.token)}; path=/; max-age=2592000; SameSite=Lax`;
+      setUser({
+        ...res.session.user,
+        user_metadata: { full_name: res.session.user.fullName },
+      });
+      window.dispatchEvent(new Event("riotous_auth_changed"));
+    }
+    return res;
+  };
+
   return {
     user,
     session: user ? { user } : null,
@@ -113,6 +153,9 @@ export function useAuth() {
     register,
     signIn: login,
     signUp: register,
+    sendOtp,
+    verifyAndRegister,
+    verifyAndResetPassword,
     logout,
     signOut: logout,
   };

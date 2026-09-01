@@ -61,15 +61,16 @@ export function SiteFooter() {
             links={[
               { to: "/about", label: "About" },
               { to: "/contact", label: "Contact" },
+              { to: "/terms", label: "Terms of Service" },
             ]}
           />
           <FooterCol
             title="Support"
             links={[
-              { to: "/contact", label: "Help" },
-              { to: "/contact", label: "Shipping" },
-              { to: "/contact", label: "Returns" },
-              { to: "/contact", label: "Privacy" },
+              { to: "/contact", label: "Help Center" },
+              { to: "/shipping-policy", label: "Shipping Policy" },
+              { to: "/refund-policy", label: "Returns & Refunds" },
+              { to: "/privacy", label: "Privacy Policy" },
             ]}
           />
         </div>

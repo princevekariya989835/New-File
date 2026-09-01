@@ -249,21 +249,78 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
   .inputValidator((d: ProductInput) => d)
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    await ensureDbSchema();
     const values = normalizeProductInput(data);
     const sql = getSql();
     const productId = `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const base = slugify(values.name) || "product";
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
 
-    await sql`
-      INSERT INTO products (
-        id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-      ) VALUES (
-        ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, 'INR',
-        ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
-        ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
-      );
-    `;
+    const doInsert = async () => {
+      try {
+        await sql`
+          INSERT INTO products (
+            id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+          ) VALUES (
+            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, ${values.price}, 'INR',
+            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
+            ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
+          );
+        `;
+      } catch (colErr: any) {
+        const msg = String(colErr?.message || "").toLowerCase();
+        if (msg.includes("base_price") && msg.includes("does not exist")) {
+          await sql`
+            INSERT INTO products (
+              id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            ) VALUES (
+              ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, 'INR',
+              ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
+              ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
+            );
+          `;
+        } else {
+          throw colErr;
+        }
+      }
+    };
+
+    try {
+      await doInsert();
+    } catch (insertErr: any) {
+      // Auto-heal schema if id, base_price, or other constraints conflict
+      try {
+        await sql`
+          DO $$
+          DECLARE r RECORD;
+          BEGIN
+            FOR r IN (
+              SELECT tc.table_schema, tc.table_name, tc.constraint_name
+              FROM information_schema.table_constraints tc
+              WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND tc.table_schema = 'public'
+                AND (
+                  tc.table_name IN ('order_items', 'cart', 'carts', 'cart_items', 'product_variants', 'product_images', 'reviews', 'favorites', 'inventory_transactions', 'orders')
+                  OR tc.constraint_name LIKE '%product%'
+                  OR tc.constraint_name LIKE '%variant%'
+                )
+            ) LOOP
+              EXECUTE 'ALTER TABLE ' || quote_ident(r.table_schema) || '.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name) || ' CASCADE';
+            END LOOP;
+          END $$;
+        `;
+        await sql`ALTER TABLE products ALTER COLUMN id TYPE TEXT USING id::text`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS base_price NUMERIC DEFAULT 0`;
+        await sql`ALTER TABLE products ALTER COLUMN base_price DROP NOT NULL`;
+        await sql`ALTER TABLE products ALTER COLUMN base_price SET DEFAULT 0`;
+        await sql`ALTER TABLE products ALTER COLUMN price DROP NOT NULL`;
+        await sql`ALTER TABLE product_variants ALTER COLUMN product_id TYPE TEXT USING product_id::text`;
+        await sql`ALTER TABLE product_variants ALTER COLUMN id TYPE TEXT USING id::text`;
+        await doInsert();
+      } catch {
+        throw insertErr;
+      }
+    }
 
     await syncProductVariants(
       context,
@@ -286,25 +343,45 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   .inputValidator((d: ProductInput & { productId: string }) => d)
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
+    await ensureDbSchema();
     if (!data.productId) throw new Error("Invalid product data: missing product id");
     const values = normalizeProductInput(data);
     const sql = getSql();
 
-    await sql`
-      UPDATE products SET
-        name = ${values.name},
-        description = ${values.description},
-        price = ${values.price},
-        images = ${JSON.stringify(values.images)}::jsonb,
-        category = ${values.category},
-        sizes = ${JSON.stringify(values.sizes)}::jsonb,
-        colors = ${JSON.stringify(values.colors)}::jsonb,
-        stock_quantity = ${values.stock_quantity},
-        is_active = ${values.is_active},
-        tags = ${JSON.stringify(values.tags)}::jsonb,
-        updated_at = NOW()
-      WHERE id::text = ${data.productId}
-    `;
+    try {
+      await sql`
+        UPDATE products SET
+          name = ${values.name},
+          description = ${values.description},
+          price = ${values.price},
+          base_price = ${values.price},
+          images = ${JSON.stringify(values.images)}::jsonb,
+          category = ${values.category},
+          sizes = ${JSON.stringify(values.sizes)}::jsonb,
+          colors = ${JSON.stringify(values.colors)}::jsonb,
+          stock_quantity = ${values.stock_quantity},
+          is_active = ${values.is_active},
+          tags = ${JSON.stringify(values.tags)}::jsonb,
+          updated_at = NOW()
+        WHERE id::text = ${data.productId}
+      `;
+    } catch {
+      await sql`
+        UPDATE products SET
+          name = ${values.name},
+          description = ${values.description},
+          price = ${values.price},
+          images = ${JSON.stringify(values.images)}::jsonb,
+          category = ${values.category},
+          sizes = ${JSON.stringify(values.sizes)}::jsonb,
+          colors = ${JSON.stringify(values.colors)}::jsonb,
+          stock_quantity = ${values.stock_quantity},
+          is_active = ${values.is_active},
+          tags = ${JSON.stringify(values.tags)}::jsonb,
+          updated_at = NOW()
+        WHERE id::text = ${data.productId}
+      `;
+    }
 
     await syncProductVariants(
       context,
@@ -438,9 +515,11 @@ export const adminListOrders = createServerFn({ method: "GET" })
       const items = await sql`
         SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
           i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
-          d.preview_data_url as design_preview
+          d.preview_data_url as design_preview,
+          p.images as product_images_json
         FROM order_items i
         LEFT JOIN design_submissions d ON i.design_submission_id = d.id
+        LEFT JOIN products p ON i.product_id::text = p.id::text
         WHERE i.order_id::text = ANY(${orderIds}::text[])
       `;
 
@@ -448,11 +527,13 @@ export const adminListOrders = createServerFn({ method: "GET" })
       for (const item of items) {
         const oId = String(item.order_id);
         if (!itemsByOrderId.has(oId)) itemsByOrderId.set(oId, []);
+        const pImages = Array.isArray(item.product_images_json) ? item.product_images_json : [];
+        const fallbackImg = typeof pImages[0] === "string" ? pImages[0] : pImages[0]?.url || null;
         itemsByOrderId.get(oId)!.push({
           id: String(item.id),
           product_id: item.product_id ? String(item.product_id) : null,
           product_name: (item.product_name as string) || "Item",
-          product_image: (item.product_image as string) || null,
+          product_image: (item.product_image as string) || fallbackImg || null,
           quantity: Number(item.quantity || 1),
           price: Number(item.price || 0),
           selected_size: (item.selected_size as string) || null,
