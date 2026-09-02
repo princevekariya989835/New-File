@@ -50,6 +50,7 @@ export type AdminOrderItem = {
   subtotal: number;
   design_submission_id: string | null;
   design_preview: string | null;
+  design_preview_images: Record<string, string> | null;
 };
 
 export type AdminOrder = {
@@ -516,6 +517,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
         SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
           i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
           d.preview_data_url as design_preview,
+          d.preview_images as design_preview_images,
           p.images as product_images_json
         FROM order_items i
         LEFT JOIN design_submissions d ON i.design_submission_id = d.id
@@ -541,6 +543,11 @@ export const adminListOrders = createServerFn({ method: "GET" })
           subtotal: Number(item.subtotal || 0),
           design_submission_id: (item.design_submission_id as string) || null,
           design_preview: (item.design_preview as string) || null,
+          design_preview_images: item.design_preview_images
+            ? typeof item.design_preview_images === "string"
+              ? JSON.parse(item.design_preview_images)
+              : item.design_preview_images
+            : null,
         });
       }
 

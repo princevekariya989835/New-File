@@ -25,14 +25,62 @@ import {
 } from "@/lib/saved-designs.functions";
 
 /**
- * Renders the tee preview at a capped resolution as JPEG so the artwork always
- * fits inside the submission payload (a multi-MB PNG used to fail silently and
- * the admin panel then had no photo to show).
+ * Renders the tee mockup composite with the exact shirt photo (color & front/back view)
+ * and the fabric canvas artwork/text positioned correctly on top.
  */
-async function previewImage(canvas: any): Promise<string> {
-  const width = canvas.getWidth?.() || 800;
-  const multiplier = Math.min(2, Math.max(0.5, 1000 / width));
-  return canvas.toDataURL({ format: "jpeg", quality: 0.85, multiplier });
+async function generateTeeMockupPreview(
+  canvas: any,
+  placementStr: string,
+  colorObj: { name: string; hex: string; front: string; back: string },
+): Promise<string> {
+  return new Promise((resolve) => {
+    const shirtImgUrl = placementStr === "Back" ? colorObj.back : colorObj.front;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvasWidth = 880;
+      const canvasHeight = 1040;
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = canvasWidth;
+      offCanvas.height = canvasHeight;
+      const ctx = offCanvas.getContext("2d");
+      if (!ctx) {
+        resolve(canvas.toDataURL({ format: "jpeg", quality: 0.85, multiplier: 2 }));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+      const fabricDataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+      const overlayImg = new Image();
+      overlayImg.onload = () => {
+        let boxWidth = 440;
+        let boxHeight = 540;
+        let left = canvasWidth * 0.5 - boxWidth / 2;
+        let top = canvasHeight * 0.28;
+
+        if (placementStr === "Back") {
+          top = canvasHeight * 0.24;
+        } else if (placementStr === "Sleeve") {
+          boxWidth = 220;
+          boxHeight = 280;
+          left = canvasWidth * 0.08;
+          top = canvasHeight * 0.28;
+        }
+
+        ctx.drawImage(overlayImg, left, top, boxWidth, boxHeight);
+        resolve(offCanvas.toDataURL("image/jpeg", 0.9));
+      };
+      overlayImg.onerror = () => {
+        resolve(canvas.toDataURL({ format: "jpeg", quality: 0.85, multiplier: 2 }));
+      };
+      overlayImg.src = fabricDataUrl;
+    };
+    img.onerror = () => {
+      resolve(canvas.toDataURL({ format: "jpeg", quality: 0.85, multiplier: 2 }));
+    };
+    img.src = shirtImgUrl;
+  });
 }
 
 export const Route = createFileRoute("/design")({
@@ -335,10 +383,9 @@ function DesignPage() {
     try {
       snapshotCurrent();
 
-      const preview = canvasRef.current?.toDataURL({
-        format: "png",
-        multiplier: 1,
-      });
+      const preview = canvasRef.current
+        ? await generateTeeMockupPreview(canvasRef.current, placement, color)
+        : null;
 
       const token = localStorage.getItem("riotous_session") || "";
       const saved = await saveDesignFn({
@@ -372,10 +419,9 @@ function DesignPage() {
     try {
       snapshotCurrent();
 
-      const preview = canvasRef.current?.toDataURL({
-        format: "png",
-        multiplier: 1,
-      });
+      const preview = canvasRef.current
+        ? await generateTeeMockupPreview(canvasRef.current, placement, color)
+        : null;
 
       const token = localStorage.getItem("riotous_session") || "";
       const current = savedDesigns.find((d) => d.id === activeDesignId);
@@ -467,7 +513,7 @@ function DesignPage() {
     setAddingToCart(true);
 
     try {
-      // Render one preview per designed side so the admin sees front AND back.
+      // Render one mockup preview per designed side so the admin sees exact front AND back tee mockups.
       const previewImages: Record<string, string> = {};
 
       for (const p of PLACEMENTS) {
@@ -475,13 +521,14 @@ function DesignPage() {
         if ((json?.objects?.length ?? 0) === 0) continue;
 
         await loadPlacementCanvas(p);
-        previewImages[p] = await previewImage(canvas);
+        previewImages[p] = await generateTeeMockupPreview(canvas, p, color);
       }
 
       // Restore the side the customer is looking at.
       await loadPlacementCanvas(placement);
 
-      const preview = previewImages[placement] ?? (await previewImage(canvas));
+      const preview =
+        previewImages[placement] ?? (await generateTeeMockupPreview(canvas, placement, color));
 
       // Send the design to the admin
       let submissionId: string | null = null;

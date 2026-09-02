@@ -398,31 +398,52 @@ function OrdersPage() {
                   <div className="space-y-3">
                     <h3 className="text-xs font-semibold uppercase text-muted-foreground">Items</h3>
                     {o.items.map((i) => {
-                      const art = i.design_preview ?? i.product_image;
+                      const sides = Object.entries(i.design_preview_images ?? {}).filter(
+                        ([, url]) => typeof url === "string" && url.startsWith("data:image/"),
+                      );
+                      if (sides.length === 0 && i.design_preview) {
+                        sides.push(["Design", i.design_preview]);
+                      }
+
                       return (
-                        <div key={i.id} className="flex items-center gap-3 text-sm">
-                          {art ? (
-                            <a href={art} target="_blank" rel="noreferrer" title="Open artwork">
-                              <img
-                                src={art}
-                                alt={i.product_name}
-                                className={`h-12 w-12 rounded bg-muted ${
-                                  i.design_submission_id ? "object-contain" : "object-cover"
-                                }`}
-                              />
-                            </a>
-                          ) : (
-                            <div className="h-12 w-12 rounded bg-muted" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate">{i.product_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {[i.selected_size, i.selected_color].filter(Boolean).join(" · ")}
-                              {i.design_submission_id ? " · custom design" : ""}
+                        <div key={i.id} className="space-y-2 rounded-lg border border-border p-3">
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{i.product_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {[i.selected_size, i.selected_color].filter(Boolean).join(" · ")}
+                                {i.design_submission_id ? " · custom design" : ""}
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">×{i.quantity}</div>
+                            <div className="w-20 text-right font-medium">
+                              {money(i.subtotal, o.currency)}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">×{i.quantity}</div>
-                          <div className="w-20 text-right">{money(i.subtotal, o.currency)}</div>
+
+                          {sides.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-3">
+                              {sides.map(([side, url]) => (
+                                <a
+                                  key={side}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="relative block overflow-hidden rounded-lg border bg-muted"
+                                  title={`View ${side} design`}
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`${side} design`}
+                                    className="h-24 w-20 object-contain p-1"
+                                  />
+                                  <span className="absolute left-1 top-1 rounded bg-background/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
+                                    {side}
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
