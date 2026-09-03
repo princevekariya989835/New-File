@@ -202,52 +202,69 @@ export const adminSetInventory = createServerFn({ method: "POST" })
     });
   });
 
+function unwrapInput(d: any) {
+  let target = d;
+  while (target && typeof target === "object" && "data" in target) {
+    target = target.data;
+  }
+  return target;
+}
+
 export const adminDeleteProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: { productId: string }) => ({
-    productId: String(d.productId),
-  }))
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const productId = raw?.productId ?? raw?.id ?? raw?.product_id ?? raw;
+    return {
+      productId: String(productId ?? "").trim(),
+    };
+  })
   .handler(async ({ data, context }): Promise<{ ok: true; archived: boolean }> => {
     await assertAdmin(context);
     const sql = getSql();
-
-    const refs = await sql`
-      SELECT count(*)::int as count FROM order_items WHERE product_id::text = ${data.productId}
-    `;
-
-    if ((refs[0]?.count ?? 0) > 0) {
-      const row = await sql`SELECT tags FROM products WHERE id::text = ${data.productId} LIMIT 1`;
-      const tags: string[] = Array.isArray(row[0]?.tags) ? row[0].tags : [];
-      const updatedTags = tags.includes(ARCHIVED_TAG) ? tags : [...tags, ARCHIVED_TAG];
-
-      await sql`
-        UPDATE products
-        SET is_active = false, tags = ${JSON.stringify(updatedTags)}::jsonb, updated_at = NOW()
-        WHERE id::text = ${data.productId}
-      `;
-      return { ok: true, archived: true };
+    if (!data.productId) {
+      throw new Error("Missing product ID");
     }
 
-    await sql`DELETE FROM products WHERE id::text = ${data.productId}`;
+    await sql`UPDATE order_items SET product_id = NULL WHERE product_id::text = ${data.productId}`;
+    await sql`DELETE FROM product_variants WHERE product_id::text = ${data.productId}`;
+    await sql`DELETE FROM product_images WHERE product_id::text = ${data.productId}`;
+    await sql`DELETE FROM favorites WHERE product_handle::text = ${data.productId} OR product_handle::text IN (SELECT slug FROM products WHERE id::text = ${data.productId})`;
+    await sql`DELETE FROM reviews WHERE product_id::text = ${data.productId}`;
+    await sql`DELETE FROM inventory_transactions WHERE product_id::text = ${data.productId}`;
+    const deleteRes =
+      await sql`DELETE FROM products WHERE id::text = ${data.productId} OR slug::text = ${data.productId} RETURNING id`;
+    if (deleteRes.length === 0) {
+      throw new Error(`Product with ID or slug "${data.productId}" not found in database.`);
+    }
+
     return { ok: true, archived: false };
   });
 
 export const adminSetProductStatus = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: { productId: string; status: "ACTIVE" | "DRAFT" }) => d)
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const productId = raw?.productId ?? raw?.id ?? raw?.product_id ?? "";
+    const status = raw?.status === "ACTIVE" ? "ACTIVE" : "DRAFT";
+    return {
+      productId: String(productId ?? "").trim(),
+      status: status as "ACTIVE" | "DRAFT",
+    };
+  })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const sql = getSql();
     await sql`
       UPDATE products SET is_active = ${data.status === "ACTIVE"}, updated_at = NOW()
-      WHERE id::text = ${data.productId}
+      WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
     `;
     return { ok: true };
   });
 
 export const adminCreateProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: ProductInput) => d)
+  .inputValidator((d: any) => unwrapInput(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     await ensureDbSchema();
@@ -341,7 +358,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
 
 export const adminUpdateProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: ProductInput & { productId: string }) => d)
+  .inputValidator((d: any) => unwrapInput(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     await ensureDbSchema();

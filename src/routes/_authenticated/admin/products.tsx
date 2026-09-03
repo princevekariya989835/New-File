@@ -33,6 +33,7 @@ function ProductsPage() {
 
   const [editing, setEditing] = useState<AdminProduct | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState<AdminProduct | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DRAFT">("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -288,23 +289,49 @@ function ProductsPage() {
                 >
                   {p.status === "ACTIVE" ? "Unpublish" : "Publish"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Are you sure you want to delete "${p.title}"? This cannot be undone.`,
-                      )
-                    )
-                      del.mutate(p.id);
-                  }}
-                >
+                <Button size="sm" variant="destructive" onClick={() => setDeletingProduct(p)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-xl space-y-4 animate-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold">Delete Product</h3>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-foreground">"{deletingProduct.title}"</span>? This
+              will permanently remove the product and its variants, images, and reviews from the
+              database. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeletingProduct(null)}
+                disabled={del.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={del.isPending}
+                onClick={() => {
+                  del.mutate(deletingProduct.id, {
+                    onSuccess: () => {
+                      setDeletingProduct(null);
+                    },
+                  });
+                }}
+              >
+                {del.isPending ? "Deleting..." : "Delete Permanently"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

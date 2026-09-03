@@ -170,7 +170,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     const shipping = itemsTotal >= 1999 ? 0 : 79;
     const total = itemsTotal + shipping;
 
-    const orderId = `ord_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
     const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
 
     // Atomically check and deduct inventory before finalizing the order
