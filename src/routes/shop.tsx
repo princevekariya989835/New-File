@@ -52,7 +52,8 @@ export const Route = createFileRoute("/shop")({
 });
 
 function ShopPage() {
-  const { data: products } = useSuspenseQuery(productsQuery);
+  const { data: rawProducts } = useSuspenseQuery(productsQuery);
+  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
 
@@ -157,7 +158,7 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="fixed inset-x-0 top-16 md:top-20 z-40 border-b border-border bg-background/90 px-6 py-4 backdrop-blur-xl md:px-10 shadow-sm">
+        <div className="fixed inset-x-0 top-[64px] md:top-[80px] z-40 border-b border-border bg-background/95 px-6 py-4 backdrop-blur-xl md:px-10 shadow-sm">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-[240px] max-w-md">
               <div className="relative w-full">
@@ -218,7 +219,7 @@ function ShopPage() {
       )}
 
       {/* Spacer to push content down below the fixed filter bar */}
-      {products.length > 0 && <div className="h-16 mb-6" aria-hidden="true" />}
+      {products.length > 0 && <div className="h-20" aria-hidden="true" />}
 
       {filtered.length === 0 ? (
         q.trim() ? (

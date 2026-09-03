@@ -62,12 +62,12 @@ function FavoritesPage() {
           {list.map((f) => (
             <div key={f.id} className="group relative">
               <Link to="/product/$handle" params={{ handle: f.product_handle }} className="block">
-                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-secondary">
+                <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
                   {f.product_image && (
                     <img
                       src={f.product_image}
                       alt={f.product_title}
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="max-h-full max-w-full object-contain"
                     />
                   )}
                 </div>

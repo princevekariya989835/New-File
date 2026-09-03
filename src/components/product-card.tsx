@@ -40,12 +40,12 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
   return (
     <Link to="/product/$handle" params={{ handle: p.handle }} className="group block">
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-secondary">
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
         {img && (
           <img
             src={img.url}
             alt={img.altText ?? p.title}
-            className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500 group-hover:opacity-0"
+            className="max-h-full max-w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
             loading="lazy"
           />
         )}
@@ -53,7 +53,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           <img
             src={img2.url}
             alt={img2.altText ?? p.title}
-            className="absolute inset-0 h-full w-full scale-105 object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+            className="absolute inset-0 m-auto max-h-[85%] max-w-[85%] object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
             loading="lazy"
           />
         )}

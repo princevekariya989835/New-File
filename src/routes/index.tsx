@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BrandName } from "@/components/brand-name";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { ArrowUpRight, Sparkles, Truck, RotateCcw, MapPin, Package } from "lucide-react";
 import { fetchProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
@@ -59,7 +60,8 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const { data: products } = useSuspenseQuery(productsQuery);
+  const { data: rawProducts } = useSuspenseQuery(productsQuery);
+  const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 
   return (
     <>
@@ -97,20 +99,20 @@ function HomePage() {
             tees and graphic prints, designed and made in India.
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
-            <Link
-              to="/shop"
+            <a
+              href="/shop"
               className="group inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
             >
               Shop Now
               <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
-            <Link
-              to="/design"
+            </a>
+            <a
+              href="/design"
               className="group inline-flex items-center gap-2 rounded-full border border-background/30 px-7 py-4 text-sm font-medium text-background backdrop-blur transition-colors hover:bg-background/10"
             >
               Design Your Own
               <Sparkles className="h-4 w-4" />
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -124,13 +126,13 @@ function HomePage() {
             </p>
             <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">Shop the drop.</h2>
           </div>
-          <Link
-            to="/shop"
+          <a
+            href="/shop"
             className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/70 hover:text-foreground"
           >
             View all
             <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </Link>
+          </a>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
           {[
@@ -139,9 +141,9 @@ function HomePage() {
             { title: "Oversized", tag: "New silhouettes" },
             { title: "Best Sellers", tag: "Community favorites" },
           ].map((c, i) => (
-            <Link
+            <a
               key={i}
-              to={c.to ?? "/shop"}
+              href={c.to ?? "/shop"}
               className="group relative flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-2xl bg-brand-red p-5 text-white md:p-6"
             >
               <span className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
@@ -151,7 +153,7 @@ function HomePage() {
                 <h3 className="text-xl font-semibold tracking-tight md:text-2xl">{c.title}</h3>
                 <ArrowUpRight className="mt-2 h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
               </div>
-            </Link>
+            </a>
           ))}
         </div>
       </section>
@@ -160,13 +162,13 @@ function HomePage() {
       <section className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
         <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">Featured.</h2>
-          <Link
-            to="/shop"
+          <a
+            href="/shop"
             className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/70 hover:text-foreground"
           >
             All products
             <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </Link>
+          </a>
         </div>
         {products.length === 0 ? (
           <EmptyProducts />
@@ -257,13 +259,13 @@ function HomePage() {
               Upload artwork, add text, place it front, back or sleeve — see it live before you
               order.
             </p>
-            <Link
-              to="/design"
+            <a
+              href="/design"
               className="group mt-10 inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
             >
               Open the Studio
               <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
+            </a>
           </div>
         </div>
       </section>

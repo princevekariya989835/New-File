@@ -558,7 +558,8 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
 
 export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   try {
-    return await fetchProductsServerFn({ data: { first } });
+    const res = await fetchProductsServerFn({ data: { first } });
+    return Array.isArray(res) ? res : FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
   } catch {
     return FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
   }

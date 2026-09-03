@@ -117,6 +117,7 @@ export function SiteHeader() {
               <Link
                 key={n.to}
                 to={n.to}
+                activeOptions={{ exact: true }}
                 className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
                 activeProps={{ className: "bg-brand-red text-white" }}
               >
