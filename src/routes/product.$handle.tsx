@@ -1,6 +1,6 @@
 import { createFileRoute, notFound, Link, useRouter } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Minus,
   Plus,
@@ -462,20 +462,21 @@ function Lightbox({
   const dragStart = useRef({ x: 0, y: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const prev = () => {
-    resetZoom();
-    onIndex((index - 1 + images.length) % images.length);
-  };
-  const next = () => {
-    resetZoom();
-    onIndex((index + 1) % images.length);
-  };
-
-  const resetZoom = () => {
+  const resetZoom = useCallback(() => {
     setZoomed(false);
     setScale(1);
     setPosition({ x: 0, y: 0 });
-  };
+  }, []);
+
+  const prev = useCallback(() => {
+    resetZoom();
+    onIndex((index - 1 + images.length) % images.length);
+  }, [index, images.length, onIndex, resetZoom]);
+
+  const next = useCallback(() => {
+    resetZoom();
+    onIndex((index + 1) % images.length);
+  }, [index, images.length, onIndex, resetZoom]);
 
   const toggleZoom = () => {
     if (zoomed) {
@@ -505,15 +506,15 @@ function Lightbox({
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.25 : 0.25;
     setScale((s) => {
-      const next = Math.min(4, Math.max(1, s + delta));
-      if (next <= 1) resetZoom();
-      return next;
+      const nextScale = Math.min(4, Math.max(1, s + delta));
+      if (nextScale <= 1) resetZoom();
+      return nextScale;
     });
   };
 
   useEffect(() => {
     resetZoom();
-  }, [index]);
+  }, [index, resetZoom]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -530,7 +531,7 @@ function Lightbox({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [index, images.length, zoomed, onClose]);
+  }, [zoomed, onClose, prev, next]);
 
   return (
     <div

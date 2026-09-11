@@ -424,6 +424,7 @@ export type AdminVariant = {
   is_active: boolean;
   size: string;
   color: string;
+  sku: string;
   stock_quantity: number;
   reserved_stock: number;
   low_stock_threshold: number;
@@ -437,7 +438,7 @@ export const adminListVariants = createServerFn({ method: "GET" })
     const sql = getSql();
     const rows = await sql`
       SELECT 
-        v.id, v.product_id, v.size, v.color, v.stock_quantity, v.reserved_stock, v.low_stock_threshold,
+        v.id, v.product_id, v.size, v.color, v.sku, v.stock_quantity, v.reserved_stock, v.low_stock_threshold,
         p.name as product_name, p.images as product_images, p.is_active
       FROM product_variants v
       LEFT JOIN products p ON v.product_id::text = p.id::text
@@ -458,6 +459,7 @@ export const adminListVariants = createServerFn({ method: "GET" })
         is_active: Boolean(v.is_active),
         size: v.size ?? "",
         color: v.color ?? "",
+        sku: v.sku ?? v.id,
         stock_quantity: Number(v.stock_quantity ?? 0),
         reserved_stock: Number(v.reserved_stock ?? 0),
         low_stock_threshold: Number(v.low_stock_threshold ?? 5),

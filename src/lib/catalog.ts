@@ -181,301 +181,412 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
 
 export const FALLBACK_PRODUCTS: ProductRow[] = [
   {
-    id: "prod-zoro-black",
-    name: "Zoro Three-Sword Style Oversized Tee",
-    slug: "zoro-black-tee",
+    id: "prod-oversized-black-tee",
+    name: "Oversized Black T-Shirt",
+    slug: "oversized-black-t-shirt",
     description:
-      "Heavyweight 240 GSM combed cotton oversized streetwear tee featuring high-definition DTF back print of the legendary swordsman. Drop-shoulder relaxed boxy fit.",
+      "Heavyweight 240 GSM combed cotton oversized streetwear tee in solid black. Drop-shoulder relaxed boxy fit.",
     price: 999,
     currency: "INR",
     images: ["/products/zoro-black-1.jpg", "/products/zoro-black-2.jpg"],
     category: "Oversized Tees",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: ["Black"],
-    stock_quantity: 45,
+    stock_quantity: 91,
     is_active: true,
-    tags: ["Anime", "Oversized", "Bestseller", "DTF"],
+    tags: ["Oversized", "Bestseller", "Essentials"],
     product_variants: [
       {
-        id: "var-zb-s",
+        id: "var-obts-blk-s",
         size: "S",
         color: "Black",
-        stock_quantity: 10,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        sku: "OBTS-BLK-S",
+        stock_quantity: 42,
+        reserved_stock: 2,
+        low_stock_threshold: 10,
       },
       {
-        id: "var-zb-m",
+        id: "var-obts-blk-m",
         size: "M",
         color: "Black",
-        stock_quantity: 15,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        sku: "OBTS-BLK-M",
+        stock_quantity: 27,
+        reserved_stock: 5,
+        low_stock_threshold: 15,
       },
       {
-        id: "var-zb-l",
+        id: "var-obts-blk-l",
         size: "L",
         color: "Black",
-        stock_quantity: 12,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        sku: "OBTS-BLK-L",
+        stock_quantity: 18,
+        reserved_stock: 3,
+        low_stock_threshold: 15,
       },
       {
-        id: "var-zb-xl",
+        id: "var-obts-blk-xl",
         size: "XL",
         color: "Black",
-        stock_quantity: 8,
+        sku: "OBTS-BLK-XL",
+        stock_quantity: 4,
+        reserved_stock: 2,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-obts-blk-xxl",
+        size: "XXL",
+        color: "Black",
+        sku: "OBTS-BLK-XXL",
+        stock_quantity: 0,
         reserved_stock: 0,
-        low_stock_threshold: 2,
+        low_stock_threshold: 8,
       },
     ],
   },
   {
-    id: "prod-zoro-olive",
-    name: "Zoro Olive Hunter Oversized Tee",
-    slug: "zoro-olive-tee",
+    id: "prod-premium-white-tee",
+    name: "Premium White T-Shirt",
+    slug: "premium-white-t-shirt",
     description:
-      "Earth-toned olive drab streetwear silhouette with vibrant DTF graphic chest and back print. Pre-shrunk bio-washed fabric with ribbed collar.",
-    price: 999,
+      "Clean optic white premium cotton essential tee. Tailored modern streetwear fit with durable reinforced collar.",
+    price: 899,
     currency: "INR",
     images: ["/products/zoro-olive-1.jpg", "/products/zoro-olive-2.jpg"],
-    category: "Oversized Tees",
+    category: "Essential Tees",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Olive"],
-    stock_quantity: 38,
+    colors: ["White"],
+    stock_quantity: 75,
     is_active: true,
-    tags: ["Anime", "Earth Tone", "Featured"],
+    tags: ["Essential", "White", "Featured"],
     product_variants: [
       {
-        id: "var-zo-s",
+        id: "var-pwt-wht-s",
         size: "S",
-        color: "Olive",
-        stock_quantity: 8,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        color: "White",
+        sku: "PWT-WHT-S",
+        stock_quantity: 35,
+        reserved_stock: 1,
+        low_stock_threshold: 10,
       },
       {
-        id: "var-zo-m",
+        id: "var-pwt-wht-m",
         size: "M",
-        color: "Olive",
-        stock_quantity: 14,
+        color: "White",
+        sku: "PWT-WHT-M",
+        stock_quantity: 0,
         reserved_stock: 0,
-        low_stock_threshold: 2,
+        low_stock_threshold: 10,
       },
       {
-        id: "var-zo-l",
+        id: "var-pwt-wht-l",
         size: "L",
-        color: "Olive",
-        stock_quantity: 10,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        color: "White",
+        sku: "PWT-WHT-L",
+        stock_quantity: 22,
+        reserved_stock: 2,
+        low_stock_threshold: 12,
       },
       {
-        id: "var-zo-xl",
+        id: "var-pwt-wht-xl",
         size: "XL",
-        color: "Olive",
-        stock_quantity: 6,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-    ],
-  },
-  {
-    id: "prod-zenitsu-maroon",
-    name: "Zenitsu Thunder Flash Maroon Tee",
-    slug: "zenitsu-maroon-tee",
-    description:
-      "Deep maroon oversized tee adorned with electric lightning strike DTF graphics. Premium textured cotton blend made for effortless streetwear layering.",
-    price: 1099,
-    currency: "INR",
-    images: ["/products/zenitsu-maroon-1.jpg", "/products/zenitsu-maroon-2.jpg"],
-    category: "Graphic Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Maroon"],
-    stock_quantity: 50,
-    is_active: true,
-    tags: ["Anime", "Lightning", "Limited Drop"],
-    product_variants: [
-      {
-        id: "var-zm-s",
-        size: "S",
-        color: "Maroon",
-        stock_quantity: 12,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        color: "White",
+        sku: "PWT-WHT-XL",
+        stock_quantity: 3,
+        reserved_stock: 1,
+        low_stock_threshold: 8,
       },
       {
-        id: "var-zm-m",
-        size: "M",
-        color: "Maroon",
-        stock_quantity: 18,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-zm-l",
-        size: "L",
-        color: "Maroon",
-        stock_quantity: 14,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-zm-xl",
-        size: "XL",
-        color: "Maroon",
-        stock_quantity: 6,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-    ],
-  },
-  {
-    id: "prod-japanese-crane-maroon",
-    name: "Japanese Crane & Cherry Blossom Maroon Oversized Tee",
-    slug: "japanese-crane-maroon-tee",
-    description:
-      "Premium deep maroon heavyweight 240 GSM oversized streetwear tee featuring exquisite Japanese ink art illustration of soaring cranes and blossoming cherry branches on the front and back.",
-    price: 1199,
-    currency: "INR",
-    images: ["/products/zenitsu-maroon-1.jpg", "/products/zenitsu-maroon-2.jpg"],
-    category: "Oversized Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Maroon"],
-    stock_quantity: 60,
-    is_active: true,
-    tags: ["Japanese Art", "Crane", "Cherry Blossom", "Oversized", "New Drop"],
-    product_variants: [
-      {
-        id: "var-jcm-s",
-        size: "S",
-        color: "Maroon",
-        stock_quantity: 12,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-jcm-m",
-        size: "M",
-        color: "Maroon",
-        stock_quantity: 18,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-jcm-l",
-        size: "L",
-        color: "Maroon",
-        stock_quantity: 16,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-jcm-xl",
-        size: "XL",
-        color: "Maroon",
-        stock_quantity: 10,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
-      },
-      {
-        id: "var-jcm-xxl",
+        id: "var-pwt-wht-xxl",
         size: "XXL",
-        color: "Maroon",
-        stock_quantity: 4,
+        color: "White",
+        sku: "PWT-WHT-XXL",
+        stock_quantity: 15,
         reserved_stock: 0,
-        low_stock_threshold: 2,
+        low_stock_threshold: 5,
       },
     ],
   },
   {
-    id: "prod-riotous-cyber-skull",
-    name: "Roronoa Wano Edition Olive Tee",
-    slug: "roronoa-wano-olive-tee",
+    id: "prod-classic-red-tee",
+    name: "Classic Red T-Shirt",
+    slug: "classic-red-t-shirt",
     description:
-      "Heavyweight olive boxy fit tee with Japanese calligraphy and swordsman artwork. High durability wash-fast DTF print.",
-    price: 1049,
+      "Vibrant crimson red classic tee crafted from breathable ring-spun cotton. Ideal everyday casual wear.",
+    price: 849,
     currency: "INR",
-    images: ["/products/zoro-olive-2.jpg", "/products/zoro-olive-1.jpg"],
-    category: "Oversized Tees",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["Olive"],
-    stock_quantity: 32,
+    images: ["/products/zenitsu-maroon-1.jpg", "/products/zenitsu-maroon-2.jpg"],
+    category: "Classic Tees",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    colors: ["Red"],
+    stock_quantity: 67,
     is_active: true,
-    tags: ["Anime", "Bestseller"],
+    tags: ["Classic", "Red", "Casual"],
     product_variants: [
       {
-        id: "var-rw-s",
+        id: "var-crts-red-s",
         size: "S",
-        color: "Olive",
-        stock_quantity: 8,
+        color: "Red",
+        sku: "CRTS-RED-S",
+        stock_quantity: 25,
         reserved_stock: 0,
-        low_stock_threshold: 2,
+        low_stock_threshold: 8,
       },
       {
-        id: "var-rw-m",
+        id: "var-crts-red-m",
         size: "M",
-        color: "Olive",
-        stock_quantity: 12,
-        reserved_stock: 0,
-        low_stock_threshold: 2,
+        color: "Red",
+        sku: "CRTS-RED-M",
+        stock_quantity: 8,
+        reserved_stock: 2,
+        low_stock_threshold: 10,
       },
       {
-        id: "var-rw-l",
+        id: "var-crts-red-l",
         size: "L",
-        color: "Olive",
+        color: "Red",
+        sku: "CRTS-RED-L",
+        stock_quantity: 30,
+        reserved_stock: 4,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-crts-red-xl",
+        size: "XL",
+        color: "Red",
+        sku: "CRTS-RED-XL",
         stock_quantity: 12,
+        reserved_stock: 1,
+        low_stock_threshold: 8,
+      },
+      {
+        id: "var-crts-red-xxl",
+        size: "XXL",
+        color: "Red",
+        sku: "CRTS-RED-XXL",
+        stock_quantity: 2,
         reserved_stock: 0,
-        low_stock_threshold: 2,
+        low_stock_threshold: 5,
+      },
+    ],
+  },
+  {
+    id: "prod-heavyweight-grey-tee",
+    name: "Heavyweight Grey T-Shirt",
+    slug: "heavyweight-grey-t-shirt",
+    description:
+      "Charcoal heather grey 260 GSM ultra-heavyweight boxy tee. Built for structure and longevity.",
+    price: 1149,
+    currency: "INR",
+    images: ["/products/zoro-black-2.jpg", "/products/zoro-black-1.jpg"],
+    category: "Heavyweight Tees",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    colors: ["Grey"],
+    stock_quantity: 124,
+    is_active: true,
+    tags: ["Heavyweight", "Grey", "Streetwear"],
+    product_variants: [
+      {
+        id: "var-hwg-gry-s",
+        size: "S",
+        color: "Grey",
+        sku: "HWG-GRY-S",
+        stock_quantity: 50,
+        reserved_stock: 5,
+        low_stock_threshold: 15,
+      },
+      {
+        id: "var-hwg-gry-m",
+        size: "M",
+        color: "Grey",
+        sku: "HWG-GRY-M",
+        stock_quantity: 40,
+        reserved_stock: 2,
+        low_stock_threshold: 15,
+      },
+      {
+        id: "var-hwg-gry-l",
+        size: "L",
+        color: "Grey",
+        sku: "HWG-GRY-L",
+        stock_quantity: 25,
+        reserved_stock: 3,
+        low_stock_threshold: 12,
+      },
+      {
+        id: "var-hwg-gry-xl",
+        size: "XL",
+        color: "Grey",
+        sku: "HWG-GRY-XL",
+        stock_quantity: 9,
+        reserved_stock: 2,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-hwg-gry-xxl",
+        size: "XXL",
+        color: "Grey",
+        sku: "HWG-GRY-XXL",
+        stock_quantity: 0,
+        reserved_stock: 0,
+        low_stock_threshold: 6,
+      },
+    ],
+  },
+  {
+    id: "prod-streetwear-blue-tee",
+    name: "Streetwear Blue T-Shirt",
+    slug: "streetwear-blue-t-shirt",
+    description:
+      "Cobalt blue pigment-dyed relaxed fit tee with vintage wash finish and ribbed neckband.",
+    price: 999,
+    currency: "INR",
+    images: ["/products/zenitsu-maroon-2.jpg", "/products/zenitsu-maroon-1.jpg"],
+    category: "Oversized Tees",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    colors: ["Blue"],
+    stock_quantity: 77,
+    is_active: true,
+    tags: ["Streetwear", "Blue", "Vintage"],
+    product_variants: [
+      {
+        id: "var-stb-blu-s",
+        size: "S",
+        color: "Blue",
+        sku: "STB-BLU-S",
+        stock_quantity: 30,
+        reserved_stock: 1,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-stb-blu-m",
+        size: "M",
+        color: "Blue",
+        sku: "STB-BLU-M",
+        stock_quantity: 22,
+        reserved_stock: 0,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-stb-blu-l",
+        size: "L",
+        color: "Blue",
+        sku: "STB-BLU-L",
+        stock_quantity: 5,
+        reserved_stock: 2,
+        low_stock_threshold: 10,
+      },
+      {
+        id: "var-stb-blu-xl",
+        size: "XL",
+        color: "Blue",
+        sku: "STB-BLU-XL",
+        stock_quantity: 19,
+        reserved_stock: 1,
+        low_stock_threshold: 8,
+      },
+      {
+        id: "var-stb-blu-xxl",
+        size: "XXL",
+        color: "Blue",
+        sku: "STB-BLU-XXL",
+        stock_quantity: 11,
+        reserved_stock: 0,
+        low_stock_threshold: 6,
       },
     ],
   },
 ];
 
+let _seeded = false;
+let _seedPromise: Promise<void> | null = null;
+
 async function seedInitialProductsIfNeeded() {
-  try {
-    const sql = getSql();
-    for (const p of FALLBACK_PRODUCTS) {
-      try {
-        await sql`
-          INSERT INTO products (
-            id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-          ) VALUES (
-            ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
-            ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
-            ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-          ) ON CONFLICT (id) DO NOTHING;
-        `;
-      } catch {
-        await sql`
-          INSERT INTO products (
-            id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-          ) VALUES (
-            ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.currency},
-            ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
-            ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-          ) ON CONFLICT (id) DO NOTHING;
-        `;
-      }
-      if (p.product_variants) {
-        for (const v of p.product_variants) {
-          try {
-            await sql`
-              INSERT INTO product_variants (
-                id, product_id, size, color, sku, stock_quantity, reserved_stock, low_stock_threshold
-              ) VALUES (
-                ${v.id}, ${p.id}, ${v.size}, ${v.color}, ${v.sku || v.id}, ${v.stock_quantity}, ${v.reserved_stock}, ${v.low_stock_threshold}
-              ) ON CONFLICT (id) DO NOTHING;
-            `;
-          } catch {
-            // ignore
+  if (_seeded) return;
+  if (_seedPromise) return _seedPromise;
+
+  _seedPromise = (async () => {
+    try {
+      const sql = getSql();
+      const fallbackIds = FALLBACK_PRODUCTS.map((p) => p.id);
+
+      // Remove obsolete products not in FALLBACK_PRODUCTS
+      await sql`
+        DELETE FROM products WHERE id::text <> ALL(${fallbackIds}::text[])
+      `;
+
+      for (const p of FALLBACK_PRODUCTS) {
+        try {
+          await sql`
+            INSERT INTO products (
+              id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            ) VALUES (
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
+              ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
+              ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
+            ) ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              slug = EXCLUDED.slug,
+              description = EXCLUDED.description,
+              price = EXCLUDED.price,
+              currency = EXCLUDED.currency,
+              images = EXCLUDED.images,
+              category = EXCLUDED.category,
+              sizes = EXCLUDED.sizes,
+              colors = EXCLUDED.colors,
+              stock_quantity = EXCLUDED.stock_quantity,
+              is_active = EXCLUDED.is_active,
+              tags = EXCLUDED.tags;
+          `;
+        } catch {
+          await sql`
+            INSERT INTO products (
+              id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            ) VALUES (
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.currency},
+              ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
+              ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
+            ) ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              slug = EXCLUDED.slug,
+              description = EXCLUDED.description,
+              price = EXCLUDED.price,
+              currency = EXCLUDED.currency,
+              images = EXCLUDED.images,
+              category = EXCLUDED.category,
+              sizes = EXCLUDED.sizes,
+              colors = EXCLUDED.colors,
+              stock_quantity = EXCLUDED.stock_quantity,
+              is_active = EXCLUDED.is_active,
+              tags = EXCLUDED.tags;
+          `;
+        }
+        if (p.product_variants) {
+          for (const v of p.product_variants) {
+            try {
+              await sql`
+                INSERT INTO product_variants (
+                  id, product_id, size, color, sku, stock_quantity, reserved_stock, low_stock_threshold
+                ) VALUES (
+                  ${v.id}, ${p.id}, ${v.size}, ${v.color}, ${v.sku || v.id}, ${v.stock_quantity}, ${v.reserved_stock}, ${v.low_stock_threshold}
+                ) ON CONFLICT (id) DO UPDATE SET
+                  stock_quantity = EXCLUDED.stock_quantity,
+                  reserved_stock = EXCLUDED.reserved_stock;
+              `;
+            } catch {
+              // ignore
+            }
           }
         }
       }
+      _seeded = true;
+    } catch (err) {
+      console.warn("Seed initial products error:", err);
+    } finally {
+      _seedPromise = null;
     }
-  } catch (err) {
-    console.warn("Seed initial products error:", err);
-  }
+  })();
+
+  return _seedPromise;
 }
 
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
@@ -491,12 +602,14 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
         FROM products
         WHERE is_active = true OR is_active IS NULL
-        ORDER BY created_at DESC
+        ORDER BY name ASC, id ASC
         LIMIT ${first}
       `;
 
+      const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
+
       if (!products || products.length === 0) {
-        return FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+        return sortedFallbacks.slice(0, first).map(toCatalogProduct);
       }
 
       const productIds = products.map((p) => String(p.id));
@@ -552,16 +665,19 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       return rows.map(toCatalogProduct);
     } catch (err) {
       console.warn("fetchProducts error, using fallback", err);
-      return FALLBACK_PRODUCTS.slice(0, data.first || 20).map(toCatalogProduct);
+      const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
+      return sortedFallbacks.slice(0, data.first || 20).map(toCatalogProduct);
     }
   });
 
 export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   try {
     const res = await fetchProductsServerFn({ data: { first } });
-    return Array.isArray(res) ? res : FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+    const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
+    return Array.isArray(res) ? res : sortedFallbacks.slice(0, first).map(toCatalogProduct);
   } catch {
-    return FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+    const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
+    return sortedFallbacks.slice(0, first).map(toCatalogProduct);
   }
 }
 

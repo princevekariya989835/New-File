@@ -40,6 +40,11 @@ import {
   ExternalLink,
   RotateCcw,
   Star,
+  Users,
+  Megaphone,
+  BarChart3,
+  Truck,
+  CreditCard,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -63,6 +68,11 @@ const NAV: Array<{
   { to: "/admin/orders", label: "Orders", icon: Receipt },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/inventory", label: "Inventory", icon: Boxes },
+  { to: "/admin/shipping", label: "Shipping", icon: Truck },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/customers", label: "Customers", icon: Users },
+  { to: "/admin/marketing", label: "Marketing", icon: Megaphone },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
   { to: "/admin/reviews", label: "Reviews", icon: Star },
   { to: "/admin/designs", label: "Custom designs", icon: Palette },

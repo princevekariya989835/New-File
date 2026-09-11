@@ -29,13 +29,33 @@ export default defineConfig({
       "@tanstack/query-core",
     ],
   },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    strictPort: true,
+  },
   optimizeDeps: {
+    exclude: [
+      "@tanstack/react-start",
+      "@tanstack/react-router",
+      "@tanstack/react-router-devtools",
+      "@tanstack/start-static-server-functions",
+    ],
     include: [
       "react",
       "react-dom",
       "react-dom/client",
       "react/jsx-runtime",
       "react/jsx-dev-runtime",
+      "@tanstack/react-query",
+      "lucide-react",
+      "zustand",
+      "zustand/middleware",
+      "sonner",
+      "clsx",
+      "tailwind-merge",
+      "class-variance-authority",
+      "zod",
     ],
   },
   plugins: [
