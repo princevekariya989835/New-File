@@ -11,7 +11,7 @@ export const adminListReviews = createServerFn({ method: "GET" })
     const sql = getSql();
 
     const rows = await sql`
-      SELECT r.id, r.product_id, r.user_id, r.rating, r.title, r.content as review, r.images, r.is_verified_buyer as verified_purchase,
+      SELECT r.id, r.product_id, r.user_id, r.author_name, r.rating, r.title, r.content as review, r.images, r.is_verified_buyer as verified_purchase,
         r.status, r.created_at, r.updated_at, p.name as product_name, p.slug as product_slug, p.images as product_images,
         prof.email as customer_email, prof.full_name as customer_name
       FROM reviews r
@@ -31,6 +31,7 @@ export const adminListReviews = createServerFn({ method: "GET" })
         id: r.id,
         product_id: r.product_id,
         user_id: r.user_id,
+        author_name: r.author_name || r.customer_name || "Customer",
         rating: Number(r.rating || 5),
         title: r.title || null,
         review: r.review || null,
@@ -40,7 +41,7 @@ export const adminListReviews = createServerFn({ method: "GET" })
         created_at: new Date(r.created_at).toISOString(),
         updated_at: new Date(r.updated_at).toISOString(),
         customer_email: r.customer_email || null,
-        customer_name: r.customer_name || null,
+        customer_name: r.customer_name || r.author_name || null,
         product: r.product_name
           ? {
               name: r.product_name,
@@ -117,6 +118,7 @@ export const adminSaveReview = createServerFn({ method: "POST" })
       reviewId?: string | null;
       productId: string;
       userId?: string | null;
+      authorName?: string | null;
       rating: number;
       title?: string | null;
       review?: string | null;
@@ -124,18 +126,44 @@ export const adminSaveReview = createServerFn({ method: "POST" })
       verifiedPurchase: boolean;
       status: ReviewStatus;
       adminNote?: string | null;
-    }) => d,
+    }) => ({
+      reviewId: d.reviewId ? String(d.reviewId) : null,
+      productId: String(d.productId),
+      userId: d.userId ? String(d.userId) : null,
+      authorName: d.authorName ? String(d.authorName).trim().slice(0, 100) : null,
+      rating: Math.max(1, Math.min(5, Number(d.rating) || 5)),
+      title: d.title ? String(d.title).trim().slice(0, 100) : null,
+      review: d.review ? String(d.review).trim().slice(0, 2000) : "",
+      images: Array.isArray(d.images) ? d.images.filter(Boolean).slice(0, 5) : [],
+      verifiedPurchase: Boolean(d.verifiedPurchase),
+      status: d.status || "approved",
+      adminNote: d.adminNote ? String(d.adminNote).trim().slice(0, 500) : null,
+    }),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const sql = getSql();
 
+    let authorName = data.authorName || "";
+    if (!authorName && data.userId) {
+      const profs = await sql`
+        SELECT full_name, email FROM profiles WHERE id = ${data.userId} LIMIT 1
+      `;
+      if (profs.length > 0) {
+        authorName = profs[0].full_name || profs[0].email?.split("@")[0] || "";
+      }
+    }
+    if (!authorName) {
+      authorName = "Customer";
+    }
+
     if (data.reviewId) {
       await sql`
         UPDATE reviews SET
+          author_name = COALESCE(${data.authorName || null}, author_name, 'Customer'),
           rating = ${data.rating},
           title = ${data.title || null},
-          content = ${data.review || null},
+          content = ${data.review || ""},
           images = ${JSON.stringify(data.images || [])}::jsonb,
           is_verified_buyer = ${data.verifiedPurchase},
           status = ${data.status},
@@ -145,6 +173,7 @@ export const adminSaveReview = createServerFn({ method: "POST" })
       await logAudit(context, "review.update", "review", data.reviewId, {
         rating: data.rating,
         status: data.status,
+        authorName,
       });
       return { ok: true, id: data.reviewId };
     }
@@ -152,14 +181,24 @@ export const adminSaveReview = createServerFn({ method: "POST" })
     const id = `rev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     await sql`
       INSERT INTO reviews (
-        id, product_id, user_id, rating, title, content, images, is_verified_buyer, status
+        id, product_id, user_id, author_name, rating, title, content, images, is_verified_buyer, status
       ) VALUES (
-        ${id}, ${data.productId}, ${data.userId || context.userId}, ${data.rating}, ${data.title || null}, ${data.review || null}, ${JSON.stringify(data.images || [])}::jsonb, ${data.verifiedPurchase}, ${data.status}
+        ${id},
+        ${data.productId},
+        ${data.userId || context.userId},
+        ${authorName},
+        ${data.rating},
+        ${data.title || null},
+        ${data.review || ""},
+        ${JSON.stringify(data.images || [])}::jsonb,
+        ${data.verifiedPurchase},
+        ${data.status}
       )
     `;
     await logAudit(context, "review.create", "review", id, {
       rating: data.rating,
       status: data.status,
+      authorName,
     });
 
     return { ok: true, id };

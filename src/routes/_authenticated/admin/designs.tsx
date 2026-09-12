@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { adminListDesignSubmissions } from "@/lib/design-submissions.functions";
 import { dateTime, money } from "@/components/admin/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/designs")({
   component: DesignsPage,
@@ -18,11 +19,18 @@ function DesignsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Custom designs</h1>
-        <p className="text-sm text-muted-foreground">
-          Artwork submitted from the Design Your Own studio.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Custom designs</h1>
+          <p className="text-sm text-muted-foreground">
+            Artwork submitted from the Design Your Own studio.
+          </p>
+        </div>
+        <AdminEraseDataButton
+          section="designs"
+          sectionLabel="Custom Designs"
+          onSuccess={() => q.refetch()}
+        />
       </div>
 
       {q.isLoading ? (

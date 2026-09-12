@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/products")({
   component: ProductsPage,
@@ -101,11 +102,18 @@ function ProductsPage() {
             live
           </p>
         </div>
-        {!creating && !editing && (
-          <Button className="gap-2" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> New product
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {!creating && !editing && (
+            <Button className="gap-2" onClick={() => setCreating(true)}>
+              <Plus className="h-4 w-4" /> New product
+            </Button>
+          )}
+          <AdminEraseDataButton
+            section="products"
+            sectionLabel="Products & Catalog"
+            onSuccess={() => refresh()}
+          />
+        </div>
       </div>
 
       {creating && (

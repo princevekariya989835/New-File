@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { adminAuditLog } from "@/lib/admin-dashboard.functions";
 import { dateTime } from "@/components/admin/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/activity")({
   component: ActivityPage,
@@ -15,9 +16,19 @@ function ActivityPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Activity log</h1>
-        <p className="text-sm text-muted-foreground">Every important admin action, newest first.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Activity log</h1>
+          <p className="text-sm text-muted-foreground">
+            Every important admin action, newest first.
+          </p>
+        </div>
+        <AdminEraseDataButton
+          section="activity"
+          sectionLabel="Activity & Audit Logs"
+          buttonText="Erase Activity Log"
+          onSuccess={() => q.refetch()}
+        />
       </div>
 
       {q.isLoading ? (

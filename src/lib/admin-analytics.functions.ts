@@ -3,6 +3,28 @@ import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin } from "@/lib/admin-utils";
 import { getSql, ensureDbSchema } from "@/lib/db";
 
+function toDateKey(val: unknown): string {
+  if (!val) return new Date().toISOString().slice(0, 10);
+  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  if (typeof val === "string") return val.slice(0, 10);
+  try {
+    return new Date(val as any).toISOString().slice(0, 10);
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function toIsoString(val: unknown): string {
+  if (!val) return new Date().toISOString();
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val === "string") return val;
+  try {
+    return new Date(val as any).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 export type DateRangeOption =
   | "Today"
   | "Yesterday"
@@ -426,7 +448,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
             orders,
             totalSpent: spent,
             aov: orders > 0 ? spent / orders : 0,
-            lastOrder: customerLastOrder.get(uid) || p.created_at,
+            lastOrder: toIsoString(customerLastOrder.get(uid) || p.created_at),
             status: orders > 2 ? "VIP" : orders > 0 ? "Active" : "New",
           };
         })
@@ -539,9 +561,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
       // Revenue chart over time (daily breakdown)
       const dayMap = new Map<string, { revenue: number; net: number }>();
       for (const o of completedOrdersList) {
-        const dayStr = o.created_at
-          ? o.created_at.slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
+        const dayStr = toDateKey(o.created_at);
         if (!dayMap.has(dayStr)) dayMap.set(dayStr, { revenue: 0, net: 0 });
         const entry = dayMap.get(dayStr)!;
         const rev = Number(o.total_amount || 0);
@@ -558,9 +578,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
       // Order trend
       const orderTrendMap = new Map<string, { orders: number; completed: number }>();
       for (const o of filteredOrders) {
-        const dayStr = o.created_at
-          ? o.created_at.slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
+        const dayStr = toDateKey(o.created_at);
         if (!orderTrendMap.has(dayStr)) orderTrendMap.set(dayStr, { orders: 0, completed: 0 });
         const entry = orderTrendMap.get(dayStr)!;
         entry.orders++;

@@ -335,6 +335,30 @@ export async function ensureDbSchema() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS website_published (
+          id TEXT PRIMARY KEY DEFAULT 'live',
+          version_id TEXT NOT NULL,
+          version_number INTEGER NOT NULL DEFAULT 1,
+          config JSONB NOT NULL,
+          published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          published_by TEXT NOT NULL DEFAULT 'Admin',
+          change_summary TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS website_draft (
+          id TEXT PRIMARY KEY DEFAULT 'current',
+          config JSONB NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_by TEXT DEFAULT 'Admin'
+        )`,
+        `CREATE TABLE IF NOT EXISTS website_versions (
+          id TEXT PRIMARY KEY,
+          version_number INTEGER NOT NULL,
+          config JSONB NOT NULL,
+          published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          published_by TEXT NOT NULL,
+          change_summary TEXT,
+          status TEXT DEFAULT 'published'
+        )`,
         `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
         `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)`,

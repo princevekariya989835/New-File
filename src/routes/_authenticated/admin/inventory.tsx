@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -575,7 +576,7 @@ function InventoryPage() {
             Monitor stock levels, manage variants and prevent stockouts.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant={showHistory ? "default" : "outline"}
             size="sm"
@@ -597,6 +598,12 @@ function InventoryPage() {
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
+          <AdminEraseDataButton
+            section="inventory"
+            sectionLabel="Inventory & Stock Logs"
+            buttonText="Reset Inventory"
+            onSuccess={() => refreshAll()}
+          />
         </div>
       </div>
 

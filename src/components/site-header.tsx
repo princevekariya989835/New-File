@@ -14,10 +14,13 @@ import {
 } from "lucide-react";
 import { CartDrawer } from "./cart-drawer";
 import { SearchDialog } from "./search-dialog";
+import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
 import { isAdminEmail } from "@/lib/auth";
 import { BrandName } from "@/components/brand-name";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
+import type { WebsiteConfig } from "@/lib/website-config.types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,21 +31,41 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-const nav = [
+const defaultNav = [
   { to: "/shop", label: "Shop" },
   { to: "/design", label: "Design Your Own" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ] as const;
 
-export function SiteHeader() {
+export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin" || isAdminEmail(user?.email);
+  const { config: publishedConfig } = usePublishedWebsiteConfig();
+  const config = customConfig || publishedConfig;
+
   useCartStore((s) => s.items.length); // subscribe so header re-renders
+
+  const rawNavItems: any[] = Array.isArray(config?.navigation)
+    ? config.navigation
+    : Array.isArray((config as any)?.navigation?.items)
+      ? (config as any).navigation.items
+      : [];
+
+  const navItems = rawNavItems
+    .filter((n) => n && n.enabled !== false)
+    .map((n) => ({
+      to: n.to || "/",
+      label: n.label || "Link",
+      isExternal: Boolean(n.isExternal),
+    }));
+
+  const activeNav = navItems.length > 0 ? navItems : defaultNav;
+  const activeAnnouncement = config?.announcement || (config as any)?.announcementBar;
 
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > 30);
@@ -75,6 +98,7 @@ export function SiteHeader() {
 
   return (
     <>
+      <AnnouncementBar config={activeAnnouncement} />
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       <header
@@ -82,7 +106,7 @@ export function SiteHeader() {
           scrolled
             ? "pt-3 px-3 sm:px-4 bg-transparent pb-0"
             : "pt-0 px-0 bg-gradient-to-b from-black/90 via-black/60 to-transparent pb-8"
-        }`}
+        } ${activeAnnouncement?.enabled ? "top-8" : "top-0"}`}
       >
         <div
           className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -113,17 +137,29 @@ export function SiteHeader() {
           <nav
             className={`hidden items-center md:flex transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled ? "gap-1" : "gap-6"}`}
           >
-            {nav.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                activeOptions={{ exact: true }}
-                className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
-                activeProps={{ className: "bg-brand-red text-white" }}
-              >
-                {scrolled && n.label === "Design Your Own" ? "Design" : n.label}
-              </Link>
-            ))}
+            {activeNav.map((n) =>
+              (n as any).isExternal ? (
+                <a
+                  key={n.to}
+                  href={n.to}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
+                >
+                  {n.label}
+                </a>
+              ) : (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  activeOptions={{ exact: true }}
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
+                  activeProps={{ className: "bg-brand-red text-white" }}
+                >
+                  {scrolled && n.label === "Design Your Own" ? "Design" : n.label}
+                </Link>
+              ),
+            )}
           </nav>
 
           <div className="flex shrink-0 items-center gap-1 transition-all duration-300">
@@ -237,16 +273,29 @@ export function SiteHeader() {
               <span>Search products…</span>
             </button>
 
-            {nav.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                onClick={() => setMobileOpen(false)}
-                className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
-              >
-                {n.label}
-              </Link>
-            ))}
+            {activeNav.map((n) =>
+              (n as any).isExternal ? (
+                <a
+                  key={n.to}
+                  href={n.to}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMobileOpen(false)}
+                  className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
+                >
+                  {n.label}
+                </a>
+              ) : (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  onClick={() => setMobileOpen(false)}
+                  className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
+                >
+                  {n.label}
+                </Link>
+              ),
+            )}
 
             <div className="pt-6 pb-12 border-t border-border mt-4 flex flex-col gap-3">
               {user ? (

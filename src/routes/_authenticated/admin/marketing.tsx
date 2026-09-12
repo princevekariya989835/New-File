@@ -50,6 +50,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   Dialog,
   DialogContent,
@@ -398,7 +399,7 @@ function AdminMarketingPage() {
             Manage promotional campaigns, discount codes, multi-channel reach, and ROI performance.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => refresh()} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
@@ -412,6 +413,11 @@ function AdminMarketingPage() {
           >
             <Plus className="h-4 w-4" /> Create Campaign
           </Button>
+          <AdminEraseDataButton
+            section="marketing"
+            sectionLabel="Marketing"
+            onSuccess={() => refresh()}
+          />
         </div>
       </div>
 

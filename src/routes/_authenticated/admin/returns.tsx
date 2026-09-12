@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/returns")({
   component: AdminReturnsPage,
@@ -76,7 +77,14 @@ function AdminReturnsPage() {
             {(listQ.data ?? []).length} total · {counts["Return Requested"] ?? 0} awaiting review
           </p>
         </div>
-        <ReturnSettings />
+        <div className="flex flex-wrap items-center gap-2">
+          <ReturnSettings />
+          <AdminEraseDataButton
+            section="returns"
+            sectionLabel="Returns"
+            onSuccess={() => listQ.refetch()}
+          />
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2">

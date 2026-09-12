@@ -45,6 +45,7 @@ import {
   BarChart3,
   Truck,
   CreditCard,
+  Globe,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -72,6 +73,7 @@ const NAV: Array<{
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/marketing", label: "Marketing", icon: Megaphone },
+  { to: "/admin/website", label: "Website", icon: Globe },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
   { to: "/admin/reviews", label: "Reviews", icon: Star },

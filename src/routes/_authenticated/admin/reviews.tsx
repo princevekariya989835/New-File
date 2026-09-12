@@ -32,6 +32,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/reviews")({
   component: AdminReviewsPage,
@@ -48,6 +49,7 @@ type FormState = {
   reviewId: string | null;
   productId: string;
   userId: string;
+  authorName: string;
   rating: number;
   title: string;
   review: string;
@@ -61,11 +63,12 @@ const emptyForm: FormState = {
   reviewId: null,
   productId: "",
   userId: "",
+  authorName: "",
   rating: 5,
   title: "",
   review: "",
   images: [],
-  verifiedPurchase: false,
+  verifiedPurchase: true,
   status: "approved",
   adminNote: "",
 };
@@ -140,7 +143,8 @@ function AdminReviewsPage() {
         data: {
           reviewId: f.reviewId,
           productId: f.productId,
-          userId: f.userId,
+          userId: f.userId || null,
+          authorName: f.authorName || null,
           rating: f.rating,
           title: f.title,
           review: f.review,
@@ -204,6 +208,7 @@ function AdminReviewsPage() {
       reviewId: r.id,
       productId: r.product_id,
       userId: r.user_id,
+      authorName: r.customer_name || r.author_name || "",
       rating: r.rating,
       title: r.title ?? "",
       review: r.review ?? "",
@@ -246,9 +251,16 @@ function AdminReviewsPage() {
             {stats.pending} awaiting approval · {stats.total} total
           </p>
         </div>
-        <Button onClick={() => setForm({ ...emptyForm })} className="rounded-full">
-          <Plus className="mr-1.5 h-4 w-4" /> Add review
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => setForm({ ...emptyForm })} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" /> Add review
+          </Button>
+          <AdminEraseDataButton
+            section="reviews"
+            sectionLabel="Reviews"
+            onSuccess={() => refetch()}
+          />
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
@@ -336,7 +348,7 @@ function AdminReviewsPage() {
         >
           <p className="text-sm font-semibold">{form.reviewId ? "Edit review" : "Add review"}</p>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <label className="text-xs font-medium">
               Product
               <select
@@ -354,20 +366,43 @@ function AdminReviewsPage() {
               </select>
             </label>
             <label className="text-xs font-medium">
-              Customer
+              Customer profile (optional)
               <select
-                required
                 value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                onChange={(e) => {
+                  const uid = e.target.value;
+                  const selectedCustomer = (optionsQ.data?.customers ?? []).find(
+                    (c) => c.id === uid,
+                  );
+                  setForm({
+                    ...form,
+                    userId: uid,
+                    authorName:
+                      form.authorName ||
+                      selectedCustomer?.full_name ||
+                      selectedCustomer?.email?.split("@")[0] ||
+                      "",
+                  });
+                }}
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="">Select a customer</option>
+                <option value="">Select a customer (optional)</option>
                 {(optionsQ.data?.customers ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.full_name || c.email || c.id}
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="text-xs font-medium">
+              Author / Reviewer Name
+              <Input
+                className="mt-1 h-9"
+                placeholder="e.g. Rahul Sharma or Anonymous"
+                maxLength={100}
+                value={form.authorName}
+                onChange={(e) => setForm({ ...form, authorName: e.target.value })}
+              />
             </label>
           </div>
 

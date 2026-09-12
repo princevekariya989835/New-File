@@ -15,6 +15,7 @@ import { AdminDashboardSkeleton } from "@/components/admin/admin-skeletons";
 import { money, dateTime, STATUS_TONE } from "@/components/admin/format";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, IndianRupee, Package, Receipt, Users } from "lucide-react";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: Dashboard,
@@ -75,11 +76,19 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Live overview of sales, orders, inventory and customers.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Live overview of sales, orders, inventory and customers.
+          </p>
+        </div>
+        <AdminEraseDataButton
+          section="dashboard"
+          sectionLabel="Dashboard & Operations"
+          buttonText="Erase All Operational Data"
+          onSuccess={() => q.refetch()}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

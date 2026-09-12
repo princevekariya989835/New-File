@@ -17,6 +17,7 @@ import { adminListOrders } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   Truck,
   Package,
@@ -364,7 +365,7 @@ export function AdminShippingPage() {
             Monitor shipments, carrier performance, tracking, and delivery workflows.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={() => refetch()} className="gap-2">
             <RefreshCcw className="w-4 h-4" /> Refresh
           </Button>
@@ -374,6 +375,11 @@ export function AdminShippingPage() {
           >
             <Plus className="w-4 h-4" /> Create Shipment
           </Button>
+          <AdminEraseDataButton
+            section="shipping"
+            sectionLabel="Shipping & Shipments"
+            onSuccess={() => refetch()}
+          />
         </div>
       </div>
 

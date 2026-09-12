@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -286,6 +287,11 @@ function AdminCustomersPage() {
             View registered customer accounts, total spending, order history, and account statuses.
           </p>
         </div>
+        <AdminEraseDataButton
+          section="customers"
+          sectionLabel="Customers"
+          onSuccess={() => qc.invalidateQueries({ queryKey: ["admin", "customers"] })}
+        />
       </div>
 
       {/* Summary Cards */}

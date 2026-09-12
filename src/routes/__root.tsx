@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useCartSync } from "@/hooks/use-cart-sync";
+import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
 
 function NotFoundComponent() {
   return (
@@ -112,6 +113,13 @@ gtag('config', 'G-1KHJNXYQ2E');`,
       },
     ],
   }),
+  loader: async ({ context }) => {
+    try {
+      await context.queryClient.ensureQueryData(publishedWebsiteConfigQuery);
+    } catch (err) {
+      // Gracefully continue even if DB is initialising
+    }
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

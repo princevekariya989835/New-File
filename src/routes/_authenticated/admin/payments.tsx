@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   CreditCard,
   Receipt,
@@ -249,10 +250,15 @@ export function AdminPaymentsPage() {
             Track financial transactions, payment statuses, refunds, and gateway performance.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={() => refetch()} className="gap-2">
             <RefreshCcw className="w-4 h-4" /> Refresh
           </Button>
+          <AdminEraseDataButton
+            section="payments"
+            sectionLabel="Payments & Transactions"
+            onSuccess={() => refetch()}
+          />
         </div>
       </div>
 

@@ -37,6 +37,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import {
   Select,
   SelectContent,
@@ -255,6 +256,13 @@ function AdminAnalyticsPage() {
           >
             <Download className="h-3.5 w-3.5" /> Export CSV
           </Button>
+
+          <AdminEraseDataButton
+            section="analytics"
+            sectionLabel="Analytics & Activity Data"
+            buttonText="Reset Analytics"
+            onSuccess={() => analyticsQ.refetch()}
+          />
         </div>
       </div>
 

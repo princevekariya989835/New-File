@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronUp, Printer, Download } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 type Search = { q?: string; status?: string; payment?: string; from?: string; to?: string };
 
@@ -217,9 +218,16 @@ function OrdersPage() {
             {filtered.length} order(s) · {money(revenue)} net revenue
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={() => csvExport(filtered)}>
-          <Download className="h-4 w-4" /> Export CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => csvExport(filtered)}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <AdminEraseDataButton
+            section="orders"
+            sectionLabel="Orders"
+            onSuccess={() => refetch()}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

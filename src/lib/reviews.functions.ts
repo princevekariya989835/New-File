@@ -30,17 +30,20 @@ export const getProductReviews = createServerFn({ method: "POST" })
       const reviews: PublicReview[] = rows.map((r: any) => ({
         id: r.id,
         productId: r.product_id,
-        authorName: r.author_name || "Anonymous",
+        author_name: r.author_name || "Customer",
+        authorName: r.author_name || "Customer",
         rating: Number(r.rating || 5),
         title: r.title || null,
         review: r.review || "",
+        verified_purchase: Boolean(r.verified_purchase),
         verifiedPurchase: Boolean(r.verified_purchase),
         images: Array.isArray(r.images)
           ? r.images
           : typeof r.images === "string"
             ? JSON.parse(r.images)
             : [],
-        createdAt: new Date(r.created_at).toISOString(),
+        created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
       }));
 
       return { summary: summarize(reviews.map((r) => r.rating)), reviews };
