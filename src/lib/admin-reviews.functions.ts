@@ -7,7 +7,7 @@ import { getSql } from "@/lib/db";
 export const adminListReviews = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminReview[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
 
     const rows = await sql`
@@ -64,13 +64,13 @@ export const adminUpdateReviewStatus = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     await sql`
       UPDATE reviews SET status = ${data.status}, updated_at = NOW()
       WHERE id = ${data.reviewId}
     `;
-    await logAudit(context, "review.status", "review", data.reviewId, {
+    await logAudit(context as any, "review.status", "review", data.reviewId, {
       status: data.status,
     });
     return { ok: true };
@@ -80,17 +80,17 @@ export const adminDeleteReview = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { reviewId: string }) => ({ reviewId: String(d.reviewId) }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     await sql`DELETE FROM reviews WHERE id = ${data.reviewId}`;
-    await logAudit(context, "review.delete", "review", data.reviewId, {});
+    await logAudit(context as any, "review.delete", "review", data.reviewId, {});
     return { ok: true };
   });
 
 export const adminReviewFormOptions = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     const [products, customers] = await Promise.all([
       sql`SELECT id, name, images FROM products ORDER BY name ASC LIMIT 500`,
@@ -141,8 +141,9 @@ export const adminSaveReview = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     let authorName = data.authorName || "";
     if (!authorName && data.userId) {
@@ -170,7 +171,7 @@ export const adminSaveReview = createServerFn({ method: "POST" })
           updated_at = NOW()
         WHERE id = ${data.reviewId}
       `;
-      await logAudit(context, "review.update", "review", data.reviewId, {
+      await logAudit(context as any, "review.update", "review", data.reviewId, {
         rating: data.rating,
         status: data.status,
         authorName,
@@ -185,7 +186,7 @@ export const adminSaveReview = createServerFn({ method: "POST" })
       ) VALUES (
         ${id},
         ${data.productId},
-        ${data.userId || context.userId},
+        ${data.userId || authCtx.userId},
         ${authorName},
         ${data.rating},
         ${data.title || null},
@@ -195,7 +196,7 @@ export const adminSaveReview = createServerFn({ method: "POST" })
         ${data.status}
       )
     `;
-    await logAudit(context, "review.create", "review", id, {
+    await logAudit(context as any, "review.create", "review", id, {
       rating: data.rating,
       status: data.status,
       authorName,

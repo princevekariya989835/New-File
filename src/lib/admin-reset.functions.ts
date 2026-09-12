@@ -28,7 +28,7 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
     password: String(d.password ?? "").trim(),
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
 
     if (data.password !== ADMIN_RESET_PASSWORD) {
       throw new Error("Invalid security password. Data erase operation rejected.");
@@ -152,7 +152,7 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
 
     if (sec !== "activity" && sec !== "dashboard" && sec !== "analytics") {
       try {
-        await logAudit(context, "data.erase", sec, sec, {
+        await logAudit(context as any, "data.erase", sec, sec, {
           section: sec,
           timestamp: new Date().toISOString(),
         });

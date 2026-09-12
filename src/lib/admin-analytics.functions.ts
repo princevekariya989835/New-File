@@ -452,7 +452,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
             status: orders > 2 ? "VIP" : orders > 0 ? "Active" : "New",
           };
         })
-        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .sort((a: any, b: any) => b.totalSpent - a.totalSpent)
         .slice(0, 10);
 
       // Inventory analytics
@@ -555,7 +555,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
           clicks: Number(c.clicks || 0),
           channel: c.channel || "Website",
         }))
-        .sort((a, b) => b.revenue - a.revenue)
+        .sort((a: any, b: any) => b.revenue - a.revenue)
         .slice(0, 5);
 
       // Revenue chart over time (daily breakdown)

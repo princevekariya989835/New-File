@@ -258,7 +258,7 @@ function AdminReviewsPage() {
           <AdminEraseDataButton
             section="reviews"
             sectionLabel="Reviews"
-            onSuccess={() => refetch()}
+            onSuccess={() => refresh()}
           />
         </div>
       </div>
@@ -320,7 +320,7 @@ function AdminReviewsPage() {
           className="h-9 max-w-[220px] rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">All products</option>
-          {(optionsQ.data?.products ?? []).map((p) => (
+          {(optionsQ.data?.products ?? []).map((p: any) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
@@ -358,7 +358,7 @@ function AdminReviewsPage() {
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Select a product</option>
-                {(optionsQ.data?.products ?? []).map((p) => (
+                {(optionsQ.data?.products ?? []).map((p: any) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
@@ -372,7 +372,7 @@ function AdminReviewsPage() {
                 onChange={(e) => {
                   const uid = e.target.value;
                   const selectedCustomer = (optionsQ.data?.customers ?? []).find(
-                    (c) => c.id === uid,
+                    (c: any) => c.id === uid,
                   );
                   setForm({
                     ...form,
@@ -387,7 +387,7 @@ function AdminReviewsPage() {
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Select a customer (optional)</option>
-                {(optionsQ.data?.customers ?? []).map((c) => (
+                {(optionsQ.data?.customers ?? []).map((c: any) => (
                   <option key={c.id} value={c.id}>
                     {c.full_name || c.email || c.id}
                   </option>

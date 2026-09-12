@@ -105,7 +105,7 @@ async function seedPaymentsIfEmpty() {
 export const adminListPayments = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminPayment[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     await seedPaymentsIfEmpty();
 
@@ -149,8 +149,9 @@ export const adminUpdatePaymentStatus = createServerFn({ method: "POST" })
     }) => d,
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     const current =
       await sql`SELECT status, amount, refund_amount FROM payments WHERE id = ${data.paymentId} LIMIT 1`;
@@ -189,13 +190,13 @@ export const adminUpdatePaymentStatus = createServerFn({ method: "POST" })
       SET status = ${data.newStatus},
           refund_amount = ${newRefund},
           updated_at = NOW(),
-          updated_by = ${context.userId},
+          updated_by = ${authCtx.userId},
           paid_at = COALESCE(${paidAtSql}, paid_at),
           admin_note = COALESCE(${data.adminNote || null}, admin_note)
       WHERE id = ${data.paymentId}
     `;
 
-    await logAudit(context, "payment.status_update", "payment", data.paymentId, {
+    await logAudit(context as any, "payment.status_update", "payment", data.paymentId, {
       from: currentStatus,
       to: data.newStatus,
       refundAmount: newRefund,

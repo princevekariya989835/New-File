@@ -104,13 +104,13 @@ export const checkIsAdmin = createServerFn({ method: "GET" })
   }))
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<boolean> => {
-    return context.isAdmin;
+    return Boolean((context as any).isAdmin);
   });
 
 export const adminListProducts = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminProduct[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const rows = await sql`
@@ -165,7 +165,7 @@ export const adminAddInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual add",
   }))
   .handler(async ({ data, context }) => {
-    return await addInventory(context, {
+    return await addInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
@@ -180,7 +180,7 @@ export const adminRemoveInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual remove",
   }))
   .handler(async ({ data, context }) => {
-    return await removeInventory(context, {
+    return await removeInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
@@ -195,7 +195,7 @@ export const adminSetInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual set",
   }))
   .handler(async ({ data, context }) => {
-    return await setInventory(context, {
+    return await setInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
@@ -220,7 +220,7 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }): Promise<{ ok: true; archived: boolean }> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     if (!data.productId) {
       throw new Error("Missing product ID");
@@ -253,7 +253,7 @@ export const adminSetProductStatus = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     await sql`
       UPDATE products SET is_active = ${data.status === "ACTIVE"}, updated_at = NOW()
@@ -266,7 +266,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: any) => unwrapInput(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const values = normalizeProductInput(data);
     const sql = getSql();
@@ -341,7 +341,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     }
 
     await syncProductVariants(
-      context,
+      context as any,
       productId,
       values.sizes,
       values.colors,
@@ -349,7 +349,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       values.sizeStock,
     );
 
-    await logAudit(context, "product.create", "product", productId, {
+    await logAudit(context as any, "product.create", "product", productId, {
       name: values.name,
       stock: values.stock_quantity,
     });
@@ -360,7 +360,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: any) => unwrapInput(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     if (!data.productId) throw new Error("Invalid product data: missing product id");
     const values = normalizeProductInput(data);
@@ -402,14 +402,14 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     }
 
     await syncProductVariants(
-      context,
+      context as any,
       data.productId,
       values.sizes,
       values.colors,
       values.stock_quantity,
       values.sizeStock,
     );
-    await logAudit(context, "product.update", "product", data.productId, {
+    await logAudit(context as any, "product.update", "product", data.productId, {
       name: values.name,
       stock: values.stock_quantity,
     });
@@ -433,7 +433,7 @@ export type AdminVariant = {
 export const adminListVariants = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminVariant[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const rows = await sql`
@@ -475,7 +475,7 @@ export const adminAddVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual add",
   }))
   .handler(async ({ data, context }) => {
-    return await addInventory(context, {
+    return await addInventory(context as any, {
       variantId: data.variantId,
       quantity: data.quantity,
       reason: data.reason,
@@ -490,7 +490,7 @@ export const adminRemoveVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual remove",
   }))
   .handler(async ({ data, context }) => {
-    return await removeInventory(context, {
+    return await removeInventory(context as any, {
       variantId: data.variantId,
       quantity: data.quantity,
       reason: data.reason,
@@ -505,7 +505,7 @@ export const adminSetVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual set",
   }))
   .handler(async ({ data, context }) => {
-    return await setInventory(context, {
+    return await setInventory(context as any, {
       variantId: data.variantId,
       quantity: data.quantity,
       reason: data.reason,
@@ -516,7 +516,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminOrder[]> => {
     try {
-      await assertAdmin(context);
+      await assertAdmin(context as any);
       await ensureDbSchema();
       const sql = getSql();
       const orders = await sql`
@@ -531,7 +531,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
 
       if (orders.length === 0) return [];
 
-      const orderIds = orders.map((o) => String(o.id));
+      const orderIds = orders.map((o: any) => String(o.id));
       const items = await sql`
         SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
           i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
@@ -620,15 +620,16 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: OrderPatchInput) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     if (data.status) {
       if (data.status === "Cancelled" || data.status === "Returned") {
         await restoreOrderInventory(
           data.orderId,
           `Admin set status to ${data.status}`,
-          context.userId,
+          authCtx.userId,
         );
         if (data.status === "Returned") {
           await sql`UPDATE orders SET status = 'Returned', updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
@@ -653,7 +654,7 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
       await sql`UPDATE orders SET admin_notes = ${data.adminNotes}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
     }
 
-    await logAudit(context, "order.update", "order", data.orderId, { status: data.status });
+    await logAudit(context as any, "order.update", "order", data.orderId, { status: data.status });
     return { ok: true };
   });
 
@@ -664,8 +665,9 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
     status: String(d.status),
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
     if (!data.orderIds.length) return { ok: true, updated: 0 };
 
     if (data.status === "Cancelled" || data.status === "Returned") {
@@ -673,7 +675,7 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
         await restoreOrderInventory(
           orderId,
           `Admin bulk ${data.status.toLowerCase()}`,
-          context.userId,
+          authCtx.userId,
         );
       }
       if (data.status === "Returned") {
@@ -691,7 +693,7 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
       `;
     }
 
-    await logAudit(context, "order.bulk_update", "order", null, {
+    await logAudit(context as any, "order.bulk_update", "order", null, {
       status: data.status,
       count: data.orderIds.length,
     });
@@ -709,14 +711,14 @@ export const adminListInventoryTransactions = createServerFn({ method: "GET" })
     }),
   )
   .handler(async ({ data, context }): Promise<InventoryTransactionRecord[]> => {
-    return await listInventoryTransactions(context, data);
+    return await listInventoryTransactions(context as any, data);
   });
 
 export const adminGetDesign = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     const rows = await sql`
       SELECT id, color_name, placement, product_title, preview_data_url, canvases, created_at, customer_email, customer_name

@@ -9,8 +9,9 @@ export const getMyCart = createServerFn({ method: "GET" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
       const rows = await sql`
-        SELECT items FROM carts WHERE user_id = ${context.userId} LIMIT 1
+        SELECT items FROM carts WHERE user_id = ${authCtx.userId} LIMIT 1
       `;
       if (rows.length > 0 && rows[0].items) {
         const items = typeof rows[0].items === "string" ? JSON.parse(rows[0].items) : rows[0].items;
@@ -29,10 +30,11 @@ export const saveMyCart = createServerFn({ method: "POST" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
       const jsonItems = JSON.stringify(data.items);
       await sql`
         INSERT INTO carts (user_id, items, updated_at)
-        VALUES (${context.userId}, ${jsonItems}::jsonb, NOW())
+        VALUES (${authCtx.userId}, ${jsonItems}::jsonb, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
           items = ${jsonItems}::jsonb,
           updated_at = NOW();

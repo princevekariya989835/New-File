@@ -63,10 +63,11 @@ export const getReviewEligibility = createServerFn({ method: "POST" })
   .inputValidator((d: { productId: string }) => ({ productId: String(d.productId) }))
   .handler(async ({ data, context }): Promise<ReviewEligibility> => {
     const sql = getSql();
+    const authCtx = context as any;
     const mine = await sql`
       SELECT id, product_id, rating, title, content as review, images, is_verified_buyer as verified_purchase, status, created_at, updated_at
       FROM reviews
-      WHERE user_id = ${context.userId} AND product_id = ${data.productId}
+      WHERE user_id = ${authCtx.userId} AND product_id = ${data.productId}
       LIMIT 1
     `;
 
@@ -74,7 +75,7 @@ export const getReviewEligibility = createServerFn({ method: "POST" })
       SELECT i.id
       FROM order_items i
       JOIN orders o ON i.order_id = o.id
-      WHERE i.product_id = ${data.productId} AND o.user_id = ${context.userId} AND o.status = 'Delivered'
+      WHERE i.product_id = ${data.productId} AND o.user_id = ${authCtx.userId} AND o.status = 'Delivered'
       LIMIT 1
     `;
 
@@ -125,20 +126,21 @@ export const submitReview = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<MyReview> => {
     const patch = normalize(data);
     const sql = getSql();
+    const authCtx = context as any;
 
     const existing = await sql`
-      SELECT id FROM reviews WHERE user_id = ${context.userId} AND product_id = ${data.productId} LIMIT 1
+      SELECT id FROM reviews WHERE user_id = ${authCtx.userId} AND product_id = ${data.productId} LIMIT 1
     `;
 
     const purchased = await sql`
       SELECT i.id
       FROM order_items i
       JOIN orders o ON i.order_id = o.id
-      WHERE i.product_id = ${data.productId} AND o.user_id = ${context.userId} AND o.status = 'Delivered'
+      WHERE i.product_id = ${data.productId} AND o.user_id = ${authCtx.userId} AND o.status = 'Delivered'
       LIMIT 1
     `;
     const isVerified = purchased.length > 0;
-    const authorName = context.user.fullName || context.user.email || "Customer";
+    const authorName = authCtx.user?.fullName || authCtx.user?.email || "Customer";
 
     if (existing.length > 0) {
       const reviewId = existing[0].id;
@@ -171,7 +173,7 @@ export const submitReview = createServerFn({ method: "POST" })
       INSERT INTO reviews (
         id, product_id, user_id, author_name, rating, title, content, is_verified_buyer, status, images
       ) VALUES (
-        ${reviewId}, ${data.productId}, ${context.userId}, ${authorName}, ${patch.rating}, ${patch.title}, ${patch.review || ""},
+        ${reviewId}, ${data.productId}, ${authCtx.userId}, ${authorName}, ${patch.rating}, ${patch.title}, ${patch.review || ""},
         ${isVerified}, 'approved', ${JSON.stringify(patch.images)}
       );
     `;
@@ -194,12 +196,13 @@ export const getMyReviews = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<MyReview[]> => {
     const sql = getSql();
+    const authCtx = context as any;
     const rows = await sql`
       SELECT r.id, r.product_id, r.rating, r.title, r.content as review, r.images, r.is_verified_buyer as verified_purchase,
         r.status, r.created_at, r.updated_at, p.name as product_name, p.slug as product_slug, p.images as product_images
       FROM reviews r
       LEFT JOIN products p ON r.product_id = p.id
-      WHERE r.user_id = ${context.userId}
+      WHERE r.user_id = ${authCtx.userId}
       ORDER BY r.created_at DESC
     `;
 

@@ -145,7 +145,7 @@ async function seedShipmentsIfEmpty() {
 export const adminListShipments = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminShipment[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     await seedShipmentsIfEmpty();
 
@@ -218,8 +218,9 @@ export const adminUpdateShipmentStatus = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { shipmentId: string; newStatus: ShipmentStatus; adminNote?: string }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     const current = await sql`SELECT status FROM shipments WHERE id = ${data.shipmentId} LIMIT 1`;
     if (current.length === 0) {
@@ -246,7 +247,7 @@ export const adminUpdateShipmentStatus = createServerFn({ method: "POST" })
       UPDATE shipments
       SET status = ${data.newStatus},
           updated_at = NOW(),
-          updated_by = ${context.userId},
+          updated_by = ${authCtx.userId},
           shipped_at = COALESCE(${shippedAtSql}, shipped_at),
           delivered_at = COALESCE(${deliveredAtSql}, delivered_at),
           actual_delivery_date = COALESCE(${deliveredAtSql}, actual_delivery_date),
@@ -254,7 +255,7 @@ export const adminUpdateShipmentStatus = createServerFn({ method: "POST" })
       WHERE id = ${data.shipmentId}
     `;
 
-    await logAudit(context, "shipment.status_update", "shipment", data.shipmentId, {
+    await logAudit(context as any, "shipment.status_update", "shipment", data.shipmentId, {
       from: currentStatus,
       to: data.newStatus,
     });
@@ -266,19 +267,20 @@ export const adminSaveTrackingNumber = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { shipmentId: string; trackingNumber: string; carrier?: Carrier }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     await sql`
       UPDATE shipments
       SET tracking_number = ${data.trackingNumber},
           carrier = COALESCE(${data.carrier || null}, carrier),
           updated_at = NOW(),
-          updated_by = ${context.userId}
+          updated_by = ${authCtx.userId}
       WHERE id = ${data.shipmentId}
     `;
 
-    await logAudit(context, "shipment.tracking_update", "shipment", data.shipmentId, {
+    await logAudit(context as any, "shipment.tracking_update", "shipment", data.shipmentId, {
       trackingNumber: data.trackingNumber,
     });
 
@@ -304,8 +306,9 @@ export const adminCreateShipment = createServerFn({ method: "POST" })
     }) => d,
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     const orderRes = await sql`
       SELECT id, user_id, shipping_name, shipping_address
@@ -329,10 +332,10 @@ export const adminCreateShipment = createServerFn({ method: "POST" })
         ${data.trackingNumber || null}, ${data.carrier}, ${data.shippingMethod}, ${data.shippingCost},
         ${data.estimatedDeliveryDate || null}, 'Pending', ${data.shippingAddress}, ${data.city},
         ${data.state}, ${data.postalCode}, ${data.country || "India"}, ${data.adminNote || null},
-        ${context.userId}, NOW(), NOW()
+        ${authCtx.userId}, NOW(), NOW()
       )
     `;
 
-    await logAudit(context, "shipment.create", "shipment", sId, { orderId: order.id });
+    await logAudit(context as any, "shipment.create", "shipment", sId, { orderId: order.id });
     return { ok: true as const, shipmentId: sId };
   });

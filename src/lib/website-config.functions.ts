@@ -170,7 +170,7 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
 export const getAdminWebsiteState = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<WebsiteStateResponse> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
 
@@ -301,7 +301,7 @@ export const adminSaveWebsiteDraft = createServerFn({ method: "POST" })
     config: d.config,
   }))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
 
@@ -322,7 +322,7 @@ export const adminSaveWebsiteDraft = createServerFn({ method: "POST" })
     `;
 
     try {
-      await logAudit(context, "website.save_draft", "website_draft", "current", {
+      await logAudit(context as any, "website.save_draft", "website_draft", "current", {
         updatedBy: userIdentifier,
         timestamp: new Date().toISOString(),
       });
@@ -351,7 +351,7 @@ export const adminPublishWebsite = createServerFn({ method: "POST" })
     directConfig: d.directConfig,
   }))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
@@ -413,7 +413,7 @@ export const adminPublishWebsite = createServerFn({ method: "POST" })
     `;
 
     try {
-      await logAudit(context, "website.publish", "website_published", versionId, {
+      await logAudit(context as any, "website.publish", "website_published", versionId, {
         versionNumber: nextVersionNumber,
         publishedBy: userIdentifier,
         changeSummary: summary,
@@ -443,7 +443,7 @@ export const adminPublishWebsite = createServerFn({ method: "POST" })
 export const adminUndoLastPublish = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
@@ -517,7 +517,7 @@ export const adminUndoLastPublish = createServerFn({ method: "POST" })
     `;
 
     try {
-      await logAudit(context, "website.undo_publish", "website_published", newVersionId, {
+      await logAudit(context as any, "website.undo_publish", "website_published", newVersionId, {
         restoredFromVersion: Number(prevVersion.version_number),
         newVersionNumber,
         performedBy: userIdentifier,
@@ -543,7 +543,7 @@ export const adminUndoLastPublish = createServerFn({ method: "POST" })
 export const adminDiscardDraft = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
@@ -572,7 +572,7 @@ export const adminDiscardDraft = createServerFn({ method: "POST" })
     `;
 
     try {
-      await logAudit(context, "website.discard_draft", "website_draft", "current", {
+      await logAudit(context as any, "website.discard_draft", "website_draft", "current", {
         performedBy: userIdentifier,
         timestamp: new Date().toISOString(),
       });
@@ -596,7 +596,7 @@ export const adminRestoreSpecificVersion = createServerFn({ method: "POST" })
     versionId: String(d.versionId).trim(),
   }))
   .handler(async ({ data, context }) => {
-    const admin = await assertAdmin(context);
+    const admin = await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
@@ -656,7 +656,7 @@ export const adminRestoreSpecificVersion = createServerFn({ method: "POST" })
     `;
 
     try {
-      await logAudit(context, "website.restore_version", "website_published", newVersionId, {
+      await logAudit(context as any, "website.restore_version", "website_published", newVersionId, {
         sourceVersionNumber: Number(targetVerRow.version_number),
         newVersionNumber,
         performedBy: userIdentifier,
@@ -671,5 +671,71 @@ export const adminRestoreSpecificVersion = createServerFn({ method: "POST" })
       restoredVersionNumber: Number(targetVerRow.version_number),
       newVersionNumber,
       message: `Restored Version ${targetVerRow.version_number} as new live Version ${newVersionNumber}.`,
+    };
+  });
+
+/**
+ * Upload Website Hero Media
+ * Persistently stores hero image/video in database and returns permanent media URL
+ */
+export const uploadHeroMediaServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (d: {
+      fileName: string;
+      mimeType: string;
+      mediaType: "image" | "video";
+      dataBase64: string;
+      sizeBytes?: number;
+    }) => ({
+      fileName: String(d.fileName || "hero-media"),
+      mimeType: String(d.mimeType || "image/jpeg"),
+      mediaType: d.mediaType === "video" ? ("video" as const) : ("image" as const),
+      dataBase64: String(d.dataBase64 || ""),
+      sizeBytes: Number(d.sizeBytes) || 0,
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    if (!data.dataBase64) {
+      throw new Error("Empty media content received.");
+    }
+
+    const cleanBase64 = data.dataBase64.replace(/^data:[^;]+;base64,/, "");
+    const binaryBuffer = Buffer.from(cleanBase64, "base64");
+    const actualSize = data.sizeBytes || binaryBuffer.length;
+
+    // Validate size (Images: 25MB, Videos: 100MB)
+    const maxImageSize = 25 * 1024 * 1024;
+    const maxVideoSize = 100 * 1024 * 1024;
+
+    if (data.mediaType === "image" && actualSize > maxImageSize) {
+      throw new Error("Image is too large. Maximum allowed size is 25MB.");
+    }
+    if (data.mediaType === "video" && actualSize > maxVideoSize) {
+      throw new Error("Video is too large. Maximum allowed size is 100MB.");
+    }
+
+    const mediaId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const now = new Date().toISOString();
+    const userEmail = (context as any).user?.email || "Admin";
+
+    await sql`
+      INSERT INTO website_media (id, file_name, mime_type, media_type, size_bytes, data_base64, created_at, created_by)
+      VALUES (${mediaId}, ${data.fileName}, ${data.mimeType}, ${data.mediaType}, ${actualSize}, ${cleanBase64}, ${now}, ${userEmail})
+    `;
+
+    const mediaUrl = `/api/media/${mediaId}`;
+
+    return {
+      success: true,
+      mediaId,
+      mediaUrl,
+      mediaType: data.mediaType,
+      fileName: data.fileName,
+      sizeBytes: actualSize,
     };
   });

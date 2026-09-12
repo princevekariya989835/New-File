@@ -83,7 +83,7 @@ function ShopPage() {
         q: val.trim() ? val.trim() : undefined,
       }),
       replace: true,
-      scrollToTop: false,
+      resetScroll: false,
     });
   };
 

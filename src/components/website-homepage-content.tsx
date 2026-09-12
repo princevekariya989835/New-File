@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowUpRight,
@@ -12,6 +12,7 @@ import {
   Heart,
   CheckCircle2,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
 import { ProductCard } from "@/components/product-card";
@@ -114,95 +115,7 @@ export function WebsiteHomepageContent({
           }
 
           case "hero": {
-            if (!hero?.active) return null;
-            const isCenter = hero.alignment === "center";
-            const isRight = hero.alignment === "right";
-
-            return (
-              <section
-                key="sec-hero"
-                className="relative -mt-16 flex min-h-[75svh] items-end overflow-hidden bg-foreground md:-mt-20 md:min-h-[100svh]"
-              >
-                {hero.mediaType === "video" && hero.videoUrl ? (
-                  <video
-                    className="absolute inset-0 h-full w-full object-contain object-center opacity-90 md:object-cover md:opacity-70"
-                    src={hero.videoUrl}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    aria-hidden="true"
-                  />
-                ) : hero.imageUrl ? (
-                  <img
-                    src={hero.imageUrl}
-                    alt={hero.heading}
-                    className="absolute inset-0 h-full w-full object-cover opacity-80"
-                  />
-                ) : null}
-
-                <div className="absolute inset-0 bg-gradient-to-b from-foreground/20 via-transparent to-foreground/80 md:from-foreground/60 md:via-foreground/40 md:to-foreground/90" />
-                <div
-                  className="absolute inset-0 opacity-30 mix-blend-overlay"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(ellipse at 20% 30%, oklch(0.62 0.22 258 / 0.5), transparent 60%), radial-gradient(ellipse at 80% 70%, oklch(0.3 0.15 258 / 0.6), transparent 60%)",
-                  }}
-                />
-
-                <div
-                  className={`relative mx-auto w-full max-w-[1400px] px-6 pb-20 pt-40 text-background md:px-10 md:pb-32 md:pt-48 ${
-                    isCenter ? "text-center" : isRight ? "text-right" : "text-left"
-                  }`}
-                >
-                  {hero.badge && (
-                    <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-background/70">
-                      {hero.badge}
-                    </p>
-                  )}
-
-                  <h1 className="max-w-5xl text-[13vw] font-black leading-[0.9] tracking-[-0.04em] text-background md:text-[8.5vw] lg:text-[7rem] whitespace-pre-line inline-block">
-                    {hero.heading}
-                  </h1>
-
-                  {hero.description && (
-                    <p
-                      className={`mt-8 max-w-lg text-base text-background/80 md:text-lg ${
-                        isCenter ? "mx-auto" : isRight ? "ml-auto" : ""
-                      }`}
-                    >
-                      {hero.description}
-                    </p>
-                  )}
-
-                  <div
-                    className={`mt-10 flex flex-wrap gap-3 ${
-                      isCenter ? "justify-center" : isRight ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {hero.primaryCtaText && (
-                      <a
-                        href={hero.primaryCtaLink || "/shop"}
-                        className="group inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
-                      >
-                        {hero.primaryCtaText}
-                        <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                      </a>
-                    )}
-                    {hero.secondaryCtaText && (
-                      <a
-                        href={hero.secondaryCtaLink || "/design"}
-                        className="group inline-flex items-center gap-2 rounded-full border border-background/30 px-7 py-4 text-sm font-medium text-background backdrop-blur transition-colors hover:bg-background/10"
-                      >
-                        {hero.secondaryCtaText}
-                        <Sparkles className="h-4 w-4" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </section>
-            );
+            return <WebsiteHero key="sec-hero" hero={hero} isPreview={isPreview} />;
           }
 
           case "collections": {
@@ -427,5 +340,175 @@ export function WebsiteHomepageContent({
         }
       })}
     </div>
+  );
+}
+
+function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
+  const [videoError, setVideoError] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  if (!hero || (hero.enabled === false && hero.active === false)) return null;
+
+  const isCenter = hero.alignment === "center";
+  const isRight = hero.alignment === "right";
+
+  const isVideo =
+    hero.mediaType === "video" ||
+    (!hero.mediaType && Boolean(hero.videoUrl && !hero.imageUrl)) ||
+    Boolean(hero.videoUrl && hero.mediaType !== "image");
+
+  const videoSrc =
+    (hero.mediaType === "video"
+      ? hero.mediaUrl || hero.videoUrl
+      : hero.videoUrl || hero.mediaUrl) || "";
+  const imageSrc =
+    (hero.mediaType === "image"
+      ? hero.mediaUrl || hero.imageUrl
+      : hero.imageUrl || hero.mediaUrl) || "";
+
+  return (
+    <section
+      key="sec-hero"
+      className="relative -mt-16 flex min-h-[75svh] items-end overflow-hidden bg-neutral-950 md:-mt-20 md:min-h-[100svh]"
+    >
+      {isVideo && videoSrc ? (
+        <video
+          key={videoSrc}
+          ref={(el) => {
+            videoRef.current = el;
+            if (el) {
+              el.muted = true;
+              el.defaultMuted = true;
+              el.playsInline = true;
+              const playPromise = el.play();
+              if (playPromise !== undefined) {
+                playPromise
+                  .then(() => setVideoLoaded(true))
+                  .catch((err) => {
+                    console.warn("[Hero Video Autoplay Note]:", err);
+                  });
+              }
+            }
+          }}
+          src={videoSrc}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-95 md:opacity-90 z-0"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onLoadedData={() => {
+            setVideoLoaded(true);
+            setVideoError(false);
+          }}
+          onCanPlay={() => {
+            setVideoLoaded(true);
+          }}
+          onError={(e) => {
+            console.error("[Hero Video Render Error]: Failed to load video source", videoSrc, e);
+            setVideoError(true);
+          }}
+        >
+          <source src={videoSrc} type="video/mp4" />
+          <source src={videoSrc} type="video/webm" />
+          <source src={videoSrc} />
+        </video>
+      ) : imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={hero.heading || "RIOTOUS Streetwear"}
+          className="absolute inset-0 h-full w-full object-cover opacity-85 z-0"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : null}
+
+      {/* Visible error message in Admin Preview if video fails */}
+      {isPreview && isVideo && videoError && (
+        <div className="absolute top-20 left-4 right-4 z-30 mx-auto max-w-xl rounded-xl border border-destructive/60 bg-destructive/95 p-4 text-white shadow-2xl backdrop-blur">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-white mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-sm tracking-tight">
+                Hero Video Playback Notice (Admin Preview)
+              </p>
+              <p className="text-xs text-white/90">
+                The video from source{" "}
+                <code className="font-mono bg-black/40 px-1.5 py-0.5 rounded text-[11px]">
+                  {videoSrc || "empty"}
+                </code>{" "}
+                could not be played.
+              </p>
+              <p className="text-[11px] text-white/80">
+                Please verify that the video format is an H.264/AAC MP4 or WebM video file and that
+                the media endpoint is reachable.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/30 via-transparent to-black/85 md:from-black/40 md:via-transparent md:to-black/85 pointer-events-none" />
+      <div
+        className="absolute inset-0 z-10 opacity-25 mix-blend-overlay pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse at 20% 30%, oklch(0.62 0.22 258 / 0.4), transparent 60%), radial-gradient(ellipse at 80% 70%, oklch(0.3 0.15 258 / 0.5), transparent 60%)",
+        }}
+      />
+
+      <div
+        className={`relative z-20 mx-auto w-full max-w-[1400px] px-6 pb-20 pt-40 text-background md:px-10 md:pb-32 md:pt-48 ${
+          isCenter ? "text-center" : isRight ? "text-right" : "text-left"
+        }`}
+      >
+        {hero.badge && (
+          <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-background/70">
+            {hero.badge}
+          </p>
+        )}
+
+        <h1 className="max-w-5xl text-[13vw] font-black leading-[0.9] tracking-[-0.04em] text-background md:text-[8.5vw] lg:text-[7rem] whitespace-pre-line inline-block">
+          {hero.heading}
+        </h1>
+
+        {hero.description && (
+          <p
+            className={`mt-8 max-w-lg text-base text-background/80 md:text-lg ${
+              isCenter ? "mx-auto" : isRight ? "ml-auto" : ""
+            }`}
+          >
+            {hero.description}
+          </p>
+        )}
+
+        <div
+          className={`mt-10 flex flex-wrap gap-3 ${
+            isCenter ? "justify-center" : isRight ? "justify-end" : "justify-start"
+          }`}
+        >
+          {hero.primaryCtaText && (
+            <a
+              href={hero.primaryCtaLink || "/shop"}
+              className="group inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
+            >
+              {hero.primaryCtaText}
+              <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </a>
+          )}
+          {hero.secondaryCtaText && (
+            <a
+              href={hero.secondaryCtaLink || "/design"}
+              className="group inline-flex items-center gap-2 rounded-full border border-background/30 px-7 py-4 text-sm font-medium text-background backdrop-blur transition-colors hover:bg-background/10"
+            >
+              {hero.secondaryCtaText}
+              <Sparkles className="h-4 w-4" />
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

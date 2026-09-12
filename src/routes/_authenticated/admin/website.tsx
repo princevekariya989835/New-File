@@ -31,6 +31,7 @@ import {
   ShieldAlert,
   Sliders,
   Store,
+  Package,
 } from "lucide-react";
 import {
   getAdminWebsiteState,
@@ -49,6 +50,7 @@ import {
 } from "@/lib/website-config.types";
 import { WebsiteHomepageContent } from "@/components/website-homepage-content";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
+import { HeroMediaUploader } from "@/components/admin/hero-media-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -302,7 +304,7 @@ function AdminWebsiteManagement() {
           {/* Action Buttons Toolbar */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Erase Section Data Button */}
-            <AdminEraseDataButton section="website" />
+            <AdminEraseDataButton section="website" sectionLabel="Website" />
 
             {/* Discard Draft Button */}
             <Button
@@ -435,11 +437,11 @@ function AdminWebsiteManagement() {
                 </Label>
                 <Switch
                   id="hero-active"
-                  checked={editorConfig.hero.active}
+                  checked={Boolean(editorConfig.hero.active ?? editorConfig.hero.enabled ?? true)}
                   onCheckedChange={(val) =>
                     setEditorConfig({
                       ...editorConfig,
-                      hero: { ...editorConfig.hero, active: val },
+                      hero: { ...editorConfig.hero, active: val, enabled: val },
                     })
                   }
                 />
@@ -574,53 +576,14 @@ function AdminWebsiteManagement() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="hero-media-type">Background Media Type</Label>
-                <select
-                  id="hero-media-type"
-                  value={editorConfig.hero.mediaType}
-                  onChange={(e) =>
+              <div className="md:col-span-2">
+                <HeroMediaUploader
+                  hero={editorConfig.hero}
+                  onChange={(updated) =>
                     setEditorConfig({
                       ...editorConfig,
-                      hero: { ...editorConfig.hero, mediaType: e.target.value as any },
+                      hero: { ...editorConfig.hero, ...updated },
                     })
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="video">Hero Video (Preserves Video Animation)</option>
-                  <option value="image">Static Background Image</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="hero-media-url">
-                  {editorConfig.hero.mediaType === "video" ? "Video URL" : "Image URL"}
-                </Label>
-                <Input
-                  id="hero-media-url"
-                  value={
-                    editorConfig.hero.mediaType === "video"
-                      ? editorConfig.hero.videoUrl
-                      : editorConfig.hero.imageUrl
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (editorConfig.hero.mediaType === "video") {
-                      setEditorConfig({
-                        ...editorConfig,
-                        hero: { ...editorConfig.hero, videoUrl: val },
-                      });
-                    } else {
-                      setEditorConfig({
-                        ...editorConfig,
-                        hero: { ...editorConfig.hero, imageUrl: val },
-                      });
-                    }
-                  }}
-                  placeholder={
-                    editorConfig.hero.mediaType === "video"
-                      ? "/videos/riotus-hero.mp4"
-                      : "/assets/hero-bg.jpg"
                   }
                 />
               </div>
@@ -1825,7 +1788,7 @@ function AdminWebsiteManagement() {
             </div>
 
             <div className="space-y-3">
-              {(stateData.latestVersions || []).map((ver) => {
+              {(stateData?.latestVersions || []).map((ver) => {
                 const isCurrentLive = ver.versionNumber === liveVerNum;
 
                 return (

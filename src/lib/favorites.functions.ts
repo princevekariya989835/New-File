@@ -18,10 +18,11 @@ export const getMyFavorites = createServerFn({ method: "GET" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
       const rows = await sql`
         SELECT id, product_handle, product_title, product_image, product_price, product_currency, created_at
         FROM favorites
-        WHERE user_id = ${context.userId}
+        WHERE user_id = ${authCtx.userId}
         ORDER BY created_at DESC
       `;
       return rows.map((r: any) => ({
@@ -52,13 +53,14 @@ export const addFavorite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<Favorite> => {
     await ensureDbSchema();
     const sql = getSql();
+    const authCtx = context as any;
     const favId = `fav_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
     await sql`
       INSERT INTO favorites (
         id, user_id, product_handle, product_title, product_image, product_price, product_currency
       ) VALUES (
-        ${favId}, ${context.userId}, ${data.handle}, ${data.title}, ${data.image || null}, ${data.price || null}, ${data.currency || "INR"}
+        ${favId}, ${authCtx.userId}, ${data.handle}, ${data.title}, ${data.image || null}, ${data.price || null}, ${data.currency || "INR"}
       );
     `;
 
@@ -79,8 +81,9 @@ export const removeFavorite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureDbSchema();
     const sql = getSql();
+    const authCtx = context as any;
     await sql`
-      DELETE FROM favorites WHERE id = ${data.id} AND user_id = ${context.userId}
+      DELETE FROM favorites WHERE id = ${data.id} AND user_id = ${authCtx.userId}
     `;
     return { ok: true };
   });

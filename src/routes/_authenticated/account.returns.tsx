@@ -31,16 +31,6 @@ export const Route = createFileRoute("/_authenticated/account/returns")({
 
 const RETURN_WINDOW_DAYS = 7;
 
-type SupportRequest = {
-  id: string;
-  request_type: "return" | "refund" | "support";
-  order_name: string | null;
-  reason: string | null;
-  details: string;
-  status: string;
-  created_at: string;
-};
-
 function daysSince(iso: string) {
   const ms = Date.now() - new Date(iso).getTime();
   return Math.floor(ms / (1000 * 60 * 60 * 24));
@@ -258,14 +248,13 @@ function OrderRequestCard({
       });
       toast.success("Request submitted. We'll email you within 48 hours.");
       setDetails("");
-      refreshRequests();
+      onSubmitted();
     } catch {
       toast.error("Could not submit request. Try again.");
     } finally {
       setSubmitting(false);
     }
     setOpen(false);
-    onSubmitted();
   }
 
   return (

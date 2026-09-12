@@ -72,7 +72,36 @@ function Dashboard() {
     return <p className="text-muted-foreground">No dashboard data available</p>;
   }
   const d = q.data;
-  const cur = d.currency || "INR";
+  if ((d as any)?.error) {
+    return (
+      <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center">
+        <p className="text-destructive font-medium">{String((d as any).error)}</p>
+        <button
+          onClick={() => q.refetch()}
+          className="mt-3 px-4 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const totals = d?.totals ?? {
+    sales: 0,
+    salesToday: 0,
+    salesMonth: 0,
+    orders: 0,
+    products: 0,
+    customers: 0,
+    avgOrderValue: 0,
+  };
+  const lowStock = Array.isArray(d?.lowStock) ? d.lowStock : [];
+  const outOfStock = Array.isArray(d?.outOfStock) ? d.outOfStock : [];
+  const recentOrders = Array.isArray(d?.recentOrders) ? d.recentOrders : [];
+  const bestSellers = Array.isArray(d?.bestSellers) ? d.bestSellers : [];
+  const salesByDay = Array.isArray(d?.salesByDay) ? d.salesByDay : [];
+  const recentCustomers = Array.isArray(d?.recentCustomers) ? d.recentCustomers : [];
+  const cur = d?.currency || "INR";
 
   return (
     <div className="space-y-8">
@@ -94,25 +123,25 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Total sales"
-          value={money(d.totals.sales, cur)}
-          sub={`Today ${money(d.totals.salesToday, cur)} · This month ${money(d.totals.salesMonth, cur)}`}
+          value={money(totals.sales, cur)}
+          sub={`Today ${money(totals.salesToday, cur)} · This month ${money(totals.salesMonth, cur)}`}
           icon={IndianRupee}
         />
         <Stat
           label="Orders"
-          value={String(d.totals.orders)}
-          sub={`Avg order ${money(d.totals.avgOrderValue, cur)}`}
+          value={String(totals.orders)}
+          sub={`Avg order ${money(totals.avgOrderValue, cur)}`}
           icon={Receipt}
         />
         <Stat
           label="Products"
-          value={String(d.totals.products)}
-          sub={`${d.lowStock.length} low · ${d.outOfStock.length} out of stock`}
+          value={String(totals.products)}
+          sub={`${lowStock.length} low · ${outOfStock.length} out of stock`}
           icon={Package}
         />
         <Stat
           label="Customers"
-          value={String(d.totals.customers)}
+          value={String(totals.customers)}
           sub="Registered accounts"
           icon={Users}
         />
@@ -124,7 +153,7 @@ function Dashboard() {
         </h2>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={d.salesByDay}>
+            <AreaChart data={salesByDay}>
               <defs>
                 <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#f00b11" stopOpacity={0.5} />
@@ -134,7 +163,7 @@ function Dashboard() {
               <CartesianGrid strokeOpacity={0.1} vertical={false} />
               <XAxis
                 dataKey="date"
-                tickFormatter={(v: string) => v.slice(5)}
+                tickFormatter={(v: string) => (typeof v === "string" ? v.slice(5) : "")}
                 fontSize={11}
                 stroke="currentColor"
                 opacity={0.5}
@@ -171,7 +200,7 @@ function Dashboard() {
               View all
             </Link>
           </div>
-          {d.recentOrders.length === 0 ? (
+          {recentOrders.length === 0 ? (
             <p className="text-sm text-muted-foreground">No orders yet.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -186,7 +215,7 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {d.recentOrders.map((o) => (
+                  {recentOrders.map((o) => (
                     <tr key={o.id} className="border-t">
                       <td className="py-2 font-medium">{o.order_number}</td>
                       <td className="py-2">{o.shipping_name}</td>
@@ -215,11 +244,11 @@ function Dashboard() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Best sellers
           </h2>
-          {d.bestSellers.length === 0 ? (
+          {bestSellers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No sales yet.</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {d.bestSellers.map((b) => (
+              {bestSellers.map((b) => (
                 <li key={b.name} className="flex items-center justify-between gap-2">
                   <span className="truncate">{b.name}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
@@ -237,17 +266,17 @@ function Dashboard() {
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <AlertTriangle className="h-4 w-4 text-amber-500" /> Stock alerts
           </h2>
-          {d.lowStock.length + d.outOfStock.length === 0 ? (
+          {lowStock.length + outOfStock.length === 0 ? (
             <p className="text-sm text-muted-foreground">All products are healthy.</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {d.outOfStock.map((p) => (
+              {outOfStock.map((p) => (
                 <li key={p.id} className="flex items-center justify-between">
                   <span className="truncate">{p.name}</span>
                   <Badge variant="destructive">Out of stock</Badge>
                 </li>
               ))}
-              {d.lowStock.map((p) => (
+              {lowStock.map((p) => (
                 <li key={p.id} className="flex items-center justify-between">
                   <span className="truncate">{p.name}</span>
                   <Badge variant="secondary">{p.stock_quantity} left</Badge>
@@ -267,11 +296,11 @@ function Dashboard() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Newest customers
           </h2>
-          {d.recentCustomers.length === 0 ? (
+          {recentCustomers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No customers yet.</p>
           ) : (
             <ul className="space-y-2 text-sm">
-              {d.recentCustomers.map((c) => (
+              {recentCustomers.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-2">
                   <span className="min-w-0">
                     <span className="block truncate">{c.full_name || "—"}</span>

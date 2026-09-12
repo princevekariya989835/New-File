@@ -147,7 +147,8 @@ export const requireAuth = createMiddleware({ type: "function" })
           }
         }
         if (!token && typeof serverMod.getRequestHeaders === "function") {
-          const allHeaders = serverMod.getRequestHeaders();
+          const allHeaders = serverMod.getRequestHeaders() as unknown as
+            Record<string, string | undefined> | undefined;
           if (allHeaders) {
             const authH =
               allHeaders["authorization"] ||
@@ -186,16 +187,30 @@ export const requireAuth = createMiddleware({ type: "function" })
       throw new Error("Unauthorized: Please sign in to perform this action.");
     }
 
-    let isAdmin = user.role === "admin" || isAdminEmail(user.email);
+    const isStaffRole = (r?: string | null) => {
+      if (!r) return false;
+      const lower = r.toLowerCase();
+      return (
+        lower === "admin" ||
+        lower === "super admin" ||
+        lower === "manager" ||
+        lower === "staff" ||
+        lower === "administrator"
+      );
+    };
+
+    let isAdmin = isStaffRole(user.role) || isAdminEmail(user.email);
     try {
       const rows = await sql`
-        SELECT id, role, email FROM profiles WHERE id = ${user.id} OR email = ${user.email} LIMIT 1
+        SELECT id, role, email, status, permissions FROM profiles WHERE id = ${user.id} OR email = ${user.email} LIMIT 1
       `;
       if (rows.length > 0) {
-        const dbRole = rows[0].role as "admin" | "customer";
-        if (dbRole === "admin") {
+        const dbRole = rows[0].role;
+        if (isStaffRole(dbRole)) {
           isAdmin = true;
-          user.role = "admin";
+          user.role = dbRole;
+          user.status = rows[0].status || "Active";
+          user.permissions = rows[0].permissions || {};
         }
       }
     } catch {
@@ -204,9 +219,9 @@ export const requireAuth = createMiddleware({ type: "function" })
 
     if (isAdminEmail(user.email)) {
       isAdmin = true;
-      user.role = "admin";
+      user.role = "Super Admin";
       try {
-        await sql`UPDATE profiles SET role = 'admin' WHERE id = ${user.id} OR email = ${user.email}`;
+        await sql`UPDATE profiles SET role = 'Super Admin' WHERE id = ${user.id} OR email = ${user.email}`;
       } catch {
         // ignore
       }

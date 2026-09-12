@@ -46,6 +46,8 @@ import {
   Truck,
   CreditCard,
   Globe,
+  UserCog,
+  Settings,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -78,6 +80,8 @@ const NAV: Array<{
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
   { to: "/admin/reviews", label: "Reviews", icon: Star },
   { to: "/admin/designs", label: "Custom designs", icon: Palette },
+  { to: "/admin/staff", label: "Staff", icon: UserCog },
+  { to: "/admin/settings", label: "Settings", icon: Settings },
   { to: "/admin/activity", label: "Activity log", icon: ScrollText },
 ];
 
@@ -288,19 +292,42 @@ function AdminLayout() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
                   aria-label="Admin profile"
                 >
-                  A
+                  {(user.fullName?.[0] || user.email?.[0] || "A").toUpperCase()}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Administrator</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {user.fullName || user.email.split("@")[0]}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <span className="inline-block mt-1 w-fit text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red">
+                      {user.role || (isAdminEmail(user.email) ? "Super Admin" : "Staff")}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate({ to: "/account/orders" })}>
-                  My account
+                <DropdownMenuItem
+                  onClick={() => navigate({ to: "/admin/settings" })}
+                  className="cursor-pointer"
+                >
+                  <Settings className="mr-2 h-4 w-4" /> Store Settings
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => navigate({ to: "/account/orders" })}
+                  className="cursor-pointer"
+                >
+                  Customer account
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={signOut}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
                   <LogOut className="mr-2 h-4 w-4" /> Sign out
                 </DropdownMenuItem>
               </DropdownMenuContent>

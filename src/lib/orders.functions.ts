@@ -59,18 +59,19 @@ export const getMyOrders = createServerFn({ method: "GET" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
 
       const orders = await sql`
         SELECT id, order_number, created_at, total_amount, currency, status, payment_status,
           shipping_name, shipping_email, shipping_phone, shipping_address
         FROM orders
-        WHERE user_id::text = ${String(context.userId)}
+        WHERE user_id::text = ${String(authCtx.userId)}
         ORDER BY created_at DESC
       `;
 
       if (orders.length === 0) return [];
 
-      const orderIds = orders.map((o) => String(o.id));
+      const orderIds = orders.map((o: any) => String(o.id));
       const items = await sql`
         SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
           i.design_submission_id, d.preview_data_url, p.images as product_images_json
@@ -173,6 +174,8 @@ export const placeOrder = createServerFn({ method: "POST" })
     const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
     const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
 
+    const authCtx = context as any;
+
     // Atomically check and deduct inventory before finalizing the order
     try {
       await deductOrderInventory(
@@ -184,7 +187,7 @@ export const placeOrder = createServerFn({ method: "POST" })
           selectedSize: i.selectedSize,
           selectedColor: i.selectedColor,
         })),
-        String(context.userId),
+        String(authCtx.userId),
       );
     } catch (err) {
       if (err instanceof InventoryError) {
@@ -198,7 +201,7 @@ export const placeOrder = createServerFn({ method: "POST" })
         id, user_id, order_number, subtotal, discount_amount, shipping_charge, tax_amount, total_amount,
         currency, status, payment_status, payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
-        ${orderId}, ${String(context.userId)}, ${orderNumber}, ${itemsTotal}, 0, ${shipping}, 0, ${total},
+        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, 0, ${shipping}, 0, ${total},
         ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted', ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
     `;
@@ -218,7 +221,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     // Clear cart in Neon DB
     await sql`
       INSERT INTO carts (user_id, items, updated_at)
-      VALUES (${context.userId}, '[]'::jsonb, NOW())
+      VALUES (${authCtx.userId}, '[]'::jsonb, NOW())
       ON CONFLICT (user_id) DO UPDATE SET items = '[]'::jsonb, updated_at = NOW();
     `;
 
@@ -274,9 +277,10 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureDbSchema();
     const sql = getSql();
+    const authCtx = context as any;
     const rows = await sql`
       SELECT id, user_id, status, order_number FROM orders
-      WHERE id::text = ${data.orderId} AND user_id::text = ${String(context.userId)}
+      WHERE id::text = ${data.orderId} AND user_id::text = ${String(authCtx.userId)}
       LIMIT 1
     `;
     if (rows.length === 0) throw new Error("Order not found");
@@ -285,6 +289,6 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
         `Order cannot be cancelled because it is already ${rows[0].status.toLowerCase()}`,
       );
     }
-    const res = await restoreOrderInventory(data.orderId, data.reason, context.userId);
+    const res = await restoreOrderInventory(data.orderId, data.reason, authCtx.userId);
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });

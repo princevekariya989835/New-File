@@ -20,18 +20,19 @@ export const getReturnableOrders = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<ReturnableOrder[]> => {
     const settings = await loadReturnWindow();
     const sql = getSql();
+    const authCtx = context as any;
 
     const orders = await sql`
       SELECT id, order_number, created_at, delivered_at, status, currency
       FROM orders
-      WHERE user_id = ${context.userId}
+      WHERE user_id = ${authCtx.userId}
       ORDER BY created_at DESC
       LIMIT 100
     `;
 
     if (orders.length === 0) return [];
 
-    const orderIds = orders.map((o) => o.id);
+    const orderIds = orders.map((o: any) => o.id);
     const [items, rets] = await Promise.all([
       sql`
         SELECT id, order_id, product_id, variant_id, product_name, product_image, quantity, price, selected_size, selected_color
@@ -107,12 +108,13 @@ export const getMyReturns = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<ReturnRecord[]> => {
     const sql = getSql();
+    const authCtx = context as any;
     const rows = await sql`
       SELECT r.id, r.return_number, r.order_id, r.order_item_id, r.quantity, r.status, r.reason, r.comments, r.refund_amount,
         r.items, r.created_at, r.updated_at, o.order_number, o.created_at as order_created_at
       FROM returns r
       LEFT JOIN orders o ON r.order_id = o.id
-      WHERE r.user_id = ${context.userId}
+      WHERE r.user_id = ${authCtx.userId}
       ORDER BY r.created_at DESC
     `;
     return rows.map(buildReturnRecord);
@@ -154,11 +156,12 @@ export const requestReturn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const settings = await loadReturnWindow();
     const sql = getSql();
+    const authCtx = context as any;
 
     const orders = await sql`
       SELECT id, order_number, user_id, status, delivered_at, created_at, currency, shipping_email
       FROM orders
-      WHERE id = ${data.orderId} AND user_id = ${context.userId}
+      WHERE id = ${data.orderId} AND user_id = ${authCtx.userId}
       LIMIT 1
     `;
     if (orders.length === 0) throw new Error("Order not found");
@@ -188,7 +191,7 @@ export const requestReturn = createServerFn({ method: "POST" })
       INSERT INTO returns (
         id, return_number, order_id, order_item_id, user_id, quantity, status, reason, comments, items
       ) VALUES (
-        ${returnId}, ${returnNumber}, ${order.id}, ${item.id}, ${context.userId},
+        ${returnId}, ${returnNumber}, ${order.id}, ${item.id}, ${authCtx.userId},
         ${data.quantity}, 'Requested', ${data.reason}, ${data.message}, ${JSON.stringify(data.images)}
       );
     `;
@@ -206,9 +209,10 @@ export const cancelMyReturn = createServerFn({ method: "POST" })
   .inputValidator((d: { returnId: string }) => ({ returnId: String(d.returnId) }))
   .handler(async ({ data, context }) => {
     const sql = getSql();
+    const authCtx = context as any;
     await sql`
       UPDATE returns SET status = 'Return Cancelled', updated_at = NOW()
-      WHERE id = ${data.returnId} AND user_id = ${context.userId}
+      WHERE id = ${data.returnId} AND user_id = ${authCtx.userId}
     `;
     return { ok: true as const };
   });

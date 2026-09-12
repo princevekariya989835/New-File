@@ -73,10 +73,6 @@ const VOID = new Set(["Cancelled", "Returned", "Refunded"]);
 export const adminDashboard = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminDashboard> => {
-    await assertAdmin(context);
-    await ensureDbSchema();
-    const sql = getSql();
-
     const now = new Date();
     const daysMap = new Map<string, { revenue: number; orders: number }>();
     for (let i = 13; i >= 0; i--) {
@@ -86,6 +82,10 @@ export const adminDashboard = createServerFn({ method: "GET" })
     }
 
     try {
+      await assertAdmin(context as any);
+      await ensureDbSchema();
+      const sql = getSql();
+
       const [
         orderTotalsRes,
         countsRes,
@@ -331,7 +331,7 @@ export const adminAuditLog = createServerFn({ method: "GET" })
         details: any;
       }>
     > => {
-      await assertAdmin(context);
+      await assertAdmin(context as any);
       try {
         const sql = getSql();
         const rows = await sql`

@@ -194,7 +194,7 @@ export function AdminShippingPage() {
   });
 
   // Summary counts
-  const stats = useMemo(() => {
+  const stats = useMemo<Record<string, number>>(() => {
     const total = shipments.length;
     const counts: Record<string, number> = {
       Pending: 0,

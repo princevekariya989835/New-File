@@ -242,7 +242,7 @@ const INITIAL_CAMPAIGNS: CampaignRecord[] = [
 export const adminListCampaigns = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<CampaignRecord[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
 
@@ -340,7 +340,7 @@ export const adminSaveCampaign = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: SaveCampaignInput) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
 
@@ -378,7 +378,9 @@ export const adminSaveCampaign = createServerFn({ method: "POST" })
             updated_at = ${now}
           WHERE id = ${data.id}
         `;
-        await logAudit(context, "campaign.update", "campaign", data.id, { name: data.name });
+        await logAudit(context as any, "campaign.update", "campaign", data.id || id, {
+          name: data.name,
+        });
       } else {
         await sql`
           INSERT INTO campaigns (
@@ -389,10 +391,10 @@ export const adminSaveCampaign = createServerFn({ method: "POST" })
             ${id}, ${data.name}, ${data.description || null}, ${data.type}, ${status}, ${data.channel},
             ${data.startDate}, ${data.endDate}, ${data.budget}, 0, ${data.targetAudience},
             ${JSON.stringify(data.productIds || [])}::jsonb, ${data.discountCode || null}, ${data.discountType},
-            ${data.discountValue}, 0, 0, 0, 0, ${now}, ${now}, ${context.email || "Admin"}
+            ${data.discountValue}, 0, 0, 0, 0, ${now}, ${now}, ${(context as any).user?.email || (context as any).email || "Admin"}
           )
         `;
-        await logAudit(context, "campaign.create", "campaign", id, { name: data.name });
+        await logAudit(context as any, "campaign.create", "campaign", id, { name: data.name });
       }
 
       return { ok: true as const, id };
@@ -406,7 +408,7 @@ export const adminUpdateCampaignStatus = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { id: string; status: CampaignStatus }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const now = new Date().toISOString();
@@ -414,7 +416,7 @@ export const adminUpdateCampaignStatus = createServerFn({ method: "POST" })
     await sql`
       UPDATE campaigns SET status = ${data.status}, updated_at = ${now} WHERE id = ${data.id}
     `;
-    await logAudit(context, "campaign.status", "campaign", data.id, { status: data.status });
+    await logAudit(context as any, "campaign.status", "campaign", data.id, { status: data.status });
     return { ok: true as const };
   });
 
@@ -422,7 +424,7 @@ export const adminDuplicateCampaign = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
 
@@ -443,10 +445,12 @@ export const adminDuplicateCampaign = createServerFn({ method: "POST" })
         ${newId}, ${newName}, ${orig.description}, ${orig.type}, 'Draft', ${orig.channel},
         ${orig.startDate}, ${orig.endDate}, ${orig.budget}, 0, ${orig.targetAudience},
         ${JSON.stringify(orig.productIds)}::jsonb, ${orig.discountCode}, ${orig.discountType},
-        ${orig.discountValue}, 0, 0, 0, 0, ${now}, ${now}, ${context.email || "Admin"}
+        ${orig.discountValue}, 0, 0, 0, 0, ${now}, ${now}, ${(context as any).user?.email || (context as any).email || "Admin"}
       )
     `;
-    await logAudit(context, "campaign.duplicate", "campaign", newId, { originalId: data.id });
+    await logAudit(context as any, "campaign.duplicate", "campaign", newId, {
+      originalId: data.id,
+    });
     return { ok: true as const, id: newId };
   });
 
@@ -454,7 +458,7 @@ export const adminArchiveCampaign = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     const now = new Date().toISOString();
@@ -462,7 +466,7 @@ export const adminArchiveCampaign = createServerFn({ method: "POST" })
     await sql`
       UPDATE campaigns SET status = 'Cancelled', updated_at = ${now} WHERE id = ${data.id}
     `;
-    await logAudit(context, "campaign.archive", "campaign", data.id);
+    await logAudit(context as any, "campaign.archive", "campaign", data.id);
     return { ok: true as const };
   });
 
@@ -477,7 +481,7 @@ export type ProductSimple = {
 export const adminListProductsForMarketing = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<ProductSimple[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
     try {

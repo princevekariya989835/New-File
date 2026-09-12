@@ -2,32 +2,205 @@ import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
 
 export type AdminCtx = {
-  userId: string;
-  user?: { email?: string; role?: string };
+  userId?: string;
+  user?: {
+    email?: string;
+    role?: string;
+    id?: string;
+    fullName?: string | null;
+    status?: string;
+    permissions?: Record<string, string[]>;
+  };
   isAdmin?: boolean;
+  [key: string]: any;
 };
 
-export async function assertAdmin(context: {
-  userId: string;
-  user?: { email?: string; role?: string };
-  isAdmin?: boolean;
-}) {
-  if (context.isAdmin) return;
-  if (context.user?.role === "admin" || isAdminEmail(context.user?.email)) return;
+export const STAFF_MODULES = [
+  "dashboard",
+  "products",
+  "orders",
+  "inventory",
+  "customers",
+  "returns",
+  "reviews",
+  "designs",
+  "marketing",
+  "analytics",
+  "shipping",
+  "payments",
+  "website",
+  "staff",
+  "settings",
+] as const;
 
-  const sql = getSql();
-  const rows = await sql`
-    SELECT role, email FROM profiles WHERE id = ${context.userId} LIMIT 1
-  `;
-  if (rows.length === 0) {
-    if (isAdminEmail(context.user?.email)) return;
-    throw new Error("Forbidden: admin only");
+export type StaffModule = (typeof STAFF_MODULES)[number];
+
+export const STAFF_ACTIONS = ["view", "create", "edit", "delete", "publish", "manage"] as const;
+
+export type StaffAction = (typeof STAFF_ACTIONS)[number];
+
+export function hasStaffPermission(
+  role?: string | null,
+  customPermissions?: Record<string, string[]> | null,
+  module?: string,
+  action: string = "view",
+): boolean {
+  if (!role) return false;
+  const r = role.toLowerCase().trim();
+
+  // Super Admin has unrestricted access to everything
+  if (r === "super admin" || r === "super_admin") return true;
+
+  // Check custom permission override if provided
+  if (module && customPermissions && typeof customPermissions === "object") {
+    const modPerms = customPermissions[module];
+    if (Array.isArray(modPerms)) {
+      if (modPerms.includes("manage") || modPerms.includes(action) || modPerms.includes("*")) {
+        return true;
+      }
+    }
   }
-  const r = rows[0];
-  if (r.role === "admin" || isAdminEmail(r.email)) {
+
+  // Admin role defaults
+  if (r === "admin" || r === "administrator") {
+    if (module === "staff" && (action === "delete" || action === "manage")) {
+      return false; // Only Super Admin can manage/delete other staff credentials
+    }
+    if (module === "settings" && action === "delete") {
+      return false; // Danger zone wipe is Super Admin only
+    }
+    return true;
+  }
+
+  // Manager role defaults
+  if (r === "manager") {
+    if (module === "staff") return action === "view";
+    if (module === "settings") return action === "view";
+    if (module === "website" && (action === "publish" || action === "delete")) return false;
+    if (module === "payments" && (action === "edit" || action === "delete" || action === "manage"))
+      return false;
+    if (
+      action === "delete" &&
+      (module === "products" || module === "customers" || module === "orders")
+    )
+      return false;
+    return true;
+  }
+
+  // Staff role defaults
+  if (r === "staff") {
+    if (
+      module === "dashboard" ||
+      module === "orders" ||
+      module === "products" ||
+      module === "inventory" ||
+      module === "returns" ||
+      module === "reviews" ||
+      module === "designs"
+    ) {
+      if (action === "view") return true;
+      if (
+        action === "edit" &&
+        (module === "orders" || module === "returns" || module === "inventory")
+      )
+        return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+export async function assertAdmin(context: any) {
+  if (context?.isAdmin) return;
+  const userRole = context?.user?.role;
+  const userEmail = context?.user?.email;
+
+  if (isAdminEmail(userEmail)) return;
+
+  if (userRole && hasStaffPermission(userRole, null, "dashboard", "view")) {
     return;
   }
-  throw new Error("Forbidden: admin only");
+
+  const sql = getSql();
+  const userId = context?.userId || context?.user?.id;
+  if (!userId) {
+    if (isAdminEmail(userEmail)) return;
+    throw new Error("Forbidden: Staff access only");
+  }
+  const rows = await sql`
+    SELECT role, email, status FROM profiles WHERE id = ${userId} LIMIT 1
+  `;
+  if (rows.length === 0) {
+    if (isAdminEmail(userEmail)) return;
+    throw new Error("Forbidden: Staff access only");
+  }
+  const r = rows[0];
+  if (r.status === "Inactive" || r.status === "Suspended") {
+    throw new Error("Forbidden: Account is inactive or suspended");
+  }
+  if (isAdminEmail(r.email) || hasStaffPermission(r.role, null, "dashboard", "view")) {
+    return;
+  }
+  throw new Error("Forbidden: Staff access only");
+}
+
+export async function assertSuperAdmin(context: any) {
+  const userEmail = context?.user?.email;
+  if (isAdminEmail(userEmail)) return;
+
+  const userRole = context?.user?.role;
+  if (
+    userRole &&
+    (userRole.toLowerCase() === "super admin" || userRole.toLowerCase() === "super_admin")
+  ) {
+    return;
+  }
+
+  const sql = getSql();
+  const userId = context?.userId || context?.user?.id;
+  if (!userId) throw new Error("Forbidden: Super Administrator access required");
+
+  const rows = await sql`SELECT role, email FROM profiles WHERE id = ${userId} LIMIT 1`;
+  if (rows.length > 0 && (isAdminEmail(rows[0].email) || rows[0].role === "Super Admin")) {
+    return;
+  }
+
+  throw new Error("Forbidden: Super Administrator access required");
+}
+
+export async function assertPermission(
+  context: any,
+  module: StaffModule | string,
+  action: StaffAction | string = "view",
+) {
+  const userEmail = context?.user?.email;
+  if (isAdminEmail(userEmail)) return;
+
+  const userRole = context?.user?.role;
+  const perms = context?.user?.permissions;
+  if (hasStaffPermission(userRole, perms, module, action)) {
+    return;
+  }
+
+  const sql = getSql();
+  const userId = context?.userId || context?.user?.id;
+  if (!userId) throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
+
+  const rows =
+    await sql`SELECT role, email, permissions, status FROM profiles WHERE id = ${userId} LIMIT 1`;
+  if (rows.length === 0)
+    throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
+
+  const r = rows[0];
+  if (r.status === "Inactive" || r.status === "Suspended") {
+    throw new Error("Forbidden: Account is inactive or suspended");
+  }
+  if (isAdminEmail(r.email) || hasStaffPermission(r.role, r.permissions, module, action)) {
+    return;
+  }
+
+  throw new Error(`Forbidden: You do not have permission to ${action} ${module}`);
 }
 
 export function slugify(value: string) {
@@ -127,25 +300,43 @@ export function normalizeProductInput(d: ProductInput) {
 
 /** Records an important admin action. Never throws — logging must not break the action. */
 export async function logAudit(
-  context: AdminCtx,
+  context: any,
   action: string,
   entityType: string | null,
   entityId: string | null,
   details: Record<string, unknown> = {},
+  options?: {
+    module?: string;
+    targetName?: string;
+    ipAddress?: string;
+    userAgent?: string;
+  },
 ) {
   try {
     const sql = getSql();
     const id = `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const actorId = context?.userId || context?.user?.id || "usr_system";
+    const actorEmail = context?.user?.email || null;
+    const mod = options?.module || entityType || "General";
+    const targetName =
+      options?.targetName || (details?.name as string) || (details?.title as string) || null;
+    const ip = options?.ipAddress || null;
+    const ua = options?.userAgent || null;
+
     await sql`
-      INSERT INTO admin_audit_log (id, actor_id, actor_email, action, entity_type, entity_id, details)
+      INSERT INTO admin_audit_log (id, actor_id, actor_email, action, entity_type, entity_id, details, module, target_name, ip_address, user_agent)
       VALUES (
         ${id},
-        ${context.userId},
-        ${context.user?.email || null},
+        ${actorId},
+        ${actorEmail},
         ${action},
         ${entityType},
         ${entityId},
-        ${JSON.stringify(details)}::jsonb
+        ${JSON.stringify(details)}::jsonb,
+        ${mod},
+        ${targetName},
+        ${ip},
+        ${ua}
       );
     `;
   } catch (e) {
@@ -157,7 +348,7 @@ export async function logAudit(
  * Makes sure a product has one inventory row per size/colour combination and synchronizes stock.
  */
 export async function syncProductVariants(
-  context: AdminCtx,
+  context: any,
   productId: string,
   sizes: string[],
   colors: string[],

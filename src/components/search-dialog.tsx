@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, ArrowRight, Sparkles, ShoppingBag } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { fetchProducts, type ShopifyProduct } from "@/lib/catalog";
+import { fetchProducts, type CatalogProduct } from "@/lib/catalog";
 import { money } from "@/components/admin/format";
 
 interface SearchDialogProps {
@@ -38,7 +38,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const filteredProducts = useMemo(() => {
     if (!trimmedQuery) return [];
     return products
-      .filter((p: ShopifyProduct) => {
+      .filter((p: CatalogProduct) => {
         const title = p.node.title.toLowerCase();
         const desc = (p.node.description || "").toLowerCase();
         const tags = (p.node.tags || []).join(" ").toLowerCase();
@@ -148,7 +148,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
               ) : (
                 <div className="grid gap-2">
                   {filteredProducts.map((p) => {
-                    const img = p.node.featuredImage?.url;
+                    const img = p.node.images?.edges?.[0]?.node?.url;
                     const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
                     return (
                       <button
@@ -161,7 +161,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                           {img ? (
                             <img
                               src={img}
-                              alt={p.node.featuredImage?.altText || p.node.title}
+                              alt={p.node.images?.edges?.[0]?.node?.altText || p.node.title}
                               className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           ) : (
@@ -218,7 +218,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {products.slice(0, 3).map((p) => {
-                      const img = p.node.featuredImage?.url;
+                      const img = p.node.images?.edges?.[0]?.node?.url;
                       const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
                       return (
                         <button
@@ -231,7 +231,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                             {img && (
                               <img
                                 src={img}
-                                alt={p.node.title}
+                                alt={p.node.images?.edges?.[0]?.node?.altText || p.node.title}
                                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             )}

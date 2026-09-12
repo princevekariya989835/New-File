@@ -104,7 +104,7 @@ function AdminCustomersPage() {
 
   // Mutations
   const updateMutation = useMutation({
-    mutationFn: updateFn,
+    mutationFn: (d: Parameters<typeof updateFn>[0]["data"]) => updateFn({ data: d }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "customers"] });
       toast.success("Customer updated successfully.");
@@ -116,7 +116,7 @@ function AdminCustomersPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: statusFn,
+    mutationFn: (d: Parameters<typeof statusFn>[0]["data"]) => statusFn({ data: d }),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["admin", "customers"] });
       toast.success(

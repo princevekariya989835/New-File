@@ -24,6 +24,7 @@ export interface VariantRow {
   id: string;
   size: string;
   color: string;
+  sku?: string;
   stock_quantity: number;
   reserved_stock: number;
   low_stock_threshold: number;
@@ -612,7 +613,7 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         return sortedFallbacks.slice(0, first).map(toCatalogProduct);
       }
 
-      const productIds = products.map((p) => String(p.id));
+      const productIds = products.map((p: any) => String(p.id));
       const variants = await sql`
         SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
         FROM product_variants
@@ -633,7 +634,7 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         });
       }
 
-      const rows: ProductRow[] = products.map((p) => ({
+      const rows: ProductRow[] = products.map((p: any) => ({
         id: String(p.id),
         name: p.name as string,
         slug: p.slug as string,
@@ -710,7 +711,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         WHERE product_id::text = ${String(p.id)}
       `;
 
-      const variantRows: VariantRow[] = variants.map((v) => ({
+      const variantRows: VariantRow[] = variants.map((v: any) => ({
         id: String(v.id),
         size: (v.size as string) || "",
         color: (v.color as string) || "",

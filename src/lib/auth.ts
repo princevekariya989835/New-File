@@ -2,11 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 
+export type StaffRole = "Super Admin" | "Admin" | "Manager" | "Staff";
+export type StaffStatus = "Active" | "Inactive" | "Suspended";
+
 export type AuthUser = {
   id: string;
   email: string;
   fullName: string | null;
-  role: "admin" | "customer";
+  role: "admin" | "customer" | StaffRole | string;
+  phone?: string | null;
+  avatar?: string | null;
+  status?: StaffStatus | string;
+  permissions?: Record<string, string[]>;
+  lastLoginAt?: string | null;
 };
 
 export type AuthSession = {
@@ -141,7 +149,7 @@ export const loginServerFn = createServerFn({ method: "POST" })
       }
 
       const rows = await sql`
-        SELECT id, email, password_hash, full_name, role
+        SELECT id, email, password_hash, full_name, role, phone, avatar, status, permissions, last_login_at
         FROM profiles
         WHERE email = ${data.email}
         LIMIT 1
@@ -158,10 +166,19 @@ export const loginServerFn = createServerFn({ method: "POST" })
         return { ok: false, error: "Invalid email or password." };
       }
 
-      let role = (userRow.role as "admin" | "customer") || "customer";
+      if (userRow.status === "Inactive" || userRow.status === "Suspended") {
+        return {
+          ok: false,
+          error: `Your account is currently ${userRow.status.toLowerCase()}. Please contact a Super Administrator.`,
+        };
+      }
+
+      let role = userRow.role || "customer";
       if (isAdminEmail(userRow.email)) {
-        role = "admin";
-        await sql`UPDATE profiles SET role = 'admin' WHERE email = ${userRow.email}`;
+        role = "Super Admin";
+        await sql`UPDATE profiles SET role = 'Super Admin', status = 'Active', last_login_at = NOW() WHERE email = ${userRow.email}`;
+      } else {
+        await sql`UPDATE profiles SET last_login_at = NOW() WHERE email = ${userRow.email}`;
       }
 
       const user: AuthUser = {
@@ -169,6 +186,13 @@ export const loginServerFn = createServerFn({ method: "POST" })
         email: userRow.email as string,
         fullName: (userRow.full_name as string) || null,
         role,
+        phone: (userRow.phone as string) || null,
+        avatar: (userRow.avatar as string) || null,
+        status: (userRow.status as string) || "Active",
+        permissions: (userRow.permissions as Record<string, string[]>) || {},
+        lastLoginAt: userRow.last_login_at
+          ? new Date(userRow.last_login_at).toISOString()
+          : new Date().toISOString(),
       };
 
       const token = signToken(user.id, user.email, user.role);
@@ -190,28 +214,33 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
       await ensureDbSchema();
       const sql = getSql();
       const rows = await sql`
-        SELECT id, email, full_name, role
+        SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at
         FROM profiles
         WHERE id = ${decoded.id}
         LIMIT 1
       `;
       if (rows.length === 0) {
         if (isAdminEmail(decoded.email)) {
-          return { ...decoded, role: "admin" };
+          return { ...decoded, role: "Super Admin", status: "Active" };
         }
         return decoded;
       }
       const r = rows[0];
-      let role = (r.role as "admin" | "customer") || "customer";
+      let role = r.role || "customer";
       if (isAdminEmail(r.email)) {
-        role = "admin";
-        await sql`UPDATE profiles SET role = 'admin' WHERE email = ${r.email}`;
+        role = "Super Admin";
+        await sql`UPDATE profiles SET role = 'Super Admin' WHERE email = ${r.email}`;
       }
       return {
         id: r.id as string,
         email: r.email as string,
         fullName: (r.full_name as string) || null,
         role,
+        phone: (r.phone as string) || null,
+        avatar: (r.avatar as string) || null,
+        status: (r.status as string) || "Active",
+        permissions: (r.permissions as Record<string, string[]>) || {},
+        lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : null,
       };
     } catch {
       return decoded;

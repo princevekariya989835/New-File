@@ -136,16 +136,6 @@ const PLACEMENT_SURCHARGE: Record<Placement, number> = {
 
 const BASE_PRICE = 1499;
 
-type SavedDesign = {
-  id: string;
-  name: string;
-  color_name: string;
-  placement: string;
-  canvases: Record<string, any> | null;
-  preview_url: string | null;
-  updated_at: string;
-};
-
 function DesignPage() {
   const canvasEl = useRef<HTMLCanvasElement | null>(null);
   const fabricRef = useRef<any>(null);
@@ -181,8 +171,10 @@ function DesignPage() {
     setLoadingDesigns(true);
     try {
       const token = localStorage.getItem("riotous_session") || "";
-      const data = await getMySavedDesigns({ headers: { Authorization: `Bearer ${token}` } });
-      setSavedDesigns(data || []);
+      const data = (await getMySavedDesigns({
+        headers: { Authorization: `Bearer ${token}` },
+      })) as SavedDesign[];
+      setSavedDesigns(Array.isArray(data) ? data : []);
     } catch {
       setSavedDesigns([]);
     }
@@ -388,7 +380,7 @@ function DesignPage() {
         : null;
 
       const token = localStorage.getItem("riotous_session") || "";
-      const saved = await saveDesignFn({
+      const saved = (await saveDesignFn({
         data: {
           name: designName.trim(),
           color_name: color.name,
@@ -397,7 +389,7 @@ function DesignPage() {
           preview_url: preview ?? null,
         },
         headers: { Authorization: `Bearer ${token}` },
-      });
+      })) as SavedDesign;
 
       setSavedDesigns((prev) => [saved, ...prev]);
       setActiveDesignId(saved.id);

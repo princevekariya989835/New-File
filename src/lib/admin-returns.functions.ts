@@ -15,7 +15,7 @@ export type { AdminReturnRecord };
 export const adminListReturns = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminReturnRecord[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     const rows = await sql`
       SELECT r.id, r.return_number, r.order_id, r.order_item_id, r.quantity, r.status, r.reason, r.comments, r.refund_amount,
@@ -69,8 +69,9 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: AdminReturnPatch) => d)
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
+    const authCtx = context as any;
 
     if (data.status) {
       await sql`UPDATE returns SET status = ${data.status}, updated_at = NOW() WHERE id = ${data.returnId}`;
@@ -86,7 +87,7 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
             orderId: String(ret[0].order_id),
             orderItemId: String(ret[0].order_item_id),
             quantity: Number(ret[0].quantity || 1),
-            actorId: context.userId,
+            actorId: authCtx.userId,
           });
         }
       }
@@ -95,14 +96,14 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
       await sql`UPDATE returns SET refund_amount = ${data.refundAmount}, updated_at = NOW() WHERE id = ${data.returnId}`;
     }
 
-    await logAudit(context, "return.update", "return", data.returnId, { status: data.status });
+    await logAudit(context as any, "return.update", "return", data.returnId, { status: data.status });
     return { ok: true as const, emailSent: false };
   });
 
 export const adminGetReturnSettings = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     return loadReturnWindow();
   });
 
@@ -113,7 +114,7 @@ export const adminSetReturnSettings = createServerFn({ method: "POST" })
     requireDelivered: !!d.requireDelivered,
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     await sql`
       INSERT INTO return_settings (id, window_days, require_delivered, updated_at)
@@ -123,6 +124,6 @@ export const adminSetReturnSettings = createServerFn({ method: "POST" })
         require_delivered = EXCLUDED.require_delivered,
         updated_at = NOW();
     `;
-    await logAudit(context, "returns.settings", "store_settings", "returns", data);
+    await logAudit(context as any, "returns.settings", "store_settings", "returns", data);
     return { ok: true as const };
   });

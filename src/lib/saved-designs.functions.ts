@@ -7,7 +7,7 @@ export type SavedDesign = {
   name: string;
   color_name: string;
   placement: string;
-  canvases: Record<string, unknown> | null;
+  canvases: Record<string, any> | null;
   preview_url: string | null;
   updated_at: string;
 };
@@ -18,10 +18,11 @@ export const getMySavedDesigns = createServerFn({ method: "GET" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
       const rows = await sql`
         SELECT id, name, color_name, placement, canvases, preview_url, updated_at
         FROM saved_designs
-        WHERE user_id = ${context.userId}
+        WHERE user_id = ${authCtx.userId}
         ORDER BY updated_at DESC
       `;
       return rows.map((r: any) => ({
@@ -46,13 +47,14 @@ export const saveDesign = createServerFn({ method: "POST" })
       name: string;
       color_name: string;
       placement: string;
-      canvases: Record<string, unknown> | null;
+      canvases: Record<string, any> | null;
       preview_url?: string | null;
     }) => d,
   )
   .handler(async ({ data, context }): Promise<SavedDesign> => {
     await ensureDbSchema();
     const sql = getSql();
+    const authCtx = context as any;
 
     if (data.id) {
       await sql`
@@ -62,7 +64,7 @@ export const saveDesign = createServerFn({ method: "POST" })
           canvases = ${JSON.stringify(data.canvases)}::jsonb,
           preview_url = ${data.preview_url || null},
           updated_at = NOW()
-        WHERE id = ${data.id} AND user_id = ${context.userId}
+        WHERE id = ${data.id} AND user_id = ${authCtx.userId}
       `;
       return {
         id: data.id,
@@ -80,7 +82,7 @@ export const saveDesign = createServerFn({ method: "POST" })
       INSERT INTO saved_designs (
         id, user_id, name, color_name, placement, canvases, preview_url
       ) VALUES (
-        ${id}, ${context.userId}, ${data.name}, ${data.color_name}, ${data.placement}, ${JSON.stringify(data.canvases)}::jsonb, ${data.preview_url || null}
+        ${id}, ${authCtx.userId}, ${data.name}, ${data.color_name}, ${data.placement}, ${JSON.stringify(data.canvases)}::jsonb, ${data.preview_url || null}
       );
     `;
 
@@ -101,8 +103,9 @@ export const deleteSavedDesign = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureDbSchema();
     const sql = getSql();
+    const authCtx = context as any;
     await sql`
-      DELETE FROM saved_designs WHERE id = ${data.id} AND user_id = ${context.userId}
+      DELETE FROM saved_designs WHERE id = ${data.id} AND user_id = ${authCtx.userId}
     `;
     return { ok: true };
   });

@@ -71,13 +71,14 @@ export const submitCustomDesign = createServerFn({ method: "POST" })
     try {
       await ensureDbSchema();
       const sql = getSql();
+      const authCtx = context as any;
       const id = `des_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
       await sql`
         INSERT INTO design_submissions (
           id, user_id, customer_name, customer_email, color_name, placement, product_title, variant_id, price, preview_data_url, preview_images, canvases
         ) VALUES (
-          ${id}, ${context.userId}, ${context.user.fullName}, ${context.user.email}, ${data.colorName}, ${data.placement},
+          ${id}, ${authCtx.userId}, ${authCtx.user?.fullName || "Customer"}, ${authCtx.user?.email || "customer@riotous.store"}, ${data.colorName}, ${data.placement},
           ${data.productTitle}, ${data.variantId}, ${data.price}, ${data.previewDataUrl}, ${JSON.stringify(data.previewImages)}, ${JSON.stringify(data.canvases)}
         );
       `;
@@ -92,7 +93,7 @@ export const submitCustomDesign = createServerFn({ method: "POST" })
 export const adminListDesignSubmissions = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<DesignSubmission[]> => {
-    await assertAdmin(context);
+    await assertAdmin(context as any);
     const sql = getSql();
     const rows = await sql`
       SELECT id, customer_email, customer_name, color_name, placement, product_title, price, preview_data_url, preview_images, created_at

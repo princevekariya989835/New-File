@@ -1,5 +1,6 @@
 export interface WebsiteHeroConfig {
   active: boolean;
+  enabled?: boolean;
   badge: string;
   heading: string;
   subheading: string;
@@ -9,9 +10,14 @@ export interface WebsiteHeroConfig {
   secondaryCtaText: string;
   secondaryCtaLink: string;
   mediaType: "video" | "image";
+  mediaUrl?: string;
   videoUrl: string;
   imageUrl: string;
+  mediaFileName?: string;
+  mediaFileSize?: number;
   alignment: "left" | "center" | "right";
+  animation?: "none" | "fade" | "zoom" | "subtle" | "default" | string;
+  showTShirtBadge?: boolean;
 }
 
 export interface WebsiteAnnouncementConfig {
@@ -230,6 +236,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     secondaryCtaText: "Design Your Own",
     secondaryCtaLink: "/design",
     mediaType: "video",
+    mediaUrl: "/videos/riotus-hero.mp4",
     videoUrl: "/videos/riotus-hero.mp4",
     imageUrl: "/assets/hero-bg.jpg",
     alignment: "left",

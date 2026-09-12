@@ -164,7 +164,11 @@ function InventoryPage() {
   }, [enrichedTransactions]);
 
   const uniqueHistoryReasons = useMemo(() => {
-    const rs = new Set(enrichedTransactions.map((t) => t.reason).filter(Boolean));
+    const rs = new Set(
+      enrichedTransactions
+        .map((t) => t.reason)
+        .filter((r): r is string => typeof r === "string" && r.length > 0),
+    );
     return Array.from(rs);
   }, [enrichedTransactions]);
 

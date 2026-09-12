@@ -225,7 +225,7 @@ function OrdersPage() {
           <AdminEraseDataButton
             section="orders"
             sectionLabel="Orders"
-            onSuccess={() => refetch()}
+            onSuccess={() => refresh()}
           />
         </div>
       </div>
