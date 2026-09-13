@@ -596,9 +596,7 @@ export async function ensureDbSchema() {
 
       // For fresh database setups, execute in grouped batches rather than 70 sequential HTTP calls
       try {
-        const ddlBatch = schemaStatements
-          .filter((s) => !s.trim().startsWith("DO $$"))
-          .join(";\n");
+        const ddlBatch = schemaStatements.filter((s) => !s.trim().startsWith("DO $$")).join(";\n");
         if (typeof (sql as any).query === "function") {
           await (sql as any).query(ddlBatch);
         } else {

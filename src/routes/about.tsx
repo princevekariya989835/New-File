@@ -70,9 +70,9 @@ function AboutPage() {
           construction and pre-shrunk to endure everyday wear.
         </p>
         <p>
-          From conceptualizing artwork and digital prototyping to precision printing, inspection, and
-          packaging, everything happens ethically in our own workshop. We cut out middlemen to deliver
-          luxury-tier apparel at honest prices. We don't chase fleeting algorithms or follow
+          From conceptualizing artwork and digital prototyping to precision printing, inspection,
+          and packaging, everything happens ethically in our own workshop. We cut out middlemen to
+          deliver luxury-tier apparel at honest prices. We don't chase fleeting algorithms or follow
           fast-moving trends. We print them.
         </p>
       </div>
