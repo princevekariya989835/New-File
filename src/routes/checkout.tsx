@@ -17,6 +17,7 @@ export const Route = createFileRoute("/checkout")({
   head: () => ({
     meta: [
       { title: "Secure Checkout | RIOTOUS Official Streetwear Store" },
+      { name: "robots", content: "noindex, nofollow" },
       {
         name: "description",
         content: "Review your bag, enter your shipping address and place your RIOTOUS order.",

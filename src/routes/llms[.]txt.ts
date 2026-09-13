@@ -1,4 +1,7 @@
-# RIOTOUS — Official Brand Information & AI Context
+import { createFileRoute } from "@tanstack/react-router";
+import type {} from "@tanstack/react-start";
+
+const LLMS_TXT_CONTENT = `# RIOTOUS — Official Brand Information & AI Context
 
 > RIOTOUS is an independent premium DTF-printed streetwear label based in India. RIOTOUS designs and manufactures heavyweight oversized graphic t-shirts, custom apparel, and offers a live interactive studio to design your own prints.
 
@@ -32,3 +35,19 @@
 - **Support Email**: support@riotous.store
 - **Operating Hours**: Monday to Saturday, 10:00 AM – 7:00 PM IST
 - **Instagram**: @riotous.store
+`;
+
+export const Route = createFileRoute("/llms.txt")({
+  server: {
+    handlers: {
+      GET: async () => {
+        return new Response(LLMS_TXT_CONTENT, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      },
+    },
+  },
+});

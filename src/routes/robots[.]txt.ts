@@ -1,4 +1,7 @@
-# ==============================================================================
+import { createFileRoute } from "@tanstack/react-router";
+import type {} from "@tanstack/react-start";
+
+const ROBOTS_TXT_CONTENT = `# ==============================================================================
 # RIOTOUS Official robots.txt
 # Website: https://riotous.store
 # ==============================================================================
@@ -109,3 +112,19 @@ Disallow: /api/
 # Sitemaps
 # ------------------------------------------------------------------------------
 Sitemap: https://riotous.store/sitemap.xml
+`;
+
+export const Route = createFileRoute("/robots.txt")({
+  server: {
+    handlers: {
+      GET: async () => {
+        return new Response(ROBOTS_TXT_CONTENT, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      },
+    },
+  },
+});

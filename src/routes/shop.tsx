@@ -48,6 +48,24 @@ export const Route = createFileRoute("/shop")({
       { property: "og:url", content: "/shop" },
     ],
     links: [{ rel: "canonical", href: "/shop" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "RIOTOUS Streetwear Collection",
+          url: "https://riotous.store/shop",
+          description:
+            "Browse the full RIOTOUS collection of premium DTF printed heavyweight oversized t-shirts made in India.",
+          isPartOf: {
+            "@type": "WebSite",
+            name: "RIOTOUS",
+            url: "https://riotous.store",
+          },
+        }),
+      },
+    ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(productsQuery),
   component: ShopPage,

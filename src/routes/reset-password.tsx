@@ -7,6 +7,7 @@ export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
       { title: "Reset Your Password | RIOTOUS Account Recovery Portal" },
+      { name: "robots", content: "noindex, nofollow" },
       { name: "description", content: "Set a new password for your RIOTOUS account." },
     ],
   }),

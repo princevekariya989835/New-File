@@ -95,6 +95,8 @@ export const Route = createFileRoute("/product/$handle")({
             "@context": "https://schema.org",
             "@type": "Product",
             name: p.title,
+            sku: p.productId || p.handle,
+            category: p.productType || "Apparel & Accessories > Clothing > Shirts & Tops",
             description: p.description || `${p.title} by RIOTOUS.`,
             image: p.images.edges.map((e) => e.node.url),
             brand: { "@type": "Brand", name: "RIOTOUS" },
@@ -102,8 +104,12 @@ export const Route = createFileRoute("/product/$handle")({
             offers: p.variants.edges.map((v) => ({
               "@type": "Offer",
               name: v.node.title,
+              sku: v.node.id || `${p.handle}-${v.node.title.replace(/[\s/]+/g, "-").toLowerCase()}`,
               price: v.node.price.amount,
               priceCurrency: v.node.price.currencyCode,
+              priceValidUntil: "2027-12-31",
+              itemCondition: "https://schema.org/NewCondition",
+              seller: { "@type": "Organization", name: "RIOTOUS" },
               url: `https://riotous.store/product/${p.handle}`,
               availability: v.node.availableForSale
                 ? "https://schema.org/InStock"

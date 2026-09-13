@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
+import { FALLBACK_PRODUCTS } from "@/lib/catalog";
 
 const BASE_URL = "https://riotous.store";
 
@@ -11,18 +12,21 @@ interface SitemapEntry {
 }
 
 async function fetchPublicPaths(): Promise<SitemapEntry[]> {
+  const entries: SitemapEntry[] = [];
+  const categories = new Set<string>();
+
   try {
-    await ensureDbSchema();
     const sql = getSql();
     const rows = await sql`
       SELECT slug, category FROM products WHERE is_active = true LIMIT 1000
     `;
-    if (!rows) return [];
 
-    const entries: SitemapEntry[] = [];
-    const categories = new Set<string>();
+    const productList =
+      Array.isArray(rows) && rows.length > 0
+        ? (rows as Array<{ slug: string; category: string | null }>)
+        : FALLBACK_PRODUCTS.map((p) => ({ slug: p.slug, category: p.category }));
 
-    for (const row of rows as Array<{ slug: string; category: string | null }>) {
+    for (const row of productList) {
       if (row.slug) {
         entries.push({
           path: `/product/${encodeURIComponent(row.slug)}`,
@@ -43,7 +47,27 @@ async function fetchPublicPaths(): Promise<SitemapEntry[]> {
 
     return entries;
   } catch {
-    return [];
+    // If database is offline, generate sitemap from fallback catalog
+    for (const p of FALLBACK_PRODUCTS) {
+      if (p.slug) {
+        entries.push({
+          path: `/product/${encodeURIComponent(p.slug)}`,
+          changefreq: "weekly",
+          priority: "0.8",
+        });
+      }
+      if (p.category) categories.add(p.category);
+    }
+
+    for (const category of categories) {
+      entries.push({
+        path: `/shop?category=${encodeURIComponent(category)}`,
+        changefreq: "weekly",
+        priority: "0.7",
+      });
+    }
+
+    return entries;
   }
 }
 

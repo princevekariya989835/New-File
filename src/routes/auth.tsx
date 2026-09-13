@@ -13,6 +13,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign In or Create Account | RIOTOUS Streetwear Store" },
+      { name: "robots", content: "noindex, nofollow" },
       {
         name: "description",
         content: "Sign in or create your RIOTOUS account to shop, save designs and track orders.",

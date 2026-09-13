@@ -18,6 +18,26 @@ export const Route = createFileRoute("/about")({
       { property: "og:url", content: "/about" },
     ],
     links: [{ rel: "canonical", href: "/about" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          name: "About RIOTOUS",
+          url: "https://riotous.store/about",
+          description:
+            "RIOTOUS is a premium DTF-printed streetwear label from India, dedicated to heavyweight combed cotton, oversized fits, and custom prints.",
+          mainEntity: {
+            "@type": "Organization",
+            name: "RIOTOUS",
+            url: "https://riotous.store",
+            logo: "https://riotous.store/favicon.svg",
+            sameAs: ["https://instagram.com/riotous.store"],
+          },
+        }),
+      },
+    ],
   }),
   component: AboutPage,
 });
