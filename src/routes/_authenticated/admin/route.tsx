@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { isAdminEmail } from "@/lib/auth";
+import { isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { adminDashboard } from "@/lib/admin-dashboard.functions";
 import { AdminLayoutSkeleton } from "@/components/admin/admin-skeletons";
@@ -96,7 +96,7 @@ function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [term, setTerm] = useState("");
 
-  const isExplicitAdmin = user.role === "admin" || isAdminEmail(user.email);
+  const isExplicitAdmin = hasAdminPanelAccess(user as any);
 
   const roleQ = useQuery({
     queryKey: ["is-admin", user.id],

@@ -331,8 +331,38 @@ export const getStaffDetails = createServerFn({ method: "POST" })
     };
   });
 
+export const searchUsersForStaff = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { query: string }) => ({
+    query: String(d.query || "")
+      .trim()
+      .toLowerCase(),
+  }))
+  .handler(async ({ data, context }) => {
+    await assertPermission(context, "staff", "view");
+    await ensureDbSchema();
+    const sql = getSql();
+    const q = `%${data.query}%`;
+    const rows = await sql`
+      SELECT id, email, full_name, phone, role, status, last_login_at, created_at
+      FROM profiles
+      WHERE lower(email) LIKE ${q} OR lower(full_name) LIKE ${q} OR lower(id) LIKE ${q}
+      LIMIT 15
+    `;
+    return rows.map((r) => ({
+      id: String(r.id),
+      email: r.email,
+      name: r.full_name || r.email.split("@")[0] || "User",
+      phone: r.phone || null,
+      role: r.role || "customer",
+      status: r.status || "Active",
+      lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : null,
+      createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+    }));
+  });
+
 /**
- * Create a new staff account
+ * Create a new staff account or convert an existing registered user account into staff
  */
 export const createStaff = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -362,12 +392,8 @@ export const createStaff = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
 
-    if (!data.name) throw new Error("Staff name is required.");
     if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       throw new Error("A valid email address is required.");
-    }
-    if (data.initialPassword.length < 6) {
-      throw new Error("Initial password must be at least 6 characters.");
     }
 
     // If assigning Super Admin, require Super Admin caller
@@ -375,20 +401,64 @@ export const createStaff = createServerFn({ method: "POST" })
       await assertSuperAdmin(context);
     }
 
-    // Check if email already exists
-    const existing = await sql`SELECT id, role FROM profiles WHERE email = ${data.email} LIMIT 1`;
-    if (existing.length > 0) {
-      throw new Error("An account with this email address already exists.");
-    }
-
-    const staffId = `usr_staff_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    const passwordHash = await hashStaffPassword(data.initialPassword);
     const finalPermissions =
       data.permissions && Object.keys(data.permissions).length > 0
         ? data.permissions
         : getDefaultRolePermissions(data.role);
 
     const creatorName = context.user.fullName || context.user.email || "Administrator";
+
+    // Check if user account already exists in profiles
+    const existing =
+      await sql`SELECT id, email, role, status FROM profiles WHERE email = ${data.email} LIMIT 1`;
+    if (existing.length > 0) {
+      const exUser = existing[0];
+      if (isAdminEmail(exUser.email) && data.role !== "Super Admin") {
+        throw new Error("Primary Super Administrator role cannot be changed.");
+      }
+
+      await sql`
+        UPDATE profiles
+        SET role = ${data.role},
+            status = ${data.status},
+            permissions = ${JSON.stringify(finalPermissions)}::jsonb,
+            full_name = COALESCE(NULLIF(${data.name}, ''), full_name),
+            phone = COALESCE(NULLIF(${data.phone}, ''), phone),
+            updated_at = NOW()
+        WHERE id = ${exUser.id}
+      `;
+
+      await logAudit(
+        context,
+        `Existing user converted to staff (${data.role})`,
+        "Staff",
+        exUser.id,
+        {
+          name: data.name || exUser.email,
+          email: data.email,
+          role: data.role,
+          status: data.status,
+        },
+        {
+          module: "staff",
+          targetName: data.name || exUser.email,
+        },
+      );
+
+      return {
+        ok: true,
+        staffId: exUser.id,
+        message: "Existing user account successfully converted to staff!",
+      };
+    }
+
+    if (!data.name) throw new Error("Staff name is required.");
+    if (data.initialPassword.length < 6) {
+      throw new Error("Initial password must be at least 6 characters.");
+    }
+
+    const staffId = `usr_staff_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const passwordHash = await hashStaffPassword(data.initialPassword);
 
     await sql`
       INSERT INTO profiles (id, email, password_hash, full_name, role, phone, status, permissions, created_by, created_at, updated_at)

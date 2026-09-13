@@ -1,11 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
-import {
-  assertAdmin,
-  assertPermission,
-  assertSuperAdmin,
-  logAudit,
-} from "@/lib/admin-utils";
+import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
 
@@ -98,7 +93,8 @@ function mapRowToSettings(r: any): StoreSettings {
     country: r.country || "India",
     language: r.language || "en",
     maintenanceMode: Boolean(r.maintenance_mode),
-    maintenanceMessage: r.maintenance_message || "We are currently updating the store. Please check back shortly.",
+    maintenanceMessage:
+      r.maintenance_message || "We are currently updating the store. Please check back shortly.",
     orderNotifications: r.order_notifications !== false,
     lowStockNotifications: r.low_stock_notifications !== false,
     returnNotifications: r.return_notifications !== false,
@@ -277,17 +273,11 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
  */
 export const updateAccountProfile = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator(
-    (d: {
-      fullName: string;
-      phone?: string | null;
-      avatar?: string | null;
-    }) => ({
-      fullName: String(d.fullName || "").trim(),
-      phone: d.phone ? String(d.phone).trim() : null,
-      avatar: d.avatar ? String(d.avatar).trim() : null,
-    }),
-  )
+  .inputValidator((d: { fullName: string; phone?: string | null; avatar?: string | null }) => ({
+    fullName: String(d.fullName || "").trim(),
+    phone: d.phone ? String(d.phone).trim() : null,
+    avatar: d.avatar ? String(d.avatar).trim() : null,
+  }))
   .handler(async ({ data, context }) => {
     await ensureDbSchema();
     const sql = getSql();
@@ -321,11 +311,7 @@ export const updateAccountProfile = createServerFn({ method: "POST" })
 export const changeAccountPassword = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator(
-    (d: {
-      currentPassword: string;
-      newPassword: string;
-      confirmPassword: string;
-    }) => ({
+    (d: { currentPassword: string; newPassword: string; confirmPassword: string }) => ({
       currentPassword: String(d.currentPassword || ""),
       newPassword: String(d.newPassword || ""),
       confirmPassword: String(d.confirmPassword || ""),
@@ -392,7 +378,7 @@ export const exportStoreData = createServerFn({ method: "POST" })
     const sql = getSql();
 
     let rawData: any[] = [];
-    let filename = `riotous_${data.dataType}_${new Date().toISOString().slice(0, 10)}`;
+    const filename = `riotous_${data.dataType}_${new Date().toISOString().slice(0, 10)}`;
 
     if (data.dataType === "products") {
       rawData = await sql`
@@ -474,12 +460,10 @@ export const exportStoreData = createServerFn({ method: "POST" })
  */
 export const toggleMaintenanceMode = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator(
-    (d: { enabled: boolean; message?: string }) => ({
-      enabled: Boolean(d.enabled),
-      message: d.message ? String(d.message).trim() : undefined,
-    }),
-  )
+  .inputValidator((d: { enabled: boolean; message?: string }) => ({
+    enabled: Boolean(d.enabled),
+    message: d.message ? String(d.message).trim() : undefined,
+  }))
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
     await ensureDbSchema();

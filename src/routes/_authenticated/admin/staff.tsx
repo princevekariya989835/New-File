@@ -10,12 +10,18 @@ import {
   changeStaffRole,
   toggleStaffStatus,
   resetStaffPassword,
+  searchUsersForStaff,
   getDefaultRolePermissions,
   type StaffItem,
   type StaffRole,
   type StaffStatus,
 } from "@/lib/admin-staff.functions";
-import { STAFF_MODULES, STAFF_ACTIONS, type StaffModule, type StaffAction } from "@/lib/admin-utils";
+import {
+  STAFF_MODULES,
+  STAFF_ACTIONS,
+  type StaffModule,
+  type StaffAction,
+} from "@/lib/admin-utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +95,7 @@ function AdminStaffPage() {
   const changeRoleFn = useServerFn(changeStaffRole);
   const toggleStatusFn = useServerFn(toggleStaffStatus);
   const resetPasswordFn = useServerFn(resetStaffPassword);
+  const searchUsersFn = useServerFn(searchUsersForStaff);
 
   // Filter and pagination state
   const [search, setSearch] = useState("");
@@ -106,6 +113,10 @@ function AdminStaffPage() {
   const [roleChangeStaff, setRoleChangeStaff] = useState<StaffItem | null>(null);
   const [selectedRole, setSelectedRole] = useState<StaffRole>("Staff");
   const [newPassword, setNewPassword] = useState("");
+
+  // Existing user search state in create modal
+  const [userQuery, setUserQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
 
   // Create form state
   const [createForm, setCreateForm] = useState<{
@@ -291,24 +302,46 @@ function AdminStaffPage() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "Super Admin":
-        return <Badge className="bg-purple-600 text-white border-purple-500 font-semibold">Super Admin</Badge>;
+        return (
+          <Badge className="bg-purple-600 text-white border-purple-500 font-semibold">
+            Super Admin
+          </Badge>
+        );
       case "Admin":
         return <Badge className="bg-red-600 text-white border-red-500 font-semibold">Admin</Badge>;
       case "Manager":
-        return <Badge className="bg-blue-600 text-white border-blue-500 font-semibold">Manager</Badge>;
+        return (
+          <Badge className="bg-blue-600 text-white border-blue-500 font-semibold">Manager</Badge>
+        );
       default:
-        return <Badge variant="secondary" className="font-medium">Staff</Badge>;
+        return (
+          <Badge variant="secondary" className="font-medium">
+            Staff
+          </Badge>
+        );
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Active":
-        return <Badge className="bg-emerald-600/10 text-emerald-500 border border-emerald-500/30">Active</Badge>;
+        return (
+          <Badge className="bg-emerald-600/10 text-emerald-500 border border-emerald-500/30">
+            Active
+          </Badge>
+        );
       case "Suspended":
-        return <Badge className="bg-rose-600/10 text-rose-500 border border-rose-500/30">Suspended</Badge>;
+        return (
+          <Badge className="bg-rose-600/10 text-rose-500 border border-rose-500/30">
+            Suspended
+          </Badge>
+        );
       default:
-        return <Badge className="bg-amber-600/10 text-amber-500 border border-amber-500/30">Inactive</Badge>;
+        return (
+          <Badge className="bg-amber-600/10 text-amber-500 border border-amber-500/30">
+            Inactive
+          </Badge>
+        );
     }
   };
 
@@ -530,7 +563,12 @@ function AdminStaffPage() {
                           <div className="font-semibold text-foreground flex items-center gap-1.5">
                             {staff.name}
                             {staff.email === "princevekariya9898@gmail.com" && (
-                              <span title="Primary Store Owner" className="text-[10px] bg-purple-500/20 text-purple-400 px-1 rounded">Owner</span>
+                              <span
+                                title="Primary Store Owner"
+                                className="text-[10px] bg-purple-500/20 text-purple-400 px-1 rounded"
+                              >
+                                Owner
+                              </span>
                             )}
                           </div>
                           {staff.phone && (
@@ -544,12 +582,8 @@ function AdminStaffPage() {
                     <td className="px-4 py-3.5 text-muted-foreground font-mono text-xs">
                       {staff.email}
                     </td>
-                    <td className="px-4 py-3.5">
-                      {getRoleBadge(staff.role)}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {getStatusBadge(staff.status)}
-                    </td>
+                    <td className="px-4 py-3.5">{getRoleBadge(staff.role)}</td>
+                    <td className="px-4 py-3.5">{getStatusBadge(staff.status)}</td>
                     <td className="px-4 py-3.5 text-xs text-muted-foreground">
                       {staff.lastLoginAt ? (
                         <span title={new Date(staff.lastLoginAt).toLocaleString()}>
@@ -602,7 +636,12 @@ function AdminStaffPage() {
                           <DropdownMenuSeparator />
                           {staff.status === "Active" ? (
                             <DropdownMenuItem
-                              onClick={() => toggleStatusMutation.mutate({ staffId: staff.id, status: "Inactive" })}
+                              onClick={() =>
+                                toggleStatusMutation.mutate({
+                                  staffId: staff.id,
+                                  status: "Inactive",
+                                })
+                              }
                               className="cursor-pointer text-amber-500 focus:text-amber-500"
                               disabled={staff.email === "princevekariya9898@gmail.com"}
                             >
@@ -610,16 +649,26 @@ function AdminStaffPage() {
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem
-                              onClick={() => toggleStatusMutation.mutate({ staffId: staff.id, status: "Active" })}
+                              onClick={() =>
+                                toggleStatusMutation.mutate({ staffId: staff.id, status: "Active" })
+                              }
                               className="cursor-pointer text-emerald-500 focus:text-emerald-500"
                             >
                               <UserCheck className="mr-2 h-4 w-4" /> Activate Account
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            onClick={() => toggleStatusMutation.mutate({ staffId: staff.id, status: "Suspended" })}
+                            onClick={() =>
+                              toggleStatusMutation.mutate({
+                                staffId: staff.id,
+                                status: "Suspended",
+                              })
+                            }
                             className="cursor-pointer text-destructive focus:text-destructive"
-                            disabled={staff.email === "princevekariya9898@gmail.com" || staff.status === "Suspended"}
+                            disabled={
+                              staff.email === "princevekariya9898@gmail.com" ||
+                              staff.status === "Suspended"
+                            }
                           >
                             <AlertTriangle className="mr-2 h-4 w-4" /> Suspend Account
                           </DropdownMenuItem>
@@ -637,7 +686,8 @@ function AdminStaffPage() {
         <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-muted-foreground">
           <div>
             Showing <span className="font-semibold text-foreground">{staffList.length}</span> of{" "}
-            <span className="font-semibold text-foreground">{staffQuery.data?.total || 0}</span> staff members
+            <span className="font-semibold text-foreground">{staffQuery.data?.total || 0}</span>{" "}
+            staff members
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -682,6 +732,65 @@ function AdminStaffPage() {
             }}
             className="space-y-4 py-2"
           >
+            <div className="space-y-2 p-3 rounded-lg bg-muted/40 border">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Find Existing Registered User (Optional)
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Search by email, name or user ID to convert to staff..."
+                  value={userQuery}
+                  onChange={async (e) => {
+                    const q = e.target.value;
+                    setUserQuery(q);
+                    if (q.trim().length >= 2) {
+                      try {
+                        const results = await searchUsersFn({ data: { query: q } });
+                        setUserSearchResults(results);
+                      } catch {
+                        setUserSearchResults([]);
+                      }
+                    } else {
+                      setUserSearchResults([]);
+                    }
+                  }}
+                  className="h-9 bg-background text-xs"
+                />
+              </div>
+              {userSearchResults.length > 0 && (
+                <div className="max-h-40 overflow-y-auto border rounded-md bg-card shadow-sm divide-y">
+                  {userSearchResults.map((u) => (
+                    <div
+                      key={u.id}
+                      onClick={() => {
+                        setCreateForm({
+                          ...createForm,
+                          name: u.name || "",
+                          email: u.email || "",
+                          phone: u.phone || "",
+                        });
+                        setUserQuery("");
+                        setUserSearchResults([]);
+                      }}
+                      className="p-2.5 text-xs hover:bg-muted/50 cursor-pointer flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-semibold text-foreground">
+                          {u.name} ({u.email})
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono">
+                          ID: {u.id} · Current Role: {u.role}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] h-6">
+                        Select Existing
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="name">Full Name *</Label>
@@ -755,7 +864,9 @@ function AdminStaffPage() {
                 <Label>Status</Label>
                 <select
                   value={createForm.status}
-                  onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as StaffStatus })}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, status: e.target.value as StaffStatus })
+                  }
                   className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="Active">Active (Immediate Login Enabled)</option>
@@ -791,11 +902,15 @@ function AdminStaffPage() {
                 {STAFF_MODULES.map((mod) => {
                   const currentModPerms = createForm.permissions[mod] || [];
                   return (
-                    <div key={mod} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0">
+                    <div
+                      key={mod}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                    >
                       <span className="font-medium capitalize w-28 text-foreground">{mod}</span>
                       <div className="flex flex-wrap gap-3">
                         {STAFF_ACTIONS.map((act) => {
-                          const isChecked = currentModPerms.includes(act) || currentModPerms.includes("manage");
+                          const isChecked =
+                            currentModPerms.includes(act) || currentModPerms.includes("manage");
                           return (
                             <label key={act} className="flex items-center gap-1.5 cursor-pointer">
                               <input
@@ -905,7 +1020,9 @@ function AdminStaffPage() {
                 <Label>Status</Label>
                 <select
                   value={editForm.status}
-                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as StaffStatus })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, status: e.target.value as StaffStatus })
+                  }
                   className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="Active">Active</option>
@@ -939,11 +1056,15 @@ function AdminStaffPage() {
                 {STAFF_MODULES.map((mod) => {
                   const currentModPerms = editForm.permissions[mod] || [];
                   return (
-                    <div key={mod} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0">
+                    <div
+                      key={mod}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs py-1 border-b border-border/40 last:border-0"
+                    >
                       <span className="font-medium capitalize w-28 text-foreground">{mod}</span>
                       <div className="flex flex-wrap gap-3">
                         {STAFF_ACTIONS.map((act) => {
-                          const isChecked = currentModPerms.includes(act) || currentModPerms.includes("manage");
+                          const isChecked =
+                            currentModPerms.includes(act) || currentModPerms.includes("manage");
                           return (
                             <label key={act} className="flex items-center gap-1.5 cursor-pointer">
                               <input
@@ -1012,8 +1133,12 @@ function AdminStaffPage() {
                   {staffDetailsQuery.data.staff.name[0]}
                 </div>
                 <div className="space-y-1">
-                  <h3 className="font-bold text-base leading-none">{staffDetailsQuery.data.staff.name}</h3>
-                  <p className="text-xs text-muted-foreground font-mono">{staffDetailsQuery.data.staff.email}</p>
+                  <h3 className="font-bold text-base leading-none">
+                    {staffDetailsQuery.data.staff.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {staffDetailsQuery.data.staff.email}
+                  </p>
                   <div className="flex items-center gap-2 pt-1">
                     {getRoleBadge(staffDetailsQuery.data.staff.role)}
                     {getStatusBadge(staffDetailsQuery.data.staff.status)}
@@ -1025,11 +1150,15 @@ function AdminStaffPage() {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded-md border bg-card">
                   <span className="text-muted-foreground block mb-1">Phone</span>
-                  <span className="font-medium">{staffDetailsQuery.data.staff.phone || "Not provided"}</span>
+                  <span className="font-medium">
+                    {staffDetailsQuery.data.staff.phone || "Not provided"}
+                  </span>
                 </div>
                 <div className="p-3 rounded-md border bg-card">
                   <span className="text-muted-foreground block mb-1">Created By</span>
-                  <span className="font-medium">{staffDetailsQuery.data.staff.createdBy || "System"}</span>
+                  <span className="font-medium">
+                    {staffDetailsQuery.data.staff.createdBy || "System"}
+                  </span>
                 </div>
                 <div className="p-3 rounded-md border bg-card">
                   <span className="text-muted-foreground block mb-1">Last Login</span>
@@ -1058,7 +1187,11 @@ function AdminStaffPage() {
                       <span className="font-medium capitalize">{mod}</span>
                       <div className="flex gap-1 flex-wrap justify-end">
                         {(perms as string[]).map((p) => (
-                          <Badge key={p} variant="outline" className="text-[10px] uppercase font-mono">
+                          <Badge
+                            key={p}
+                            variant="outline"
+                            className="text-[10px] uppercase font-mono"
+                          >
                             {p}
                           </Badge>
                         ))}
@@ -1084,7 +1217,10 @@ function AdminStaffPage() {
                         <div className="flex items-center justify-between font-medium">
                           <span>{act.action}</span>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(act.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(act.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -1116,12 +1252,16 @@ function AdminStaffPage() {
       </Sheet>
 
       {/* RESET PASSWORD DIALOG */}
-      <Dialog open={Boolean(resetPwdStaff)} onOpenChange={(open) => !open && setResetPwdStaff(null)}>
+      <Dialog
+        open={Boolean(resetPwdStaff)}
+        onOpenChange={(open) => !open && setResetPwdStaff(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reset Staff Password</DialogTitle>
             <DialogDescription>
-              Set a new temporary or permanent password for {resetPwdStaff?.name} ({resetPwdStaff?.email}).
+              Set a new temporary or permanent password for {resetPwdStaff?.name} (
+              {resetPwdStaff?.email}).
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1161,7 +1301,10 @@ function AdminStaffPage() {
       </Dialog>
 
       {/* CHANGE ROLE DIALOG */}
-      <Dialog open={Boolean(roleChangeStaff)} onOpenChange={(open) => !open && setRoleChangeStaff(null)}>
+      <Dialog
+        open={Boolean(roleChangeStaff)}
+        onOpenChange={(open) => !open && setRoleChangeStaff(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Change Staff Role</DialogTitle>

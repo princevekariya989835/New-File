@@ -17,7 +17,7 @@ import { SearchDialog } from "./search-dialog";
 import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
-import { isAdminEmail } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth";
 import { BrandName } from "@/components/brand-name";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import type { WebsiteConfig } from "@/lib/website-config.types";
@@ -44,7 +44,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.role === "admin" || isAdminEmail(user?.email);
+  const isAdmin = hasAdminPanelAccess(user);
   const { config: publishedConfig } = usePublishedWebsiteConfig();
   const config = customConfig || publishedConfig;
 

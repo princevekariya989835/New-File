@@ -37,6 +37,33 @@ export function isAdminEmail(email?: string | null): boolean {
   return normalized === "princevekariya9898@gmail.com";
 }
 
+export function isStaffRole(r?: string | null): boolean {
+  if (!r) return false;
+  const lower = r.toLowerCase().trim();
+  return (
+    lower === "admin" ||
+    lower === "super admin" ||
+    lower === "super_admin" ||
+    lower === "manager" ||
+    lower === "staff" ||
+    lower === "administrator"
+  );
+}
+
+export function isStaffMember(user?: AuthUser | null): boolean {
+  if (!user) return false;
+  if (isAdminEmail(user.email)) return true;
+  const status = String(user.status || "Active")
+    .toLowerCase()
+    .trim();
+  if (status === "inactive" || status === "suspended") return false;
+  return isStaffRole(user.role);
+}
+
+export function hasAdminPanelAccess(user?: AuthUser | null): boolean {
+  return isStaffMember(user);
+}
+
 // Generate simple HMAC-like signed token: base64(userId:email:role:timestamp:signature)
 function signToken(userId: string, email: string, role: string): string {
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days

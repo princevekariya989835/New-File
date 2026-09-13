@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { isAdminEmail } from "@/lib/auth";
+import { isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
@@ -55,7 +55,7 @@ function AuthPage() {
     if (user && !authLoading) {
       if (search?.redirect) {
         navigate({ to: search.redirect as any });
-      } else if (user.role === "admin" || isAdminEmail(user.email)) {
+      } else if (hasAdminPanelAccess(user)) {
         navigate({ to: "/admin" });
       } else {
         navigate({ to: "/" });
@@ -73,7 +73,7 @@ function AuthPage() {
         return;
       }
       toast.success("Welcome back.");
-      const isAdmin = res.session?.user?.role === "admin" || isAdminEmail(res.session?.user?.email);
+      const isAdmin = hasAdminPanelAccess(res.session?.user);
       if (search?.redirect) {
         navigate({ to: search.redirect as any });
       } else if (isAdmin) {
@@ -128,7 +128,7 @@ function AuthPage() {
         return;
       }
       toast.success("Account verified and created successfully. Welcome!");
-      const isAdmin = res.session?.user?.role === "admin" || isAdminEmail(res.session?.user?.email);
+      const isAdmin = hasAdminPanelAccess(res.session?.user);
       if (search?.redirect) {
         navigate({ to: search.redirect as any });
       } else if (isAdmin) {
@@ -183,7 +183,7 @@ function AuthPage() {
         return;
       }
       toast.success("Password reset successfully! You are now signed in.");
-      const isAdmin = res.session?.user?.role === "admin" || isAdminEmail(res.session?.user?.email);
+      const isAdmin = hasAdminPanelAccess(res.session?.user);
       if (search?.redirect) {
         navigate({ to: search.redirect as any });
       } else if (isAdmin) {

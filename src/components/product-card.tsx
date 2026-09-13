@@ -7,7 +7,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { BrandName } from "@/components/brand-name";
 
-export function ProductCard({ product }: { product: CatalogProduct }) {
+export function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: CatalogProduct;
+  priority?: boolean;
+}) {
   const p = product.node;
   const img = p.images.edges[0]?.node;
   const img2 = p.images.edges[1]?.node ?? img;
@@ -46,7 +52,8 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             src={img.url}
             alt={img.altText ?? p.title}
             className="max-h-full max-w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            {...(priority ? { fetchPriority: "high" } : {})}
           />
         )}
         {img2 && (

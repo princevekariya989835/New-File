@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { decodeToken, isAdminEmail } from "@/lib/auth";
+import { decodeToken, isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
 
 export const Route = createFileRoute("/api/media/upload")({
   server: {
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/media/upload")({
           let userEmail = "Admin";
           if (token) {
             const user = decodeToken(token);
-            if (user && (user.role === "admin" || isAdminEmail(user.email))) {
+            if (user && hasAdminPanelAccess(user)) {
               isAdmin = true;
               userEmail = user.email;
             }

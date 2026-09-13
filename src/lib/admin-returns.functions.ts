@@ -96,7 +96,9 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
       await sql`UPDATE returns SET refund_amount = ${data.refundAmount}, updated_at = NOW() WHERE id = ${data.returnId}`;
     }
 
-    await logAudit(context as any, "return.update", "return", data.returnId, { status: data.status });
+    await logAudit(context as any, "return.update", "return", data.returnId, {
+      status: data.status,
+    });
     return { ok: true as const, emailSent: false };
   });
 

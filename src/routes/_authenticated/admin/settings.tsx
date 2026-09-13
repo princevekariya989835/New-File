@@ -60,7 +60,11 @@ export const Route = createFileRoute("/_authenticated/admin/settings")({
   head: () => ({
     meta: [
       { title: "Store Settings · RIOTOUS Admin" },
-      { name: "description", content: "Configure store information, security, notifications, payments, and system preferences." },
+      {
+        name: "description",
+        content:
+          "Configure store information, security, notifications, payments, and system preferences.",
+      },
     ],
   }),
 });
@@ -138,7 +142,8 @@ function AdminSettingsPage() {
   });
 
   const saveAccountMutation = useMutation({
-    mutationFn: () => updateAccountFn({ data: { fullName: accountName, phone: accountPhone || null } }),
+    mutationFn: () =>
+      updateAccountFn({ data: { fullName: accountName, phone: accountPhone || null } }),
     onSuccess: () => {
       toast.success("Profile updated successfully!");
     },
@@ -201,7 +206,11 @@ function AdminSettingsPage() {
     }
   };
 
-  const navItems: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  const navItems: Array<{
+    id: SettingsTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
     { id: "store", label: "Store Profile", icon: Store },
     { id: "account", label: "My Account", icon: User },
     { id: "security", label: "Security & Access", icon: Shield },
@@ -267,7 +276,9 @@ function AdminSettingsPage() {
                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? (isDanger ? "text-destructive" : "text-brand-red") : ""}`} />
+                  <Icon
+                    className={`h-4 w-4 ${isActive ? (isDanger ? "text-destructive" : "text-brand-red") : ""}`}
+                  />
                   {item.label}
                 </button>
               );
@@ -285,7 +296,8 @@ function AdminSettingsPage() {
                   <Store className="h-5 w-5 text-brand-red" /> Store Information
                 </CardTitle>
                 <CardDescription>
-                  Public company and branding details displayed on customer invoices, emails, and footer.
+                  Public company and branding details displayed on customer invoices, emails, and
+                  footer.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -372,7 +384,9 @@ function AdminSettingsPage() {
                     {(user.fullName?.[0] || user.email[0] || "A").toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-base leading-none">{user.fullName || user.email.split("@")[0]}</h3>
+                    <h3 className="font-bold text-base leading-none">
+                      {user.fullName || user.email.split("@")[0]}
+                    </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-1">{user.email}</p>
                     <div className="mt-2">
                       <Badge className="bg-brand-red text-white font-semibold text-[11px]">
@@ -465,7 +479,9 @@ function AdminSettingsPage() {
                   <div className="pt-2 flex justify-end">
                     <Button
                       onClick={() => changePasswordMutation.mutate()}
-                      disabled={changePasswordMutation.isPending || !currentPassword || !newPassword}
+                      disabled={
+                        changePasswordMutation.isPending || !currentPassword || !newPassword
+                      }
                       className="bg-brand-red text-white hover:bg-brand-red/90"
                     >
                       Update Password
@@ -477,7 +493,8 @@ function AdminSettingsPage() {
               <Card className="border-border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-emerald-500" /> Security Safeguards & Audit Status
+                    <ShieldCheck className="h-5 w-5 text-emerald-500" /> Security Safeguards & Audit
+                    Status
                   </CardTitle>
                   <CardDescription>
                     Real-time security mechanisms active for your administrative environment.
@@ -486,26 +503,45 @@ function AdminSettingsPage() {
                 <CardContent className="space-y-3 text-xs">
                   <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
                     <div>
-                      <span className="font-semibold block text-foreground">Role-Based Access Control (RBAC)</span>
-                      <span className="text-muted-foreground">Enforces server-side permission validations on all administrative API endpoints.</span>
+                      <span className="font-semibold block text-foreground">
+                        Role-Based Access Control (RBAC)
+                      </span>
+                      <span className="text-muted-foreground">
+                        Enforces server-side permission validations on all administrative API
+                        endpoints.
+                      </span>
                     </div>
-                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">Active</Badge>
+                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">
+                      Active
+                    </Badge>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
                     <div>
-                      <span className="font-semibold block text-foreground">SHA-256 Salted Cryptographic Hashing</span>
-                      <span className="text-muted-foreground">Passwords are securely salted and never stored in plain text.</span>
+                      <span className="font-semibold block text-foreground">
+                        SHA-256 Salted Cryptographic Hashing
+                      </span>
+                      <span className="text-muted-foreground">
+                        Passwords are securely salted and never stored in plain text.
+                      </span>
                     </div>
-                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">Active</Badge>
+                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">
+                      Active
+                    </Badge>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
                     <div>
-                      <span className="font-semibold block text-foreground">Immutable Audit Trail Logging</span>
-                      <span className="text-muted-foreground">Records all staff changes, role modifications, and sensitive transactions.</span>
+                      <span className="font-semibold block text-foreground">
+                        Immutable Audit Trail Logging
+                      </span>
+                      <span className="text-muted-foreground">
+                        Records all staff changes, role modifications, and sensitive transactions.
+                      </span>
                     </div>
-                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">Active</Badge>
+                    <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">
+                      Active
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -520,7 +556,8 @@ function AdminSettingsPage() {
                   <Bell className="h-5 w-5 text-brand-red" /> Email & Dispatch Alerts
                 </CardTitle>
                 <CardDescription>
-                  Configure automated email notifications for store activities and inventory thresholds.
+                  Configure automated email notifications for store activities and inventory
+                  thresholds.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -550,7 +587,9 @@ function AdminSettingsPage() {
                       />
                       <div>
                         <span className="font-medium block text-foreground">New Orders</span>
-                        <span className="text-xs text-muted-foreground">Notify on new completed customer order</span>
+                        <span className="text-xs text-muted-foreground">
+                          Notify on new completed customer order
+                        </span>
                       </div>
                     </label>
 
@@ -558,12 +597,18 @@ function AdminSettingsPage() {
                       <input
                         type="checkbox"
                         checked={form.lowStockNotifications !== false}
-                        onChange={(e) => setForm({ ...form, lowStockNotifications: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, lowStockNotifications: e.target.checked })
+                        }
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
-                        <span className="font-medium block text-foreground">Low Stock Warnings</span>
-                        <span className="text-xs text-muted-foreground">Alert when product variant reaches ≤ 5 units</span>
+                        <span className="font-medium block text-foreground">
+                          Low Stock Warnings
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Alert when product variant reaches ≤ 5 units
+                        </span>
                       </div>
                     </label>
 
@@ -571,12 +616,18 @@ function AdminSettingsPage() {
                       <input
                         type="checkbox"
                         checked={form.returnNotifications !== false}
-                        onChange={(e) => setForm({ ...form, returnNotifications: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, returnNotifications: e.target.checked })
+                        }
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
-                        <span className="font-medium block text-foreground">Returns & Exchanges</span>
-                        <span className="text-xs text-muted-foreground">Alert on new return request submission</span>
+                        <span className="font-medium block text-foreground">
+                          Returns & Exchanges
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Alert on new return request submission
+                        </span>
                       </div>
                     </label>
 
@@ -584,12 +635,16 @@ function AdminSettingsPage() {
                       <input
                         type="checkbox"
                         checked={form.reviewNotifications !== false}
-                        onChange={(e) => setForm({ ...form, reviewNotifications: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, reviewNotifications: e.target.checked })
+                        }
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
                         <span className="font-medium block text-foreground">Customer Reviews</span>
-                        <span className="text-xs text-muted-foreground">Alert on new product feedback submission</span>
+                        <span className="text-xs text-muted-foreground">
+                          Alert on new product feedback submission
+                        </span>
                       </div>
                     </label>
 
@@ -597,12 +652,16 @@ function AdminSettingsPage() {
                       <input
                         type="checkbox"
                         checked={form.paymentNotifications !== false}
-                        onChange={(e) => setForm({ ...form, paymentNotifications: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, paymentNotifications: e.target.checked })
+                        }
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
                         <span className="font-medium block text-foreground">Payment Events</span>
-                        <span className="text-xs text-muted-foreground">Alert on webhook failures or chargebacks</span>
+                        <span className="text-xs text-muted-foreground">
+                          Alert on webhook failures or chargebacks
+                        </span>
                       </div>
                     </label>
 
@@ -610,12 +669,16 @@ function AdminSettingsPage() {
                       <input
                         type="checkbox"
                         checked={form.shippingNotifications !== false}
-                        onChange={(e) => setForm({ ...form, shippingNotifications: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, shippingNotifications: e.target.checked })
+                        }
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
                         <span className="font-medium block text-foreground">Shipment Tracking</span>
-                        <span className="text-xs text-muted-foreground">Alert on courier out-for-delivery events</span>
+                        <span className="text-xs text-muted-foreground">
+                          Alert on courier out-for-delivery events
+                        </span>
                       </div>
                     </label>
                   </div>
@@ -762,7 +825,9 @@ function AdminSettingsPage() {
                     <div className="h-8 w-8 rounded-full bg-[#ef4444] border-2 border-white shadow-sm" />
                     <div>
                       <span className="text-xs font-bold block">RIOTOUS Crimson</span>
-                      <span className="text-[11px] font-mono text-muted-foreground">#ef4444 (Primary Brand Color)</span>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        #ef4444 (Primary Brand Color)
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -785,10 +850,12 @@ function AdminSettingsPage() {
             <Card className="border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-brand-red" /> Payment Gateways & Checkout Methods
+                  <CreditCard className="h-5 w-5 text-brand-red" /> Payment Gateways & Checkout
+                  Methods
                 </CardTitle>
                 <CardDescription>
-                  Manage active payment methods, Razorpay integration, and Cash on Delivery surcharges.
+                  Manage active payment methods, Razorpay integration, and Cash on Delivery
+                  surcharges.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -797,7 +864,9 @@ function AdminSettingsPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 font-semibold text-sm">
                       <span>Razorpay Payment Gateway</span>
-                      <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">Integrated</Badge>
+                      <Badge className="bg-emerald-600/10 text-emerald-500 border-emerald-500/30">
+                        Integrated
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Handles instant UPI, Cards, NetBanking, and Digital Wallets checkout.
@@ -823,12 +892,16 @@ function AdminSettingsPage() {
                         <span className="font-medium text-foreground">Cash on Delivery (COD)</span>
                       </label>
                       <div className="pl-7 space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">COD Extra Handling Fee (₹)</Label>
+                        <Label className="text-[11px] text-muted-foreground">
+                          COD Extra Handling Fee (₹)
+                        </Label>
                         <Input
                           type="number"
                           className="h-8 text-xs"
                           value={form.codExtraCharge ?? 0}
-                          onChange={(e) => setForm({ ...form, codExtraCharge: Number(e.target.value) })}
+                          onChange={(e) =>
+                            setForm({ ...form, codExtraCharge: Number(e.target.value) })
+                          }
                         />
                       </div>
                     </div>
@@ -842,8 +915,12 @@ function AdminSettingsPage() {
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
-                        <span className="font-medium block text-foreground">UPI (GPay / PhonePe / Paytm)</span>
-                        <span className="text-xs text-muted-foreground">Instant QR & App redirection</span>
+                        <span className="font-medium block text-foreground">
+                          UPI (GPay / PhonePe / Paytm)
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Instant QR & App redirection
+                        </span>
                       </div>
                     </label>
 
@@ -856,8 +933,12 @@ function AdminSettingsPage() {
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
-                        <span className="font-medium block text-foreground">Credit & Debit Cards</span>
-                        <span className="text-xs text-muted-foreground">Visa, MasterCard, RuPay, Amex</span>
+                        <span className="font-medium block text-foreground">
+                          Credit & Debit Cards
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Visa, MasterCard, RuPay, Amex
+                        </span>
                       </div>
                     </label>
 
@@ -870,8 +951,12 @@ function AdminSettingsPage() {
                         className="rounded border-zinc-700 text-brand-red focus:ring-brand-red h-4 w-4"
                       />
                       <div>
-                        <span className="font-medium block text-foreground">Net Banking & Wallets</span>
-                        <span className="text-xs text-muted-foreground">50+ major Indian banks supported</span>
+                        <span className="font-medium block text-foreground">
+                          Net Banking & Wallets
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          50+ major Indian banks supported
+                        </span>
                       </div>
                     </label>
                   </div>
@@ -909,9 +994,13 @@ function AdminSettingsPage() {
                       id="free-thresh"
                       type="number"
                       value={form.freeShippingThreshold ?? 1499}
-                      onChange={(e) => setForm({ ...form, freeShippingThreshold: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setForm({ ...form, freeShippingThreshold: Number(e.target.value) })
+                      }
                     />
-                    <span className="text-[11px] text-muted-foreground">Orders ≥ this amount get free shipping.</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Orders ≥ this amount get free shipping.
+                    </span>
                   </div>
 
                   <div className="space-y-1.5">
@@ -920,9 +1009,13 @@ function AdminSettingsPage() {
                       id="std-charge"
                       type="number"
                       value={form.standardShippingCharge ?? 99}
-                      onChange={(e) => setForm({ ...form, standardShippingCharge: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setForm({ ...form, standardShippingCharge: Number(e.target.value) })
+                      }
                     />
-                    <span className="text-[11px] text-muted-foreground">3–5 Business Days delivery</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      3–5 Business Days delivery
+                    </span>
                   </div>
 
                   <div className="space-y-1.5">
@@ -931,9 +1024,13 @@ function AdminSettingsPage() {
                       id="exp-charge"
                       type="number"
                       value={form.expressShippingCharge ?? 199}
-                      onChange={(e) => setForm({ ...form, expressShippingCharge: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setForm({ ...form, expressShippingCharge: Number(e.target.value) })
+                      }
                     />
-                    <span className="text-[11px] text-muted-foreground">1–2 Days priority air delivery</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      1–2 Days priority air delivery
+                    </span>
                   </div>
                 </div>
 
@@ -958,7 +1055,8 @@ function AdminSettingsPage() {
                   <Globe className="h-5 w-5 text-brand-red" /> Storefront & SEO Configuration
                 </CardTitle>
                 <CardDescription>
-                  Access visual site editor, adjust meta details, and preview live customer experience.
+                  Access visual site editor, adjust meta details, and preview live customer
+                  experience.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -967,10 +1065,15 @@ function AdminSettingsPage() {
                     <div>
                       <h4 className="font-semibold text-sm">Visual Website Builder & Layouts</h4>
                       <p className="text-xs text-muted-foreground">
-                        Customize hero banners, typography, announcements, and storefront layout in real-time.
+                        Customize hero banners, typography, announcements, and storefront layout in
+                        real-time.
                       </p>
                     </div>
-                    <Button asChild size="sm" className="bg-brand-red text-white hover:bg-brand-red/90">
+                    <Button
+                      asChild
+                      size="sm"
+                      className="bg-brand-red text-white hover:bg-brand-red/90"
+                    >
                       <a href="/admin/website">
                         Open Website Builder <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
                       </a>
@@ -1005,7 +1108,8 @@ function AdminSettingsPage() {
                   <Database className="h-5 w-5 text-brand-red" /> Data Export & Database Backups
                 </CardTitle>
                 <CardDescription>
-                  Download complete database snapshots and audit records for accounting, compliance, and backups.
+                  Download complete database snapshots and audit records for accounting, compliance,
+                  and backups.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1014,7 +1118,9 @@ function AdminSettingsPage() {
                   <div className="p-4 rounded-lg border bg-card space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm">Products Catalog</h4>
-                      <Badge variant="outline" className="text-[10px]">Catalog</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        Catalog
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       All products, prices, stock quantities, and tags.
@@ -1045,7 +1151,9 @@ function AdminSettingsPage() {
                   <div className="p-4 rounded-lg border bg-card space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm">Orders & Invoices</h4>
-                      <Badge variant="outline" className="text-[10px]">Sales</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        Sales
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Full customer order histories, payment statuses, and totals.
@@ -1076,7 +1184,9 @@ function AdminSettingsPage() {
                   <div className="p-4 rounded-lg border bg-card space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm">Customers & Users</h4>
-                      <Badge variant="outline" className="text-[10px]">CRM</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        CRM
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Registered customer accounts, contact details, and dates.
@@ -1107,7 +1217,9 @@ function AdminSettingsPage() {
                   <div className="p-4 rounded-lg border bg-card space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm">Security Audit Logs</h4>
-                      <Badge variant="outline" className="text-[10px]">Compliance</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        Compliance
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Administrative audit logs, actor emails, timestamps, and IP trails.
@@ -1158,11 +1270,17 @@ function AdminSettingsPage() {
                         {form.maintenanceMode ? (
                           <Badge className="bg-amber-600 text-white font-semibold">Enabled</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-emerald-500 border-emerald-500/30">Store LIVE</Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-emerald-500 border-emerald-500/30"
+                          >
+                            Store LIVE
+                          </Badge>
                         )}
                       </h4>
                       <p className="text-xs text-muted-foreground mt-1">
-                        When enabled, non-admin visitors will see a maintenance notice instead of the store catalog.
+                        When enabled, non-admin visitors will see a maintenance notice instead of
+                        the store catalog.
                       </p>
                     </div>
                     <Button
@@ -1170,7 +1288,9 @@ function AdminSettingsPage() {
                       size="sm"
                       onClick={() => setMaintenanceDialog(true)}
                     >
-                      {form.maintenanceMode ? "Disable Maintenance Mode" : "Enable Maintenance Mode"}
+                      {form.maintenanceMode
+                        ? "Disable Maintenance Mode"
+                        : "Enable Maintenance Mode"}
                     </Button>
                   </div>
                 </div>
@@ -1185,7 +1305,9 @@ function AdminSettingsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {form.maintenanceMode ? "Disable Maintenance Mode?" : "Enable Store Maintenance Mode?"}
+              {form.maintenanceMode
+                ? "Disable Maintenance Mode?"
+                : "Enable Store Maintenance Mode?"}
             </DialogTitle>
             <DialogDescription>
               {form.maintenanceMode

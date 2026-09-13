@@ -209,8 +209,8 @@ export function WebsiteHomepageContent({
                   <EmptyProducts />
                 ) : (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">
-                    {displayedProducts.map((p) => (
-                      <ProductCard key={p.node.id} product={p} />
+                    {displayedProducts.map((p, idx) => (
+                      <ProductCard key={p.node.id} product={p} priority={idx < 4} />
                     ))}
                   </div>
                 )}
@@ -397,6 +397,7 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
           muted
           playsInline
           preload="auto"
+          fetchPriority="high"
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover object-center opacity-95 md:opacity-90 z-0"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -420,6 +421,8 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
         <img
           src={imageSrc}
           alt={hero.heading || "RIOTOUS Streetwear"}
+          loading="eager"
+          fetchPriority="high"
           className="absolute inset-0 h-full w-full object-cover opacity-85 z-0"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
