@@ -607,10 +607,8 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         LIMIT ${first}
       `;
 
-      const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
-
       if (!products || products.length === 0) {
-        return sortedFallbacks.slice(0, first).map(toCatalogProduct);
+        return [];
       }
 
       const productIds = products.map((p: any) => String(p.id));
@@ -665,20 +663,18 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
 
       return rows.map(toCatalogProduct);
     } catch (err) {
-      console.warn("fetchProducts error, using fallback", err);
-      const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
-      return sortedFallbacks.slice(0, data.first || 20).map(toCatalogProduct);
+      console.warn("fetchProducts error", err);
+      return [];
     }
   });
 
 export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   try {
     const res = await fetchProductsServerFn({ data: { first } });
-    const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
-    return Array.isArray(res) ? res : sortedFallbacks.slice(0, first).map(toCatalogProduct);
-  } catch {
-    const sortedFallbacks = [...FALLBACK_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
-    return sortedFallbacks.slice(0, first).map(toCatalogProduct);
+    return Array.isArray(res) ? res : [];
+  } catch (err) {
+    console.warn("fetchProducts wrapper error", err);
+    return [];
   }
 }
 
@@ -698,10 +694,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
-        const fallback = FALLBACK_PRODUCTS.find(
-          (p) => p.slug === data.handle || String(p.id) === data.handle,
-        );
-        return fallback ? toCatalogProduct(fallback).node : null;
+        return null;
       }
 
       const p = products[0];
@@ -751,20 +744,17 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
 
       return toCatalogProduct(row).node;
     } catch (err) {
-      console.warn("fetchProductByHandle error, using fallback", err);
-      const fallback = FALLBACK_PRODUCTS.find(
-        (p) => p.slug === data.handle || String(p.id) === data.handle,
-      );
-      return fallback ? toCatalogProduct(fallback).node : null;
+      console.warn("fetchProductByHandle error", err);
+      return null;
     }
   });
 
 export async function fetchProductByHandle(handle: string): Promise<CatalogProductNode | null> {
   try {
     return await fetchProductByHandleServerFn({ data: { handle } });
-  } catch {
-    const fallback = FALLBACK_PRODUCTS.find((p) => p.slug === handle || p.id === handle);
-    return fallback ? toCatalogProduct(fallback).node : null;
+  } catch (err) {
+    console.warn("fetchProductByHandle wrapper error", err);
+    return null;
   }
 }
 
