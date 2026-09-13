@@ -54,22 +54,75 @@ export async function ensureDbSchema() {
     try {
       const sql = getSql();
 
-      // Fast-path: Check if the database has already been initialized.
-      // This reduces startup / request time from ~15 seconds (70+ HTTP roundtrips) to a single fast check (<100ms),
-      // and subsequent calls in the same worker/server instance return in 0ms.
+      // 1. Ultra-fast catalog check using PostgreSQL native to_regclass.
+      // Checks all core tables in a single query (<50ms).
       try {
-        const tableCheck = await sql`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.tables 
-            WHERE table_schema = 'public' AND table_name = 'website_published'
-          ) AS initialized
+        const check = await sql`
+          SELECT 
+            to_regclass('public.products') IS NOT NULL AS has_products,
+            to_regclass('public.profiles') IS NOT NULL AS has_profiles,
+            to_regclass('public.website_published') IS NOT NULL AS has_website,
+            to_regclass('public.store_settings') IS NOT NULL AS has_settings
         `;
-        if (tableCheck?.[0]?.initialized) {
+        const row = check?.[0];
+        if (row && (row.has_products || row.has_profiles || row.has_website || row.has_settings)) {
+          // Core database schema already exists.
+          // Check if newly introduced tables are missing and create only what is needed:
+          const missingDdl: string[] = [];
+          if (!row.has_website) {
+            missingDdl.push(`
+              CREATE TABLE IF NOT EXISTS website_published (
+                id TEXT PRIMARY KEY DEFAULT 'live',
+                version_id TEXT NOT NULL,
+                version_number INTEGER NOT NULL DEFAULT 1,
+                config JSONB NOT NULL,
+                published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                published_by TEXT NOT NULL DEFAULT 'Admin',
+                change_summary TEXT
+              );
+              CREATE TABLE IF NOT EXISTS website_draft (
+                id TEXT PRIMARY KEY DEFAULT 'current',
+                config JSONB NOT NULL,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_by TEXT DEFAULT 'Admin'
+              );
+              CREATE TABLE IF NOT EXISTS website_versions (
+                id TEXT PRIMARY KEY,
+                version_number INTEGER NOT NULL,
+                config JSONB NOT NULL,
+                published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                published_by TEXT NOT NULL,
+                change_summary TEXT,
+                status TEXT DEFAULT 'published'
+              );
+            `);
+          }
+          if (!row.has_settings) {
+            missingDdl.push(`
+              CREATE TABLE IF NOT EXISTS store_settings (
+                id TEXT PRIMARY KEY DEFAULT 'default',
+                store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              );
+              INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;
+            `);
+          }
+          if (missingDdl.length > 0) {
+            try {
+              if (typeof (sql as any).query === "function") {
+                await (sql as any).query(missingDdl.join("\n"));
+              } else {
+                await (sql as any)([missingDdl.join("\n")]);
+              }
+            } catch {
+              // ignore non-fatal creation warnings
+            }
+          }
           _schemaInitialized = true;
           return;
         }
-      } catch {
-        // If check fails, proceed to statement execution below
+      } catch (checkErr) {
+        console.warn("[Neon DB] catalog check warning:", checkErr);
       }
 
       const schemaStatements = [
@@ -541,16 +594,34 @@ export async function ensureDbSchema() {
         `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
       ];
 
-      for (const stmt of schemaStatements) {
-        try {
-          if (typeof (sql as any).query === "function") {
-            await (sql as any).query(stmt);
-          } else {
-            await (sql as any)([stmt]);
-          }
-        } catch (stmtErr) {
-          // Log individual statement issue if any, but continue applying rest
-          console.warn("[Neon DB] schema statement warning:", stmtErr);
+      // For fresh database setups, execute in grouped batches rather than 70 sequential HTTP calls
+      try {
+        const ddlBatch = schemaStatements
+          .filter((s) => !s.trim().startsWith("DO $$"))
+          .join(";\n");
+        if (typeof (sql as any).query === "function") {
+          await (sql as any).query(ddlBatch);
+        } else {
+          await (sql as any)([ddlBatch]);
+        }
+      } catch {
+        // Fallback to concurrent chunk execution
+        const batchSize = 8;
+        for (let i = 0; i < schemaStatements.length; i += batchSize) {
+          const chunk = schemaStatements.slice(i, i + batchSize);
+          await Promise.allSettled(
+            chunk.map(async (stmt) => {
+              try {
+                if (typeof (sql as any).query === "function") {
+                  await (sql as any).query(stmt);
+                } else {
+                  await (sql as any)([stmt]);
+                }
+              } catch {
+                // ignore statement-level warnings
+              }
+            }),
+          );
         }
       }
 

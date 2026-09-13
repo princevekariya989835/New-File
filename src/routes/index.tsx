@@ -22,10 +22,14 @@ const websiteConfigQuery = {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    await Promise.allSettled([
+    // Ultra-fast SSR prefetch: wait up to 600ms for database queries.
+    // If DB is slow or cold, SSR still completes immediately with default fallbacks and client hydrates.
+    const prefetch = Promise.allSettled([
       context.queryClient.ensureQueryData(websiteConfigQuery),
       context.queryClient.ensureQueryData(productsQuery),
     ]);
+    const timeout = new Promise((resolve) => setTimeout(resolve, 600));
+    await Promise.race([prefetch, timeout]);
   },
   head: () => ({
     meta: [
