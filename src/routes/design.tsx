@@ -108,20 +108,20 @@ const COLORS = [
   {
     name: "Black",
     hex: "#0a0a0a",
-    front: "/assets/tee-black-front.png",
-    back: "/assets/tee-black-back.png",
+    front: "/assets/tee-black-front.webp",
+    back: "/assets/tee-black-back.webp",
   },
   {
     name: "Maroon",
     hex: "#6b1d24",
-    front: "/assets/tee-maroon-front.png",
-    back: "/assets/tee-maroon-back.png",
+    front: "/assets/tee-maroon-front.webp",
+    back: "/assets/tee-maroon-back.webp",
   },
   {
     name: "Olive",
     hex: "#3e4a2a",
-    front: "/assets/tee-olive-front.png",
-    back: "/assets/tee-olive-back.png",
+    front: "/assets/tee-olive-front.webp",
+    back: "/assets/tee-olive-back.webp",
   },
 ];
 
