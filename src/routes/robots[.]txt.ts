@@ -4,16 +4,6 @@ import type {} from "@tanstack/react-start";
 const ROBOTS_TXT_CONTENT = `# ==============================================================================
 # RIOTOUS — robots.txt
 # Official Store: https://riotous.store
-<<<<<<< HEAD
-# Optimized for Search Engines & AI Crawlers (Search, Assistant, Training)
-# ==============================================================================
-
-# Default policy for all crawlers (including Googlebot, Bingbot, and all AI crawlers:
-# OAI-SearchBot, PerplexityBot, ChatGPT-User, Claude-Web, anthropic-ai,
-# Perplexity-User, Amazonbot, MistralAI-User, GPTBot, Google-Extended,
-# ClaudeBot, CCBot, Applebot-Extended, Bytespider, Meta-ExternalAgent)
-
-=======
 # Machine-Readable AI Context: https://riotous.store/llms.txt
 # ==============================================================================
 
@@ -498,7 +488,6 @@ Disallow: /
 # ------------------------------------------------------------------------------
 # 4. Standard Search Engines (Googlebot, Bingbot, etc.) & Default Fallback
 # ------------------------------------------------------------------------------
->>>>>>> cc6dd8716725a6df175d1abd63e87ad00696de5e
 User-agent: *
 Allow: /
 Allow: /shop
