@@ -2,114 +2,144 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
 const ROBOTS_TXT_CONTENT = `# ==============================================================================
-# RIOTOUS Official robots.txt
-# Website: https://riotous.store
+# RIOTOUS — robots.txt
+# Official Store: https://riotous.store
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 1. AI Search Crawlers (Allow real-time search indexing & citation)
+# 1. AI Search Crawlers (Real-time search indexation & answer citations)
 # ------------------------------------------------------------------------------
 User-agent: OAI-SearchBot
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /api/
+
 User-agent: PerplexityBot
 Allow: /
-Allow: /shop
-Allow: /product/
-Allow: /about
-Allow: /contact
-Allow: /shipping-policy
-Allow: /refund-policy
-Allow: /terms
-Allow: /privacy
-Allow: /design
 Allow: /api/media/
 Allow: /api/public/
-Allow: /llms.txt
 Disallow: /admin
-Disallow: /admin/
 Disallow: /account
-Disallow: /account/
 Disallow: /checkout
-Disallow: /checkout/
 Disallow: /auth
-Disallow: /auth/
 Disallow: /reset-password
 Disallow: /api/
 
 # ------------------------------------------------------------------------------
-# 2. AI Assistants & User-Driven Live Retrieval (Allow live browsing actions)
+# 2. AI Assistant & User-Initiated Live Retrieval Crawlers
 # ------------------------------------------------------------------------------
 User-agent: ChatGPT-User
-User-agent: Claude-Web
-User-agent: anthropic-ai
-User-agent: Perplexity-User
-User-agent: Amazonbot
-User-agent: MistralAI-User
 Allow: /
-Allow: /shop
-Allow: /product/
-Allow: /about
-Allow: /contact
-Allow: /shipping-policy
-Allow: /refund-policy
-Allow: /terms
-Allow: /privacy
-Allow: /design
 Allow: /api/media/
 Allow: /api/public/
-Allow: /llms.txt
 Disallow: /admin
-Disallow: /admin/
 Disallow: /account
-Disallow: /account/
 Disallow: /checkout
-Disallow: /checkout/
 Disallow: /auth
-Disallow: /auth/
+Disallow: /reset-password
+Disallow: /api/
+
+User-agent: Claude-Web
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /api/
+
+User-agent: Perplexity-User
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /api/
+
+User-agent: Amazonbot
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /api/
+
+User-agent: MistralAI-User
+Allow: /
+Allow: /api/media/
+Allow: /api/public/
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /auth
 Disallow: /reset-password
 Disallow: /api/
 
 # ------------------------------------------------------------------------------
-# 3. AI Model Training Crawlers (Blocked per content IP protection policy)
+# 3. AI Model-Training Crawlers (Disallowed per content protection policy)
 # ------------------------------------------------------------------------------
 User-agent: GPTBot
+Disallow: /
+
 User-agent: Google-Extended
+Disallow: /
+
 User-agent: ClaudeBot
+Disallow: /
+
 User-agent: CCBot
+Disallow: /
+
 User-agent: Applebot-Extended
+Disallow: /
+
 User-agent: Bytespider
+Disallow: /
+
 User-agent: Meta-ExternalAgent
 Disallow: /
 
 # ------------------------------------------------------------------------------
-# 4. General Search Engine Crawlers (Google, Bing, DuckDuckGo, Yahoo, etc.)
+# 4. Standard Search Engines (Googlebot, Bingbot, etc.) & Default Fallback
 # ------------------------------------------------------------------------------
 User-agent: *
 Allow: /
-Allow: /shop
-Allow: /product/
-Allow: /about
-Allow: /contact
-Allow: /shipping-policy
-Allow: /refund-policy
-Allow: /terms
-Allow: /privacy
-Allow: /design
 Allow: /api/media/
 Allow: /api/public/
-Allow: /llms.txt
 Disallow: /admin
-Disallow: /admin/
 Disallow: /account
-Disallow: /account/
 Disallow: /checkout
-Disallow: /checkout/
 Disallow: /auth
-Disallow: /auth/
 Disallow: /reset-password
 Disallow: /api/
 
 # ------------------------------------------------------------------------------
-# Sitemaps
+# Sitemap & Documentation References
 # ------------------------------------------------------------------------------
 Sitemap: https://riotous.store/sitemap.xml
 `;
