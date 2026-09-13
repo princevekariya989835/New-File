@@ -16,9 +16,13 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DesignRouteImport } from './routes/design'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ShippingPolicyRouteImport } from './routes/shipping-policy'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as ProductHandleRouteImport } from './routes/product.$handle'
@@ -28,15 +32,24 @@ import { Route as AuthenticatedAccountReturnsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAccountReviewsRouteImport } from './routes/_authenticated/account.reviews'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminActivityRouteImport } from './routes/_authenticated/admin/activity'
+import { Route as AuthenticatedAdminAnalyticsRouteImport } from './routes/_authenticated/admin/analytics'
+import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/admin/customers'
 import { Route as AuthenticatedAdminDesignsRouteImport } from './routes/_authenticated/admin/designs'
 import { Route as AuthenticatedAdminInventoryRouteImport } from './routes/_authenticated/admin/inventory'
+import { Route as AuthenticatedAdminMarketingRouteImport } from './routes/_authenticated/admin/marketing'
 import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenticated/admin/orders'
+import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin/payments'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
 import { Route as AuthenticatedAdminReturnsRouteImport } from './routes/_authenticated/admin/returns'
 import { Route as AuthenticatedAdminReviewsRouteImport } from './routes/_authenticated/admin/reviews'
+import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
+import { Route as AuthenticatedAdminShippingRouteImport } from './routes/_authenticated/admin/shipping'
+import { Route as AuthenticatedAdminStaffRouteImport } from './routes/_authenticated/admin/staff'
+import { Route as AuthenticatedAdminWebsiteRouteImport } from './routes/_authenticated/admin/website'
+import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
+import { Route as ApiMediaUploadRouteImport } from './routes/api/media.upload'
 import { Route as ApiPublicProductImageRouteImport } from './routes/api/public/product-image'
 import { Route as ApiPublicReviewImageRouteImport } from './routes/api/public/review-image'
-import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -72,9 +85,24 @@ const DesignRoute = DesignRouteImport.update({
   path: '/design',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundPolicyRoute = RefundPolicyRouteImport.update({
+  id: '/refund-policy',
+  path: '/refund-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShippingPolicyRoute = ShippingPolicyRouteImport.update({
+  id: '/shipping-policy',
+  path: '/shipping-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -85,6 +113,11 @@ const ShopRoute = ShopRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
@@ -137,6 +170,18 @@ const AuthenticatedAdminActivityRoute =
     path: '/activity',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminAnalyticsRoute =
+  AuthenticatedAdminAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminCustomersRoute =
+  AuthenticatedAdminCustomersRouteImport.update({
+    id: '/customers',
+    path: '/customers',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminDesignsRoute =
   AuthenticatedAdminDesignsRouteImport.update({
     id: '/designs',
@@ -149,10 +194,22 @@ const AuthenticatedAdminInventoryRoute =
     path: '/inventory',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminMarketingRoute =
+  AuthenticatedAdminMarketingRouteImport.update({
+    id: '/marketing',
+    path: '/marketing',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminOrdersRoute =
   AuthenticatedAdminOrdersRouteImport.update({
     id: '/orders',
     path: '/orders',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminPaymentsRoute =
+  AuthenticatedAdminPaymentsRouteImport.update({
+    id: '/payments',
+    path: '/payments',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAdminProductsRoute =
@@ -173,6 +230,39 @@ const AuthenticatedAdminReviewsRoute =
     path: '/reviews',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminSettingsRoute =
+  AuthenticatedAdminSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminShippingRoute =
+  AuthenticatedAdminShippingRouteImport.update({
+    id: '/shipping',
+    path: '/shipping',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminStaffRoute = AuthenticatedAdminStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
+const AuthenticatedAdminWebsiteRoute =
+  AuthenticatedAdminWebsiteRouteImport.update({
+    id: '/website',
+    path: '/website',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const ApiMediaIdRoute = ApiMediaIdRouteImport.update({
+  id: '/api/media/$id',
+  path: '/api/media/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaUploadRoute = ApiMediaUploadRouteImport.update({
+  id: '/api/media/upload',
+  path: '/api/media/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicProductImageRoute = ApiPublicProductImageRouteImport.update({
   id: '/api/public/product-image',
   path: '/api/public/product-image',
@@ -183,12 +273,6 @@ const ApiPublicReviewImageRoute = ApiPublicReviewImageRouteImport.update({
   path: '/api/public/review-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LovableEmailTransactionalPreviewRoute =
-  LovableEmailTransactionalPreviewRouteImport.update({
-    id: '/lovable/email/transactional/preview',
-    path: '/lovable/email/transactional/preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -197,9 +281,13 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
@@ -208,16 +296,25 @@ export interface FileRoutesByFullPath {
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
   '/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/admin/activity': typeof AuthenticatedAdminActivityRoute
+  '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
+  '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
+  '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/returns': typeof AuthenticatedAdminReturnsRoute
   '/admin/reviews': typeof AuthenticatedAdminReviewsRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/shipping': typeof AuthenticatedAdminShippingRoute
+  '/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
-  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -226,9 +323,13 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -236,16 +337,25 @@ export interface FileRoutesByTo {
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
   '/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/admin/activity': typeof AuthenticatedAdminActivityRoute
+  '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
+  '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
+  '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/returns': typeof AuthenticatedAdminReturnsRoute
   '/admin/reviews': typeof AuthenticatedAdminReviewsRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/shipping': typeof AuthenticatedAdminShippingRoute
+  '/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
-  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -256,9 +366,13 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/auth_/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
@@ -267,16 +381,25 @@ export interface FileRoutesById {
   '/_authenticated/account/returns': typeof AuthenticatedAccountReturnsRoute
   '/_authenticated/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/_authenticated/admin/activity': typeof AuthenticatedAdminActivityRoute
+  '/_authenticated/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/_authenticated/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/_authenticated/admin/designs': typeof AuthenticatedAdminDesignsRoute
   '/_authenticated/admin/inventory': typeof AuthenticatedAdminInventoryRoute
+  '/_authenticated/admin/marketing': typeof AuthenticatedAdminMarketingRoute
   '/_authenticated/admin/orders': typeof AuthenticatedAdminOrdersRoute
+  '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/returns': typeof AuthenticatedAdminReturnsRoute
   '/_authenticated/admin/reviews': typeof AuthenticatedAdminReviewsRoute
+  '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/_authenticated/admin/shipping': typeof AuthenticatedAdminShippingRoute
+  '/_authenticated/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/_authenticated/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/media/$id': typeof ApiMediaIdRoute
+  '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
-  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -287,9 +410,13 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/privacy'
+    | '/refund-policy'
     | '/reset-password'
+    | '/shipping-policy'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
     | '/admin'
     | '/auth/callback'
     | '/product/$handle'
@@ -298,16 +425,25 @@ export interface FileRouteTypes {
     | '/account/returns'
     | '/account/reviews'
     | '/admin/activity'
+    | '/admin/analytics'
+    | '/admin/customers'
     | '/admin/designs'
     | '/admin/inventory'
+    | '/admin/marketing'
     | '/admin/orders'
+    | '/admin/payments'
     | '/admin/products'
     | '/admin/returns'
     | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/shipping'
+    | '/admin/staff'
+    | '/admin/website'
+    | '/api/media/$id'
+    | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
     | '/admin/'
-    | '/lovable/email/transactional/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -316,9 +452,13 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/privacy'
+    | '/refund-policy'
     | '/reset-password'
+    | '/shipping-policy'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
     | '/auth/callback'
     | '/product/$handle'
     | '/account/favorites'
@@ -326,16 +466,25 @@ export interface FileRouteTypes {
     | '/account/returns'
     | '/account/reviews'
     | '/admin/activity'
+    | '/admin/analytics'
+    | '/admin/customers'
     | '/admin/designs'
     | '/admin/inventory'
+    | '/admin/marketing'
     | '/admin/orders'
+    | '/admin/payments'
     | '/admin/products'
     | '/admin/returns'
     | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/shipping'
+    | '/admin/staff'
+    | '/admin/website'
+    | '/api/media/$id'
+    | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
     | '/admin'
-    | '/lovable/email/transactional/preview'
   id:
     | '__root__'
     | '/'
@@ -345,9 +494,13 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/privacy'
+    | '/refund-policy'
     | '/reset-password'
+    | '/shipping-policy'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
     | '/_authenticated/admin'
     | '/auth_/callback'
     | '/product/$handle'
@@ -356,16 +509,25 @@ export interface FileRouteTypes {
     | '/_authenticated/account/returns'
     | '/_authenticated/account/reviews'
     | '/_authenticated/admin/activity'
+    | '/_authenticated/admin/analytics'
+    | '/_authenticated/admin/customers'
     | '/_authenticated/admin/designs'
     | '/_authenticated/admin/inventory'
+    | '/_authenticated/admin/marketing'
     | '/_authenticated/admin/orders'
+    | '/_authenticated/admin/payments'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/returns'
     | '/_authenticated/admin/reviews'
+    | '/_authenticated/admin/settings'
+    | '/_authenticated/admin/shipping'
+    | '/_authenticated/admin/staff'
+    | '/_authenticated/admin/website'
+    | '/api/media/$id'
+    | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
     | '/_authenticated/admin/'
-    | '/lovable/email/transactional/preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -376,14 +538,19 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   DesignRoute: typeof DesignRoute
+  PrivacyRoute: typeof PrivacyRoute
+  RefundPolicyRoute: typeof RefundPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ShippingPolicyRoute: typeof ShippingPolicyRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   ProductHandleRoute: typeof ProductHandleRoute
+  ApiMediaIdRoute: typeof ApiMediaIdRoute
+  ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicProductImageRoute: typeof ApiPublicProductImageRoute
   ApiPublicReviewImageRoute: typeof ApiPublicReviewImageRoute
-  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -437,11 +604,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesignRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-policy': {
+      id: '/refund-policy'
+      path: '/refund-policy'
+      fullPath: '/refund-policy'
+      preLoaderRoute: typeof RefundPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipping-policy': {
+      id: '/shipping-policy'
+      path: '/shipping-policy'
+      fullPath: '/shipping-policy'
+      preLoaderRoute: typeof ShippingPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -456,6 +644,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -521,6 +716,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminActivityRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/analytics': {
+      id: '/_authenticated/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AuthenticatedAdminAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/customers': {
+      id: '/_authenticated/admin/customers'
+      path: '/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AuthenticatedAdminCustomersRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/designs': {
       id: '/_authenticated/admin/designs'
       path: '/designs'
@@ -535,11 +744,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminInventoryRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/marketing': {
+      id: '/_authenticated/admin/marketing'
+      path: '/marketing'
+      fullPath: '/admin/marketing'
+      preLoaderRoute: typeof AuthenticatedAdminMarketingRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/orders': {
       id: '/_authenticated/admin/orders'
       path: '/orders'
       fullPath: '/admin/orders'
       preLoaderRoute: typeof AuthenticatedAdminOrdersRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/payments': {
+      id: '/_authenticated/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AuthenticatedAdminPaymentsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/products': {
@@ -563,6 +786,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminReviewsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/settings': {
+      id: '/_authenticated/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/shipping': {
+      id: '/_authenticated/admin/shipping'
+      path: '/shipping'
+      fullPath: '/admin/shipping'
+      preLoaderRoute: typeof AuthenticatedAdminShippingRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/staff': {
+      id: '/_authenticated/admin/staff'
+      path: '/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof AuthenticatedAdminStaffRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/website': {
+      id: '/_authenticated/admin/website'
+      path: '/website'
+      fullPath: '/admin/website'
+      preLoaderRoute: typeof AuthenticatedAdminWebsiteRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/api/media/$id': {
+      id: '/api/media/$id'
+      path: '/api/media/$id'
+      fullPath: '/api/media/$id'
+      preLoaderRoute: typeof ApiMediaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/upload': {
+      id: '/api/media/upload'
+      path: '/api/media/upload'
+      fullPath: '/api/media/upload'
+      preLoaderRoute: typeof ApiMediaUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/product-image': {
       id: '/api/public/product-image'
       path: '/api/public/product-image'
@@ -577,36 +842,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicReviewImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/transactional/preview': {
-      id: '/lovable/email/transactional/preview'
-      path: '/lovable/email/transactional/preview'
-      fullPath: '/lovable/email/transactional/preview'
-      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminActivityRoute: typeof AuthenticatedAdminActivityRoute
+  AuthenticatedAdminAnalyticsRoute: typeof AuthenticatedAdminAnalyticsRoute
+  AuthenticatedAdminCustomersRoute: typeof AuthenticatedAdminCustomersRoute
   AuthenticatedAdminDesignsRoute: typeof AuthenticatedAdminDesignsRoute
   AuthenticatedAdminInventoryRoute: typeof AuthenticatedAdminInventoryRoute
+  AuthenticatedAdminMarketingRoute: typeof AuthenticatedAdminMarketingRoute
   AuthenticatedAdminOrdersRoute: typeof AuthenticatedAdminOrdersRoute
+  AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminReturnsRoute: typeof AuthenticatedAdminReturnsRoute
   AuthenticatedAdminReviewsRoute: typeof AuthenticatedAdminReviewsRoute
+  AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminShippingRoute: typeof AuthenticatedAdminShippingRoute
+  AuthenticatedAdminStaffRoute: typeof AuthenticatedAdminStaffRoute
+  AuthenticatedAdminWebsiteRoute: typeof AuthenticatedAdminWebsiteRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
     AuthenticatedAdminActivityRoute: AuthenticatedAdminActivityRoute,
+    AuthenticatedAdminAnalyticsRoute: AuthenticatedAdminAnalyticsRoute,
+    AuthenticatedAdminCustomersRoute: AuthenticatedAdminCustomersRoute,
     AuthenticatedAdminDesignsRoute: AuthenticatedAdminDesignsRoute,
     AuthenticatedAdminInventoryRoute: AuthenticatedAdminInventoryRoute,
+    AuthenticatedAdminMarketingRoute: AuthenticatedAdminMarketingRoute,
     AuthenticatedAdminOrdersRoute: AuthenticatedAdminOrdersRoute,
+    AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
     AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
     AuthenticatedAdminReturnsRoute: AuthenticatedAdminReturnsRoute,
     AuthenticatedAdminReviewsRoute: AuthenticatedAdminReviewsRoute,
+    AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+    AuthenticatedAdminShippingRoute: AuthenticatedAdminShippingRoute,
+    AuthenticatedAdminStaffRoute: AuthenticatedAdminStaffRoute,
+    AuthenticatedAdminWebsiteRoute: AuthenticatedAdminWebsiteRoute,
     AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   }
 
@@ -642,14 +916,19 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   DesignRoute: DesignRoute,
+  PrivacyRoute: PrivacyRoute,
+  RefundPolicyRoute: RefundPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ShippingPolicyRoute: ShippingPolicyRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   ProductHandleRoute: ProductHandleRoute,
+  ApiMediaIdRoute: ApiMediaIdRoute,
+  ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicProductImageRoute: ApiPublicProductImageRoute,
   ApiPublicReviewImageRoute: ApiPublicReviewImageRoute,
-  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

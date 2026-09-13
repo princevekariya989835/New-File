@@ -12,7 +12,7 @@ export const publishedWebsiteConfigQuery = {
     try {
       const res = await getPublicWebsiteConfig();
       return res;
-    } catch (err) {
+    } catch {
       return {
         config: DEFAULT_WEBSITE_CONFIG,
         versionNumber: 1,
@@ -20,17 +20,15 @@ export const publishedWebsiteConfigQuery = {
       };
     }
   },
+  staleTime: 1000 * 60 * 5,
+  gcTime: 1000 * 60 * 30,
 };
 
 export function usePublishedWebsiteConfig() {
-  const query = useQuery({
-    ...publishedWebsiteConfigQuery,
-    staleTime: 0,
-    gcTime: 0,
-  });
+  const query = useQuery(publishedWebsiteConfigQuery);
 
   return {
-    config: query.data?.config ?? null,
+    config: query.data?.config ?? DEFAULT_WEBSITE_CONFIG,
     versionNumber: query.data?.versionNumber ?? 1,
     publishedAt: query.data?.publishedAt ?? null,
     isLoading: query.isLoading,

@@ -501,6 +501,20 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
+// Server-side in-memory cache for catalog and products (TTL: 60s)
+interface CachedCatalog {
+  data: CatalogProduct[];
+  timestamp: number;
+}
+const _catalogCache = new Map<number, CachedCatalog>();
+const _handleCache = new Map<string, { data: CatalogProductNode; timestamp: number }>();
+const CATALOG_CACHE_TTL_MS = 60 * 1000;
+
+export function invalidateCatalogCache() {
+  _catalogCache.clear();
+  _handleCache.clear();
+}
+
 async function seedInitialProductsIfNeeded() {
   if (_seeded) return;
   if (_seedPromise) return _seedPromise;
@@ -508,6 +522,18 @@ async function seedInitialProductsIfNeeded() {
   _seedPromise = (async () => {
     try {
       const sql = getSql();
+
+      // Quick existence check: If products table already has records, skip seeding entirely
+      try {
+        const existing = await sql`SELECT 1 FROM products LIMIT 1`;
+        if (existing && existing.length > 0) {
+          _seeded = true;
+          return;
+        }
+      } catch {
+        // Table may not exist yet or connection error, proceed
+      }
+
       const fallbackIds = FALLBACK_PRODUCTS.map((p) => p.id);
 
       // Remove obsolete products not in FALLBACK_PRODUCTS
@@ -593,11 +619,18 @@ async function seedInitialProductsIfNeeded() {
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { first?: number }) => ({ first: Number(d.first || 20) }))
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
+    const first = data.first || 20;
+
+    // Check in-memory cache first for instant sub-millisecond response
+    const cached = _catalogCache.get(first);
+    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
       const sql = getSql();
-      const first = data.first || 20;
 
       const products = await sql`
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
@@ -608,7 +641,9 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
-        return [];
+        const fallbacks = FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+        _catalogCache.set(first, { data: fallbacks, timestamp: Date.now() });
+        return fallbacks;
       }
 
       const productIds = products.map((p: any) => String(p.id));
@@ -661,26 +696,38 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         product_variants: variantsByProductId.get(String(p.id)) || [],
       }));
 
-      return rows.map(toCatalogProduct);
+      const result = rows.map(toCatalogProduct);
+      _catalogCache.set(first, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err) {
-      console.warn("fetchProducts error", err);
-      return [];
+      console.warn("fetchProducts error, returning fallback products:", err);
+      const fallbacks = FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+      _catalogCache.set(first, { data: fallbacks, timestamp: Date.now() });
+      return fallbacks;
     }
   });
 
 export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   try {
     const res = await fetchProductsServerFn({ data: { first } });
-    return Array.isArray(res) ? res : [];
+    return Array.isArray(res) && res.length > 0
+      ? res
+      : FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
   } catch (err) {
-    console.warn("fetchProducts wrapper error", err);
-    return [];
+    console.warn("fetchProducts wrapper error, using fallbacks:", err);
+    return FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
   }
 }
 
 export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
   .handler(async ({ data }): Promise<CatalogProductNode | null> => {
+    const handleKey = data.handle.toLowerCase();
+    const cached = _handleCache.get(handleKey);
+    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
@@ -694,6 +741,15 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
+        // Check fallback products
+        const fallback = FALLBACK_PRODUCTS.find(
+          (p) => p.slug === data.handle || p.id === data.handle,
+        );
+        if (fallback) {
+          const node = toCatalogProduct(fallback).node;
+          _handleCache.set(handleKey, { data: node, timestamp: Date.now() });
+          return node;
+        }
         return null;
       }
 
@@ -742,9 +798,17 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         product_variants: variantRows,
       };
 
-      return toCatalogProduct(row).node;
+      const node = toCatalogProduct(row).node;
+      _handleCache.set(handleKey, { data: node, timestamp: Date.now() });
+      return node;
     } catch (err) {
-      console.warn("fetchProductByHandle error", err);
+      console.warn("fetchProductByHandle error, searching fallback:", err);
+      const fallback = FALLBACK_PRODUCTS.find(
+        (p) => p.slug === data.handle || p.id === data.handle,
+      );
+      if (fallback) {
+        return toCatalogProduct(fallback).node;
+      }
       return null;
     }
   });

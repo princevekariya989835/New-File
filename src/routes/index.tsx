@@ -9,14 +9,24 @@ import { DEFAULT_WEBSITE_CONFIG } from "@/lib/website-config.types";
 const productsQuery = {
   queryKey: ["products", "home"],
   queryFn: () => fetchProducts(8),
+  staleTime: 1000 * 60 * 5,
+  gcTime: 1000 * 60 * 30,
 };
 
 const websiteConfigQuery = {
   queryKey: ["website-config", "published"],
   queryFn: () => getPublicWebsiteConfig(),
+  staleTime: 1000 * 60 * 5,
+  gcTime: 1000 * 60 * 30,
 };
 
 export const Route = createFileRoute("/")({
+  loader: async ({ context }) => {
+    await Promise.allSettled([
+      context.queryClient.ensureQueryData(websiteConfigQuery),
+      context.queryClient.ensureQueryData(productsQuery),
+    ]);
+  },
   head: () => ({
     meta: [
       { title: "RIOTOUS — We Don't Follow Trends. We Print Them." },
@@ -63,28 +73,11 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const { data: rawProducts = [] } = useQuery({
-    ...productsQuery,
-    initialData: [],
-    staleTime: 0,
-    gcTime: 0,
-  });
-  const { data: siteConfigData, isLoading: isConfigLoading } = useQuery({
-    ...websiteConfigQuery,
-    staleTime: 0,
-    gcTime: 0,
-  });
+  const { data: rawProducts = [] } = useQuery(productsQuery);
+  const { data: siteConfigData } = useQuery(websiteConfigQuery);
 
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
-  const config = siteConfigData?.config ?? null;
-
-  if (isConfigLoading || !config) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-      </div>
-    );
-  }
+  const config = siteConfigData?.config ?? DEFAULT_WEBSITE_CONFIG;
 
   return <WebsiteHomepageContent config={config} products={products} isPreview={false} />;
 }

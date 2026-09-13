@@ -54,6 +54,24 @@ export async function ensureDbSchema() {
     try {
       const sql = getSql();
 
+      // Fast-path: Check if the database has already been initialized.
+      // This reduces startup / request time from ~15 seconds (70+ HTTP roundtrips) to a single fast check (<100ms),
+      // and subsequent calls in the same worker/server instance return in 0ms.
+      try {
+        const tableCheck = await sql`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'website_published'
+          ) AS initialized
+        `;
+        if (tableCheck?.[0]?.initialized) {
+          _schemaInitialized = true;
+          return;
+        }
+      } catch {
+        // If check fails, proceed to statement execution below
+      }
+
       const schemaStatements = [
         `CREATE TABLE IF NOT EXISTS email_otps (
           id TEXT PRIMARY KEY,
