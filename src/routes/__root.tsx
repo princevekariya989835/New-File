@@ -113,13 +113,6 @@ gtag('config', 'G-1KHJNXYQ2E');`,
       },
     ],
   }),
-  loader: async ({ context }) => {
-    try {
-      await context.queryClient.ensureQueryData(publishedWebsiteConfigQuery);
-    } catch (err) {
-      // Gracefully continue even if DB is initialising
-    }
-  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { fetchProducts } from "@/lib/catalog";
 import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
@@ -59,18 +59,20 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(productsQuery),
-      context.queryClient.ensureQueryData(websiteConfigQuery),
-    ]);
-  },
   component: HomePage,
 });
 
 function HomePage() {
-  const { data: rawProducts } = useSuspenseQuery(productsQuery);
-  const { data: siteConfigData } = useSuspenseQuery(websiteConfigQuery);
+  const { data: rawProducts = [] } = useQuery({
+    ...productsQuery,
+    initialData: [],
+    staleTime: 1000 * 60 * 5,
+  });
+  const { data: siteConfigData } = useQuery({
+    ...websiteConfigQuery,
+    initialData: { config: DEFAULT_WEBSITE_CONFIG, versionNumber: 1, publishedAt: null },
+    staleTime: 1000 * 60 * 5,
+  });
 
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const config = siteConfigData?.config || DEFAULT_WEBSITE_CONFIG;

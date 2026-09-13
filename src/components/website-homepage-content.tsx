@@ -396,8 +396,7 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
           loop
           muted
           playsInline
-          preload="auto"
-          fetchPriority="high"
+          preload="metadata"
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover object-center opacity-95 md:opacity-90 z-0"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
