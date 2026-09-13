@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
   head: () => ({
     meta: [
-      { title: "Admin · RIOTOUS" },
+      { title: "Store Admin Dashboard | RIOTOUS Management Console" },
       { name: "description", content: "RIOTOUS store administration." },
       { name: "robots", content: "noindex, nofollow" },
     ],

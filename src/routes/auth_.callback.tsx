@@ -6,7 +6,7 @@ export const Route = createFileRoute("/auth_/callback")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Signing you in · RIOTOUS" },
+      { title: "Authenticating Your Account | RIOTOUS Official Store" },
       { name: "description", content: "Completing your RIOTOUS sign-in." },
     ],
   }),

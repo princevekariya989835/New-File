@@ -3,6 +3,12 @@ import { decodeToken } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "My Account & Orders | RIOTOUS Official Store" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   beforeLoad: async ({ location }) => {
     try {
       const sessionStr =

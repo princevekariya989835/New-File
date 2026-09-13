@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/_authenticated/account/orders")({
   head: () => ({
     meta: [
-      { title: "My Orders — RIOTOUS" },
+      { title: "Track My Orders & Purchase History | RIOTOUS Account" },
       { name: "description", content: "View your RIOTOUS order history." },
       { name: "robots", content: "noindex" },
     ],

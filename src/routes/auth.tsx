@@ -12,12 +12,12 @@ export const Route = createFileRoute("/auth")({
   }),
   head: () => ({
     meta: [
-      { title: "Sign In · RIOTOUS" },
+      { title: "Sign In or Create Account | RIOTOUS Streetwear Store" },
       {
         name: "description",
         content: "Sign in or create your RIOTOUS account to shop, save designs and track orders.",
       },
-      { property: "og:title", content: "Sign In · RIOTOUS" },
+      { property: "og:title", content: "Sign In or Create Account | RIOTOUS Streetwear Store" },
       {
         property: "og:description",
         content: "Sign in or create your RIOTOUS account to shop, save designs and track orders.",

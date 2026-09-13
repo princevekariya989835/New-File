@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/admin/payments")({
   component: AdminPaymentsPage,
   head: () => ({
     meta: [
-      { title: "Payment Management · Admin" },
+      { title: "Payment Gateway & Transactions | RIOTOUS Admin Store" },
       {
         name: "description",
         content: "Manage store transactions, payment statuses, refunds, and financial performance.",

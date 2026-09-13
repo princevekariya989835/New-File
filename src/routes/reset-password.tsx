@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Reset Password · RIOTOUS" },
+      { title: "Reset Your Password | RIOTOUS Account Recovery Portal" },
       { name: "description", content: "Set a new password for your RIOTOUS account." },
     ],
   }),

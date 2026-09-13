@@ -83,7 +83,7 @@ export const Route = createFileRoute("/_authenticated/admin/marketing")({
   component: AdminMarketingPage,
   head: () => ({
     meta: [
-      { title: "Marketing Management · Admin · RIOTOUS" },
+      { title: "Marketing Campaigns & Promotions | RIOTOUS Admin Console" },
       { name: "description", content: "Manage marketing campaigns, performance, and discounts." },
     ],
   }),

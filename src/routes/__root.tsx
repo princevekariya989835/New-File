@@ -18,6 +18,7 @@ import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <title>Page Not Found | RIOTOUS Streetwear Official</title>
       <div className="max-w-md text-center">
         <h1 className="text-8xl font-black tracking-tight">404</h1>
         <p className="mt-4 text-sm text-muted-foreground">This page hasn't been printed yet.</p>
@@ -39,6 +40,7 @@ function ErrorComponent({ error, reset }: { error: any; reset: () => void }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <title>Something Went Wrong | RIOTOUS Store Support</title>
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight">Something didn't load.</h1>
         <p className="mt-2 text-sm text-muted-foreground">Give it another try or head home.</p>
@@ -69,6 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { title: "RIOTOUS | Premium DTF Printed Streetwear India" },
       { name: "author", content: "RIOTOUS" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "RIOTOUS" },

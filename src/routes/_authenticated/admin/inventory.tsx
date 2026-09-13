@@ -50,6 +50,12 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/inventory")({
+  head: () => ({
+    meta: [
+      { title: "Inventory & Stock Management | RIOTOUS Admin Console" },
+      { name: "description", content: "Track stock levels, variants, and inventory transactions." },
+    ],
+  }),
   component: InventoryPage,
 });
 

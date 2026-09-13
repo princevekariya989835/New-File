@@ -7,6 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/activity")({
+  head: () => ({
+    meta: [
+      { title: "Admin Activity Log & Audit Trail | RIOTOUS Management" },
+      { name: "description", content: "Audit log of administrative actions and security events." },
+    ],
+  }),
   component: ActivityPage,
 });
 

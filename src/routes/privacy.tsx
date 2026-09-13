@@ -4,12 +4,12 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
-      { title: "Privacy Policy · RIOTOUS" },
+      { title: "Privacy Policy | RIOTOUS Official Streetwear Store" },
       {
         name: "description",
         content: "Privacy policy detailing how RIOTOUS collects and protects your data.",
       },
-      { property: "og:title", content: "Privacy Policy · RIOTOUS" },
+      { property: "og:title", content: "Privacy Policy | RIOTOUS Official Streetwear Store" },
     ],
   }),
   component: PrivacyPage,

@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_authenticated/admin/settings")({
   component: AdminSettingsPage,
   head: () => ({
     meta: [
-      { title: "Store Settings · RIOTOUS Admin" },
+      { title: "Store Preferences & Settings | RIOTOUS Admin Console" },
       {
         name: "description",
         content:

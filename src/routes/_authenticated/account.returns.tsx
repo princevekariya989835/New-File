@@ -17,7 +17,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/account/returns")({
   head: () => ({
     meta: [
-      { title: "Returns & Support — RIOTOUS" },
+      { title: "Order Returns & Customer Support | RIOTOUS Account" },
       {
         name: "description",
         content:

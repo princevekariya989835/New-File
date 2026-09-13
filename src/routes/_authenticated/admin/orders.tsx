@@ -30,6 +30,12 @@ export const Route = createFileRoute("/_authenticated/admin/orders")({
     from: typeof s["from"] === "string" ? s["from"] : undefined,
     to: typeof s["to"] === "string" ? s["to"] : undefined,
   }),
+  head: () => ({
+    meta: [
+      { title: "Order Fulfillment & Processing | RIOTOUS Admin Store" },
+      { name: "description", content: "Process and fulfill customer orders for RIOTOUS." },
+    ],
+  }),
   component: OrdersPage,
 });
 

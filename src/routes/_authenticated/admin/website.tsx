@@ -69,7 +69,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export const Route = createFileRoute("/_authenticated/admin/website")({
   component: AdminWebsiteManagement,
   head: () => ({
-    meta: [{ title: "Website Management · RIOTOUS Admin" }],
+    meta: [{ title: "Homepage CMS & Visual Editor | RIOTOUS Admin Console" }],
   }),
 });
 

@@ -34,13 +34,13 @@ export const Route = createFileRoute("/shop")({
   }),
   head: () => ({
     meta: [
-      { title: "Shop — RIOTOUS" },
+      { title: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS" },
       {
         name: "description",
         content:
           "Browse the full RIOTOUS collection. DTF printed tees, oversized fits, and limited drops.",
       },
-      { property: "og:title", content: "Shop — RIOTOUS" },
+      { property: "og:title", content: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS" },
       {
         property: "og:description",
         content: "Browse the full RIOTOUS collection.",

@@ -21,6 +21,12 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/products")({
+  head: () => ({
+    meta: [
+      { title: "Product Catalog Management | RIOTOUS Admin Console" },
+      { name: "description", content: "Manage store products, variants, pricing, and inventory." },
+    ],
+  }),
   component: ProductsPage,
 });
 

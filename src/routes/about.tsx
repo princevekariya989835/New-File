@@ -4,13 +4,13 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — RIOTOUS" },
+      { title: "About RIOTOUS | Premium DTF Streetwear Label India" },
       {
         name: "description",
         content:
           "RIOTOUS is a premium DTF printed streetwear label from India. Built for creators, dreamers, and streetwear lovers.",
       },
-      { property: "og:title", content: "About — RIOTOUS" },
+      { property: "og:title", content: "About RIOTOUS | Premium DTF Streetwear Label India" },
       {
         property: "og:description",
         content: "Premium DTF printed streetwear from India.",
@@ -33,10 +33,29 @@ function AboutPage() {
         <br />
         Quiet luxury.
       </h1>
-      <p className="mt-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
-        <BrandName /> started with a simple idea — streetwear shouldn't compromise. Not on fabric.
-        Not on print quality. Not on the ideas printed on it.
-      </p>
+      <div className="mt-10 max-w-3xl space-y-6 text-base leading-relaxed text-muted-foreground md:text-lg">
+        <p>
+          <BrandName /> was born out of a relentless obsession with authenticity and modern street
+          culture. In a market saturated with fast fashion knockoffs, hollow graphics, and flimsy
+          fabrics, we set out to build something unapologetic: a homegrown Indian streetwear label
+          where loud creative expression meets quiet, obsessive craftsmanship. We believe what you
+          wear is a canvas for your identity—a declaration of who you are and what you stand for.
+        </p>
+        <p>
+          Every single piece in our collection begins with custom-developed, 100% heavyweight combed
+          cotton engineered for the perfect relaxed, oversized drape. We power our graphics with
+          industrial-grade Direct-to-Film (DTF) printing technology, yielding vibrant color
+          reproduction, sharp micro-details, and incredible stretch-resistance that never cracks,
+          peels, or fades after repeated washes. Every seam is reinforced with durable double-needle
+          construction and pre-shrunk to endure everyday wear.
+        </p>
+        <p>
+          From conceptualizing artwork and digital prototyping to precision printing, inspection, and
+          packaging, everything happens ethically in our own workshop. We cut out middlemen to deliver
+          luxury-tier apparel at honest prices. We don't chase fleeting algorithms or follow
+          fast-moving trends. We print them.
+        </p>
+      </div>
 
       <div className="mt-24 grid gap-16 md:grid-cols-2 md:gap-24">
         <Section

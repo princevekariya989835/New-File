@@ -38,24 +38,42 @@ const productQuery = (handle: string) => ({
   gcTime: 1000 * 60 * 30,
 });
 
+function formatProductPageTitle(title: string): string {
+  const clean = (title || "").trim();
+  const full = `${clean} | Premium DTF Streetwear | RIOTOUS`;
+  if (full.length >= 30 && full.length <= 60) return full;
+  if (full.length < 30) {
+    return `${clean} Streetwear Apparel | RIOTOUS Official`.slice(0, 60);
+  }
+  const shorter = `${clean} | RIOTOUS Streetwear`;
+  if (shorter.length >= 30 && shorter.length <= 60) return shorter;
+  const minimal = `${clean} | RIOTOUS`;
+  if (minimal.length >= 30 && minimal.length <= 60) return minimal;
+  return `${clean.slice(0, 48)} | RIOTOUS`;
+}
+
 export const Route = createFileRoute("/product/$handle")({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(productQuery(params.handle)),
   head: ({ loaderData }) => {
     if (!loaderData) {
       return {
-        meta: [{ title: "Product not found — RIOTOUS" }, { name: "robots", content: "noindex" }],
+        meta: [
+          { title: "Product Not Found | RIOTOUS Streetwear Store" },
+          { name: "robots", content: "noindex" },
+        ],
       };
     }
     const p = loaderData;
+    const pageTitle = formatProductPageTitle(p.title);
     const img = p.images.edges[0]?.node.url;
     return {
       meta: [
-        { title: `${p.title} — RIOTOUS` },
+        { title: pageTitle },
         {
           name: "description",
           content: p.description?.slice(0, 155) || `${p.title} by RIOTOUS.`,
         },
-        { property: "og:title", content: `${p.title} — RIOTOUS` },
+        { property: "og:title", content: pageTitle },
         {
           property: "og:description",
           content: p.description?.slice(0, 155) || `${p.title} by RIOTOUS.`,

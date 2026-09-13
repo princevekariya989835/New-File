@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/admin/shipping")({
   component: AdminShippingPage,
   head: () => ({
     meta: [
-      { title: "Shipping Management · Admin" },
+      { title: "Shipping Rates & Courier Rules | RIOTOUS Admin Store" },
       {
         name: "description",
         content: "Manage store shipments, carriers, tracking, and delivery performance.",

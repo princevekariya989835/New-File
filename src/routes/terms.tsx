@@ -4,12 +4,12 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms of Service · RIOTOUS" },
+      { title: "Terms of Service | RIOTOUS Official Streetwear Store" },
       {
         name: "description",
         content: "Terms and conditions for using RIOTOUS store and custom apparel services.",
       },
-      { property: "og:title", content: "Terms of Service · RIOTOUS" },
+      { property: "og:title", content: "Terms of Service | RIOTOUS Official Streetwear Store" },
     ],
   }),
   component: TermsPage,

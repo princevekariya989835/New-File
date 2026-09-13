@@ -30,6 +30,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/returns")({
+  head: () => ({
+    meta: [
+      { title: "Returns & Exchange Requests | RIOTOUS Admin Support" },
+      { name: "description", content: "Review and process customer return and exchange requests." },
+    ],
+  }),
   component: AdminReturnsPage,
 });
 

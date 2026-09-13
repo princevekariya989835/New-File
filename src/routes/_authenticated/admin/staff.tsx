@@ -80,7 +80,7 @@ export const Route = createFileRoute("/_authenticated/admin/staff")({
   component: AdminStaffPage,
   head: () => ({
     meta: [
-      { title: "Staff Management · RIOTOUS Admin" },
+      { title: "Staff Permissions & Accounts | RIOTOUS Admin Console" },
       { name: "description", content: "Manage administrators, managers, and staff accounts." },
     ],
   }),

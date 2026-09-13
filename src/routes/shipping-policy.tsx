@@ -4,12 +4,12 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/shipping-policy")({
   head: () => ({
     meta: [
-      { title: "Shipping Policy · RIOTOUS" },
+      { title: "Shipping Policy & Delivery Rates | RIOTOUS Store India" },
       {
         name: "description",
         content: "Shipping timelines, rates and fulfillment details for RIOTOUS orders.",
       },
-      { property: "og:title", content: "Shipping Policy · RIOTOUS" },
+      { property: "og:title", content: "Shipping Policy & Delivery Rates | RIOTOUS Store India" },
     ],
   }),
   component: ShippingPolicyPage,

@@ -7,6 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/designs")({
+  head: () => ({
+    meta: [
+      { title: "Custom User Artwork & Designs | RIOTOUS Admin Studio" },
+      { name: "description", content: "Customer-created apparel prints and artwork submissions." },
+    ],
+  }),
   component: DesignsPage,
 });
 

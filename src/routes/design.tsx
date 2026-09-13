@@ -86,13 +86,13 @@ async function generateTeeMockupPreview(
 export const Route = createFileRoute("/design")({
   head: () => ({
     meta: [
-      { title: "Design Your Own — RIOTOUS Studio" },
+      { title: "Custom DTF Tee Studio | Design Your Own Shirt | RIOTOUS" },
       {
         name: "description",
         content:
           "Design your own DTF printed tee. Upload artwork, add text, place it front, back or sleeve — live preview.",
       },
-      { property: "og:title", content: "Design Studio — RIOTOUS" },
+      { property: "og:title", content: "Custom DTF Tee Studio | Design Your Own Shirt | RIOTOUS" },
       {
         property: "og:description",
         content: "Custom DTF printed apparel with live preview.",

@@ -57,6 +57,10 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/design", changefreq: "monthly", priority: "0.8" },
           { path: "/about", changefreq: "monthly", priority: "0.6" },
           { path: "/contact", changefreq: "monthly", priority: "0.6" },
+          { path: "/privacy", changefreq: "monthly", priority: "0.4" },
+          { path: "/terms", changefreq: "monthly", priority: "0.4" },
+          { path: "/shipping-policy", changefreq: "monthly", priority: "0.4" },
+          { path: "/refund-policy", changefreq: "monthly", priority: "0.4" },
         ];
 
         const entries = [...staticEntries, ...(await fetchPublicPaths())];

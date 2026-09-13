@@ -11,7 +11,7 @@ import { REVIEW_STATUS_LABEL, REVIEW_STATUS_TONE } from "@/lib/reviews-shared";
 export const Route = createFileRoute("/_authenticated/account/reviews")({
   head: () => ({
     meta: [
-      { title: "My Reviews — RIOTOUS" },
+      { title: "My Product Reviews & Feedback | RIOTOUS Account" },
       {
         name: "description",
         content: "Reviews you have written on RIOTOUS products and their approval status.",

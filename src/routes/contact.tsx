@@ -8,13 +8,13 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — RIOTOUS" },
+      { title: "Contact RIOTOUS | Customer Support & Custom Orders" },
       {
         name: "description",
         content:
           "Reach RIOTOUS about orders, custom prints, or wholesale. Email, WhatsApp, or Instagram.",
       },
-      { property: "og:title", content: "Contact — RIOTOUS" },
+      { property: "og:title", content: "Contact RIOTOUS | Customer Support & Custom Orders" },
       {
         property: "og:description",
         content: "Get in touch with the RIOTOUS team.",

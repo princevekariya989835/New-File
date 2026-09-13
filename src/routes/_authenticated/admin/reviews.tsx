@@ -35,6 +35,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/reviews")({
+  head: () => ({
+    meta: [
+      { title: "Product Review Moderation | RIOTOUS Admin Management" },
+      { name: "description", content: "Moderate, approve, and manage customer product reviews." },
+    ],
+  }),
   component: AdminReviewsPage,
 });
 

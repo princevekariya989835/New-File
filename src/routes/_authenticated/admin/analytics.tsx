@@ -67,7 +67,7 @@ export const Route = createFileRoute("/_authenticated/admin/analytics")({
   component: AdminAnalyticsPage,
   head: () => ({
     meta: [
-      { title: "Analytics & Intelligence · Admin · RIOTOUS" },
+      { title: "Store Analytics & Revenue Intelligence | RIOTOUS Admin" },
       {
         name: "description",
         content: "Comprehensive store analytics, revenue, inventory, and customer intelligence.",

@@ -16,12 +16,12 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
   head: () => ({
     meta: [
-      { title: "Checkout · RIOTOUS" },
+      { title: "Secure Checkout | RIOTOUS Official Streetwear Store" },
       {
         name: "description",
         content: "Review your bag, enter your shipping address and place your RIOTOUS order.",
       },
-      { property: "og:title", content: "Checkout · RIOTOUS" },
+      { property: "og:title", content: "Secure Checkout | RIOTOUS Official Streetwear Store" },
       {
         property: "og:description",
         content: "Review your order and place it in a few seconds.",

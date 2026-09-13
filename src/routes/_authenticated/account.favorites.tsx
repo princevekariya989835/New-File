@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/catalog";
 export const Route = createFileRoute("/_authenticated/account/favorites")({
   head: () => ({
     meta: [
-      { title: "Favorites — RIOTOUS" },
+      { title: "My Saved Wishlist & Favorites | RIOTOUS Streetwear" },
       { name: "description", content: "Products you've saved on RIOTOUS." },
       { name: "robots", content: "noindex" },
     ],

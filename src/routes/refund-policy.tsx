@@ -4,12 +4,12 @@ import { BrandName } from "@/components/brand-name";
 export const Route = createFileRoute("/refund-policy")({
   head: () => ({
     meta: [
-      { title: "Refund & Return Policy · RIOTOUS" },
+      { title: "Refund & Return Policy | RIOTOUS Customer Care Team" },
       {
         name: "description",
         content: "Returns, exchanges and refund guidelines for RIOTOUS purchases.",
       },
-      { property: "og:title", content: "Refund & Return Policy · RIOTOUS" },
+      { property: "og:title", content: "Refund & Return Policy | RIOTOUS Customer Care Team" },
     ],
   }),
   component: RefundPolicyPage,
