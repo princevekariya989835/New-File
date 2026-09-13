@@ -45,7 +45,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = hasAdminPanelAccess(user);
-  const { config: publishedConfig } = usePublishedWebsiteConfig();
+  const { config: publishedConfig, isLoading } = usePublishedWebsiteConfig();
   const config = customConfig || publishedConfig;
 
   useCartStore((s) => s.items.length); // subscribe so header re-renders
@@ -64,7 +64,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       isExternal: Boolean(n.isExternal),
     }));
 
-  const activeNav = navItems.length > 0 ? navItems : defaultNav;
+  const activeNav = config || !isLoading ? (navItems.length > 0 ? navItems : defaultNav) : [];
   const activeAnnouncement = config?.announcement || (config as any)?.announcementBar;
 
   useEffect(() => {

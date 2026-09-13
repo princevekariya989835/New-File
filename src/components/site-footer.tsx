@@ -17,9 +17,13 @@ import type { WebsiteConfig } from "@/lib/website-config.types";
 export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-  const { config: publishedConfig } = usePublishedWebsiteConfig();
+  const { config: publishedConfig, isLoading } = usePublishedWebsiteConfig();
   const config = customConfig || publishedConfig;
   const footer = config?.footer as any;
+
+  if (isLoading && !customConfig) {
+    return <footer className="border-t border-border bg-background py-20" />;
+  }
 
   if (footer && footer.enabled === false) {
     return null;

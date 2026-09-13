@@ -1,5 +1,5 @@
 import { createFileRoute, notFound, Link, useRouter } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Minus,
@@ -34,6 +34,8 @@ const productQuery = (handle: string) => ({
     if (!p) throw notFound();
     return p;
   },
+  staleTime: 0,
+  gcTime: 0,
 });
 
 export const Route = createFileRoute("/product/$handle")({
@@ -99,7 +101,10 @@ export const Route = createFileRoute("/product/$handle")({
 
 function ProductPage() {
   const { handle } = Route.useParams();
-  const { data: p } = useSuspenseQuery(productQuery(handle));
+  const { data: p } = useQuery({
+    ...productQuery(handle),
+  });
+  if (!p) throw notFound();
 
   const variants = p.variants.edges.map((v) => v.node);
   const [selected, setSelected] = useState<Record<string, string>>(() => {

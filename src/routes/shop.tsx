@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { fetchProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
@@ -16,6 +16,8 @@ import {
 const productsQuery = {
   queryKey: ["products", "shop"],
   queryFn: () => fetchProducts(50),
+  staleTime: 0,
+  gcTime: 0,
 };
 
 type ShopSearch = {
@@ -52,7 +54,10 @@ export const Route = createFileRoute("/shop")({
 });
 
 function ShopPage() {
-  const { data: rawProducts } = useSuspenseQuery(productsQuery);
+  const { data: rawProducts = [] } = useQuery({
+    ...productsQuery,
+    initialData: [],
+  });
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });

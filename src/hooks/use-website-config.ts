@@ -25,14 +25,16 @@ export const publishedWebsiteConfigQuery = {
 export function usePublishedWebsiteConfig() {
   const query = useQuery({
     ...publishedWebsiteConfigQuery,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    staleTime: 0,
+    gcTime: 0,
   });
 
   return {
-    config: query.data?.config ?? DEFAULT_WEBSITE_CONFIG,
+    config: query.data?.config ?? null,
     versionNumber: query.data?.versionNumber ?? 1,
     publishedAt: query.data?.publishedAt ?? null,
     isLoading: query.isLoading,
+    isFetched: query.isFetched,
     isError: query.isError,
     refetch: query.refetch,
   };

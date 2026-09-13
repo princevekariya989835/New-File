@@ -66,16 +66,25 @@ function HomePage() {
   const { data: rawProducts = [] } = useQuery({
     ...productsQuery,
     initialData: [],
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    gcTime: 0,
   });
-  const { data: siteConfigData } = useQuery({
+  const { data: siteConfigData, isLoading: isConfigLoading } = useQuery({
     ...websiteConfigQuery,
-    initialData: { config: DEFAULT_WEBSITE_CONFIG, versionNumber: 1, publishedAt: null },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
-  const config = siteConfigData?.config || DEFAULT_WEBSITE_CONFIG;
+  const config = siteConfigData?.config ?? null;
+
+  if (isConfigLoading || !config) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+      </div>
+    );
+  }
 
   return <WebsiteHomepageContent config={config} products={products} isPreview={false} />;
 }
