@@ -120,10 +120,8 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
       return _cachedPublicConfig;
     }
 
-    await ensureDbSchema();
-    const sql = getSql();
-
     try {
+      const sql = getSql();
       const rows = await sql`
         SELECT version_id, version_number, config, published_at, published_by
         FROM website_published
@@ -144,38 +142,14 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
         return result;
       }
 
-      // If live table is empty, auto-bootstrap default config into DB
-      const initialVerId = `ver_init_${Date.now()}`;
-      const defConfig = DEFAULT_WEBSITE_CONFIG;
-
-      try {
-        await sql`
-          INSERT INTO website_published (id, version_id, version_number, config, published_at, published_by, change_summary)
-          VALUES ('live', ${initialVerId}, 1, ${JSON.stringify(defConfig)}::jsonb, CURRENT_TIMESTAMP, 'System Initializer', 'Initial Website Launch')
-          ON CONFLICT (id) DO NOTHING
-        `;
-        await sql`
-          INSERT INTO website_draft (id, config, updated_at, updated_by)
-          VALUES ('current', ${JSON.stringify(defConfig)}::jsonb, CURRENT_TIMESTAMP, 'System Initializer')
-          ON CONFLICT (id) DO NOTHING
-        `;
-        await sql`
-          INSERT INTO website_versions (id, version_number, config, published_at, published_by, change_summary, status)
-          VALUES (${initialVerId}, 1, ${JSON.stringify(defConfig)}::jsonb, CURRENT_TIMESTAMP, 'System Initializer', 'Initial Website Launch', 'published')
-          ON CONFLICT (id) DO NOTHING
-        `;
-      } catch (bootErr) {
-        console.warn("[WebsiteConfig] Auto-bootstrap error (ignored):", bootErr);
-      }
-
-      const result = {
-        config: defConfig,
+      const fallback = {
+        config: DEFAULT_WEBSITE_CONFIG,
         versionNumber: 1,
-        publishedAt: new Date().toISOString(),
+        publishedAt: null,
       };
-      _cachedPublicConfig = result;
+      _cachedPublicConfig = fallback;
       _cachedPublicConfigTimestamp = Date.now();
-      return result;
+      return fallback;
     } catch (err) {
       console.error("[WebsiteConfig] getPublicWebsiteConfig error:", err);
       const fallback = {

@@ -628,8 +628,6 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
     }
 
     try {
-      await ensureDbSchema();
-      await seedInitialProductsIfNeeded();
       const sql = getSql();
 
       const products = await sql`
@@ -729,8 +727,6 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     }
 
     try {
-      await ensureDbSchema();
-      await seedInitialProductsIfNeeded();
       const sql = getSql();
 
       const products = await sql`
