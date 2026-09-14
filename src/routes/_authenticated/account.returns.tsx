@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { Loader2, Package, ArrowRight, LifeBuoy, CheckCircle2 } from "lucide-react";
+import { SiteLoader } from "@/components/site-loader";
 import { getMyOrders, type CustomerOrder } from "@/lib/orders.functions";
 import { formatPrice } from "@/lib/catalog";
 import { useAuth } from "@/hooks/use-auth";
@@ -92,9 +93,7 @@ function ReturnsPage() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SiteLoader size="md" text="LOADING RETURNS..." />
       )}
 
       {!isLoading && orders && orders.length === 0 && (

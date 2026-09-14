@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { SiteLoader } from "@/components/site-loader";
 
 export const Route = createFileRoute("/auth_/callback")({
   ssr: false,
@@ -22,8 +22,7 @@ function AuthCallbackPage() {
 
   return (
     <div className="container flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      <p className="mt-4 text-sm font-medium text-muted-foreground">Redirecting…</p>
+      <SiteLoader size="md" text="AUTHENTICATING..." subtext="Redirecting you to RIOTOUS…" />
     </div>
   );
 }

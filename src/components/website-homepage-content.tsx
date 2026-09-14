@@ -17,6 +17,7 @@ import {
 import { BrandName } from "@/components/brand-name";
 import { ProductCard } from "@/components/product-card";
 import { EmptyProducts } from "@/components/empty-products";
+import { SiteLoader } from "@/components/site-loader";
 import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 
@@ -426,6 +427,13 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : null}
+
+      {/* Buffering animation while hero video loads */}
+      {isVideo && videoSrc && !videoLoaded && !videoError && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-neutral-950/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300">
+          <SiteLoader variant="inline" size="lg" text="BUFFERING DROP..." />
+        </div>
+      )}
 
       {/* Visible error message in Admin Preview if video fails */}
       {isPreview && isVideo && videoError && (

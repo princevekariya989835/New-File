@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart, Loader2, ArrowRight } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
 import { formatPrice } from "@/lib/catalog";
+import { SiteLoader } from "@/components/site-loader";
 
 export const Route = createFileRoute("/_authenticated/account/favorites")({
   head: () => ({
@@ -36,9 +37,7 @@ function FavoritesPage() {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SiteLoader size="md" text="LOADING FAVORITES..." />
       )}
 
       {!loading && list.length === 0 && (

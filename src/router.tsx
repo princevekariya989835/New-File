@@ -1,6 +1,7 @@
 import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { SiteLoader } from "@/components/site-loader";
 
 export const getRouter = () => {
   const queryClient = new QueryClient({
@@ -14,6 +15,11 @@ export const getRouter = () => {
   const router = createRouter({
     routeTree,
     context: { queryClient },
+    defaultPendingComponent: () => (
+      <SiteLoader variant="fullscreen" size="xl" text="LOADING THE DROP..." />
+    ),
+    defaultPendingMs: 150,
+    defaultPendingMinMs: 400,
     dehydrate: () =>
       ({
         queryClientState: dehydrate(queryClient),

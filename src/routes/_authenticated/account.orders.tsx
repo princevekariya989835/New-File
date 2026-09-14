@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchMyOrdersFn, cancelOrderFn } from "@/lib/orders.functions";
+import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { Loader2, Package, ArrowRight, XCircle } from "lucide-react";
+import { SiteLoader } from "@/components/site-loader";
 import { toast } from "sonner";
 import { getMyOrders, cancelMyOrder } from "@/lib/orders.functions";
 import { formatPrice } from "@/lib/catalog";
@@ -65,9 +67,7 @@ function OrdersPage() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <SiteLoader size="md" text="LOADING ORDERS..." />
       )}
 
       {error && <p className="text-sm text-destructive">Could not load your orders.</p>}
