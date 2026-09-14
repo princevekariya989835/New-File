@@ -9,7 +9,7 @@ import { DEFAULT_WEBSITE_CONFIG } from "@/lib/website-config.types";
 const productsQuery = {
   queryKey: ["products", "home"],
   queryFn: () => fetchProducts(8),
-  staleTime: 1000 * 60 * 5,
+  staleTime: 1000 * 15,
   gcTime: 1000 * 60 * 30,
 };
 

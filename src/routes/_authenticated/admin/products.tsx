@@ -53,8 +53,10 @@ function ProductsPage() {
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin", "products"] });
     qc.invalidateQueries({ queryKey: ["admin", "dashboard"] });
+    qc.invalidateQueries({ queryKey: ["admin-website-state"] });
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["product"] });
+    qc.invalidateQueries({ queryKey: ["website-config"] });
   };
 
   const del = useMutation({

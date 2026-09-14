@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, logAudit } from "@/lib/admin-utils";
 import { getSql } from "@/lib/db";
+import { invalidateCatalogCache } from "@/lib/catalog";
 
 export type AdminResetSection =
   | "dashboard"
@@ -70,6 +71,7 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
       case "products": {
         await sql`DELETE FROM product_variants`;
         await sql`DELETE FROM products`;
+        invalidateCatalogCache();
         break;
       }
 
@@ -83,6 +85,7 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
           UPDATE products
           SET stock_quantity = 0, reserved_stock = 0
         `;
+        invalidateCatalogCache();
         break;
       }
 

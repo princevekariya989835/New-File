@@ -10,6 +10,7 @@ import {
   type ProductInput,
 } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { invalidateCatalogCache } from "@/lib/catalog";
 import {
   addInventory,
   removeInventory,
@@ -165,11 +166,13 @@ export const adminAddInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual add",
   }))
   .handler(async ({ data, context }) => {
-    return await addInventory(context as any, {
+    const res = await addInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
     });
+    invalidateCatalogCache();
+    return res;
   });
 
 export const adminRemoveInventory = createServerFn({ method: "POST" })
@@ -180,11 +183,13 @@ export const adminRemoveInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual remove",
   }))
   .handler(async ({ data, context }) => {
-    return await removeInventory(context as any, {
+    const res = await removeInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
     });
+    invalidateCatalogCache();
+    return res;
   });
 
 export const adminSetInventory = createServerFn({ method: "POST" })
@@ -195,11 +200,13 @@ export const adminSetInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual set",
   }))
   .handler(async ({ data, context }) => {
-    return await setInventory(context as any, {
+    const res = await setInventory(context as any, {
       productId: data.productId,
       quantity: data.quantity,
       reason: data.reason,
     });
+    invalidateCatalogCache();
+    return res;
   });
 
 function unwrapInput(d: any) {
@@ -226,7 +233,17 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
       throw new Error("Missing product ID");
     }
 
-    await sql`UPDATE order_items SET product_id = NULL WHERE product_id::text = ${data.productId}`;
+    try {
+      await sql`
+        UPDATE order_items
+        SET product_id = NULL, variant_id = NULL
+        WHERE product_id::text = ${data.productId}
+           OR variant_id::text IN (SELECT id::text FROM product_variants WHERE product_id::text = ${data.productId})
+      `;
+    } catch {
+      await sql`UPDATE order_items SET product_id = NULL WHERE product_id::text = ${data.productId}`;
+    }
+
     await sql`DELETE FROM product_variants WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM product_images WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM favorites WHERE product_handle::text = ${data.productId} OR product_handle::text IN (SELECT slug FROM products WHERE id::text = ${data.productId})`;
@@ -237,6 +254,37 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     if (deleteRes.length === 0) {
       throw new Error(`Product with ID or slug "${data.productId}" not found in database.`);
     }
+
+    invalidateCatalogCache();
+
+    try {
+      // Clean up featured products reference in website configs
+      const configs = await sql`SELECT id, config FROM website_published UNION ALL SELECT id, config FROM website_draft`;
+      for (const row of configs ?? []) {
+        if (row?.config && typeof row.config === "object") {
+          const cfg = row.config;
+          if (Array.isArray(cfg?.featuredProducts?.productIds)) {
+            const before = cfg.featuredProducts.productIds.length;
+            cfg.featuredProducts.productIds = cfg.featuredProducts.productIds.filter(
+              (pId: string) => pId !== data.productId && !pId.includes(data.productId),
+            );
+            if (cfg.featuredProducts.productIds.length !== before) {
+              if (row.id === "live") {
+                await sql`UPDATE website_published SET config = ${JSON.stringify(cfg)}::jsonb WHERE id = 'live'`;
+              } else if (row.id === "current") {
+                await sql`UPDATE website_draft SET config = ${JSON.stringify(cfg)}::jsonb WHERE id = 'current'`;
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore non-fatal website config cleanup
+    }
+
+    await logAudit(context as any, "product.delete", "product", data.productId, {
+      id: data.productId,
+    });
 
     return { ok: true, archived: false };
   });
@@ -259,6 +307,7 @@ export const adminSetProductStatus = createServerFn({ method: "POST" })
       UPDATE products SET is_active = ${data.status === "ACTIVE"}, updated_at = NOW()
       WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
     `;
+    invalidateCatalogCache();
     return { ok: true };
   });
 
@@ -353,6 +402,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       name: values.name,
       stock: values.stock_quantity,
     });
+    invalidateCatalogCache();
     return { ok: true, productId };
   });
 
@@ -413,6 +463,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       name: values.name,
       stock: values.stock_quantity,
     });
+    invalidateCatalogCache();
     return { ok: true };
   });
 

@@ -1,7 +1,28 @@
 import { neon } from "@neondatabase/serverless";
+import { FALLBACK_PRODUCTS } from "./fallback-products";
 
 let _schemaInitialized = false;
 let _schemaPromise: Promise<void> | null = null;
+
+// In-memory database store for local dev when DATABASE_URL is not set
+let _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
+  ...p,
+  images: [...p.images],
+  sizes: [...p.sizes],
+  colors: [...p.colors],
+  tags: [...p.tags],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}));
+
+let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
+  (p.product_variants || []).map((v) => ({
+    ...v,
+    product_id: p.id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })),
+);
 
 export function getDatabaseUrl(): string | null {
   return process.env.DATABASE_URL || null;
@@ -10,29 +31,224 @@ export function getDatabaseUrl(): string | null {
 export function getSql() {
   const url = getDatabaseUrl();
   if (!url) {
-    const mockSql = async (strings: TemplateStringsArray, ...values: any[]) => {
-      const query = strings
-        .reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "")
-        .trim();
-      const lower = query.toLowerCase();
-      if (lower.startsWith("select count")) {
+    const mockSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]) => {
+      let queryStr = "";
+      if (typeof strings === "string") {
+        queryStr = strings;
+      } else if (Array.isArray(strings)) {
+        queryStr = strings
+          .reduce((acc, str, i) => acc + str + (values[i] !== undefined ? `__VAL_${i}__` : ""), "")
+          .trim();
+      }
+      const lower = queryStr.toLowerCase();
+
+      if (lower.startsWith("select count") || lower.includes("(select count(*)")) {
         return [
           {
-            count: 0,
+            count: _mockProducts.length,
             order_count: 0,
-            product_count: 0,
+            product_count: _mockProducts.length,
             customer_count: 0,
             total_sales: 0,
             sales_today: 0,
             sales_month: 0,
+            total_products: _mockProducts.length,
           },
         ];
       }
+
       if (lower.includes("return_settings")) {
         return [{ id: "default", window_days: 7, require_delivered: true }];
       }
+
+      if (lower.includes("store_settings")) {
+        return [{ id: "default", store_name: "RIOTOUS", initial_catalog_seeded: true }];
+      }
+
+      // SELECT from products
+      if (lower.includes("from products")) {
+        if (lower.includes("select 1")) {
+          return _mockProducts.length > 0 ? [{ 1: 1 }] : [];
+        }
+        // Single product lookup by slug or id
+        if (lower.includes("slug =") || lower.includes("slug::text =") || lower.includes("id::text =")) {
+          const targetVal = String(values[0] ?? "").toLowerCase();
+          const p = _mockProducts.find(
+            (item) =>
+              (item.slug && item.slug.toLowerCase() === targetVal) ||
+              (item.id && String(item.id).toLowerCase() === targetVal),
+          );
+          if (!p) return [];
+          if (lower.includes("is_active = true") && p.is_active === false) return [];
+          return [p];
+        }
+        // Active products query
+        if (lower.includes("where is_active = true") || lower.includes("is_active is null")) {
+          return _mockProducts.filter((p) => p.is_active !== false);
+        }
+        return [..._mockProducts];
+      }
+
+      // INSERT INTO products
+      if (lower.startsWith("insert into products") || lower.includes("insert into products")) {
+        const id = values[0] ? String(values[0]) : `prod_${Date.now().toString(36)}`;
+        const name = values[1] ? String(values[1]) : "Product";
+        const slug = values[2] ? String(values[2]) : id;
+        const description = values[3] ? String(values[3]) : null;
+        const price = Number(values[4] || 0);
+        let images: string[] = [];
+        try {
+          images = typeof values[7] === "string" ? JSON.parse(values[7]) : (values[7] || []);
+        } catch {
+          images = ["/placeholder-tee.jpg"];
+        }
+        const category = values[8] ? String(values[8]) : "Oversized Tees";
+        let sizes: string[] = [];
+        try {
+          sizes = typeof values[9] === "string" ? JSON.parse(values[9]) : (values[9] || ["S", "M", "L", "XL", "XXL"]);
+        } catch {}
+        let colors: string[] = [];
+        try {
+          colors = typeof values[10] === "string" ? JSON.parse(values[10]) : (values[10] || ["Black"]);
+        } catch {}
+        const stock_quantity = Number(values[11] || 0);
+        const is_active = values[12] !== false;
+        let tags: string[] = [];
+        try {
+          tags = typeof values[13] === "string" ? JSON.parse(values[13]) : (values[13] || []);
+        } catch {}
+
+        const newProd = {
+          id,
+          name,
+          slug,
+          description,
+          price,
+          base_price: price,
+          currency: "INR",
+          images: Array.isArray(images) && images.length ? images : ["/placeholder-tee.jpg"],
+          category,
+          sizes: Array.isArray(sizes) && sizes.length ? sizes : ["S", "M", "L", "XL", "XXL"],
+          colors: Array.isArray(colors) && colors.length ? colors : ["Black"],
+          stock_quantity,
+          is_active,
+          tags: Array.isArray(tags) ? tags : [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const existingIdx = _mockProducts.findIndex((p) => p.id === id || p.slug === slug);
+        if (existingIdx >= 0) {
+          _mockProducts[existingIdx] = newProd;
+        } else {
+          _mockProducts.unshift(newProd);
+        }
+        return [{ id }];
+      }
+
+      // UPDATE products
+      if (lower.startsWith("update products") || lower.includes("update products")) {
+        const idVal = String(values[values.length - 1] ?? values[0] ?? "");
+        const prod = _mockProducts.find((p) => p.id === idVal || p.slug === idVal);
+        if (prod) {
+          if (lower.includes("is_active =")) {
+            prod.is_active = values[0] !== false;
+          } else {
+            if (values[0]) prod.name = String(values[0]);
+            if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
+            if (values[2] !== undefined) prod.price = Number(values[2]);
+            if (values[3] !== undefined) prod.base_price = Number(values[3]);
+            if (values[4]) {
+              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch {}
+            }
+            if (values[5]) prod.category = String(values[5]);
+            if (values[6]) {
+              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch {}
+            }
+            if (values[7]) {
+              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch {}
+            }
+            if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
+            if (values[9] !== undefined) prod.is_active = values[9] !== false;
+            if (values[10]) {
+              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch {}
+            }
+          }
+          prod.updated_at = new Date().toISOString();
+        }
+        return [{ id: idVal }];
+      }
+
+      // DELETE FROM products
+      if (lower.startsWith("delete from products") || lower.includes("delete from products")) {
+        const idVal = String(values[0] ?? "");
+        const idx = _mockProducts.findIndex((p) => p.id === idVal || p.slug === idVal);
+        if (idx >= 0) {
+          const removed = _mockProducts.splice(idx, 1)[0];
+          _mockVariants = _mockVariants.filter((v) => v.product_id !== removed.id);
+          return [{ id: removed.id }];
+        }
+        return [{ id: idVal }];
+      }
+
+      // SELECT from product_variants
+      if (lower.includes("from product_variants")) {
+        if (lower.includes("product_id::text = any")) {
+          const ids = Array.isArray(values[0]) ? values[0].map(String) : [String(values[0])];
+          return _mockVariants.filter((v) => ids.includes(String(v.product_id)));
+        }
+        if (lower.includes("product_id::text =") || lower.includes("product_id =")) {
+          const pid = String(values[0] ?? "");
+          return _mockVariants.filter((v) => String(v.product_id) === pid);
+        }
+        return [..._mockVariants];
+      }
+
+      // INSERT INTO product_variants
+      if (lower.startsWith("insert into product_variants") || lower.includes("insert into product_variants")) {
+        const vid = String(values[0] ?? `var_${Date.now()}`);
+        const pid = String(values[1] ?? "");
+        const size = String(values[2] ?? "");
+        const color = String(values[3] ?? "");
+        const sku = String(values[4] ?? vid);
+        const qty = Number(values[5] || 0);
+        const newVar = {
+          id: vid,
+          product_id: pid,
+          size,
+          color,
+          sku,
+          stock_quantity: qty,
+          reserved_stock: 0,
+          low_stock_threshold: 2,
+        };
+        const exIdx = _mockVariants.findIndex((v) => v.id === vid);
+        if (exIdx >= 0) _mockVariants[exIdx] = newVar;
+        else _mockVariants.push(newVar);
+        return [{ id: vid }];
+      }
+
+      // UPDATE product_variants
+      if (lower.startsWith("update product_variants") || lower.includes("update product_variants")) {
+        const idVal = String(values[values.length - 1] ?? "");
+        const v = _mockVariants.find((item) => item.id === idVal);
+        if (v && values[0] !== undefined) {
+          v.stock_quantity = Number(values[0]);
+        }
+        return [{ id: idVal }];
+      }
+
+      // DELETE FROM product_variants
+      if (lower.startsWith("delete from product_variants") || lower.includes("delete from product_variants")) {
+        const pid = String(values[0] ?? "");
+        _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== pid && String(v.id) !== pid);
+        return [];
+      }
+
       return [];
     };
+
+    (mockSql as any).query = async (str: string) => mockSql([str] as any);
     return mockSql as any;
   }
   return neon(url);
@@ -102,8 +318,10 @@ export async function ensureDbSchema() {
               CREATE TABLE IF NOT EXISTS store_settings (
                 id TEXT PRIMARY KEY DEFAULT 'default',
                 store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
+                initial_catalog_seeded BOOLEAN DEFAULT false,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
               );
+              ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false;
               INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;
             `);
           }
@@ -589,7 +807,7 @@ export async function ensureDbSchema() {
         `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS ip_address TEXT`,
         `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS user_agent TEXT`,
         `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS target_name TEXT`,
-        `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS module TEXT`,
+        `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
         `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
         `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
       ];

@@ -1,34 +1,12 @@
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { createServerFn } from "@tanstack/react-start";
+import {
+  FALLBACK_PRODUCTS,
+  type ProductRow,
+  type VariantRow,
+} from "./fallback-products";
 
-/** A product row as stored in the database. */
-export interface ProductRow {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  images: string[];
-  category: string | null;
-  sizes: string[];
-  colors: string[];
-  stock_quantity: number;
-  is_active: boolean;
-  tags: string[];
-  product_variants?: VariantRow[];
-}
-
-/** Per size/colour inventory row. */
-export interface VariantRow {
-  id: string;
-  size: string;
-  color: string;
-  sku?: string;
-  stock_quantity: number;
-  reserved_stock: number;
-  low_stock_threshold: number;
-}
+export { FALLBACK_PRODUCTS, type ProductRow, type VariantRow };
 
 export interface CatalogImage {
   url: string;
@@ -180,323 +158,7 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
   };
 }
 
-export const FALLBACK_PRODUCTS: ProductRow[] = [
-  {
-    id: "prod-oversized-black-tee",
-    name: "Oversized Black T-Shirt",
-    slug: "oversized-black-t-shirt",
-    description:
-      "Heavyweight 240 GSM combed cotton oversized streetwear tee in solid black. Drop-shoulder relaxed boxy fit.",
-    price: 999,
-    currency: "INR",
-    images: ["/products/zoro-black-1.jpg", "/products/zoro-black-2.jpg"],
-    category: "Oversized Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Black"],
-    stock_quantity: 91,
-    is_active: true,
-    tags: ["Oversized", "Bestseller", "Essentials"],
-    product_variants: [
-      {
-        id: "var-obts-blk-s",
-        size: "S",
-        color: "Black",
-        sku: "OBTS-BLK-S",
-        stock_quantity: 42,
-        reserved_stock: 2,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-obts-blk-m",
-        size: "M",
-        color: "Black",
-        sku: "OBTS-BLK-M",
-        stock_quantity: 27,
-        reserved_stock: 5,
-        low_stock_threshold: 15,
-      },
-      {
-        id: "var-obts-blk-l",
-        size: "L",
-        color: "Black",
-        sku: "OBTS-BLK-L",
-        stock_quantity: 18,
-        reserved_stock: 3,
-        low_stock_threshold: 15,
-      },
-      {
-        id: "var-obts-blk-xl",
-        size: "XL",
-        color: "Black",
-        sku: "OBTS-BLK-XL",
-        stock_quantity: 4,
-        reserved_stock: 2,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-obts-blk-xxl",
-        size: "XXL",
-        color: "Black",
-        sku: "OBTS-BLK-XXL",
-        stock_quantity: 0,
-        reserved_stock: 0,
-        low_stock_threshold: 8,
-      },
-    ],
-  },
-  {
-    id: "prod-premium-white-tee",
-    name: "Premium White T-Shirt",
-    slug: "premium-white-t-shirt",
-    description:
-      "Clean optic white premium cotton essential tee. Tailored modern streetwear fit with durable reinforced collar.",
-    price: 899,
-    currency: "INR",
-    images: ["/products/zoro-olive-1.jpg", "/products/zoro-olive-2.jpg"],
-    category: "Essential Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["White"],
-    stock_quantity: 75,
-    is_active: true,
-    tags: ["Essential", "White", "Featured"],
-    product_variants: [
-      {
-        id: "var-pwt-wht-s",
-        size: "S",
-        color: "White",
-        sku: "PWT-WHT-S",
-        stock_quantity: 35,
-        reserved_stock: 1,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-pwt-wht-m",
-        size: "M",
-        color: "White",
-        sku: "PWT-WHT-M",
-        stock_quantity: 0,
-        reserved_stock: 0,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-pwt-wht-l",
-        size: "L",
-        color: "White",
-        sku: "PWT-WHT-L",
-        stock_quantity: 22,
-        reserved_stock: 2,
-        low_stock_threshold: 12,
-      },
-      {
-        id: "var-pwt-wht-xl",
-        size: "XL",
-        color: "White",
-        sku: "PWT-WHT-XL",
-        stock_quantity: 3,
-        reserved_stock: 1,
-        low_stock_threshold: 8,
-      },
-      {
-        id: "var-pwt-wht-xxl",
-        size: "XXL",
-        color: "White",
-        sku: "PWT-WHT-XXL",
-        stock_quantity: 15,
-        reserved_stock: 0,
-        low_stock_threshold: 5,
-      },
-    ],
-  },
-  {
-    id: "prod-classic-red-tee",
-    name: "Classic Red T-Shirt",
-    slug: "classic-red-t-shirt",
-    description:
-      "Vibrant crimson red classic tee crafted from breathable ring-spun cotton. Ideal everyday casual wear.",
-    price: 849,
-    currency: "INR",
-    images: ["/products/zenitsu-maroon-1.jpg", "/products/zenitsu-maroon-2.jpg"],
-    category: "Classic Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Red"],
-    stock_quantity: 67,
-    is_active: true,
-    tags: ["Classic", "Red", "Casual"],
-    product_variants: [
-      {
-        id: "var-crts-red-s",
-        size: "S",
-        color: "Red",
-        sku: "CRTS-RED-S",
-        stock_quantity: 25,
-        reserved_stock: 0,
-        low_stock_threshold: 8,
-      },
-      {
-        id: "var-crts-red-m",
-        size: "M",
-        color: "Red",
-        sku: "CRTS-RED-M",
-        stock_quantity: 8,
-        reserved_stock: 2,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-crts-red-l",
-        size: "L",
-        color: "Red",
-        sku: "CRTS-RED-L",
-        stock_quantity: 30,
-        reserved_stock: 4,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-crts-red-xl",
-        size: "XL",
-        color: "Red",
-        sku: "CRTS-RED-XL",
-        stock_quantity: 12,
-        reserved_stock: 1,
-        low_stock_threshold: 8,
-      },
-      {
-        id: "var-crts-red-xxl",
-        size: "XXL",
-        color: "Red",
-        sku: "CRTS-RED-XXL",
-        stock_quantity: 2,
-        reserved_stock: 0,
-        low_stock_threshold: 5,
-      },
-    ],
-  },
-  {
-    id: "prod-heavyweight-grey-tee",
-    name: "Heavyweight Grey T-Shirt",
-    slug: "heavyweight-grey-t-shirt",
-    description:
-      "Charcoal heather grey 260 GSM ultra-heavyweight boxy tee. Built for structure and longevity.",
-    price: 1149,
-    currency: "INR",
-    images: ["/products/zoro-black-2.jpg", "/products/zoro-black-1.jpg"],
-    category: "Heavyweight Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Grey"],
-    stock_quantity: 124,
-    is_active: true,
-    tags: ["Heavyweight", "Grey", "Streetwear"],
-    product_variants: [
-      {
-        id: "var-hwg-gry-s",
-        size: "S",
-        color: "Grey",
-        sku: "HWG-GRY-S",
-        stock_quantity: 50,
-        reserved_stock: 5,
-        low_stock_threshold: 15,
-      },
-      {
-        id: "var-hwg-gry-m",
-        size: "M",
-        color: "Grey",
-        sku: "HWG-GRY-M",
-        stock_quantity: 40,
-        reserved_stock: 2,
-        low_stock_threshold: 15,
-      },
-      {
-        id: "var-hwg-gry-l",
-        size: "L",
-        color: "Grey",
-        sku: "HWG-GRY-L",
-        stock_quantity: 25,
-        reserved_stock: 3,
-        low_stock_threshold: 12,
-      },
-      {
-        id: "var-hwg-gry-xl",
-        size: "XL",
-        color: "Grey",
-        sku: "HWG-GRY-XL",
-        stock_quantity: 9,
-        reserved_stock: 2,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-hwg-gry-xxl",
-        size: "XXL",
-        color: "Grey",
-        sku: "HWG-GRY-XXL",
-        stock_quantity: 0,
-        reserved_stock: 0,
-        low_stock_threshold: 6,
-      },
-    ],
-  },
-  {
-    id: "prod-streetwear-blue-tee",
-    name: "Streetwear Blue T-Shirt",
-    slug: "streetwear-blue-t-shirt",
-    description:
-      "Cobalt blue pigment-dyed relaxed fit tee with vintage wash finish and ribbed neckband.",
-    price: 999,
-    currency: "INR",
-    images: ["/products/zenitsu-maroon-2.jpg", "/products/zenitsu-maroon-1.jpg"],
-    category: "Oversized Tees",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Blue"],
-    stock_quantity: 77,
-    is_active: true,
-    tags: ["Streetwear", "Blue", "Vintage"],
-    product_variants: [
-      {
-        id: "var-stb-blu-s",
-        size: "S",
-        color: "Blue",
-        sku: "STB-BLU-S",
-        stock_quantity: 30,
-        reserved_stock: 1,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-stb-blu-m",
-        size: "M",
-        color: "Blue",
-        sku: "STB-BLU-M",
-        stock_quantity: 22,
-        reserved_stock: 0,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-stb-blu-l",
-        size: "L",
-        color: "Blue",
-        sku: "STB-BLU-L",
-        stock_quantity: 5,
-        reserved_stock: 2,
-        low_stock_threshold: 10,
-      },
-      {
-        id: "var-stb-blu-xl",
-        size: "XL",
-        color: "Blue",
-        sku: "STB-BLU-XL",
-        stock_quantity: 19,
-        reserved_stock: 1,
-        low_stock_threshold: 8,
-      },
-      {
-        id: "var-stb-blu-xxl",
-        size: "XXL",
-        color: "Blue",
-        sku: "STB-BLU-XXL",
-        stock_quantity: 11,
-        reserved_stock: 0,
-        low_stock_threshold: 6,
-      },
-    ],
-  },
-];
+
 
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
@@ -515,7 +177,7 @@ export function invalidateCatalogCache() {
   _handleCache.clear();
 }
 
-async function seedInitialProductsIfNeeded() {
+export async function seedInitialProductsIfNeeded() {
   if (_seeded) return;
   if (_seedPromise) return _seedPromise;
 
@@ -523,23 +185,32 @@ async function seedInitialProductsIfNeeded() {
     try {
       const sql = getSql();
 
-      // Quick existence check: If products table already has records, skip seeding entirely
+      // Check if store_settings has initial_catalog_seeded flag
+      try {
+        const settings = await sql`
+          SELECT initial_catalog_seeded FROM store_settings WHERE id = 'default' LIMIT 1
+        `;
+        if (settings && settings.length > 0 && settings[0].initial_catalog_seeded) {
+          _seeded = true;
+          return;
+        }
+      } catch {
+        // Table or column may not exist yet, proceed
+      }
+
+      // Quick existence check: If products table already has records, mark seeded and exit
       try {
         const existing = await sql`SELECT 1 FROM products LIMIT 1`;
         if (existing && existing.length > 0) {
           _seeded = true;
+          try {
+            await sql`UPDATE store_settings SET initial_catalog_seeded = true WHERE id = 'default'`;
+          } catch {}
           return;
         }
       } catch {
         // Table may not exist yet or connection error, proceed
       }
-
-      const fallbackIds = FALLBACK_PRODUCTS.map((p) => p.id);
-
-      // Remove obsolete products not in FALLBACK_PRODUCTS
-      await sql`
-        DELETE FROM products WHERE id::text <> ALL(${fallbackIds}::text[])
-      `;
 
       for (const p of FALLBACK_PRODUCTS) {
         try {
@@ -550,19 +221,7 @@ async function seedInitialProductsIfNeeded() {
               ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
               ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
               ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-            ) ON CONFLICT (id) DO UPDATE SET
-              name = EXCLUDED.name,
-              slug = EXCLUDED.slug,
-              description = EXCLUDED.description,
-              price = EXCLUDED.price,
-              currency = EXCLUDED.currency,
-              images = EXCLUDED.images,
-              category = EXCLUDED.category,
-              sizes = EXCLUDED.sizes,
-              colors = EXCLUDED.colors,
-              stock_quantity = EXCLUDED.stock_quantity,
-              is_active = EXCLUDED.is_active,
-              tags = EXCLUDED.tags;
+            ) ON CONFLICT (id) DO NOTHING;
           `;
         } catch {
           await sql`
@@ -572,19 +231,7 @@ async function seedInitialProductsIfNeeded() {
               ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.currency},
               ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
               ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-            ) ON CONFLICT (id) DO UPDATE SET
-              name = EXCLUDED.name,
-              slug = EXCLUDED.slug,
-              description = EXCLUDED.description,
-              price = EXCLUDED.price,
-              currency = EXCLUDED.currency,
-              images = EXCLUDED.images,
-              category = EXCLUDED.category,
-              sizes = EXCLUDED.sizes,
-              colors = EXCLUDED.colors,
-              stock_quantity = EXCLUDED.stock_quantity,
-              is_active = EXCLUDED.is_active,
-              tags = EXCLUDED.tags;
+            ) ON CONFLICT (id) DO NOTHING;
           `;
         }
         if (p.product_variants) {
@@ -595,9 +242,7 @@ async function seedInitialProductsIfNeeded() {
                   id, product_id, size, color, sku, stock_quantity, reserved_stock, low_stock_threshold
                 ) VALUES (
                   ${v.id}, ${p.id}, ${v.size}, ${v.color}, ${v.sku || v.id}, ${v.stock_quantity}, ${v.reserved_stock}, ${v.low_stock_threshold}
-                ) ON CONFLICT (id) DO UPDATE SET
-                  stock_quantity = EXCLUDED.stock_quantity,
-                  reserved_stock = EXCLUDED.reserved_stock;
+                ) ON CONFLICT (id) DO NOTHING;
               `;
             } catch {
               // ignore
@@ -605,6 +250,11 @@ async function seedInitialProductsIfNeeded() {
           }
         }
       }
+
+      try {
+        await sql`UPDATE store_settings SET initial_catalog_seeded = true WHERE id = 'default'`;
+      } catch {}
+
       _seeded = true;
     } catch (err) {
       console.warn("Seed initial products error:", err);
@@ -628,6 +278,8 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
     }
 
     try {
+      await ensureDbSchema();
+      await seedInitialProductsIfNeeded();
       const sql = getSql();
 
       const products = await sql`
@@ -639,17 +291,19 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
-        const fallbacks = FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
-        _catalogCache.set(first, { data: fallbacks, timestamp: Date.now() });
-        return fallbacks;
+        _catalogCache.set(first, { data: [], timestamp: Date.now() });
+        return [];
       }
 
       const productIds = products.map((p: any) => String(p.id));
-      const variants = await sql`
-        SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-        FROM product_variants
-        WHERE product_id::text = ANY(${productIds}::text[])
-      `;
+      let variants: any[] = [];
+      if (productIds.length > 0) {
+        variants = await sql`
+          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
+          FROM product_variants
+          WHERE product_id::text = ANY(${productIds}::text[])
+        `;
+      }
 
       const variantsByProductId = new Map<string, VariantRow[]>();
       for (const v of variants) {
@@ -698,22 +352,18 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       _catalogCache.set(first, { data: result, timestamp: Date.now() });
       return result;
     } catch (err) {
-      console.warn("fetchProducts error, returning fallback products:", err);
-      const fallbacks = FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
-      _catalogCache.set(first, { data: fallbacks, timestamp: Date.now() });
-      return fallbacks;
+      console.warn("fetchProducts error:", err);
+      return [];
     }
   });
 
 export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   try {
     const res = await fetchProductsServerFn({ data: { first } });
-    return Array.isArray(res) && res.length > 0
-      ? res
-      : FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+    return Array.isArray(res) ? res : [];
   } catch (err) {
-    console.warn("fetchProducts wrapper error, using fallbacks:", err);
-    return FALLBACK_PRODUCTS.slice(0, first).map(toCatalogProduct);
+    console.warn("fetchProducts wrapper error:", err);
+    return [];
   }
 }
 
@@ -727,6 +377,8 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     }
 
     try {
+      await ensureDbSchema();
+      await seedInitialProductsIfNeeded();
       const sql = getSql();
 
       const products = await sql`
@@ -737,15 +389,6 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
-        // Check fallback products
-        const fallback = FALLBACK_PRODUCTS.find(
-          (p) => p.slug === data.handle || p.id === data.handle,
-        );
-        if (fallback) {
-          const node = toCatalogProduct(fallback).node;
-          _handleCache.set(handleKey, { data: node, timestamp: Date.now() });
-          return node;
-        }
         return null;
       }
 
@@ -798,13 +441,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       _handleCache.set(handleKey, { data: node, timestamp: Date.now() });
       return node;
     } catch (err) {
-      console.warn("fetchProductByHandle error, searching fallback:", err);
-      const fallback = FALLBACK_PRODUCTS.find(
-        (p) => p.slug === data.handle || p.id === data.handle,
-      );
-      if (fallback) {
-        return toCatalogProduct(fallback).node;
-      }
+      console.warn("fetchProductByHandle error:", err);
       return null;
     }
   });
