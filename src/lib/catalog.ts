@@ -185,14 +185,26 @@ export async function seedInitialProductsIfNeeded() {
     try {
       const sql = getSql();
 
+      // Filter out any deleted products so they are NEVER re-seeded
+      const deletedIds = new Set<string>();
+      try {
+        const { getDeletedProductIds } = await import("./fallback-products-manager.server");
+        getDeletedProductIds().forEach((id) => deletedIds.add(id.toLowerCase().trim()));
+      } catch {}
+
       // Check if store_settings has initial_catalog_seeded flag
       try {
         const settings = await sql`
-          SELECT initial_catalog_seeded FROM store_settings WHERE id = 'default' LIMIT 1
+          SELECT initial_catalog_seeded, deleted_product_ids FROM store_settings WHERE id = 'default' LIMIT 1
         `;
-        if (settings && settings.length > 0 && settings[0].initial_catalog_seeded) {
-          _seeded = true;
-          return;
+        if (settings && settings.length > 0) {
+          if (settings[0].deleted_product_ids && Array.isArray(settings[0].deleted_product_ids)) {
+            settings[0].deleted_product_ids.forEach((d: string) => deletedIds.add(String(d).toLowerCase().trim()));
+          }
+          if (settings[0].initial_catalog_seeded) {
+            _seeded = true;
+            return;
+          }
         }
       } catch {
         // Table or column may not exist yet, proceed
@@ -213,6 +225,9 @@ export async function seedInitialProductsIfNeeded() {
       }
 
       for (const p of FALLBACK_PRODUCTS) {
+        if (deletedIds.has(p.id.toLowerCase()) || deletedIds.has(p.slug.toLowerCase())) {
+          continue;
+        }
         try {
           await sql`
             INSERT INTO products (
@@ -348,7 +363,18 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         product_variants: variantsByProductId.get(String(p.id)) || [],
       }));
 
-      const result = rows.map(toCatalogProduct);
+      // Filter out any deleted products
+      let deletedIds = new Set<string>();
+      try {
+        const { getDeletedProductIds } = await import("./fallback-products-manager.server");
+        deletedIds = new Set(getDeletedProductIds());
+      } catch {}
+
+      const filteredRows = rows.filter(
+        (r) => !deletedIds.has(r.id.toLowerCase()) && !deletedIds.has(r.slug.toLowerCase()),
+      );
+
+      const result = filteredRows.map(toCatalogProduct);
       _catalogCache.set(first, { data: result, timestamp: Date.now() });
       return result;
     } catch (err) {
@@ -371,6 +397,13 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
   .handler(async ({ data }): Promise<CatalogProductNode | null> => {
     const handleKey = data.handle.toLowerCase();
+    try {
+      const { isProductDeleted } = await import("./fallback-products-manager.server");
+      if (isProductDeleted(handleKey)) {
+        return null;
+      }
+    } catch {}
+
     const cached = _handleCache.get(handleKey);
     if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) {
       return cached.data;

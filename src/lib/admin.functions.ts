@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
+import { removeProductFromFile } from "@/lib/fallback-products-manager.server";
 import {
   addInventory,
   removeInventory,
@@ -249,11 +250,26 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     await sql`DELETE FROM favorites WHERE product_handle::text = ${data.productId} OR product_handle::text IN (SELECT slug FROM products WHERE id::text = ${data.productId})`;
     await sql`DELETE FROM reviews WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM inventory_transactions WHERE product_id::text = ${data.productId}`;
-    const deleteRes =
-      await sql`DELETE FROM products WHERE id::text = ${data.productId} OR slug::text = ${data.productId} RETURNING id`;
-    if (deleteRes.length === 0) {
-      throw new Error(`Product with ID or slug "${data.productId}" not found in database.`);
-    }
+    try {
+      await sql`DELETE FROM products WHERE id::text = ${data.productId} OR slug::text = ${data.productId}`;
+    } catch {}
+
+    // 1. Permanently remove from fallback source file (src/lib/fallback-products.ts) on disk & memory
+    await removeProductFromFile(data.productId);
+
+    // 2. Persist deletion in store_settings tombstones
+    try {
+      await sql`
+        UPDATE store_settings
+        SET deleted_product_ids = (
+          CASE 
+            WHEN deleted_product_ids IS NULL THEN ${JSON.stringify([data.productId])}::jsonb
+            ELSE deleted_product_ids || ${JSON.stringify([data.productId])}::jsonb
+          END
+        )
+        WHERE id = 'default'
+      `;
+    } catch {}
 
     invalidateCatalogCache();
 

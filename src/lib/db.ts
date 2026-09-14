@@ -24,6 +24,20 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
   })),
 );
 
+export function removeMockProduct(productIdOrSlug: string): boolean {
+  if (!productIdOrSlug) return false;
+  const norm = String(productIdOrSlug).toLowerCase().trim();
+  const idx = _mockProducts.findIndex(
+    (p) => String(p.id).toLowerCase() === norm || String(p.slug).toLowerCase() === norm,
+  );
+  if (idx !== -1) {
+    const [removed] = _mockProducts.splice(idx, 1);
+    _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
+    return true;
+  }
+  return false;
+}
+
 export function getDatabaseUrl(): string | null {
   return process.env.DATABASE_URL || null;
 }
@@ -181,14 +195,16 @@ export function getSql() {
 
       // DELETE FROM products
       if (lower.startsWith("delete from products") || lower.includes("delete from products")) {
-        const idVal = String(values[0] ?? "");
-        const idx = _mockProducts.findIndex((p) => p.id === idVal || p.slug === idVal);
+        const idVal = String(values[0] ?? values[1] ?? "").toLowerCase().trim();
+        const idx = _mockProducts.findIndex(
+          (p) => String(p.id).toLowerCase() === idVal || String(p.slug).toLowerCase() === idVal,
+        );
         if (idx >= 0) {
           const removed = _mockProducts.splice(idx, 1)[0];
-          _mockVariants = _mockVariants.filter((v) => v.product_id !== removed.id);
+          _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
           return [{ id: removed.id }];
         }
-        return [{ id: idVal }];
+        return [{ id: values[0] || "deleted" }];
       }
 
       // SELECT from product_variants
