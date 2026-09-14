@@ -159,6 +159,10 @@ export function WebsiteHomepageContent({
                         <img
                           src={c.imageUrl}
                           alt={c.title}
+                          width={320}
+                          height={427}
+                          loading="lazy"
+                          decoding="async"
                           className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-500 group-hover:scale-105"
                         />
                       )}
@@ -210,8 +214,8 @@ export function WebsiteHomepageContent({
                   <EmptyProducts />
                 ) : (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">
-                    {displayedProducts.map((p, idx) => (
-                      <ProductCard key={p.node.id} product={p} priority={idx < 4} />
+                    {displayedProducts.map((p) => (
+                      <ProductCard key={p.node.id} product={p} priority={false} />
                     ))}
                   </div>
                 )}
@@ -393,6 +397,9 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
             }
           }}
           src={videoSrc}
+          poster={hero.imageUrl || "/assets/hero-poster.jpg"}
+          width={1376}
+          height={768}
           autoPlay
           loop
           muted
@@ -414,8 +421,6 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
           }}
         >
           <source src={videoSrc} type="video/mp4" />
-          <source src={videoSrc} type="video/webm" />
-          <source src={videoSrc} />
         </video>
       ) : imageSrc ? (
         <img
@@ -423,6 +428,9 @@ function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPrevi
           alt={hero.heading || "RIOTOUS Streetwear"}
           loading="eager"
           fetchPriority="high"
+          decoding="async"
+          width={1376}
+          height={768}
           className="absolute inset-0 h-full w-full object-cover opacity-85 z-0"
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />

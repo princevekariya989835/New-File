@@ -164,6 +164,8 @@ export function SiteLoader({
           alt="Buffering..."
           loading="eager"
           decoding="async"
+          width={112}
+          height={112}
           className="w-full h-full object-cover select-none pointer-events-none"
         />
 

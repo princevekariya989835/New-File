@@ -91,6 +91,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "dns-prefetch", href: "https://fonts.googleapis.com" },
+      { rel: "dns-prefetch", href: "https://fonts.gstatic.com" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "preconnect",
@@ -98,28 +100,62 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         crossOrigin: "anonymous",
       },
       {
+        rel: "preload",
+        as: "style",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+      },
+      {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
       },
-      { rel: "preconnect", href: "https://www.googletagmanager.com" },
       {
-        rel: "preconnect",
-        href: "https://www.google-analytics.com",
-        crossOrigin: "anonymous",
+        rel: "preload",
+        as: "image",
+        href: "/assets/riotous-logo.png",
+        fetchPriority: "high",
       },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/assets/hero-poster.jpg",
+        fetchPriority: "high",
+      },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/assets/kookaburra-loader.png",
+      },
+      { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
     ],
     scripts: [
-      {
-        type: "text/javascript",
-        src: "https://www.googletagmanager.com/gtag/js?id=G-1KHJNXYQ2E",
-        async: true,
-      },
       {
         type: "text/javascript",
         children: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'G-1KHJNXYQ2E');`,
+gtag('config', 'G-1KHJNXYQ2E');
+
+(function() {
+  function loadGtag() {
+    if (window.__gtagLoaded) return;
+    window.__gtagLoaded = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-1KHJNXYQ2E';
+    s.async = true;
+    s.fetchPriority = 'low';
+    document.head.appendChild(s);
+  }
+  if (typeof window !== 'undefined') {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(function() { setTimeout(loadGtag, 2000); });
+    } else {
+      setTimeout(loadGtag, 2500);
+    }
+    ['pointerdown', 'touchstart', 'scroll', 'keydown'].forEach(function(ev) {
+      window.addEventListener(ev, loadGtag, { once: true, passive: true });
+    });
+  }
+})();`,
       },
     ],
   }),

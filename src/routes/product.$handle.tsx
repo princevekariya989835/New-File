@@ -219,6 +219,11 @@ function ProductPage() {
                 <img
                   src={images[activeImage].node.url}
                   alt={images[activeImage].node.altText ?? p.title}
+                  width={600}
+                  height={750}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
                 />
               </button>
@@ -235,7 +240,15 @@ function ProductPage() {
                     activeImage === i ? "border-foreground" : "border-transparent"
                   }`}
                 >
-                  <img src={img.node.url} alt="" className="h-full w-full object-contain" />
+                  <img
+                    src={img.node.url}
+                    alt=""
+                    width={80}
+                    height={80}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-contain"
+                  />
                 </button>
               ))}
             </div>

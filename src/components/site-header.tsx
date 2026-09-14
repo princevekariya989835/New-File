@@ -127,6 +127,10 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
             <img
               src="/assets/riotous-logo.png"
               alt="RIOTOUS"
+              width={145}
+              height={37}
+              loading="eager"
+              decoding="async"
               className={`shrink-0 object-contain transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 scrolled ? "w-[115px] h-auto md:w-auto md:h-7" : "w-[145px] h-auto md:w-auto md:h-9"
               }`}

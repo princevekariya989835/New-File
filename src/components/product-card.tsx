@@ -51,6 +51,9 @@ export function ProductCard({
           <img
             src={img.url}
             alt={img.altText ?? p.title}
+            width={400}
+            height={400}
+            decoding="async"
             className="max-h-full max-w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
             loading={priority ? "eager" : "lazy"}
             {...(priority ? { fetchPriority: "high" } : {})}
@@ -60,6 +63,9 @@ export function ProductCard({
           <img
             src={img2.url}
             alt={img2.altText ?? p.title}
+            width={400}
+            height={400}
+            decoding="async"
             className="absolute inset-0 m-auto max-h-[85%] max-w-[85%] object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
             loading="lazy"
           />

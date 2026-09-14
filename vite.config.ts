@@ -68,6 +68,13 @@ export default defineConfig({
     nitro({
       preset:
         process.env.NITRO_PRESET || (process.env.CF_PAGES ? "cloudflare-pages" : "node-server"),
+      compressPublicAssets: true,
+      routeRules: {
+        "/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+        "/videos/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+        "/products/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+        "/favicon*": { headers: { "cache-control": "public, max-age=86400" } },
+      },
     }),
     viteReact(),
   ],
