@@ -5,6 +5,7 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  useLocation,
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -148,13 +149,16 @@ function RootComponent() {
 
 function AppShell() {
   useCartSync();
+  const location = useLocation();
+  const isAuthPage = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="flex-1 pt-16 md:pt-20">
+      <main className={isAuthPage ? "flex-1 flex flex-col" : "flex-1 pt-16 md:pt-20"}>
         <Outlet />
       </main>
-      <SiteFooter />
+      {!isAuthPage && <SiteFooter />}
       <Toaster position="top-center" />
     </div>
   );
