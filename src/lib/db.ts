@@ -598,6 +598,16 @@ export function getSql() {
   return neon(url);
 }
 
+async function runDdlStatement(sql: any, stmt: string) {
+  const trimmed = stmt.trim();
+  if (!trimmed) return;
+  if (typeof sql.query === "function") {
+    await sql.query(trimmed);
+  } else {
+    await sql([trimmed]);
+  }
+}
+
 /**
  * Initializes all required database tables, indexes, and initial data in Neon PostgreSQL.
  * Optimized for high performance and fast dashboard startup with singleton promise locking.
@@ -630,10 +640,10 @@ export async function ensureDbSchema() {
         if (row && (row.has_products || row.has_profiles || row.has_website || row.has_settings)) {
           // Core database schema already exists.
           // Check if newly introduced tables are missing and create only what is needed:
-          const missingDdl: string[] = [];
+          const missingStatements: string[] = [];
           if (!row.has_coupons) {
-            missingDdl.push(`
-              CREATE TABLE IF NOT EXISTS coupons (
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS coupons (
                 id TEXT PRIMARY KEY,
                 code TEXT UNIQUE NOT NULL,
                 name TEXT NOT NULL,
@@ -657,14 +667,14 @@ export async function ensureDbSchema() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 created_by TEXT
-              );
-              CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code));
-              CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at);
-            `);
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code))`,
+              `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
+            );
           }
           if (!row.has_coupon_usage) {
-            missingDdl.push(`
-              CREATE TABLE IF NOT EXISTS coupon_usage (
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS coupon_usage (
                 id TEXT PRIMARY KEY,
                 coupon_id TEXT NOT NULL,
                 order_id TEXT NOT NULL,
@@ -674,21 +684,21 @@ export async function ensureDbSchema() {
                 discount_amount NUMERIC NOT NULL,
                 order_amount NUMERIC NOT NULL,
                 used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              );
-              CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id);
-              CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id);
-              CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id);
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT;
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT;
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC;
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC;
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC;
-              ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC;
-            `);
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
+              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
+            );
           }
           if (!row.has_website) {
-            missingDdl.push(`
-              CREATE TABLE IF NOT EXISTS website_published (
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS website_published (
                 id TEXT PRIMARY KEY DEFAULT 'live',
                 version_id TEXT NOT NULL,
                 version_number INTEGER NOT NULL DEFAULT 1,
@@ -696,14 +706,14 @@ export async function ensureDbSchema() {
                 published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 published_by TEXT NOT NULL DEFAULT 'Admin',
                 change_summary TEXT
-              );
-              CREATE TABLE IF NOT EXISTS website_draft (
+              )`,
+              `CREATE TABLE IF NOT EXISTS website_draft (
                 id TEXT PRIMARY KEY DEFAULT 'current',
                 config JSONB NOT NULL,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_by TEXT DEFAULT 'Admin'
-              );
-              CREATE TABLE IF NOT EXISTS website_versions (
+              )`,
+              `CREATE TABLE IF NOT EXISTS website_versions (
                 id TEXT PRIMARY KEY,
                 version_number INTEGER NOT NULL,
                 config JSONB NOT NULL,
@@ -711,30 +721,28 @@ export async function ensureDbSchema() {
                 published_by TEXT NOT NULL,
                 change_summary TEXT,
                 status TEXT DEFAULT 'published'
-              );
-            `);
+              )`,
+            );
           }
           if (!row.has_settings) {
-            missingDdl.push(`
-              CREATE TABLE IF NOT EXISTS store_settings (
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS store_settings (
                 id TEXT PRIMARY KEY DEFAULT 'default',
                 store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
                 initial_catalog_seeded BOOLEAN DEFAULT false,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              );
-              ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false;
-              INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;
-            `);
+              )`,
+              `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
+              `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
+            );
           }
-          if (missingDdl.length > 0) {
-            try {
-              if (typeof (sql as any).query === "function") {
-                await (sql as any).query(missingDdl.join("\n"));
-              } else {
-                await (sql as any)([missingDdl.join("\n")]);
+          if (missingStatements.length > 0) {
+            for (const stmt of missingStatements) {
+              try {
+                await runDdlStatement(sql, stmt);
+              } catch (stmtErr: any) {
+                console.warn("[Neon DB] Missing table DDL warning:", stmtErr?.message || stmtErr);
               }
-            } catch {
-              // ignore non-fatal creation warnings
             }
           }
           _schemaInitialized = true;
@@ -1260,33 +1268,19 @@ export async function ensureDbSchema() {
         `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
       ];
 
-      // For fresh database setups, execute in grouped batches rather than 70 sequential HTTP calls
-      try {
-        const ddlBatch = schemaStatements.filter((s) => !s.trim().startsWith("DO $$")).join(";\n");
-        if (typeof (sql as any).query === "function") {
-          await (sql as any).query(ddlBatch);
-        } else {
-          await (sql as any)([ddlBatch]);
-        }
-      } catch {
-        // Fallback to concurrent chunk execution
-        const batchSize = 8;
-        for (let i = 0; i < schemaStatements.length; i += batchSize) {
-          const chunk = schemaStatements.slice(i, i + batchSize);
-          await Promise.allSettled(
-            chunk.map(async (stmt) => {
-              try {
-                if (typeof (sql as any).query === "function") {
-                  await (sql as any).query(stmt);
-                } else {
-                  await (sql as any)([stmt]);
-                }
-              } catch {
-                // ignore statement-level warnings
-              }
-            }),
-          );
-        }
+      // Execute schema statements in concurrent chunks
+      const batchSize = 6;
+      for (let i = 0; i < schemaStatements.length; i += batchSize) {
+        const chunk = schemaStatements.slice(i, i + batchSize);
+        await Promise.allSettled(
+          chunk.map(async (stmt) => {
+            try {
+              await runDdlStatement(sql, stmt);
+            } catch (stmtErr: any) {
+              // ignore statement-level warnings
+            }
+          }),
+        );
       }
 
       _schemaInitialized = true;

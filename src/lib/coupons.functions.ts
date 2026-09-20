@@ -148,6 +148,117 @@ function mapCouponDbRow(row: any): CouponRecord {
   };
 }
 
+function safeDateIso(val: any): string | null {
+  if (!val) return null;
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
+let _couponSchemaEnsured = false;
+
+export async function ensureCouponsSchema() {
+  if (_couponSchemaEnsured) return;
+  await ensureDbSchema();
+  const sql = getSql();
+
+  if (!process.env.DATABASE_URL) {
+    _couponSchemaEnsured = true;
+    return;
+  }
+
+  try {
+    const check = await sql`
+      SELECT 
+        to_regclass('public.coupons') IS NOT NULL AS has_coupons,
+        to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage
+    `;
+    const row = check?.[0];
+    if (row?.has_coupons && row?.has_coupon_usage) {
+      _couponSchemaEnsured = true;
+      return;
+    }
+
+    const statements: string[] = [];
+    if (!row?.has_coupons) {
+      statements.push(
+        `CREATE TABLE IF NOT EXISTS coupons (
+          id TEXT PRIMARY KEY,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          discount_type TEXT NOT NULL,
+          discount_value NUMERIC NOT NULL,
+          minimum_order_value NUMERIC DEFAULT 0,
+          maximum_discount NUMERIC,
+          usage_limit INTEGER,
+          usage_per_customer INTEGER DEFAULT 1,
+          used_count INTEGER NOT NULL DEFAULT 0,
+          starts_at TIMESTAMP WITH TIME ZONE,
+          expires_at TIMESTAMP WITH TIME ZONE,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          applies_to TEXT NOT NULL DEFAULT 'all',
+          product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+          category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+          excluded_product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+          excluded_category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+          deleted_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_by TEXT
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code))`,
+        `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
+      );
+    }
+    if (!row?.has_coupon_usage) {
+      statements.push(
+        `CREATE TABLE IF NOT EXISTS coupon_usage (
+          id TEXT PRIMARY KEY,
+          coupon_id TEXT NOT NULL,
+          order_id TEXT NOT NULL,
+          customer_id TEXT,
+          customer_email TEXT NOT NULL,
+          coupon_code TEXT NOT NULL,
+          discount_amount NUMERIC NOT NULL,
+          order_amount NUMERIC NOT NULL,
+          used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
+      );
+    }
+
+    for (const stmt of statements) {
+      const trimmed = stmt.trim();
+      if (!trimmed) continue;
+      try {
+        if (typeof (sql as any).query === "function") {
+          await (sql as any).query(trimmed);
+        } else {
+          await (sql as any)([trimmed]);
+        }
+      } catch (stmtErr: any) {
+        console.warn("[Coupons] Table setup note:", stmtErr?.message || stmtErr);
+      }
+    }
+
+    _couponSchemaEnsured = true;
+  } catch (err) {
+    console.error("[Coupons] Failed to ensure coupon tables:", err);
+  }
+}
+
 /**
  * Server-side core validation & discount calculator.
  * Strictly guarantees correct amounts, limits, and rules.
@@ -159,7 +270,7 @@ export async function validateAndCalculateCoupon(params: {
   customerEmail?: string | null;
   customerId?: string | null;
 }) {
-  await ensureDbSchema();
+  await ensureCouponsSchema();
   const sql = getSql();
   const cleanCode = String(params.code || "").toUpperCase().trim();
 
@@ -172,11 +283,26 @@ export async function validateAndCalculateCoupon(params: {
   }
 
   // 1. Fetch coupon by code
-  const rows = await sql`
-    SELECT * FROM coupons
-    WHERE UPPER(code) = ${cleanCode} AND deleted_at IS NULL
-    LIMIT 1
-  `;
+  let rows;
+  try {
+    rows = await sql`
+      SELECT * FROM coupons
+      WHERE UPPER(code) = ${cleanCode} AND deleted_at IS NULL
+      LIMIT 1
+    `;
+  } catch (queryErr: any) {
+    if (String(queryErr?.message || "").includes("does not exist")) {
+      _couponSchemaEnsured = false;
+      await ensureCouponsSchema();
+      rows = await sql`
+        SELECT * FROM coupons
+        WHERE UPPER(code) = ${cleanCode} AND deleted_at IS NULL
+        LIMIT 1
+      `;
+    } else {
+      throw queryErr;
+    }
+  }
 
   if (!rows || rows.length === 0) {
     return { valid: false as const, error: "Invalid coupon code." };
@@ -383,28 +509,54 @@ export const adminListCoupons = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<CouponRecord[]> => {
     await assertAdmin(context as any, "coupons", "view");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
-    const rows = await sql`
-      SELECT * FROM coupons
-      WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
-    `;
-
-    return (rows as any[]).map(mapCouponDbRow);
+    try {
+      const rows = await sql`
+        SELECT * FROM coupons
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+      `;
+      return (rows as any[]).map(mapCouponDbRow);
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        const rows = await sql`
+          SELECT * FROM coupons
+          WHERE deleted_at IS NULL
+          ORDER BY created_at DESC
+        `;
+        return (rows as any[]).map(mapCouponDbRow);
+      }
+      throw err;
+    }
   });
 
 export const adminGetCouponStats = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context as any, "coupons", "view");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
-    const coupons = await sql`
-      SELECT * FROM coupons WHERE deleted_at IS NULL
-    `;
+    let coupons: any[] = [];
+    try {
+      coupons = await sql`
+        SELECT * FROM coupons WHERE deleted_at IS NULL
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        coupons = await sql`
+          SELECT * FROM coupons WHERE deleted_at IS NULL
+        `;
+      } else {
+        throw err;
+      }
+    }
 
     let totalCoupons = coupons.length;
     let activeCoupons = 0;
@@ -418,10 +570,15 @@ export const adminGetCouponStats = createServerFn({ method: "GET" })
       totalUsage += Number(c.used_count || 0);
     }
 
-    const usageTotals = await sql`
-      SELECT COALESCE(SUM(discount_amount), 0) as total_discount FROM coupon_usage
-    `;
-    const totalDiscountGiven = Number(usageTotals?.[0]?.total_discount || 0);
+    let totalDiscountGiven = 0;
+    try {
+      const usageTotals = await sql`
+        SELECT COALESCE(SUM(discount_amount), 0) as total_discount FROM coupon_usage
+      `;
+      totalDiscountGiven = Number(usageTotals?.[0]?.total_discount || 0);
+    } catch {
+      totalDiscountGiven = 0;
+    }
 
     return {
       totalCoupons,
@@ -437,24 +594,42 @@ export const adminGetCouponById = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string }) => ({ id: String(d.id) }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "coupons", "view");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
-    const rows = await sql`
-      SELECT * FROM coupons WHERE id = ${data.id} LIMIT 1
-    `;
+    let rows;
+    try {
+      rows = await sql`
+        SELECT * FROM coupons WHERE id = ${data.id} LIMIT 1
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        rows = await sql`
+          SELECT * FROM coupons WHERE id = ${data.id} LIMIT 1
+        `;
+      } else {
+        throw err;
+      }
+    }
     if (!rows || rows.length === 0) throw new Error("Coupon not found");
 
     const coupon = mapCouponDbRow(rows[0]);
 
-    const usageRows = await sql`
-      SELECT u.*, o.order_number, o.created_at as order_date, o.total_amount, o.status as order_status, o.shipping_name
-      FROM coupon_usage u
-      LEFT JOIN orders o ON u.order_id = o.id
-      WHERE u.coupon_id = ${coupon.id}
-      ORDER BY u.used_at DESC
-      LIMIT 100
-    `;
+    let usageRows: any[] = [];
+    try {
+      usageRows = await sql`
+        SELECT u.*, o.order_number, o.created_at as order_date, o.total_amount, o.status as order_status, o.shipping_name
+        FROM coupon_usage u
+        LEFT JOIN orders o ON u.order_id = o.id
+        WHERE u.coupon_id = ${coupon.id}
+        ORDER BY u.used_at DESC
+        LIMIT 100
+      `;
+    } catch {
+      usageRows = [];
+    }
 
     const totalDiscount = (usageRows as any[]).reduce(
       (s, r) => s + Number(r.discount_amount || 0),
@@ -545,8 +720,8 @@ export const adminCreateCoupon = createServerFn({ method: "POST" })
       maximumDiscount: d.maximumDiscount ? Math.max(1, Number(d.maximumDiscount)) : null,
       usageLimit: d.usageLimit ? Math.max(1, Math.round(Number(d.usageLimit))) : null,
       usagePerCustomer: d.usagePerCustomer !== undefined && d.usagePerCustomer !== null ? Math.max(1, Math.round(Number(d.usagePerCustomer))) : 1,
-      startsAt: d.startsAt ? new Date(d.startsAt).toISOString() : null,
-      expiresAt: d.expiresAt ? new Date(d.expiresAt).toISOString() : null,
+      startsAt: safeDateIso(d.startsAt),
+      expiresAt: safeDateIso(d.expiresAt),
       isActive: d.isActive !== false,
       appliesTo: (d.appliesTo as CouponAppliesTo) || "all",
       productIds: Array.isArray(d.productIds) ? d.productIds : [],
@@ -557,15 +732,30 @@ export const adminCreateCoupon = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "coupons", "create");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
     // Check duplicate code
-    const existing = await sql`
-      SELECT id FROM coupons
-      WHERE UPPER(code) = ${data.code} AND deleted_at IS NULL
-      LIMIT 1
-    `;
+    let existing;
+    try {
+      existing = await sql`
+        SELECT id FROM coupons
+        WHERE UPPER(code) = ${data.code} AND deleted_at IS NULL
+        LIMIT 1
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        existing = await sql`
+          SELECT id FROM coupons
+          WHERE UPPER(code) = ${data.code} AND deleted_at IS NULL
+          LIMIT 1
+        `;
+      } else {
+        throw err;
+      }
+    }
     if (existing && existing.length > 0) {
       throw new Error(`A coupon with code "${data.code}" already exists.`);
     }
@@ -574,21 +764,45 @@ export const adminCreateCoupon = createServerFn({ method: "POST" })
     const authCtx = context as any;
     const adminEmail = authCtx?.user?.email || "Admin";
 
-    await sql`
-      INSERT INTO coupons (
-        id, code, name, description, discount_type, discount_value,
-        minimum_order_value, maximum_discount, usage_limit, usage_per_customer, used_count,
-        starts_at, expires_at, is_active, applies_to, product_ids, category_names,
-        excluded_product_ids, excluded_category_names, created_by, created_at, updated_at
-      ) VALUES (
-        ${id}, ${data.code}, ${data.name}, ${data.description}, ${data.discountType}, ${data.discountValue},
-        ${data.minimumOrderValue}, ${data.maximumDiscount}, ${data.usageLimit}, ${data.usagePerCustomer}, 0,
-        ${data.startsAt}, ${data.expiresAt}, ${data.isActive}, ${data.appliesTo},
-        ${JSON.stringify(data.productIds)}::jsonb, ${JSON.stringify(data.categoryNames)}::jsonb,
-        ${JSON.stringify(data.excludedProductIds)}::jsonb, ${JSON.stringify(data.excludedCategoryNames)}::jsonb,
-        ${adminEmail}, NOW(), NOW()
-      );
-    `;
+    try {
+      await sql`
+        INSERT INTO coupons (
+          id, code, name, description, discount_type, discount_value,
+          minimum_order_value, maximum_discount, usage_limit, usage_per_customer, used_count,
+          starts_at, expires_at, is_active, applies_to, product_ids, category_names,
+          excluded_product_ids, excluded_category_names, created_by, created_at, updated_at
+        ) VALUES (
+          ${id}, ${data.code}, ${data.name}, ${data.description}, ${data.discountType}, ${data.discountValue},
+          ${data.minimumOrderValue}, ${data.maximumDiscount}, ${data.usageLimit}, ${data.usagePerCustomer}, 0,
+          ${data.startsAt}, ${data.expiresAt}, ${data.isActive}, ${data.appliesTo},
+          ${JSON.stringify(data.productIds)}::jsonb, ${JSON.stringify(data.categoryNames)}::jsonb,
+          ${JSON.stringify(data.excludedProductIds)}::jsonb, ${JSON.stringify(data.excludedCategoryNames)}::jsonb,
+          ${adminEmail}, NOW(), NOW()
+        );
+      `;
+    } catch (insertErr: any) {
+      if (String(insertErr?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        await sql`
+          INSERT INTO coupons (
+            id, code, name, description, discount_type, discount_value,
+            minimum_order_value, maximum_discount, usage_limit, usage_per_customer, used_count,
+            starts_at, expires_at, is_active, applies_to, product_ids, category_names,
+            excluded_product_ids, excluded_category_names, created_by, created_at, updated_at
+          ) VALUES (
+            ${id}, ${data.code}, ${data.name}, ${data.description}, ${data.discountType}, ${data.discountValue},
+            ${data.minimumOrderValue}, ${data.maximumDiscount}, ${data.usageLimit}, ${data.usagePerCustomer}, 0,
+            ${data.startsAt}, ${data.expiresAt}, ${data.isActive}, ${data.appliesTo},
+            ${JSON.stringify(data.productIds)}::jsonb, ${JSON.stringify(data.categoryNames)}::jsonb,
+            ${JSON.stringify(data.excludedProductIds)}::jsonb, ${JSON.stringify(data.excludedCategoryNames)}::jsonb,
+            ${adminEmail}, NOW(), NOW()
+          );
+        `;
+      } else {
+        throw insertErr;
+      }
+    }
 
     await logAudit(context as any, "coupon.create", "coupon", id, {
       code: data.code,
@@ -637,8 +851,8 @@ export const adminUpdateCoupon = createServerFn({ method: "POST" })
       maximumDiscount: d.maximumDiscount ? Math.max(1, Number(d.maximumDiscount)) : null,
       usageLimit: d.usageLimit ? Math.max(1, Math.round(Number(d.usageLimit))) : null,
       usagePerCustomer: d.usagePerCustomer !== undefined && d.usagePerCustomer !== null ? Math.max(1, Math.round(Number(d.usagePerCustomer))) : 1,
-      startsAt: d.startsAt ? new Date(d.startsAt).toISOString() : null,
-      expiresAt: d.expiresAt ? new Date(d.expiresAt).toISOString() : null,
+      startsAt: safeDateIso(d.startsAt),
+      expiresAt: safeDateIso(d.expiresAt),
       isActive: d.isActive !== false,
       appliesTo: (d.appliesTo as CouponAppliesTo) || "all",
       productIds: Array.isArray(d.productIds) ? d.productIds : [],
@@ -649,15 +863,30 @@ export const adminUpdateCoupon = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "coupons", "edit");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
     // Check duplicate code on another coupon
-    const existing = await sql`
-      SELECT id FROM coupons
-      WHERE UPPER(code) = ${data.code} AND id != ${data.id} AND deleted_at IS NULL
-      LIMIT 1
-    `;
+    let existing;
+    try {
+      existing = await sql`
+        SELECT id FROM coupons
+        WHERE UPPER(code) = ${data.code} AND id != ${data.id} AND deleted_at IS NULL
+        LIMIT 1
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        existing = await sql`
+          SELECT id FROM coupons
+          WHERE UPPER(code) = ${data.code} AND id != ${data.id} AND deleted_at IS NULL
+          LIMIT 1
+        `;
+      } else {
+        throw err;
+      }
+    }
     if (existing && existing.length > 0) {
       throw new Error(`Another coupon with code "${data.code}" already exists.`);
     }
@@ -700,14 +929,28 @@ export const adminToggleCouponActive = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "coupons", "edit");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
-    await sql`
-      UPDATE coupons
-      SET is_active = ${data.isActive}, updated_at = NOW()
-      WHERE id = ${data.id}
-    `;
+    try {
+      await sql`
+        UPDATE coupons
+        SET is_active = ${data.isActive}, updated_at = NOW()
+        WHERE id = ${data.id}
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        await sql`
+          UPDATE coupons
+          SET is_active = ${data.isActive}, updated_at = NOW()
+          WHERE id = ${data.id}
+        `;
+      } else {
+        throw err;
+      }
+    }
 
     await logAudit(context as any, "coupon.toggle", "coupon", data.id, {
       isActive: data.isActive,
@@ -721,15 +964,29 @@ export const adminDeleteCoupon = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string }) => ({ id: String(d.id) }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "coupons", "delete");
-    await ensureDbSchema();
+    await ensureCouponsSchema();
     const sql = getSql();
 
     // Soft delete to protect historical order records
-    await sql`
-      UPDATE coupons
-      SET deleted_at = NOW(), is_active = false, updated_at = NOW()
-      WHERE id = ${data.id}
-    `;
+    try {
+      await sql`
+        UPDATE coupons
+        SET deleted_at = NOW(), is_active = false, updated_at = NOW()
+        WHERE id = ${data.id}
+      `;
+    } catch (err: any) {
+      if (String(err?.message || "").includes("does not exist")) {
+        _couponSchemaEnsured = false;
+        await ensureCouponsSchema();
+        await sql`
+          UPDATE coupons
+          SET deleted_at = NOW(), is_active = false, updated_at = NOW()
+          WHERE id = ${data.id}
+        `;
+      } else {
+        throw err;
+      }
+    }
 
     await logAudit(context as any, "coupon.delete", "coupon", data.id, {});
 
