@@ -393,8 +393,8 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
             </div>
           </div>
 
-          {/* RIGHT SIDE — T-SHIRT ORBIT ANIMATION (Shifted slightly towards center / left side) */}
-          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center z-10 mt-6 lg:mt-0 lg:-translate-x-8 xl:-translate-x-12 2xl:-translate-x-16">
+          {/* RIGHT SIDE — T-SHIRT ORBIT ANIMATION (Shifted further to the left side) */}
+          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center z-10 mt-6 lg:mt-0 lg:-translate-x-14 xl:-translate-x-22 2xl:-translate-x-32">
             <HeroOrbit />
           </div>
         </div>
