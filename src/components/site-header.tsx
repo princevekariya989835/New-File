@@ -102,25 +102,21 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       <header
-        className={`fixed inset-x-0 top-0 z-50 flex justify-center pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-x-0 top-0 z-50 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           scrolled
             ? "pt-3 px-3 sm:px-4 bg-transparent pb-0"
-            : "pt-0 px-0 bg-white/95 backdrop-blur-md border-b border-neutral-200/70 pb-0 shadow-xs"
+            : "pt-0 px-0 bg-gradient-to-b from-black/90 via-black/60 to-transparent pb-8"
         } ${activeAnnouncement?.enabled ? "top-8" : "top-0"}`}
       >
         <div
-          className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             scrolled
               ? "h-[50px] md:h-12 w-auto max-w-[96vw] md:max-w-5xl rounded-full bg-black/80 px-3 md:px-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 gap-2 md:gap-6"
-              : "h-16 md:h-18 w-full max-w-[1400px] rounded-none bg-transparent px-6 md:px-10 gap-4"
+              : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-6 md:px-10 gap-4"
           }`}
         >
           <button
-            className={`flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-200 md:hidden ${
-              scrolled
-                ? "text-white hover:bg-brand-red hover:text-white"
-                : "text-neutral-900 hover:bg-neutral-100 hover:text-brand-red"
-            }`}
+            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Menu"
           >
@@ -129,21 +125,21 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
 
           <Link to="/" className="flex shrink-0 items-center" aria-label="RIOTOUS home">
             <img
-              src={scrolled ? "/assets/riotous-logo.png" : "/assets/riotous-logo-black.png"}
+              src="/assets/riotous-logo.png"
               alt="RIOTOUS"
               width={145}
               height={37}
               loading="eager"
               decoding="async"
-              className={`shrink-0 object-contain transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                scrolled ? "w-[115px] h-auto md:w-auto md:h-7" : "w-[140px] h-auto md:w-auto md:h-8"
+              className={`shrink-0 object-contain transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                scrolled ? "w-[115px] h-auto md:w-auto md:h-7" : "w-[145px] h-auto md:w-auto md:h-9"
               }`}
               draggable={false}
             />
           </Link>
 
           <nav
-            className={`hidden items-center md:flex transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled ? "gap-1" : "gap-6"}`}
+            className={`hidden items-center md:flex transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled ? "gap-1" : "gap-6"}`}
           >
             {activeNav.map((n) =>
               (n as any).isExternal ? (
@@ -152,11 +148,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   href={n.to}
                   target="_blank"
                   rel="noreferrer"
-                  className={
-                    scrolled
-                      ? "rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
-                      : "rounded-full px-3.5 py-1.5 text-sm font-semibold text-neutral-800 transition-all duration-300 hover:text-brand-red hover:bg-neutral-100"
-                  }
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
                 >
                   {n.label}
                 </a>
@@ -165,16 +157,8 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   key={n.to}
                   to={n.to}
                   activeOptions={{ exact: true }}
-                  className={
-                    scrolled
-                      ? "rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
-                      : "rounded-full px-3.5 py-1.5 text-sm font-semibold text-neutral-800 transition-all duration-300 hover:text-brand-red hover:bg-neutral-100"
-                  }
-                  activeProps={{
-                    className: scrolled
-                      ? "bg-brand-red text-white"
-                      : "text-brand-red bg-neutral-100/80 font-bold",
-                  }}
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
+                  activeProps={{ className: "bg-brand-red text-white" }}
                 >
                   {scrolled && n.label === "Design Your Own" ? "Design" : n.label}
                 </Link>
@@ -186,11 +170,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className={`flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${
-                scrolled
-                  ? "text-white hover:bg-brand-red hover:text-white"
-                  : "text-neutral-800 hover:bg-neutral-100 hover:text-brand-red"
-              }`}
+              className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
               aria-label="Search collection"
               title="Search products (Cmd+K)"
             >
@@ -260,23 +240,13 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
             ) : (
               <Link
                 to="/auth"
-                className={`flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full transition-colors duration-200 ${
-                  scrolled
-                    ? "text-white hover:bg-brand-red hover:text-white"
-                    : "text-neutral-800 hover:bg-neutral-100 hover:text-brand-red"
-                }`}
+                className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white"
                 aria-label="Sign in"
               >
                 <User className="h-5 w-5" />
               </Link>
             )}
-            <CartDrawer
-              triggerClassName={`relative flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full transition-colors duration-200 ${
-                scrolled
-                  ? "text-white hover:bg-brand-red hover:text-white"
-                  : "text-neutral-800 hover:bg-neutral-100 hover:text-brand-red"
-              }`}
-            />
+            <CartDrawer />
           </div>
         </div>
       </header>

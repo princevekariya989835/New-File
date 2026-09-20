@@ -109,7 +109,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "preload",
         as: "image",
-        href: "/assets/riotous-logo-black.png",
+        href: "/assets/riotous-logo.png",
         fetchPriority: "high",
       },
       {

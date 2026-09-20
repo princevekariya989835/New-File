@@ -13,7 +13,7 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/catalog";
 
-export function CartDrawer({ triggerClassName }: { triggerClassName?: string } = {}) {
+export function CartDrawer() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
@@ -46,15 +46,12 @@ export function CartDrawer({ triggerClassName }: { triggerClassName?: string } =
       <SheetTrigger asChild>
         <button
           suppressHydrationWarning
-          className={
-            triggerClassName ||
-            "relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
-          }
+          className="relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
           aria-label={`Cart, ${totalItems} items`}
         >
           <ShoppingBag className="h-5 w-5" />
           {totalItems > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white shadow-xs">
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
               {totalItems}
             </span>
           )}
