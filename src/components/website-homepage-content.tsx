@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -334,16 +334,16 @@ export function WebsiteHomepageContent({
 function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
-  const primaryCta = hero.primaryCtaText || "Shop Now";
+  const primaryCta = hero.primaryCtaText || "SHOP COLLECTION";
   const primaryLink = hero.primaryCtaLink || "/shop";
-  const secondaryCta = hero.secondaryCtaText || "Design Your Own";
+  const secondaryCta = hero.secondaryCtaText || "DESIGN YOUR OWN";
   const secondaryLink = hero.secondaryCtaLink || "/design";
-  const badgeText = hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA";
-  const headingText = hero.heading || "We Don't Follow Trends.\nWe Print Them.";
+  const badgeText = hero.badge || "EDITION // 2025-26 · HEAVYWEIGHT DTF STUDIO";
+  const headingText = (hero.heading || "").trim() || "BUILT TO\nSTAND OUT.";
   const descriptionText =
     hero.description ||
     hero.subheading ||
-    "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India.";
+    "Premium DTF streetwear made for those who create their own identity. Heavyweight oversized silhouettes engineered in India.";
 
   const alignment = hero.alignment || "left";
   const isVideo =
@@ -355,6 +355,35 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+
+  // Parallax tracking states
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (prefersReducedMotion || !heroRef.current) return;
+      const rect = heroRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      setMousePos({ x, y });
+    },
+    [prefersReducedMotion],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    setMousePos({ x: 0, y: 0 });
+  }, []);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -383,13 +412,15 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     customImg !== "/assets/riotous-hero-graphic-clean.jpg" &&
     customImg !== "/assets/riotous-hero-graphic-clean.png";
 
-  const cleanGraphicJpg = "/assets/riotous-hero-graphic-clean.jpg";
-  const cleanGraphicPng = "/assets/riotous-hero-graphic-clean.png";
-
-  // Heading lines treatment
+  // Heading lines treatment (Black primary, RIOTOUS Red accent on punchline)
   const headingLines = useMemo(() => {
     const raw = headingText.split("\n").map((s) => s.trim()).filter(Boolean);
-    return raw.length > 0 ? raw : [headingText];
+    if (raw.length > 1) return raw;
+    const words = headingText.split(" ").filter(Boolean);
+    if (words.length >= 3) {
+      return [words.slice(0, words.length - 2).join(" "), words.slice(words.length - 2).join(" ")];
+    }
+    return [headingText];
   }, [headingText]);
 
   const alignClass =
@@ -408,116 +439,146 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
 
   return (
     <section
+      ref={heroRef}
       key="sec-hero"
-      aria-label="RIOTOUS Streetwear Official Hero"
-      className="relative w-full overflow-hidden bg-background border-b border-border/40"
+      aria-label="RIOTOUS Editorial Streetwear Hero"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="relative w-full overflow-hidden bg-[#faf9f6] dark:bg-[#0f0f12] text-neutral-950 dark:text-neutral-50 border-b border-neutral-200/70 dark:border-neutral-800/80 transition-colors duration-300"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px)",
+        backgroundSize: "32px 32px",
+      }}
     >
-      {/* Ambient background glows for rich streetwear depth */}
+      {/* Huge Faint Editorial Ghost Branding in Background */}
       <div
-        className="pointer-events-none absolute -top-40 right-1/4 h-[550px] w-[550px] rounded-full bg-brand-red/10 blur-[130px] dark:bg-brand-red/15"
+        className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 select-none text-[18vw] font-black tracking-tighter text-neutral-950/[0.03] dark:text-white/[0.03] leading-none whitespace-nowrap z-0 transition-transform duration-500 ease-out"
+        style={{
+          transform: prefersReducedMotion
+            ? "translateX(-50%)"
+            : `translate3d(calc(-50% + ${mousePos.x * -6}px), ${mousePos.y * -4}px, 0)`,
+        }}
+        aria-hidden="true"
+      >
+        RIOTOUS
+      </div>
+
+      {/* Subtle Warm Ambient Glows */}
+      <div
+        className="pointer-events-none absolute -top-32 right-1/4 h-[500px] w-[500px] rounded-full bg-brand-red/8 blur-[120px] dark:bg-brand-red/12 z-0"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute top-1/2 -left-36 h-[400px] w-[400px] rounded-full bg-neutral-400/10 blur-[110px] dark:bg-white/5"
+        className="pointer-events-none absolute bottom-12 -left-20 h-[380px] w-[380px] rounded-full bg-amber-500/5 blur-[100px] dark:bg-white/5 z-0"
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10 py-10 sm:py-14 md:py-20 lg:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 xl:gap-16 items-center">
+      {/* Decorative Technical Editorial Markings */}
+      <div
+        className="pointer-events-none absolute top-6 left-6 text-[10px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 hidden md:block select-none z-10"
+        aria-hidden="true"
+      >
+        <span>+ 28.6139° N, 77.2090° E // EDITORIAL CAMPAIGN</span>
+      </div>
+      <div
+        className="pointer-events-none absolute top-6 right-6 text-[10px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 hidden md:block select-none z-10"
+        aria-hidden="true"
+      >
+        <span>SPEC: 240 GSM DTF // AUTHENTIC STREETWEAR +</span>
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 py-12 sm:py-16 md:py-20 lg:py-24 z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 xl:gap-16 items-center">
           {/* Left Column: Streetwear Content Engine */}
-          <div className={`lg:col-span-6 xl:col-span-6 flex flex-col z-10 ${alignClass}`}>
+          <div className={`lg:col-span-5 xl:col-span-5 flex flex-col z-20 ${alignClass}`}>
             {/* Live Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-red dark:text-red-400 mb-6 shadow-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-red opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-red" />
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/85 dark:bg-neutral-900/85 px-4 py-1.5 backdrop-blur-md shadow-xs mb-6">
+              <span className="h-2 w-2 rounded-xs bg-brand-red animate-pulse" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-800 dark:text-neutral-200">
+                {badgeText}
               </span>
-              <span>{badgeText}</span>
             </div>
 
-            {/* Main Crisp Responsive Heading */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[64px] xl:text-[72px] font-black tracking-tight leading-[1.06] text-foreground mb-6">
+            {/* High-Fashion Editorial Heading */}
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[72px] xl:text-[80px] font-black tracking-tight leading-[0.98] text-neutral-950 dark:text-white mb-6">
               {headingLines.length > 1 ? (
                 <>
-                  <span className="block text-foreground">{headingLines[0]}</span>
-                  <span className="block mt-1 sm:mt-2 text-brand-red">
+                  <span className="block text-neutral-950 dark:text-white">{headingLines[0]}</span>
+                  <span className="block mt-1 sm:mt-2 text-brand-red tracking-tight">
                     {headingLines.slice(1).join(" ")}
                   </span>
                 </>
               ) : (
-                <span className="block text-foreground whitespace-pre-line">{headingText}</span>
+                <span className="block text-neutral-950 dark:text-white whitespace-pre-line">
+                  {headingText}
+                </span>
               )}
             </h1>
 
-            {/* Description Body */}
-            <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-normal leading-relaxed max-w-xl mb-8">
+            {/* Concise Editorial Description */}
+            <p className="text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-400 font-normal leading-relaxed max-w-lg mb-8">
               {descriptionText}
             </p>
 
             {/* High-Conversion Action Buttons */}
             <div
-              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 w-full sm:w-auto mb-10 ${alignCtaClass}`}
+              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-10 ${alignCtaClass}`}
             >
               <Link
                 to={primaryLink}
-                aria-label={`${primaryCta} - Browse Streetwear Collection`}
-                className="group relative inline-flex items-center justify-center gap-2.5 rounded-full bg-brand-red px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-600/25 transition-all duration-300 hover:bg-[#d6080e] hover:shadow-xl hover:shadow-red-600/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
+                aria-label={`${primaryCta} - Browse Collection`}
+                className="group relative inline-flex items-center justify-center gap-2.5 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-300 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
               >
                 <span>{primaryCta}</span>
-                <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
 
               <Link
                 to={secondaryLink}
                 aria-label={`${secondaryCta} - Open Custom Apparel Studio`}
-                className="group inline-flex items-center justify-center gap-2.5 rounded-full border-2 border-foreground/15 bg-background/80 px-8 py-4 text-base font-bold text-foreground backdrop-blur-md transition-all duration-300 hover:border-foreground hover:bg-foreground/5 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
+                className="group inline-flex items-center justify-center gap-2.5 rounded-full border-2 border-neutral-950 dark:border-white bg-white/80 dark:bg-neutral-900/80 px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-950 dark:text-white transition-all duration-300 hover:bg-neutral-950/5 dark:hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-white"
               >
-                <Sparkles className="h-4 w-4 text-amber-500 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                <Sparkles className="h-4 w-4 text-brand-red transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
                 <span>{secondaryCta}</span>
               </Link>
             </div>
 
-            {/* Trust and Quality Proof Indicators */}
-            <div className="w-full pt-6 border-t border-border/60">
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-4 sm:gap-6 text-xs text-muted-foreground">
+            {/* Technical Editorial Proof Bar */}
+            <div className="w-full pt-6 border-t border-neutral-300/60 dark:border-neutral-800/80">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-4 sm:gap-6 text-xs text-neutral-600 dark:text-neutral-400">
                 <div className="flex items-center gap-1.5">
                   <div className="flex text-amber-500 text-sm leading-none tracking-tighter">
                     ★★★★★
                   </div>
-                  <span className="font-semibold text-foreground">4.9/5</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">4.9/5</span>
                   <span className="hidden sm:inline">(2.5k+ reviews)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Package className="h-4 w-4 text-brand-red shrink-0" />
                   <span>
-                    <strong className="font-semibold text-foreground">240+ GSM</strong> Heavyweight
+                    <strong className="font-semibold text-neutral-900 dark:text-white">240+ GSM</strong> Heavyweight
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Zap className="h-4 w-4 text-amber-500 shrink-0" />
                   <span>
-                    <strong className="font-semibold text-foreground">HD DTF</strong> Non-cracking
+                    <strong className="font-semibold text-neutral-900 dark:text-white">HD DTF</strong> Non-cracking
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Truck className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <Truck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Free shipping ₹1499+</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Visual Showcase Presentation */}
-          <div className="lg:col-span-6 xl:col-span-6 relative w-full flex items-center justify-center">
-            {/* Ambient visual back-glow */}
-            <div
-              className="absolute -inset-4 sm:-inset-8 rounded-[40px] bg-gradient-to-tr from-brand-red/15 via-red-500/5 to-transparent blur-3xl -z-10 pointer-events-none"
-              aria-hidden="true"
-            />
-
+          {/* Right Column: Original Editorial Product Composition */}
+          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center">
             {isVideo ? (
               /* Custom Video Hero Player */
-              <div className="relative w-full overflow-hidden rounded-3xl border border-border/80 bg-black shadow-2xl">
+              <div className="relative w-full overflow-hidden rounded-3xl border border-neutral-300 dark:border-neutral-800 bg-black shadow-2xl">
                 <video
                   ref={videoRef}
                   src={videoSrc}
@@ -548,7 +609,7 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
               </div>
             ) : isCustomUploadedImage ? (
               /* Custom Uploaded Hero Image */
-              <div className="group relative w-full overflow-hidden rounded-3xl border border-border/60 bg-secondary/30 p-2 shadow-2xl">
+              <div className="group relative w-full overflow-hidden rounded-3xl border border-neutral-300 dark:border-neutral-800 bg-white/40 dark:bg-neutral-900/40 p-2 shadow-2xl">
                 <img
                   src={customImg}
                   alt={headingText}
@@ -559,59 +620,122 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
                 />
               </div>
             ) : (
-              /* Default Signature RIOTOUS Streetwear Visual Showcase */
-              <div className="group relative w-full flex flex-col items-center">
-                <div className="relative w-full overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900/60 dark:via-neutral-900/30 dark:to-neutral-950 p-3 sm:p-5 shadow-2xl shadow-neutral-900/5 transition-all duration-500 hover:shadow-red-500/10 hover:border-border">
-                  {/* Floating Top Badge */}
-                  <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-950/85 text-white px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur-md border border-white/10 shadow-lg">
-                      <span className="h-1.5 w-1.5 rounded-full bg-brand-red animate-pulse" />
-                      Drop 01 · Live
-                    </span>
-                    <span className="hidden sm:inline-flex items-center rounded-full bg-brand-red text-white px-2.5 py-1 text-[10px] font-black uppercase tracking-widest shadow-md">
-                      Oversized
-                    </span>
-                  </div>
+              /* Original RIOTOUS 3-Tee Editorial Composition */
+              <div className="relative w-full aspect-[4/3] sm:aspect-[16/11] lg:aspect-[1/1] max-w-[620px] mx-auto flex items-center justify-center select-none py-4">
+                {/* Editorial Radial Ambient Glow */}
+                <div
+                  className="absolute inset-4 rounded-full bg-gradient-to-tr from-brand-red/12 via-amber-500/5 to-transparent blur-3xl -z-10 pointer-events-none"
+                  aria-hidden="true"
+                />
 
-                  {/* Clean, High-Resolution Tees Graphic Showcase */}
-                  <div className="relative w-full aspect-[1525/1098] overflow-hidden rounded-2xl bg-neutral-100/50 dark:bg-neutral-900/50">
-                    <picture>
-                      <source srcSet={cleanGraphicPng} type="image/png" />
-                      <img
-                        src={cleanGraphicJpg}
-                        alt="RIOTOUS Heavyweight Graphic Tees & Streetwear Collection"
-                        fetchPriority="high"
-                        loading="eager"
-                        decoding="async"
-                        width={1525}
-                        height={1098}
-                        className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                      />
-                    </picture>
-                  </div>
+                {/* Editorial Frame Watermark Marks */}
+                <div
+                  className="absolute top-2 left-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none pointer-events-none hidden sm:block"
+                  aria-hidden="true"
+                >
+                  + LAYER_01 // ARCHIVE
+                </div>
+                <div
+                  className="absolute bottom-2 right-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none pointer-events-none hidden sm:block"
+                  aria-hidden="true"
+                >
+                  240 GSM COMBED COTTON +
+                </div>
 
-                  {/* Bottom Interactive Feature Pill */}
-                  <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 z-20 flex items-center justify-between gap-3 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-3 sm:p-3.5 border border-border/80 shadow-xl">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-xl bg-brand-red/10 flex items-center justify-center text-brand-red font-black text-xs">
-                        DTF
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-foreground leading-tight">
-                          High-Density Print Finish
-                        </p>
-                        <p className="text-[11px] text-muted-foreground leading-tight">
-                          Wash-tested · Non-cracking
-                        </p>
-                      </div>
+                {/* 1. REAR-LEFT SHIRT: Zenitsu Lightning Graphic Maroon Tee */}
+                <div
+                  className="absolute top-0 left-0 sm:top-2 sm:left-4 w-[54%] sm:w-[56%] z-10 origin-bottom-left transition-transform duration-300 ease-out pointer-events-none"
+                  style={{
+                    animation: prefersReducedMotion
+                      ? "none"
+                      : "hero-float-secondary 9s ease-in-out infinite 0.5s",
+                    transform: prefersReducedMotion
+                      ? "rotate(-6deg)"
+                      : `translate3d(${mousePos.x * 12}px, ${mousePos.y * 10}px, 0) rotate(-6deg)`,
+                  }}
+                >
+                  <img
+                    src="/assets/tee-zenitsu-back-trans.png"
+                    alt="Zenitsu Lightning Maroon Oversized T-Shirt - RIOTOUS"
+                    loading="eager"
+                    decoding="async"
+                    width={995}
+                    height={1280}
+                    className="w-full h-auto object-contain drop-shadow-[0_20px_28px_rgba(0,0,0,0.16)]"
+                  />
+                  {/* Subtle garment tag */}
+                  <span className="hidden sm:inline-block absolute top-4 left-2 rounded-md bg-neutral-900/80 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-xs">
+                    MAROON DROP // 02
+                  </span>
+                </div>
+
+                {/* 2. REAR-RIGHT SHIRT: Katana Pocket Graphic Olive Tee */}
+                <div
+                  className="absolute bottom-0 right-0 sm:bottom-2 sm:right-4 w-[50%] sm:w-[52%] z-10 origin-bottom-right transition-transform duration-300 ease-out pointer-events-none"
+                  style={{
+                    animation: prefersReducedMotion
+                      ? "none"
+                      : "hero-float-tertiary 10s ease-in-out infinite 1s",
+                    transform: prefersReducedMotion
+                      ? "rotate(6deg)"
+                      : `translate3d(${mousePos.x * 8}px, ${mousePos.y * 14}px, 0) rotate(6deg)`,
+                  }}
+                >
+                  <img
+                    src="/assets/tee-olive-front-trans.png"
+                    alt="Katana Pocket Olive Oversized T-Shirt - RIOTOUS"
+                    loading="eager"
+                    decoding="async"
+                    width={995}
+                    height={1280}
+                    className="w-full h-auto object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.14)]"
+                  />
+                  {/* Subtle garment tag */}
+                  <span className="hidden sm:inline-block absolute bottom-6 right-2 rounded-md bg-neutral-900/80 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-xs">
+                    OLIVE BOXY // 03
+                  </span>
+                </div>
+
+                {/* 3. FOREGROUND CENTERPIECE SHIRT: Zoro Samurai Graphic Black Heavyweight Tee */}
+                <div
+                  className="relative z-20 w-[72%] sm:w-[74%] transition-transform duration-300 ease-out cursor-pointer group/center"
+                  style={{
+                    animation: prefersReducedMotion
+                      ? "none"
+                      : "hero-float-main 8s ease-in-out infinite",
+                    transform: prefersReducedMotion
+                      ? undefined
+                      : `translate3d(${mousePos.x * -16}px, ${mousePos.y * -14}px, 0)`,
+                  }}
+                >
+                  <Link to="/shop" aria-label="Explore Zoro Heavyweight Oversized Tee">
+                    <img
+                      src="/assets/tee-zoro-back-trans.png"
+                      alt="Zoro Samurai Back Print Heavyweight Oversized Black Tee - RIOTOUS"
+                      fetchPriority="high"
+                      loading="eager"
+                      decoding="async"
+                      width={995}
+                      height={1280}
+                      className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover/center:scale-[1.02] drop-shadow-[0_28px_40px_rgba(0,0,0,0.22)]"
+                    />
+
+                    {/* Interactive Floating Product Pill */}
+                    <div className="absolute top-6 right-0 sm:top-8 sm:-right-2 z-30 inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/95 dark:bg-neutral-900/95 px-3.5 py-1.5 shadow-xl backdrop-blur-md transition-transform duration-300 group-hover/center:-translate-y-0.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand-red animate-ping" />
+                      <span className="text-[11px] font-bold tracking-wider uppercase text-neutral-900 dark:text-white">
+                        ZORO OVERSIZED · ₹999
+                      </span>
+                      <ArrowUpRight className="h-3 w-3 text-neutral-400 group-hover/center:text-brand-red transition-colors" />
                     </div>
-                    <Link
-                      to={primaryLink}
-                      className="group/pill inline-flex items-center gap-1 text-xs font-bold text-brand-red hover:text-red-700 transition-colors"
-                    >
-                      Explore
-                      <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/pill:translate-x-0.5 group-hover/pill:-translate-y-0.5" />
-                    </Link>
+                  </Link>
+                </div>
+
+                {/* Bottom Editorial Caption Pill */}
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/90 dark:bg-neutral-900/90 px-4 py-1.5 shadow-md backdrop-blur-md text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                    <span className="h-1 w-1 rounded-full bg-brand-red" />
+                    <span>240 GSM // HIGH-DENSITY DTF CURE // BOX-CUT</span>
                   </div>
                 </div>
               </div>
