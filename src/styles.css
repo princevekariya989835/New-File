@@ -210,6 +210,17 @@
   }
 }
 
+@keyframes hero-ground-shadow {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(-50%) scale(0.92);
+    opacity: 0.6;
+  }
+}
+
 @keyframes hero-fade-up {
   from {
     opacity: 0;
@@ -237,7 +248,8 @@
   .hero-float-sec,
   .hero-float-tert,
   .hero-fade-up,
-  .hero-scale-in {
+  .hero-scale-in,
+  .hero-ground-shadow {
     animation: none !important;
     transform: none !important;
     transition: none !important;

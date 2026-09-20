@@ -620,120 +620,181 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
                 />
               </div>
             ) : (
-              /* Original RIOTOUS 3-Tee Editorial Composition */
-              <div className="relative w-full aspect-[4/3] sm:aspect-[16/11] lg:aspect-[1/1] max-w-[620px] mx-auto flex items-center justify-center select-none py-4">
-                {/* Editorial Radial Ambient Glow */}
+              /* Original RIOTOUS 3-Tee Dynamic 3D Editorial Staging */
+              <div
+                className="relative w-full aspect-[4/3] sm:aspect-[16/11] lg:aspect-[1/1] max-w-[640px] mx-auto flex items-center justify-center select-none py-6"
+                style={{
+                  perspective: "1200px",
+                  perspectiveOrigin: "50% 45%",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                {/* Editorial Framing Halo */}
                 <div
-                  className="absolute inset-4 rounded-full bg-gradient-to-tr from-brand-red/12 via-amber-500/5 to-transparent blur-3xl -z-10 pointer-events-none"
-                  aria-hidden="true"
-                />
-
-                {/* Editorial Frame Watermark Marks */}
-                <div
-                  className="absolute top-2 left-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none pointer-events-none hidden sm:block"
+                  className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[460px] sm:w-[520px] aspect-square rounded-full border border-dashed border-brand-red/30 dark:border-brand-red/40 z-0 select-none flex items-center justify-center transition-transform duration-700 ease-out"
+                  style={{
+                    transform: prefersReducedMotion
+                      ? "translate(-50%, -50%)"
+                      : `translate(calc(-50% + ${mousePos.x * -8}px), calc(-50% + ${mousePos.y * -8}px))`,
+                  }}
                   aria-hidden="true"
                 >
-                  + LAYER_01 // ARCHIVE
-                </div>
-                <div
-                  className="absolute bottom-2 right-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none pointer-events-none hidden sm:block"
-                  aria-hidden="true"
-                >
-                  240 GSM COMBED COTTON +
+                  <div className="w-[85%] aspect-square rounded-full bg-gradient-to-tr from-brand-red/12 via-brand-red/5 to-transparent blur-2xl" />
+                  <div className="w-[68%] aspect-square rounded-full border border-neutral-950/5 dark:border-white/5" />
                 </div>
 
-                {/* 1. REAR-LEFT SHIRT: Zenitsu Lightning Graphic Maroon Tee */}
+                {/* 3D Stage Technical Markings */}
                 <div
-                  className="absolute top-0 left-0 sm:top-2 sm:left-4 w-[54%] sm:w-[56%] z-10 origin-bottom-left transition-transform duration-300 ease-out pointer-events-none"
+                  className="pointer-events-none absolute top-0 left-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none hidden sm:block z-0"
+                  aria-hidden="true"
+                >
+                  + STAGE_3D // CAMPAIGN PERSPECTIVE
+                </div>
+                <div
+                  className="pointer-events-none absolute bottom-1 right-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none hidden sm:block z-0"
+                  aria-hidden="true"
+                >
+                  DTF HD CURE // 240 GSM HEAVYWEIGHT +
+                </div>
+
+                {/* Dynamic 3D Ground Shadow System */}
+                <div
+                  className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 w-[85%] h-14 z-0"
+                  style={{
+                    animation: prefersReducedMotion ? "none" : "hero-ground-shadow 8s ease-in-out infinite",
+                  }}
+                  aria-hidden="true"
+                >
+                  <div className="w-full h-full rounded-[100%] bg-gradient-to-r from-transparent via-neutral-950/35 to-transparent blur-xl dark:via-black/70" />
+                  <div className="absolute inset-x-[15%] inset-y-[20%] rounded-[100%] bg-gradient-to-r from-transparent via-brand-red/10 to-transparent blur-lg" />
+                </div>
+
+                {/* 1. REAR-LEFT SHIRT: Zenitsu Lightning Graphic Maroon Tee (Angled Back in 3D) */}
+                <div
+                  className="absolute top-0 left-0 sm:top-2 sm:left-4 w-[54%] sm:w-[56%] z-10 origin-bottom-left pointer-events-none"
                   style={{
                     animation: prefersReducedMotion
                       ? "none"
-                      : "hero-float-secondary 9s ease-in-out infinite 0.5s",
-                    transform: prefersReducedMotion
-                      ? "rotate(-6deg)"
-                      : `translate3d(${mousePos.x * 12}px, ${mousePos.y * 10}px, 0) rotate(-6deg)`,
+                      : "hero-float-secondary 9s ease-in-out infinite 0.4s",
+                    transformStyle: "preserve-3d",
                   }}
                 >
-                  <img
-                    src="/assets/tee-zenitsu-back-trans.png"
-                    alt="Zenitsu Lightning Maroon Oversized T-Shirt - RIOTOUS"
-                    loading="eager"
-                    decoding="async"
-                    width={995}
-                    height={1280}
-                    className="w-full h-auto object-contain drop-shadow-[0_20px_28px_rgba(0,0,0,0.16)]"
-                  />
-                  {/* Subtle garment tag */}
-                  <span className="hidden sm:inline-block absolute top-4 left-2 rounded-md bg-neutral-900/80 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-xs">
-                    MAROON DROP // 02
-                  </span>
-                </div>
-
-                {/* 2. REAR-RIGHT SHIRT: Katana Pocket Graphic Olive Tee */}
-                <div
-                  className="absolute bottom-0 right-0 sm:bottom-2 sm:right-4 w-[50%] sm:w-[52%] z-10 origin-bottom-right transition-transform duration-300 ease-out pointer-events-none"
-                  style={{
-                    animation: prefersReducedMotion
-                      ? "none"
-                      : "hero-float-tertiary 10s ease-in-out infinite 1s",
-                    transform: prefersReducedMotion
-                      ? "rotate(6deg)"
-                      : `translate3d(${mousePos.x * 8}px, ${mousePos.y * 14}px, 0) rotate(6deg)`,
-                  }}
-                >
-                  <img
-                    src="/assets/tee-olive-front-trans.png"
-                    alt="Katana Pocket Olive Oversized T-Shirt - RIOTOUS"
-                    loading="eager"
-                    decoding="async"
-                    width={995}
-                    height={1280}
-                    className="w-full h-auto object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.14)]"
-                  />
-                  {/* Subtle garment tag */}
-                  <span className="hidden sm:inline-block absolute bottom-6 right-2 rounded-md bg-neutral-900/80 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-xs">
-                    OLIVE BOXY // 03
-                  </span>
-                </div>
-
-                {/* 3. FOREGROUND CENTERPIECE SHIRT: Zoro Samurai Graphic Black Heavyweight Tee */}
-                <div
-                  className="relative z-20 w-[72%] sm:w-[74%] transition-transform duration-300 ease-out cursor-pointer group/center"
-                  style={{
-                    animation: prefersReducedMotion
-                      ? "none"
-                      : "hero-float-main 8s ease-in-out infinite",
-                    transform: prefersReducedMotion
-                      ? undefined
-                      : `translate3d(${mousePos.x * -16}px, ${mousePos.y * -14}px, 0)`,
-                  }}
-                >
-                  <Link to="/shop" aria-label="Explore Zoro Heavyweight Oversized Tee">
+                  <div
+                    className="w-full transition-transform duration-200 ease-out"
+                    style={{
+                      transform: prefersReducedMotion
+                        ? "rotate(-12deg)"
+                        : `translate3d(${mousePos.x * 16}px, ${mousePos.y * 12}px, -35px) rotateX(${mousePos.y * -14 + 6}deg) rotateY(${mousePos.x * 18 + 18}deg) rotateZ(-12deg)`,
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
                     <img
-                      src="/assets/tee-zoro-back-trans.png"
-                      alt="Zoro Samurai Back Print Heavyweight Oversized Black Tee - RIOTOUS"
-                      fetchPriority="high"
+                      src="/assets/tee-zenitsu-back-trans.png"
+                      alt="Zenitsu Lightning Maroon Oversized T-Shirt - RIOTOUS"
                       loading="eager"
                       decoding="async"
                       width={995}
                       height={1280}
-                      className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover/center:scale-[1.02] drop-shadow-[0_28px_40px_rgba(0,0,0,0.22)]"
+                      className="w-full h-auto object-contain drop-shadow-[0_26px_36px_rgba(0,0,0,0.32)] drop-shadow-[0_8px_12px_rgba(0,0,0,0.18)]"
                     />
+                    {/* Garment tag */}
+                    <span className="hidden sm:inline-block absolute top-4 left-2 rounded-md bg-neutral-900/85 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-md border border-white/10">
+                      MAROON // DROP 02
+                    </span>
+                  </div>
+                </div>
 
-                    {/* Interactive Floating Product Pill */}
-                    <div className="absolute top-6 right-0 sm:top-8 sm:-right-2 z-30 inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/95 dark:bg-neutral-900/95 px-3.5 py-1.5 shadow-xl backdrop-blur-md transition-transform duration-300 group-hover/center:-translate-y-0.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-brand-red animate-ping" />
-                      <span className="text-[11px] font-bold tracking-wider uppercase text-neutral-900 dark:text-white">
-                        ZORO OVERSIZED · ₹999
-                      </span>
-                      <ArrowUpRight className="h-3 w-3 text-neutral-400 group-hover/center:text-brand-red transition-colors" />
-                    </div>
-                  </Link>
+                {/* 2. REAR-RIGHT SHIRT: Katana Pocket Graphic Olive Tee (Angled Back in 3D) */}
+                <div
+                  className="absolute bottom-0 right-0 sm:bottom-2 sm:right-4 w-[50%] sm:w-[52%] z-10 origin-bottom-right pointer-events-none"
+                  style={{
+                    animation: prefersReducedMotion
+                      ? "none"
+                      : "hero-float-tertiary 10s ease-in-out infinite 0.8s",
+                    transformStyle: "preserve-3d",
+                  }}
+                >
+                  <div
+                    className="w-full transition-transform duration-200 ease-out"
+                    style={{
+                      transform: prefersReducedMotion
+                        ? "rotate(14deg)"
+                        : `translate3d(${mousePos.x * 14}px, ${mousePos.y * 14}px, -25px) rotateX(${mousePos.y * -14 + 4}deg) rotateY(${mousePos.x * 18 - 18}deg) rotateZ(14deg)`,
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <img
+                      src="/assets/tee-olive-front-trans.png"
+                      alt="Katana Pocket Olive Oversized T-Shirt - RIOTOUS"
+                      loading="eager"
+                      decoding="async"
+                      width={995}
+                      height={1280}
+                      className="w-full h-auto object-contain drop-shadow-[0_24px_32px_rgba(0,0,0,0.28)] drop-shadow-[0_6px_10px_rgba(0,0,0,0.16)]"
+                    />
+                    {/* Garment tag */}
+                    <span className="hidden sm:inline-block absolute bottom-6 right-2 rounded-md bg-neutral-900/85 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-md border border-white/10">
+                      OLIVE // BOXY 03
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. FOREGROUND CENTERPIECE SHIRT: Zoro Samurai Graphic Black Heavyweight Tee (Dynamic 3D Projection) */}
+                <div
+                  className="relative z-20 w-[72%] sm:w-[74%] cursor-pointer group/center"
+                  style={{
+                    animation: prefersReducedMotion
+                      ? "none"
+                      : "hero-float-main 8s ease-in-out infinite",
+                    transformStyle: "preserve-3d",
+                  }}
+                >
+                  <div
+                    className="w-full transition-transform duration-200 ease-out"
+                    style={{
+                      transform: prefersReducedMotion
+                        ? "rotate(-2deg)"
+                        : `translate3d(${mousePos.x * -20}px, ${mousePos.y * -18}px, 45px) rotateX(${mousePos.y * -22 - 4}deg) rotateY(${mousePos.x * 26 - 6}deg) rotateZ(${mousePos.x * 8 - 2}deg)`,
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <Link to="/shop" aria-label="Explore Zoro Heavyweight Oversized Tee">
+                      <img
+                        src="/assets/tee-zoro-back-trans.png"
+                        alt="Zoro Samurai Back Print Heavyweight Oversized Black Tee - RIOTOUS"
+                        fetchPriority="high"
+                        loading="eager"
+                        decoding="async"
+                        width={995}
+                        height={1280}
+                        className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover/center:scale-[1.03] drop-shadow-[0_36px_50px_rgba(0,0,0,0.38)] drop-shadow-[0_14px_22px_rgba(0,0,0,0.24)] drop-shadow-[-10px_22px_30px_rgba(240,11,17,0.16)]"
+                      />
+
+                      {/* Interactive Floating Product Pill popping in 3D */}
+                      <div
+                        className="absolute top-6 right-0 sm:top-8 sm:-right-2 z-30 inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/95 dark:bg-neutral-900/95 px-3.5 py-1.5 shadow-2xl backdrop-blur-md transition-all duration-300 group-hover/center:-translate-y-1 group-hover/center:shadow-red-500/20"
+                        style={{
+                          transform: "translateZ(55px)",
+                        }}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-brand-red animate-ping" />
+                        <span className="text-[11px] font-bold tracking-wider uppercase text-neutral-900 dark:text-white">
+                          ZORO OVERSIZED · ₹999
+                        </span>
+                        <ArrowUpRight className="h-3 w-3 text-neutral-400 group-hover/center:text-brand-red transition-colors" />
+                      </div>
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Bottom Editorial Caption Pill */}
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/90 dark:bg-neutral-900/90 px-4 py-1.5 shadow-md backdrop-blur-md text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
+                <div
+                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap"
+                  style={{
+                    transform: "translateX(-50%) translateZ(35px)",
+                  }}
+                >
+                  <div className="inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/90 dark:bg-neutral-900/90 px-4 py-1.5 shadow-lg backdrop-blur-md text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
                     <span className="h-1 w-1 rounded-full bg-brand-red" />
                     <span>240 GSM // HIGH-DENSITY DTF CURE // BOX-CUT</span>
                   </div>
