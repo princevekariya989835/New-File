@@ -355,9 +355,9 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
       className="relative w-full overflow-hidden bg-[#FAF9F6] text-neutral-900 dark:bg-[#0c0c0e] dark:text-neutral-100 border-b border-neutral-200/80 dark:border-neutral-800/80 transition-colors duration-300 select-none"
     >
       <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 pt-8 sm:pt-12 lg:pt-14 pb-12 sm:pb-16 lg:pb-18">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-14 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 xl:gap-8 items-center">
           {/* LEFT SIDE — BRAND MESSAGE */}
-          <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-start z-10">
+          <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-start relative z-20">
             {/* Small Eyebrow Label */}
             <div className="inline-flex items-center gap-2.5 mb-4 sm:mb-6">
               <span className="h-2 w-2 rounded-full bg-brand-red" />
@@ -393,8 +393,8 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
             </div>
           </div>
 
-          {/* RIGHT SIDE — T-SHIRT ORBIT ANIMATION */}
-          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center z-10 mt-6 lg:mt-0">
+          {/* RIGHT SIDE — T-SHIRT ORBIT ANIMATION (Shifted slightly towards center / left side) */}
+          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center z-10 mt-6 lg:mt-0 lg:-translate-x-8 xl:-translate-x-12 2xl:-translate-x-16">
             <HeroOrbit />
           </div>
         </div>

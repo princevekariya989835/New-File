@@ -89,9 +89,9 @@ export function HeroOrbit({ products = ORBIT_PRODUCTS, className = "" }: HeroOrb
       setDimensions({ rx: 195, ry: 105, width, height: 460 });
     } else {
       // Desktop
-      const rx = Math.min(270, Math.max(220, width * 0.4));
-      const ry = rx * 0.54;
-      setDimensions({ rx, ry, width, height: 540 });
+      const rx = Math.min(255, Math.max(215, width * 0.38));
+      const ry = rx * 0.52;
+      setDimensions({ rx, ry, width, height: 520 });
     }
   }, []);
 
@@ -308,7 +308,7 @@ export function HeroOrbit({ products = ORBIT_PRODUCTS, className = "" }: HeroOrb
             >
               {/* T-Shirt Image with realistic physical soft shadow */}
               <div
-                className="relative w-40 sm:w-52 md:w-60 lg:w-68 aspect-square flex items-center justify-center p-2 cursor-pointer"
+                className="relative w-40 sm:w-52 md:w-56 lg:w-64 aspect-square flex items-center justify-center p-2 cursor-pointer"
                 style={{
                   filter: `drop-shadow(0 ${shadowSpread}px ${shadowBlur}px rgba(0, 0, 0, ${shadowOpacity}))`,
                 }}
