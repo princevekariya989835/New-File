@@ -24,6 +24,109 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
   })),
 );
 
+let _mockCoupons: any[] = [
+  {
+    id: "cpn_riotous10",
+    code: "RIOTOUS10",
+    name: "Special Launch 10% Discount",
+    description: "Get 10% off on all streetwear orders above ₹999",
+    discount_type: "percentage",
+    discount_value: 10,
+    minimum_order_value: 999,
+    maximum_discount: 500,
+    usage_limit: 100,
+    usage_per_customer: 1,
+    used_count: 25,
+    starts_at: "2026-01-01T00:00:00.000Z",
+    expires_at: "2026-12-31T23:59:59.000Z",
+    is_active: true,
+    applies_to: "all",
+    product_ids: [],
+    category_names: [],
+    excluded_product_ids: [],
+    excluded_category_names: [],
+    deleted_at: null,
+    created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+    created_by: "Admin",
+  },
+  {
+    id: "cpn_welcome200",
+    code: "WELCOME200",
+    name: "New Drop ₹200 Flat Off",
+    description: "Flat ₹200 off on your streetwear bag above ₹1,499",
+    discount_type: "fixed",
+    discount_value: 200,
+    minimum_order_value: 1499,
+    maximum_discount: null,
+    usage_limit: null,
+    usage_per_customer: 1,
+    used_count: 40,
+    starts_at: "2026-01-01T00:00:00.000Z",
+    expires_at: "2026-12-31T23:59:59.000Z",
+    is_active: true,
+    applies_to: "all",
+    product_ids: [],
+    category_names: [],
+    excluded_product_ids: [],
+    excluded_category_names: [],
+    deleted_at: null,
+    created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+    created_by: "Admin",
+  },
+  {
+    id: "cpn_festive20",
+    code: "FESTIVE20",
+    name: "Festive Flash Sale 20%",
+    description: "Limited time 20% discount on graphic tees",
+    discount_type: "percentage",
+    discount_value: 20,
+    minimum_order_value: 799,
+    maximum_discount: 600,
+    usage_limit: 100,
+    usage_per_customer: 1,
+    used_count: 100,
+    starts_at: "2026-08-01T00:00:00.000Z",
+    expires_at: "2026-09-01T23:59:59.000Z",
+    is_active: true,
+    applies_to: "all",
+    product_ids: [],
+    category_names: [],
+    excluded_product_ids: [],
+    excluded_category_names: [],
+    deleted_at: null,
+    created_at: "2026-08-01T00:00:00.000Z",
+    updated_at: "2026-09-01T23:59:59.000Z",
+    created_by: "Admin",
+  },
+];
+
+let _mockCouponUsage: any[] = [
+  {
+    id: "usg_1",
+    coupon_id: "cpn_riotous10",
+    order_id: "ord_demo_1",
+    customer_id: "usr_cust_1",
+    customer_email: "customer1@example.com",
+    coupon_code: "RIOTOUS10",
+    discount_amount: 150,
+    order_amount: 1350,
+    used_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+  },
+  {
+    id: "usg_2",
+    coupon_id: "cpn_welcome200",
+    order_id: "ord_demo_2",
+    customer_id: "usr_cust_2",
+    customer_email: "customer2@example.com",
+    coupon_code: "WELCOME200",
+    discount_amount: 200,
+    order_amount: 1800,
+    used_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+  },
+];
+
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
   const norm = String(productIdOrSlug).toLowerCase().trim();
@@ -56,7 +159,11 @@ export function getSql() {
       }
       const lower = queryStr.toLowerCase();
 
-      if (lower.startsWith("select count") || lower.includes("(select count(*)")) {
+      if (
+        (lower.startsWith("select count") || lower.includes("(select count(*)")) &&
+        !lower.includes("from coupon_usage") &&
+        !lower.includes("from coupons")
+      ) {
         return [
           {
             count: _mockProducts.length,
@@ -261,6 +368,227 @@ export function getSql() {
         return [];
       }
 
+      // SELECT from coupons
+      if (lower.includes("from coupons")) {
+        if (lower.includes("upper(code) =") || lower.includes("code =") || lower.includes("upper(code::text) =")) {
+          const targetCode = String(values[0] ?? "").toUpperCase().trim();
+          const found = _mockCoupons.find(
+            (c) => String(c.code).toUpperCase().trim() === targetCode && !c.deleted_at,
+          );
+          return found ? [found] : [];
+        }
+        if (lower.includes("id =") || lower.includes("id::text =")) {
+          const targetId = String(values[0] ?? "");
+          const found = _mockCoupons.find((c) => String(c.id) === targetId);
+          return found ? [found] : [];
+        }
+        return [..._mockCoupons.filter((c) => !c.deleted_at)];
+      }
+
+      // INSERT INTO coupons
+      if (lower.startsWith("insert into coupons") || lower.includes("insert into coupons")) {
+        const colsMatch = queryStr.match(/insert\s+into\s+coupons\s*\(([^)]+)\)/i);
+        let id = `cpn_${Date.now().toString(36)}`;
+        let code = "CODE";
+        let name = "Coupon";
+        let description: string | null = null;
+        let discount_type = "percentage";
+        let discount_value = 0;
+        let minimum_order_value = 0;
+        let maximum_discount: number | null = null;
+        let usage_limit: number | null = null;
+        let usage_per_customer = 1;
+        let used_count = 0;
+        let starts_at: string | null = null;
+        let expires_at: string | null = null;
+        let is_active = true;
+        let applies_to = "all";
+        let product_ids: string[] = [];
+        let category_names: string[] = [];
+        let excluded_product_ids: string[] = [];
+        let excluded_category_names: string[] = [];
+        let created_by = "Admin";
+
+        if (colsMatch) {
+          const cols = colsMatch[1].split(",").map((c) => c.trim().toLowerCase());
+          const colMap: Record<string, any> = {};
+          cols.forEach((col, i) => {
+            colMap[col] = values[i];
+          });
+          if (colMap["id"]) id = String(colMap["id"]);
+          if (colMap["code"]) code = String(colMap["code"]).toUpperCase().trim();
+          if (colMap["name"]) name = String(colMap["name"]);
+          if (colMap["description"] !== undefined) description = colMap["description"] ? String(colMap["description"]) : null;
+          if (colMap["discount_type"]) discount_type = String(colMap["discount_type"]);
+          if (colMap["discount_value"] !== undefined) discount_value = Number(colMap["discount_value"] || 0);
+          if (colMap["minimum_order_value"] !== undefined) minimum_order_value = Number(colMap["minimum_order_value"] || 0);
+          if (colMap["maximum_discount"] !== undefined) maximum_discount = colMap["maximum_discount"] !== null && colMap["maximum_discount"] !== undefined ? Number(colMap["maximum_discount"]) : null;
+          if (colMap["usage_limit"] !== undefined) usage_limit = colMap["usage_limit"] !== null && colMap["usage_limit"] !== undefined ? Number(colMap["usage_limit"]) : null;
+          if (colMap["usage_per_customer"] !== undefined) usage_per_customer = Number(colMap["usage_per_customer"] ?? 1);
+          if (colMap["used_count"] !== undefined) used_count = Number(colMap["used_count"] || 0);
+          if (colMap["starts_at"]) starts_at = String(colMap["starts_at"]);
+          if (colMap["expires_at"]) expires_at = String(colMap["expires_at"]);
+          if (colMap["is_active"] !== undefined) is_active = colMap["is_active"] !== false && colMap["is_active"] !== "false";
+          if (colMap["applies_to"]) applies_to = String(colMap["applies_to"]);
+          if (colMap["product_ids"] !== undefined) {
+            try { product_ids = typeof colMap["product_ids"] === "string" ? JSON.parse(colMap["product_ids"]) : (colMap["product_ids"] || []); } catch {}
+          }
+          if (colMap["category_names"] !== undefined) {
+            try { category_names = typeof colMap["category_names"] === "string" ? JSON.parse(colMap["category_names"]) : (colMap["category_names"] || []); } catch {}
+          }
+          if (colMap["excluded_product_ids"] !== undefined) {
+            try { excluded_product_ids = typeof colMap["excluded_product_ids"] === "string" ? JSON.parse(colMap["excluded_product_ids"]) : (colMap["excluded_product_ids"] || []); } catch {}
+          }
+          if (colMap["excluded_category_names"] !== undefined) {
+            try { excluded_category_names = typeof colMap["excluded_category_names"] === "string" ? JSON.parse(colMap["excluded_category_names"]) : (colMap["excluded_category_names"] || []); } catch {}
+          }
+          if (colMap["created_by"]) created_by = String(colMap["created_by"]);
+        } else {
+          id = values[0] ? String(values[0]) : `cpn_${Date.now().toString(36)}`;
+          code = values[1] ? String(values[1]).toUpperCase().trim() : "CODE";
+          name = values[2] ? String(values[2]) : code;
+          description = values[3] ? String(values[3]) : null;
+          discount_type = values[4] ? String(values[4]) : "percentage";
+          discount_value = Number(values[5] || 0);
+          minimum_order_value = Number(values[6] || 0);
+          maximum_discount = values[7] !== null && values[7] !== undefined ? Number(values[7]) : null;
+          usage_limit = values[8] !== null && values[8] !== undefined ? Number(values[8]) : null;
+          usage_per_customer = values[9] !== null && values[9] !== undefined ? Number(values[9]) : 1;
+          used_count = Number(values[10] || 0);
+          starts_at = values[11] ? String(values[11]) : null;
+          expires_at = values[12] ? String(values[12]) : null;
+          is_active = values[13] !== false;
+          applies_to = values[14] ? String(values[14]) : "all";
+          try { product_ids = typeof values[15] === "string" ? JSON.parse(values[15]) : (values[15] || []); } catch {}
+          try { category_names = typeof values[16] === "string" ? JSON.parse(values[16]) : (values[16] || []); } catch {}
+          try { excluded_product_ids = typeof values[17] === "string" ? JSON.parse(values[17]) : (values[17] || []); } catch {}
+          try { excluded_category_names = typeof values[18] === "string" ? JSON.parse(values[18]) : (values[18] || []); } catch {}
+          created_by = values[19] ? String(values[19]) : "Admin";
+        }
+
+        const newCoupon = {
+          id,
+          code,
+          name,
+          description,
+          discount_type,
+          discount_value,
+          minimum_order_value,
+          maximum_discount,
+          usage_limit,
+          usage_per_customer,
+          used_count,
+          starts_at,
+          expires_at,
+          is_active,
+          applies_to,
+          product_ids,
+          category_names,
+          excluded_product_ids,
+          excluded_category_names,
+          deleted_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          created_by,
+        };
+        const existingIdx = _mockCoupons.findIndex((c) => c.id === id || c.code === code);
+        if (existingIdx >= 0) _mockCoupons[existingIdx] = newCoupon;
+        else _mockCoupons.unshift(newCoupon);
+        return [{ id }];
+      }
+
+      // UPDATE coupons
+      if (lower.startsWith("update coupons") || lower.includes("update coupons")) {
+        const idVal = String(values[values.length - 1] ?? values[0] ?? "");
+        const c = _mockCoupons.find((item) => item.id === idVal);
+        if (c) {
+          if (lower.includes("used_count = used_count + 1")) {
+            if (c.usage_limit !== null && c.used_count >= c.usage_limit) {
+              return []; // atomic condition failed
+            }
+            c.used_count = (c.used_count || 0) + 1;
+            c.updated_at = new Date().toISOString();
+            return [{ id: c.id, used_count: c.used_count }];
+          }
+          if (lower.includes("deleted_at =")) {
+            c.deleted_at = new Date().toISOString();
+            c.is_active = false;
+            return [{ id: c.id }];
+          }
+          if (lower.includes("is_active =")) {
+            c.is_active = values[0] === true;
+            c.updated_at = new Date().toISOString();
+            return [{ id: c.id }];
+          }
+          c.updated_at = new Date().toISOString();
+        }
+        return [{ id: idVal }];
+      }
+
+      // SELECT from coupon_usage
+      if (lower.includes("from coupon_usage")) {
+        let list = [..._mockCouponUsage];
+
+        // Filter by coupon_id if present
+        if (lower.includes("coupon_id =") || lower.includes("coupon_id::text =")) {
+          const cId = String(values[0] ?? "").toLowerCase();
+          list = list.filter((u) => String(u.coupon_id).toLowerCase() === cId);
+        }
+
+        // Filter by customer_email or customer_id
+        if (lower.includes("customer_email") || lower.includes("customer_id")) {
+          const emailVal = values
+            .find((v) => typeof v === "string" && v.includes("@"))
+            ?.toLowerCase();
+          const custIdVal = values.find(
+            (v) => typeof v === "string" && (v.startsWith("usr_") || v.startsWith("cust_")),
+          );
+
+          if (emailVal && custIdVal) {
+            list = list.filter(
+              (u) =>
+                (u.customer_email && u.customer_email.toLowerCase() === emailVal) ||
+                (u.customer_id && String(u.customer_id) === custIdVal),
+            );
+          } else if (emailVal) {
+            list = list.filter(
+              (u) => u.customer_email && u.customer_email.toLowerCase() === emailVal,
+            );
+          } else if (custIdVal) {
+            list = list.filter((u) => u.customer_id && String(u.customer_id) === custIdVal);
+          }
+        }
+
+        if (lower.includes("count(") || lower.startsWith("select count")) {
+          return [{ count: list.length }];
+        }
+
+        if (lower.includes("sum(discount_amount)")) {
+          const total = list.reduce((acc, u) => acc + (Number(u.discount_amount) || 0), 0);
+          return [{ total_discount: total }];
+        }
+
+        return list;
+      }
+
+      // INSERT INTO coupon_usage
+      if (lower.startsWith("insert into coupon_usage") || lower.includes("insert into coupon_usage")) {
+        const usageId = values[0] ? String(values[0]) : `usg_${Date.now()}`;
+        const newUsage = {
+          id: usageId,
+          coupon_id: values[1] ? String(values[1]) : "",
+          order_id: values[2] ? String(values[2]) : "",
+          customer_id: values[3] ? String(values[3]) : null,
+          customer_email: values[4] ? String(values[4]) : "",
+          coupon_code: values[5] ? String(values[5]) : "",
+          discount_amount: Number(values[6] || 0),
+          order_amount: Number(values[7] || 0),
+          used_at: new Date().toISOString(),
+        };
+        _mockCouponUsage.unshift(newUsage);
+        return [{ id: usageId }];
+      }
+
       return [];
     };
 
@@ -294,13 +622,70 @@ export async function ensureDbSchema() {
             to_regclass('public.products') IS NOT NULL AS has_products,
             to_regclass('public.profiles') IS NOT NULL AS has_profiles,
             to_regclass('public.website_published') IS NOT NULL AS has_website,
-            to_regclass('public.store_settings') IS NOT NULL AS has_settings
+            to_regclass('public.store_settings') IS NOT NULL AS has_settings,
+            to_regclass('public.coupons') IS NOT NULL AS has_coupons,
+            to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage
         `;
         const row = check?.[0];
         if (row && (row.has_products || row.has_profiles || row.has_website || row.has_settings)) {
           // Core database schema already exists.
           // Check if newly introduced tables are missing and create only what is needed:
           const missingDdl: string[] = [];
+          if (!row.has_coupons) {
+            missingDdl.push(`
+              CREATE TABLE IF NOT EXISTS coupons (
+                id TEXT PRIMARY KEY,
+                code TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                discount_type TEXT NOT NULL,
+                discount_value NUMERIC NOT NULL,
+                minimum_order_value NUMERIC DEFAULT 0,
+                maximum_discount NUMERIC,
+                usage_limit INTEGER,
+                usage_per_customer INTEGER DEFAULT 1,
+                used_count INTEGER NOT NULL DEFAULT 0,
+                starts_at TIMESTAMP WITH TIME ZONE,
+                expires_at TIMESTAMP WITH TIME ZONE,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                applies_to TEXT NOT NULL DEFAULT 'all',
+                product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+                category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+                excluded_product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+                excluded_category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+                deleted_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT
+              );
+              CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code));
+              CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at);
+            `);
+          }
+          if (!row.has_coupon_usage) {
+            missingDdl.push(`
+              CREATE TABLE IF NOT EXISTS coupon_usage (
+                id TEXT PRIMARY KEY,
+                coupon_id TEXT NOT NULL,
+                order_id TEXT NOT NULL,
+                customer_id TEXT,
+                customer_email TEXT NOT NULL,
+                coupon_code TEXT NOT NULL,
+                discount_amount NUMERIC NOT NULL,
+                order_amount NUMERIC NOT NULL,
+                used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id);
+              CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id);
+              CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id);
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT;
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT;
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC;
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC;
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC;
+              ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC;
+            `);
+          }
           if (!row.has_website) {
             missingDdl.push(`
               CREATE TABLE IF NOT EXISTS website_published (
@@ -640,6 +1025,42 @@ export async function ensureDbSchema() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
+        `CREATE TABLE IF NOT EXISTS coupons (
+          id TEXT PRIMARY KEY,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          discount_type TEXT NOT NULL,
+          discount_value NUMERIC NOT NULL,
+          minimum_order_value NUMERIC DEFAULT 0,
+          maximum_discount NUMERIC,
+          usage_limit INTEGER,
+          usage_per_customer INTEGER DEFAULT 1,
+          used_count INTEGER NOT NULL DEFAULT 0,
+          starts_at TIMESTAMP WITH TIME ZONE,
+          expires_at TIMESTAMP WITH TIME ZONE,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          applies_to TEXT NOT NULL DEFAULT 'all',
+          product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+          category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+          excluded_product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+          excluded_category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+          deleted_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_by TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS coupon_usage (
+          id TEXT PRIMARY KEY,
+          coupon_id TEXT NOT NULL,
+          order_id TEXT NOT NULL,
+          customer_id TEXT,
+          customer_email TEXT NOT NULL,
+          coupon_code TEXT NOT NULL,
+          discount_amount NUMERIC NOT NULL,
+          order_amount NUMERIC NOT NULL,
+          used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
         `CREATE TABLE IF NOT EXISTS website_published (
           id TEXT PRIMARY KEY DEFAULT 'live',
           version_id TEXT NOT NULL,
@@ -688,6 +1109,17 @@ export async function ensureDbSchema() {
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_variant ON inventory_transactions (variant_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_order ON inventory_transactions (order_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_created ON inventory_transactions (created_at DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code))`,
+        `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
         `UPDATE profiles SET role = CASE WHEN email = 'princevekariya9898@gmail.com' THEN 'admin' ELSE 'customer' END`,
         `INSERT INTO profiles (id, email, password_hash, full_name, role) VALUES ('usr_admin_prince', 'princevekariya9898@gmail.com', '73b40a85482f9888099f3781d2bd6949f18264b064f705bd18c4fbb251c70d08', 'Prince Vekariya', 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin'`,
         `INSERT INTO return_settings (id, window_days, require_delivered) VALUES ('default', 7, true) ON CONFLICT (id) DO NOTHING`,

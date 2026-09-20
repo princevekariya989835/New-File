@@ -7,6 +7,7 @@ import {
   restoreOrderInventory,
   InventoryError,
 } from "@/lib/inventory.service";
+import { validateAndCalculateCoupon } from "@/lib/coupons.functions";
 
 export type OrderLineItem = {
   title: string;
@@ -51,6 +52,7 @@ export type PlaceOrderInput = {
   }>;
   shipping?: number;
   currency?: string;
+  couponCode?: string | null;
 };
 
 export const getMyOrders = createServerFn({ method: "GET" })
@@ -137,6 +139,7 @@ export const placeOrder = createServerFn({ method: "POST" })
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
       shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
+      couponCode: d.couponCode ? str(d.couponCode, 50).toUpperCase().replace(/\s+/g, "") : null,
       items: d.items.map((i) => ({
         productId: typeof i.productId === "string" ? i.productId : null,
         designSubmissionId: typeof i.designSubmissionId === "string" ? i.designSubmissionId : null,
@@ -168,13 +171,43 @@ export const placeOrder = createServerFn({ method: "POST" })
     });
 
     const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
-    const shipping = itemsTotal >= 1999 ? 0 : 79;
-    const total = itemsTotal + shipping;
+
+    // Validate and calculate coupon discount if code was provided
+    let discountAmount = 0;
+    let appliedCoupon: any = null;
+    let eligibleAmount = itemsTotal;
+
+    const authCtx = context as any;
+
+    if (data.couponCode) {
+      const couponRes = await validateAndCalculateCoupon({
+        code: data.couponCode,
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          price: i.price,
+          productName: i.productName,
+        })),
+        subtotal: itemsTotal,
+        customerEmail: data.shippingEmail,
+        customerId: String(authCtx.userId),
+      });
+
+      if (!couponRes.valid) {
+        throw new Error(couponRes.error || "Invalid coupon code.");
+      }
+
+      discountAmount = couponRes.discountAmount;
+      appliedCoupon = couponRes.coupon;
+      eligibleAmount = couponRes.eligibleSubtotal;
+    }
+
+    const finalSubtotal = Math.max(0, itemsTotal - discountAmount);
+    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
+    const total = finalSubtotal + shipping;
 
     const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
     const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
-
-    const authCtx = context as any;
 
     // Atomically check and deduct inventory before finalizing the order
     try {
@@ -196,15 +229,52 @@ export const placeOrder = createServerFn({ method: "POST" })
       throw new Error("Unable to reserve inventory for your items. Please try again.");
     }
 
+    // Atomically claim coupon slot with race-condition protection
+    if (appliedCoupon) {
+      const updateRes = await sql`
+        UPDATE coupons
+        SET used_count = used_count + 1, updated_at = NOW()
+        WHERE id = ${appliedCoupon.id}
+          AND is_active = true
+          AND (usage_limit IS NULL OR used_count < usage_limit)
+          AND (starts_at IS NULL OR starts_at <= NOW())
+          AND (expires_at IS NULL OR expires_at >= NOW())
+        RETURNING id, used_count
+      `;
+
+      if (!updateRes || updateRes.length === 0) {
+        // Rollback inventory reservation if coupon slot was snatched concurrently
+        await restoreOrderInventory(orderId, "Coupon limit reached during checkout", authCtx.userId).catch(() => {});
+        throw new Error("The coupon has reached its maximum usage limit or has expired.");
+      }
+    }
+
     await sql`
       INSERT INTO orders (
-        id, user_id, order_number, subtotal, discount_amount, shipping_charge, tax_amount, total_amount,
-        currency, status, payment_status, payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
+        id, user_id, order_number, subtotal, discount_amount, discount_code, coupon_id,
+        discount_type, discount_value, eligible_amount, original_subtotal, final_subtotal,
+        shipping_charge, tax_amount, total_amount, currency, status, payment_status,
+        payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
-        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, 0, ${shipping}, 0, ${total},
-        ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted', ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
+        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount}, ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
+        ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null}, ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal},
+        ${shipping}, 0, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
+        ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
     `;
+
+    // Record coupon usage history
+    if (appliedCoupon) {
+      const usageId = `usg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      await sql`
+        INSERT INTO coupon_usage (
+          id, coupon_id, order_id, customer_id, customer_email, coupon_code, discount_amount, order_amount, used_at
+        ) VALUES (
+          ${usageId}, ${appliedCoupon.id}, ${orderId}, ${String(authCtx.userId)}, ${data.shippingEmail.toLowerCase().trim()},
+          ${appliedCoupon.code}, ${discountAmount}, ${total}, NOW()
+        );
+      `;
+    }
 
     for (const i of items) {
       const itemId = `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -234,6 +304,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       shippingAddress: data.shippingAddress,
       paymentMethod: "Cash on Delivery (COD)",
       subtotal: itemsTotal.toLocaleString("en-IN"),
+      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
       shippingCharge: shipping.toLocaleString("en-IN"),
       total: total.toLocaleString("en-IN"),
       currency: data.currency,
@@ -265,6 +337,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       orderNumber,
       total,
       shipping,
+      discountAmount,
+      couponCode: appliedCoupon?.code ?? null,
     };
   });
 

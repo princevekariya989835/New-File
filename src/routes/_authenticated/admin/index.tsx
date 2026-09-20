@@ -14,7 +14,7 @@ import { adminDashboard } from "@/lib/admin-dashboard.functions";
 import { AdminDashboardSkeleton } from "@/components/admin/admin-skeletons";
 import { money, dateTime, STATUS_TONE } from "@/components/admin/format";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, IndianRupee, Package, Receipt, Users } from "lucide-react";
+import { AlertTriangle, IndianRupee, Package, Receipt, Users, Ticket, ArrowRight } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
@@ -154,6 +154,28 @@ function Dashboard() {
           sub="Registered accounts"
           icon={Users}
         />
+      </div>
+
+      {/* Coupon Performance Quick Summary */}
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-card via-card to-brand-red/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-brand-red/10 flex items-center justify-center text-brand-red shrink-0">
+            <Ticket className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm">Active Coupons & Discounts</h3>
+            <p className="text-xs text-muted-foreground">
+              Monitor active promotions, redemption frequency, and total discounts given.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/admin/coupons"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-semibold hover:bg-brand-red hover:text-white transition-colors"
+        >
+          <span>Manage Coupons</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       <section className="rounded-xl border bg-card p-4">

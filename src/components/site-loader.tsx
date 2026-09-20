@@ -161,7 +161,7 @@ export function SiteLoader({
       >
         <img
           src="/assets/kookaburra-loader.png"
-          alt="Buffering..."
+          alt="Loading..."
           loading="eager"
           decoding="async"
           width={112}

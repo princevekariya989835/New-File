@@ -48,6 +48,7 @@ import {
   Globe,
   UserCog,
   Settings,
+  Ticket,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -71,6 +72,7 @@ const NAV: Array<{
   { to: "/admin/orders", label: "Orders", icon: Receipt },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/inventory", label: "Inventory", icon: Boxes },
+  { to: "/admin/coupons", label: "Coupons", icon: Ticket },
   { to: "/admin/shipping", label: "Shipping", icon: Truck },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
   { to: "/admin/customers", label: "Customers", icon: Users },

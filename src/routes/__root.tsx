@@ -6,7 +6,6 @@ import {
   HeadContent,
   Scripts,
   useLocation,
-  useRouterState,
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -197,19 +196,10 @@ function RootComponent() {
 function AppShell() {
   useCartSync();
   const location = useLocation();
-  const isNavigating = useRouterState({
-    select: (s) => s.status === "pending",
-  });
   const isAuthPage = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
   return (
     <div className="flex min-h-screen flex-col relative">
-      {/* Route navigation buffering indicator */}
-      {isNavigating && (
-        <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-background/70 backdrop-blur-sm pointer-events-none animate-in fade-in duration-150">
-          <SiteLoader variant="inline" size="lg" text="BUFFERING DROP..." />
-        </div>
-      )}
       <SiteHeader />
       <main className={isAuthPage ? "flex-1 flex flex-col" : "flex-1 pt-16 md:pt-20"}>
         <Outlet />

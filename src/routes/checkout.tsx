@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, Lock, ShieldCheck, Truck, CreditCard, Loader2 } from "lucide-react";
+import { ArrowUpRight, Lock, ShieldCheck, Truck, CreditCard, Loader2, Tag, CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/catalog";
 import { placeOrder } from "@/lib/orders.functions";
+import { validateCouponCode } from "@/lib/coupons.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ function CheckoutPage() {
   const { items, isLoading, isSyncing, clearCart } = useCartStore();
   const { user } = useAuth();
   const placeOrderFn = useServerFn(placeOrder);
+  const validateCouponFn = useServerFn(validateCouponCode);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,6 +47,22 @@ function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [placing, setPlacing] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    id: string;
+    code: string;
+    name: string;
+    discountType: string;
+    discountValue: number;
+    discountAmount: number;
+    eligibleSubtotal: number;
+    finalSubtotal: number;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -63,8 +81,68 @@ function CheckoutPage() {
     (s, i) => s + (parseFloat(i?.price?.amount || "0") || 0) * (Number(i?.quantity) || 0),
     0,
   );
-  const shipping = subtotal >= 1999 || subtotal === 0 ? 0 : 79;
-  const total = subtotal + shipping;
+
+  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const finalSubtotal = Math.max(0, subtotal - discountAmount);
+  const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
+  const total = finalSubtotal + shipping;
+
+  const applyCoupon = async () => {
+    const clean = couponInput.toUpperCase().replace(/\s+/g, "").trim();
+    if (!clean) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    if (appliedCoupon) {
+      toast.error("Only one coupon can be used per order. Remove the current coupon first.");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const res = await validateCouponFn({
+        data: {
+          code: clean,
+          subtotal,
+          items: displayItems.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            price: parseFloat(i.price.amount),
+            productName: i.productTitle,
+          })),
+          customerEmail: email || user?.email || null,
+          customerId: user?.id || null,
+        },
+      });
+
+      if (!res.ok) {
+        setCouponError(res.error || "Invalid coupon code.");
+        toast.error(res.error || "Invalid coupon code.");
+        return;
+      }
+
+      setAppliedCoupon(res.coupon);
+      setCouponInput("");
+      setCouponError(null);
+      toast.success(res.coupon.message || `Coupon ${res.coupon.code} applied!`);
+    } catch (e) {
+      const msg = (e as Error).message || "Could not apply coupon.";
+      setCouponError(msg);
+      toast.error(msg);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+    toast.info("Coupon removed");
+  };
 
   const proceed = async () => {
     if (!user) {
@@ -85,6 +163,7 @@ function CheckoutPage() {
           shippingPhone: phone,
           shippingAddress: address,
           currency,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
           items: displayItems.map((i) => ({
             productId: i.productId,
             designSubmissionId: i.designSubmissionId ?? null,
@@ -260,6 +339,15 @@ function CheckoutPage() {
                 </dt>
                 <dd>{formatPrice(subtotal, currency)}</dd>
               </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-emerald-400 font-medium">
+                  <dt className="flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5" />
+                    <span>Coupon ({appliedCoupon.code})</span>
+                  </dt>
+                  <dd>-{formatPrice(discountAmount, currency)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Shipping</dt>
                 <dd>{shipping === 0 ? "Free" : formatPrice(shipping, currency)}</dd>
@@ -270,7 +358,83 @@ function CheckoutPage() {
               </div>
             </dl>
 
-            <div className="my-6 h-px bg-border" />
+            {/* Coupon Code Section */}
+            <div className="my-6 border-t border-b border-border py-4">
+              {!appliedCoupon ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5 text-brand-red" />
+                      Have a coupon?
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      id="coupon-code-input"
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value.toUpperCase().replace(/\s+/g, ""));
+                        setCouponError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyCoupon();
+                        }
+                      }}
+                      placeholder="ENTER CODE"
+                      className="h-10 text-xs font-mono uppercase tracking-wider bg-secondary/50 border-border/80"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={applyCoupon}
+                      disabled={!couponInput.trim() || applyingCoupon}
+                      className="h-10 px-4 text-xs font-bold uppercase tracking-wider rounded-xl shrink-0"
+                    >
+                      {applyingCoupon ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-xs font-medium text-destructive mt-1.5">{couponError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-7 w-7 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-xs text-emerald-400 tracking-wider">
+                            {appliedCoupon.code}
+                          </span>
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                            Applied
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-emerald-400/90 truncate mt-0.5">
+                          {appliedCoupon.message}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeCoupon}
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-muted-foreground">Total</span>

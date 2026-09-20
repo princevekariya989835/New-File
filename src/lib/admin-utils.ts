@@ -20,6 +20,7 @@ export const STAFF_MODULES = [
   "products",
   "orders",
   "inventory",
+  "coupons",
   "customers",
   "returns",
   "reviews",
