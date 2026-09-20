@@ -367,16 +367,19 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
       <div className="hidden md:block relative w-full bg-[#fbfbfb]">
         <div className="relative mx-auto w-full max-w-[1600px]">
           <div className="relative w-full aspect-[1024/440] select-none">
-            <img
-              src={heroImageSrc}
-              alt={hero.heading || "We Don't Follow Trends. We Print Them. - RIOTOUS"}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              width={2048}
-              height={880}
-              className="h-full w-full object-cover object-center pointer-events-none"
-            />
+            <picture className="block h-full w-full">
+              <source srcSet="/assets/riotous-desktop-hero-hd.png" type="image/png" />
+              <img
+                src={heroImageSrc}
+                alt={hero.heading || "We Don't Follow Trends. We Print Them. - RIOTOUS"}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                width={2560}
+                height={1100}
+                className="h-full w-full object-cover object-center pointer-events-none"
+              />
+            </picture>
 
             {/* Accessible SEO Headings & Text */}
             <div className="sr-only">
@@ -465,15 +468,18 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
 
         {/* Artwork Graphic Showcase */}
         <div className="mt-6 relative w-full overflow-hidden rounded-xl border border-neutral-200/70 bg-white/60 shadow-xs">
-          <img
-            src="/assets/riotous-desktop-hero@2x.jpg"
-            alt="RIOTOUS Streetwear Showcase"
-            loading="lazy"
-            decoding="async"
-            width={1024}
-            height={440}
-            className="w-full h-auto object-cover"
-          />
+          <picture className="block w-full">
+            <source srcSet="/assets/riotous-desktop-hero-hd.png" type="image/png" />
+            <img
+              src="/assets/riotous-desktop-hero@2x.jpg"
+              alt="RIOTOUS Streetwear Showcase"
+              loading="lazy"
+              decoding="async"
+              width={2560}
+              height={1100}
+              className="w-full h-auto object-cover"
+            />
+          </picture>
         </div>
       </div>
     </section>

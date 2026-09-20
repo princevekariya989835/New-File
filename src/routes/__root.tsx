@@ -115,7 +115,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "preload",
         as: "image",
-        href: "/assets/riotous-desktop-hero@2x.jpg",
+        href: "/assets/riotous-desktop-hero-hd.png",
+        type: "image/png",
         fetchPriority: "high",
       },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
