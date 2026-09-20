@@ -226,7 +226,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
   },
   hero: {
     active: true,
-    badge: "Premium DTF apparel · Made in India",
+    badge: "PREMIUM DTF APPAREL · MADE IN INDIA",
     heading: "We Don't Follow Trends.\nWe Print Them.",
     subheading: "Wear the print. Not the trend.",
     description:
@@ -235,10 +235,10 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     primaryCtaLink: "/shop",
     secondaryCtaText: "Design Your Own",
     secondaryCtaLink: "/design",
-    mediaType: "video",
-    mediaUrl: "/videos/riotus-hero.mp4",
-    videoUrl: "/videos/riotus-hero.mp4",
-    imageUrl: "/assets/hero-bg.jpg",
+    mediaType: "image",
+    mediaUrl: "/assets/riotous-desktop-hero@2x.jpg",
+    imageUrl: "/assets/riotous-desktop-hero@2x.jpg",
+    videoUrl: "",
     alignment: "left",
   },
   navigation: [

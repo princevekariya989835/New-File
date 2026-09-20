@@ -1,7 +1,7 @@
-import { useState, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowUpRight,
+  ArrowRight,
   Sparkles,
   Truck,
   RotateCcw,
@@ -12,7 +12,6 @@ import {
   Heart,
   CheckCircle2,
   Zap,
-  AlertTriangle,
 } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
 import { ProductCard } from "@/components/product-card";
@@ -347,176 +346,133 @@ export function WebsiteHomepageContent({
   );
 }
 
-function WebsiteHero({ hero, isPreview }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
-  const [videoError, setVideoError] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
+function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
-  const isCenter = hero.alignment === "center";
-  const isRight = hero.alignment === "right";
-
-  const isVideo =
-    hero.mediaType === "video" ||
-    (!hero.mediaType && Boolean(hero.videoUrl && !hero.imageUrl)) ||
-    Boolean(hero.videoUrl && hero.mediaType !== "image");
-
-  const videoSrc =
-    (hero.mediaType === "video"
-      ? hero.mediaUrl || hero.videoUrl
-      : hero.videoUrl || hero.mediaUrl) || "";
-  const imageSrc =
-    (hero.mediaType === "image"
-      ? hero.mediaUrl || hero.imageUrl
-      : hero.imageUrl || hero.mediaUrl) || "";
+  const heroImageSrc =
+    hero.imageUrl || hero.mediaUrl || "/assets/riotous-desktop-hero@2x.jpg";
+  const primaryCta = hero.primaryCtaText || "Shop Now";
+  const primaryLink = hero.primaryCtaLink || "/shop";
+  const secondaryCta = hero.secondaryCtaText || "Design Your Own";
+  const secondaryLink = hero.secondaryCtaLink || "/design";
 
   return (
     <section
       key="sec-hero"
-      className="relative -mt-16 flex min-h-[75svh] items-end overflow-hidden bg-neutral-950 md:-mt-20 md:min-h-[100svh]"
+      aria-label="RIOTOUS Streetwear Hero"
+      className="relative w-full bg-[#fbfbfb] text-neutral-900 overflow-hidden"
     >
-      {isVideo && videoSrc ? (
-        <video
-          key={videoSrc}
-          ref={(el) => {
-            videoRef.current = el;
-            if (el) {
-              el.muted = true;
-              el.defaultMuted = true;
-              el.playsInline = true;
-              const playPromise = el.play();
-              if (playPromise !== undefined) {
-                playPromise
-                  .then(() => setVideoLoaded(true))
-                  .catch((err) => {
-                    console.warn("[Hero Video Autoplay Note]:", err);
-                  });
-              }
-            }
-          }}
-          src={videoSrc}
-          poster={hero.imageUrl || "/assets/hero-poster.jpg"}
-          width={1376}
-          height={768}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover object-center opacity-95 md:opacity-90 z-0"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          onLoadedData={() => {
-            setVideoLoaded(true);
-            setVideoError(false);
-          }}
-          onCanPlay={() => {
-            setVideoLoaded(true);
-          }}
-          onError={(e) => {
-            console.error("[Hero Video Render Error]: Failed to load video source", videoSrc, e);
-            setVideoError(true);
-          }}
-        >
-          <source src={videoSrc} type="video/mp4" />
-        </video>
-      ) : imageSrc ? (
-        <img
-          src={imageSrc}
-          alt={hero.heading || "RIOTOUS Streetwear"}
-          loading="eager"
-          fetchPriority="high"
-          decoding="async"
-          width={1376}
-          height={768}
-          className="absolute inset-0 h-full w-full object-cover opacity-85 z-0"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : null}
+      {/* Desktop Hero Layout (md and up): Matches the reference desktop image with pixel-perfect precision & interactive action hotspots */}
+      <div className="hidden md:block relative w-full bg-[#fbfbfb]">
+        <div className="relative mx-auto w-full max-w-[1600px]">
+          <div className="relative w-full aspect-[1024/440] select-none">
+            <img
+              src={heroImageSrc}
+              alt={hero.heading || "We Don't Follow Trends. We Print Them. - RIOTOUS"}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              width={2048}
+              height={880}
+              className="h-full w-full object-cover object-center pointer-events-none"
+            />
 
-      {/* Visible error message in Admin Preview if video fails */}
-      {isPreview && isVideo && videoError && (
-        <div className="absolute top-20 left-4 right-4 z-30 mx-auto max-w-xl rounded-xl border border-destructive/60 bg-destructive/95 p-4 text-white shadow-2xl backdrop-blur">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-white mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-bold text-sm tracking-tight">
-                Hero Video Playback Notice (Admin Preview)
-              </p>
-              <p className="text-xs text-white/90">
-                The video from source{" "}
-                <code className="font-mono bg-black/40 px-1.5 py-0.5 rounded text-[11px]">
-                  {videoSrc || "empty"}
-                </code>{" "}
-                could not be played.
-              </p>
-              <p className="text-[11px] text-white/80">
-                Please verify that the video format is an H.264/AAC MP4 or WebM video file and that
-                the media endpoint is reachable.
+            {/* Accessible SEO Headings & Text */}
+            <div className="sr-only">
+              <p>{hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA"}</p>
+              <h1>{hero.heading || "We Don't Follow Trends. We Print Them."}</h1>
+              <p>
+                {hero.description ||
+                  "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India."}
               </p>
             </div>
+
+            {/* Interactive Button Overlay: Shop Now */}
+            <Link
+              to={primaryLink}
+              title={`${primaryCta} →`}
+              aria-label={`${primaryCta} - Browse Streetwear Collection`}
+              style={{
+                left: "4.49%",
+                top: "65.23%",
+                width: "11.62%",
+                height: "7.5%",
+              }}
+              className="absolute group rounded-md cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-[#e50914] hover:shadow-[0_4px_16px_rgba(229,9,20,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e50914] z-10"
+            >
+              <span className="sr-only">{primaryCta}</span>
+            </Link>
+
+            {/* Interactive Button Overlay: Design Your Own */}
+            <Link
+              to={secondaryLink}
+              title={`${secondaryCta} 🪄`}
+              aria-label={`${secondaryCta} - Custom Apparel`}
+              style={{
+                left: "17.4%",
+                top: "65.23%",
+                width: "13.6%",
+                height: "7.5%",
+              }}
+              className="absolute group rounded-md cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-neutral-900 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 z-10"
+            >
+              <span className="sr-only">{secondaryCta}</span>
+            </Link>
           </div>
         </div>
-      )}
+      </div>
 
-      <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/30 via-transparent to-black/85 md:from-black/40 md:via-transparent md:to-black/85 pointer-events-none" />
-      <div
-        className="absolute inset-0 z-10 opacity-25 mix-blend-overlay pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse at 20% 30%, oklch(0.62 0.22 258 / 0.4), transparent 60%), radial-gradient(ellipse at 80% 70%, oklch(0.3 0.15 258 / 0.5), transparent 60%)",
-        }}
-      />
+      {/* Responsive Mobile / Tablet Layout (below md): Clean stacked layout with readable typography & touch targets */}
+      <div className="block md:hidden px-5 py-8 bg-[#fbfbfb]">
+        {/* Eyebrow badge with red dash accent */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="h-[2px] w-6 bg-[#e50914] rounded-full inline-block" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-neutral-800">
+            {hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA"}
+          </span>
+        </div>
 
-      <div
-        className={`relative z-20 mx-auto w-full max-w-[1400px] px-6 pb-20 pt-40 text-background md:px-10 md:pb-32 md:pt-48 ${
-          isCenter ? "text-center" : isRight ? "text-right" : "text-left"
-        }`}
-      >
-        {hero.badge && (
-          <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-background/70">
-            {hero.badge}
-          </p>
-        )}
-
-        <h1 className="max-w-5xl text-[13vw] font-black leading-[0.9] tracking-[-0.04em] text-background md:text-[8.5vw] lg:text-[7rem] whitespace-pre-line inline-block">
-          {hero.heading}
+        {/* Main Headline */}
+        <h1 className="text-3xl font-black tracking-tight leading-[0.98] text-neutral-950">
+          We Don't Follow Trends.
+          <span className="block text-[#e50914] mt-1">We Print Them.</span>
         </h1>
 
-        {hero.description && (
-          <p
-            className={`mt-8 max-w-lg text-base text-background/80 md:text-lg ${
-              isCenter ? "mx-auto" : isRight ? "ml-auto" : ""
-            }`}
-          >
-            {hero.description}
-          </p>
-        )}
+        {/* Description */}
+        <p className="mt-3.5 text-sm leading-relaxed text-neutral-600 font-normal">
+          {hero.description ||
+            "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India."}
+        </p>
 
-        <div
-          className={`mt-10 flex flex-wrap gap-3 ${
-            isCenter ? "justify-center" : isRight ? "justify-end" : "justify-start"
-          }`}
-        >
-          {hero.primaryCtaText && (
-            <a
-              href={hero.primaryCtaLink || "/shop"}
-              className="group inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
-            >
-              {hero.primaryCtaText}
-              <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
-          )}
-          {hero.secondaryCtaText && (
-            <a
-              href={hero.secondaryCtaLink || "/design"}
-              className="group inline-flex items-center gap-2 rounded-full border border-background/30 px-7 py-4 text-sm font-medium text-background backdrop-blur transition-colors hover:bg-background/10"
-            >
-              {hero.secondaryCtaText}
-              <Sparkles className="h-4 w-4" />
-            </a>
-          )}
+        {/* Action Buttons */}
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <Link
+            to={primaryLink}
+            className="flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-md bg-[#e50914] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-95"
+          >
+            {primaryCta}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            to={secondaryLink}
+            className="flex-1 min-w-[150px] inline-flex items-center justify-center gap-2 rounded-md border border-neutral-900 bg-white px-5 py-3 text-sm font-semibold text-neutral-900 shadow-sm transition-transform active:scale-95"
+          >
+            {secondaryCta}
+            <Sparkles className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {/* Artwork Graphic Showcase */}
+        <div className="mt-6 relative w-full overflow-hidden rounded-xl border border-neutral-200/70 bg-white/60 shadow-xs">
+          <img
+            src="/assets/riotous-desktop-hero@2x.jpg"
+            alt="RIOTOUS Streetwear Showcase"
+            loading="lazy"
+            decoding="async"
+            width={1024}
+            height={440}
+            className="w-full h-auto object-cover"
+          />
         </div>
       </div>
     </section>
