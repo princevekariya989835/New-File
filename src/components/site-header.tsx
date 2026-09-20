@@ -98,7 +98,6 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
 
   return (
     <>
-      <AnnouncementBar config={activeAnnouncement} />
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       <header
@@ -106,7 +105,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
           scrolled
             ? "pt-3 px-3 sm:px-4 bg-transparent pb-0"
             : "pt-0 px-0 bg-gradient-to-b from-black/90 via-black/60 to-transparent pb-8"
-        } ${activeAnnouncement?.enabled ? "top-8" : "top-0"}`}
+        }`}
       >
         <div
           className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${

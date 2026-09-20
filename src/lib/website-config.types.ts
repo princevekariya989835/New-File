@@ -217,7 +217,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       "streetwear, DTF printing, oversized tees, graphic tees, custom apparel, made in India",
   },
   announcement: {
-    enabled: true,
+    enabled: false,
     text: "🔥 FREE SHIPPING ON ALL ORDERS OVER ₹1499 · USE CODE RIOT10 FOR 10% OFF 🔥",
     link: "/shop",
     linkText: "Shop Drop",

@@ -91,27 +91,7 @@ export function WebsiteHomepageContent({
       {activeSections.map((sec) => {
         switch (sec.id) {
           case "announcement": {
-            if (!announcement?.enabled) return null;
-            return (
-              <div
-                key="sec-announcement"
-                style={{
-                  backgroundColor: announcement.backgroundColor || "#e11d48",
-                  color: announcement.textColor || "#ffffff",
-                }}
-                className="w-full py-2.5 px-4 text-center text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-3 transition-colors"
-              >
-                <span>{announcement.text}</span>
-                {announcement.link && (
-                  <a
-                    href={announcement.link}
-                    className="underline underline-offset-2 hover:opacity-80 transition-opacity"
-                  >
-                    {announcement.linkText || "Learn more"} &rarr;
-                  </a>
-                )}
-              </div>
-            );
+            return null;
           }
 
           case "hero": {
@@ -350,8 +330,6 @@ export function WebsiteHomepageContent({
 function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
-  const heroImageSrc =
-    hero.imageUrl || hero.mediaUrl || "/assets/riotous-desktop-hero@2x.jpg";
   const primaryCta = hero.primaryCtaText || "Shop Now";
   const primaryLink = hero.primaryCtaLink || "/shop";
   const secondaryCta = hero.secondaryCtaText || "Design Your Own";
@@ -361,125 +339,91 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     <section
       key="sec-hero"
       aria-label="RIOTOUS Streetwear Hero"
-      className="relative w-full bg-[#fbfbfb] text-neutral-900 overflow-hidden"
+      className="relative -mt-16 md:-mt-20 w-full bg-[#f8f8f9] text-neutral-900 overflow-hidden border-b border-neutral-200/50"
     >
-      {/* Desktop Hero Layout (md and up): Matches the reference desktop image with pixel-perfect precision & interactive action hotspots */}
-      <div className="hidden md:block relative w-full bg-[#fbfbfb]">
-        <div className="relative mx-auto w-full max-w-[1600px]">
-          <div className="relative w-full aspect-[1024/440] select-none">
-            <picture className="block h-full w-full">
-              <source srcSet="/assets/riotous-desktop-hero-hd.png" type="image/png" />
+      {/* Subtle ambient streetwear background styling */}
+      <div
+        className="absolute inset-0 opacity-[0.35] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse at 85% 50%, rgba(229, 9, 20, 0.05), transparent 60%), radial-gradient(ellipse at 15% 20%, rgba(0, 0, 0, 0.02), transparent 45%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute right-6 top-16 select-none font-black text-neutral-200/25 text-[10vw] tracking-widest pointer-events-none uppercase leading-none hidden xl:block"
+      >
+        RIOTOUS
+      </div>
+
+      <div className="relative mx-auto w-full max-w-[1440px] px-6 sm:px-8 lg:px-12 pt-20 sm:pt-24 md:pt-28 lg:pt-32 pb-12 sm:pb-16 md:pb-20 lg:pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-center">
+          {/* Left Column: Live crisp typography & interactive actions */}
+          <div className="lg:col-span-6 flex flex-col justify-center z-10">
+            {/* Eyebrow badge with red dash accent */}
+            <div className="inline-flex items-center gap-2.5 mb-4 sm:mb-5">
+              <span className="h-[2.5px] w-7 bg-[#e50914] rounded-full inline-block shrink-0" />
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.25em] text-neutral-800">
+                {hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA"}
+              </span>
+            </div>
+
+            {/* Main Headline */}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[4rem] xl:text-[4.75rem] font-black tracking-[-0.035em] leading-[0.94] text-neutral-950">
+              We Don't Follow Trends.
+              <span className="block text-[#e50914] mt-1.5 sm:mt-2">We Print Them.</span>
+            </h1>
+
+            {/* Description */}
+            <p className="mt-5 sm:mt-6 max-w-lg text-base sm:text-lg text-neutral-600 leading-relaxed font-normal">
+              {hero.description ||
+                "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India."}
+            </p>
+
+            {/* Real Interactive Action Buttons */}
+            <div className="mt-8 sm:mt-10 flex flex-wrap items-center gap-3.5 sm:gap-4">
+              <Link
+                to={primaryLink}
+                className="group inline-flex items-center justify-center gap-2.5 rounded-lg bg-[#e50914] px-7 py-3.5 text-sm sm:text-base font-bold text-white shadow-[0_6px_20px_rgba(229,9,20,0.32)] transition-all duration-300 hover:bg-[#c90711] hover:shadow-[0_8px_25px_rgba(229,9,20,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-98 cursor-pointer"
+              >
+                <span>{primaryCta}</span>
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+              <Link
+                to={secondaryLink}
+                className="group inline-flex items-center justify-center gap-2.5 rounded-lg border-2 border-neutral-900 bg-white px-6 py-3.5 text-sm sm:text-base font-bold text-neutral-900 shadow-xs transition-all duration-300 hover:bg-neutral-100 hover:border-black hover:-translate-y-0.5 active:translate-y-0 active:scale-98 cursor-pointer"
+              >
+                <span>{secondaryCta}</span>
+                <Sparkles className="h-4 w-4 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110" />
+              </Link>
+            </div>
+
+            {/* Streetwear Graffiti Accent */}
+            <div className="mt-6 flex items-center gap-2 select-none">
+              <span
+                className="inline-block font-black text-[#e50914] text-xs sm:text-sm tracking-widest uppercase -rotate-6 transition-transform hover:rotate-0"
+                style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+              >
+                ⚡ WEAR YOUR STORY
+              </span>
+            </div>
+          </div>
+
+          {/* Right Column: 3D Streetwear Showcase (3 Graphic Oversized Tees) */}
+          <div className="lg:col-span-6 relative flex items-center justify-center lg:justify-end z-10">
+            <div className="relative w-full max-w-[620px] lg:max-w-none group transition-transform duration-500 hover:scale-[1.015]">
               <img
-                src={heroImageSrc}
-                alt={hero.heading || "We Don't Follow Trends. We Print Them. - RIOTOUS"}
+                src="/assets/riotous-tees-showcase.png"
+                alt="RIOTOUS Streetwear Tees - Japanese Cranes Confidence, Anime, and One Piece Gear 5"
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                width={2560}
+                width={1772}
                 height={1100}
-                className="h-full w-full object-cover object-center pointer-events-none"
+                className="w-full h-auto object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.12)] select-none pointer-events-none"
               />
-            </picture>
-
-            {/* Accessible SEO Headings & Text */}
-            <div className="sr-only">
-              <p>{hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA"}</p>
-              <h1>{hero.heading || "We Don't Follow Trends. We Print Them."}</h1>
-              <p>
-                {hero.description ||
-                  "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India."}
-              </p>
             </div>
-
-            {/* Interactive Button Overlay: Shop Now */}
-            <Link
-              to={primaryLink}
-              title={`${primaryCta} →`}
-              aria-label={`${primaryCta} - Browse Streetwear Collection`}
-              style={{
-                left: "4.49%",
-                top: "65.23%",
-                width: "11.62%",
-                height: "7.5%",
-              }}
-              className="absolute group rounded-md cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-[#e50914] hover:shadow-[0_4px_16px_rgba(229,9,20,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e50914] z-10"
-            >
-              <span className="sr-only">{primaryCta}</span>
-            </Link>
-
-            {/* Interactive Button Overlay: Design Your Own */}
-            <Link
-              to={secondaryLink}
-              title={`${secondaryCta} 🪄`}
-              aria-label={`${secondaryCta} - Custom Apparel`}
-              style={{
-                left: "17.4%",
-                top: "65.23%",
-                width: "13.6%",
-                height: "7.5%",
-              }}
-              className="absolute group rounded-md cursor-pointer transition-all duration-200 hover:ring-2 hover:ring-neutral-900 hover:shadow-[0_4px_16px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 z-10"
-            >
-              <span className="sr-only">{secondaryCta}</span>
-            </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Responsive Mobile / Tablet Layout (below md): Clean stacked layout with readable typography & touch targets */}
-      <div className="block md:hidden px-5 py-8 bg-[#fbfbfb]">
-        {/* Eyebrow badge with red dash accent */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="h-[2px] w-6 bg-[#e50914] rounded-full inline-block" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-neutral-800">
-            {hero.badge || "PREMIUM DTF APPAREL · MADE IN INDIA"}
-          </span>
-        </div>
-
-        {/* Main Headline */}
-        <h1 className="text-3xl font-black tracking-tight leading-[0.98] text-neutral-950">
-          We Don't Follow Trends.
-          <span className="block text-[#e50914] mt-1">We Print Them.</span>
-        </h1>
-
-        {/* Description */}
-        <p className="mt-3.5 text-sm leading-relaxed text-neutral-600 font-normal">
-          {hero.description ||
-            "Premium DTF printed apparel made for creators, dreamers and streetwear lovers. Oversized tees and graphic prints, designed and made in India."}
-        </p>
-
-        {/* Action Buttons */}
-        <div className="mt-5 flex flex-wrap gap-2.5">
-          <Link
-            to={primaryLink}
-            className="flex-1 min-w-[130px] inline-flex items-center justify-center gap-2 rounded-md bg-[#e50914] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-transform active:scale-95"
-          >
-            {primaryCta}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to={secondaryLink}
-            className="flex-1 min-w-[150px] inline-flex items-center justify-center gap-2 rounded-md border border-neutral-900 bg-white px-5 py-3 text-sm font-semibold text-neutral-900 shadow-sm transition-transform active:scale-95"
-          >
-            {secondaryCta}
-            <Sparkles className="h-4 w-4" />
-          </Link>
-        </div>
-
-        {/* Artwork Graphic Showcase */}
-        <div className="mt-6 relative w-full overflow-hidden rounded-xl border border-neutral-200/70 bg-white/60 shadow-xs">
-          <picture className="block w-full">
-            <source srcSet="/assets/riotous-desktop-hero-hd.png" type="image/png" />
-            <img
-              src="/assets/riotous-desktop-hero@2x.jpg"
-              alt="RIOTOUS Streetwear Showcase"
-              loading="lazy"
-              decoding="async"
-              width={2560}
-              height={1100}
-              className="w-full h-auto object-cover"
-            />
-          </picture>
         </div>
       </div>
     </section>
