@@ -242,27 +242,6 @@ export function HeroOrbit({ products = ORBIT_PRODUCTS, className = "" }: HeroOrb
       style={{ height: `${dimensions.height}px` }}
       aria-label="RIOTOUS Streetwear Floating T-shirt Orbit"
     >
-      {/* 1. Subtle Editorial Orbit Guide Ring */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-neutral-300/40 dark:border-neutral-700/40"
-        style={{
-          width: `${dimensions.rx * 2}px`,
-          height: `${dimensions.ry * 2}px`,
-          transform: `translate(-50%, -50%) translate3d(${currentParallaxRef.current.x * 0.5}px, ${currentParallaxRef.current.y * 0.5}px, 0)`,
-          willChange: "transform",
-        }}
-        aria-hidden="true"
-      >
-        {/* Subtle RIOTOUS Red accent points along orbit guide */}
-        <span
-          className="absolute h-1.5 w-1.5 rounded-full bg-brand-red shadow-[0_0_6px_rgba(240,11,17,0.5)]"
-          style={{ top: "50%", left: "-3px", transform: "translateY(-50%)" }}
-        />
-        <span
-          className="absolute h-1.5 w-1.5 rounded-full bg-brand-red shadow-[0_0_6px_rgba(240,11,17,0.5)]"
-          style={{ top: "50%", right: "-3px", transform: "translateY(-50%)" }}
-        />
-      </div>
 
       {/* 2. Soft Ambient Halo beneath the main focal garment */}
       <div
