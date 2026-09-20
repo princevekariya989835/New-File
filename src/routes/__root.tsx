@@ -9,7 +9,6 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { SiteLoader } from "@/components/site-loader";
 
 import appCss from "../styles.css?url";
 import "../styles.css";
@@ -119,11 +118,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "/assets/hero-poster.jpg",
         fetchPriority: "high",
       },
-      {
-        rel: "preload",
-        as: "image",
-        href: "/assets/kookaburra-loader.png",
-      },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
     ],
     scripts: [
@@ -160,14 +154,9 @@ gtag('config', 'G-1KHJNXYQ2E');
   }),
   shellComponent: RootShell,
   component: RootComponent,
-  pendingComponent: RootPendingComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootPendingComponent() {
-  return <SiteLoader variant="fullscreen" size="xl" text="LOADING THE DROP..." />;
-}
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
