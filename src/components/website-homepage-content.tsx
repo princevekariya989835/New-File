@@ -28,6 +28,7 @@ import { ProductCard } from "@/components/product-card";
 import { EmptyProducts } from "@/components/empty-products";
 import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
+import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
 import { HeroOrbit } from "@/components/hero-orbit";
 
 interface WebsiteHomepageContentProps {
@@ -337,6 +338,69 @@ export function WebsiteHomepageContent({
   );
 }
 
+export const TEE_STREAM_IMAGES: StreamImage[] = [
+  {
+    src: "/products/zoro-black-1.jpg",
+    alt: "RIOTOUS Oni Zoro Archive Oversized T-Shirt - Front Chest",
+    title: "Oni Zoro Black",
+  },
+  {
+    src: "/products/zoro-black-2.jpg",
+    alt: "RIOTOUS Oni Zoro Archive Oversized T-Shirt - Back Graphic",
+    title: "Oni Zoro Back Graphic",
+  },
+  {
+    src: "/products/zenitsu-maroon-1.jpg",
+    alt: "RIOTOUS Thunder Breath Maroon Oversized T-Shirt - Front",
+    title: "Thunder Breath Maroon",
+  },
+  {
+    src: "/products/zenitsu-maroon-2.jpg",
+    alt: "RIOTOUS Thunder Breath Maroon Oversized T-Shirt - Back Graphic",
+    title: "Thunder Breath Graphic",
+  },
+  {
+    src: "/products/zoro-olive-1.jpg",
+    alt: "RIOTOUS Katana Ronin Olive Oversized T-Shirt - Front",
+    title: "Katana Ronin Olive",
+  },
+  {
+    src: "/products/zoro-olive-2.jpg",
+    alt: "RIOTOUS Katana Ronin Olive Oversized T-Shirt - Back Graphic",
+    title: "Katana Ronin Graphic",
+  },
+  {
+    src: "/assets/tee-black-front.webp",
+    alt: "RIOTOUS Heavyweight 240 GSM Combed Cotton Black Tee - Front",
+    title: "240 GSM Heavyweight Black",
+  },
+  {
+    src: "/assets/tee-black-back.webp",
+    alt: "RIOTOUS Heavyweight 240 GSM DTF Print Black Tee - Back",
+    title: "HD DTF 12-Pass Print",
+  },
+  {
+    src: "/assets/tee-maroon-front.webp",
+    alt: "RIOTOUS Boxy Fit Drop Shoulder Maroon Tee - Front",
+    title: "Boxy Drop Shoulder",
+  },
+  {
+    src: "/assets/tee-maroon-back.webp",
+    alt: "RIOTOUS Boxy Fit Drop Shoulder Maroon Tee - Back",
+    title: "Archival DTF Back Canvas",
+  },
+  {
+    src: "/assets/tee-olive-front.webp",
+    alt: "RIOTOUS Streetwear Olive Green Tee - Front",
+    title: "Tactical Ronin Green",
+  },
+  {
+    src: "/assets/tee-olive-back.webp",
+    alt: "RIOTOUS Streetwear Olive Green Tee - Back",
+    title: "Pocket Katana Print",
+  },
+];
+
 function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
@@ -351,54 +415,71 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
   return (
     <section
       key="sec-hero"
-      aria-label="RIOTOUS Streetwear Editorial Hero"
-      className="relative w-full overflow-hidden bg-[#FAF9F6] text-neutral-900 dark:bg-[#0c0c0e] dark:text-neutral-100 border-b border-neutral-200/80 dark:border-neutral-800/80 transition-colors duration-300 select-none"
+      aria-label="RIOTOUS Streetwear 3D Image Stream Corridor Hero"
+      className="relative w-full border-b border-neutral-200/80 dark:border-neutral-800/80 transition-colors duration-300 select-none bg-[#FAF9F6] dark:bg-[#0c0c0e]"
     >
-      <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 pt-8 sm:pt-12 lg:pt-14 pb-12 sm:pb-16 lg:pb-18">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center">
-          {/* LEFT SIDE — BRAND MESSAGE */}
-          <div className="lg:col-span-5 xl:col-span-5 flex flex-col items-start relative z-20">
-            {/* Small Eyebrow Label */}
-            <div className="inline-flex items-center gap-2.5 mb-4 sm:mb-6">
-              <span className="h-2 w-2 rounded-full bg-brand-red" />
-              <span className="text-xs sm:text-[13px] font-mono font-bold tracking-[0.25em] text-neutral-600 dark:text-neutral-400 uppercase">
-                {eyebrow}
-              </span>
-            </div>
+      <ImageStreamHero
+        images={TEE_STREAM_IMAGES}
+        cards={9}
+        speed={18}
+        axis={52}
+        className="w-full min-h-[580px] sm:min-h-[640px] lg:min-h-[720px] flex items-center justify-center overflow-hidden"
+      >
+        {/* Soft Radial Vignette for contrast so text stands out cleanly while t-shirt rails stream forward */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-radial from-transparent via-[#FAF9F6]/50 to-[#FAF9F6] dark:via-[#0c0c0e]/50 dark:to-[#0c0c0e] opacity-95"
+          aria-hidden="true"
+        />
 
-            {/* Large Bold Editorial Headline */}
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[72px] xl:text-[84px] font-black tracking-[-0.04em] leading-[0.92] text-neutral-950 dark:text-white uppercase mb-5 sm:mb-7">
-              <span className="block">WEAR</span>
-              <span className="block">YOUR</span>
-              <span className="block text-brand-red">ATTITUDE.</span>
-            </h1>
-
-            {/* Editorial Description */}
-            <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 font-normal leading-relaxed max-w-md mb-8 sm:mb-10">
-              {descriptionText}
-            </p>
-
-            {/* Premium CTA Button */}
-            <div className="flex items-center">
-              <Link
-                to={primaryLink}
-                aria-label="Shop Collection - Browse RIOTOUS Streetwear"
-                className="group relative inline-flex items-center justify-center gap-3 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-200 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
-              >
-                <span>{primaryCta}</span>
-                <span className="text-base transition-transform duration-200 group-hover:translate-x-1.5">
-                  →
-                </span>
-              </Link>
-            </div>
+        {/* Central Brand Headline & Call to Action */}
+        <div className="relative z-10 mx-auto max-w-[1280px] px-6 py-14 sm:py-20 flex flex-col items-center text-center">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2.5 mb-5 sm:mb-6 px-4 py-1.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-200/80 dark:border-neutral-800/80 shadow-xs">
+            <span className="h-2 w-2 rounded-full bg-brand-red animate-pulse" />
+            <span className="text-xs sm:text-[13px] font-mono font-bold tracking-[0.25em] text-neutral-700 dark:text-neutral-300 uppercase">
+              {eyebrow}
+            </span>
           </div>
 
-          {/* RIGHT SIDE — T-SHIRT ORBIT ANIMATION (Shifted further to the right side) */}
-          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center z-10 mt-6 lg:mt-0 lg:translate-x-12 xl:translate-x-20 2xl:translate-x-28">
-            <HeroOrbit />
+          {/* Large Bold Editorial Headline */}
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[84px] xl:text-[96px] font-black tracking-[-0.04em] leading-[0.92] text-neutral-950 dark:text-white uppercase mb-6 drop-shadow-xs max-w-4xl">
+            <span className="block sm:inline">WEAR YOUR </span>
+            <span className="block sm:inline text-brand-red">ATTITUDE.</span>
+          </h1>
+
+          {/* Editorial Description */}
+          <p className="text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-normal leading-relaxed max-w-xl mb-8 sm:mb-10 text-balance">
+            {descriptionText}
+          </p>
+
+          {/* Dual Action Buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link
+              to={primaryLink}
+              aria-label="Shop Collection - Browse RIOTOUS Streetwear"
+              className="group relative inline-flex items-center justify-center gap-3 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-200 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
+            >
+              <span>{primaryCta}</span>
+              <span className="text-base transition-transform duration-200 group-hover:translate-x-1.5">
+                →
+              </span>
+            </Link>
+
+            <Link
+              to="/design"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-300 dark:border-neutral-700 px-7 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900 dark:text-white shadow-xs transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <span>CUSTOMIZE IN 3D</span>
+            </Link>
+          </div>
+
+          {/* Micro Proof Stamp */}
+          <div className="mt-10 sm:mt-12 flex items-center gap-3 text-[11px] font-mono tracking-widest text-neutral-500 dark:text-neutral-400 uppercase pointer-events-none">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-red" />
+            <span>240 GSM COMBED COTTON · 100% ARCHIVAL DTF PRINT</span>
           </div>
         </div>
-      </div>
+      </ImageStreamHero>
     </section>
   );
 }
