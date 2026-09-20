@@ -1,7 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import React from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import {
   adminListOrders,
@@ -11,12 +12,17 @@ import {
   PAYMENT_STATUSES,
   type AdminOrder,
 } from "@/lib/admin.functions";
+import {
+  amazonListTemplates,
+  amazonExportOrders,
+  type AmazonTemplate,
+} from "@/lib/amazon-export.functions";
 import { money, dateTime, STATUS_TONE } from "@/components/admin/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp, Printer, Download } from "lucide-react";
+import { ChevronDown, ChevronUp, Printer, Download, Package, AlertTriangle, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
@@ -148,6 +154,78 @@ function OrdersPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState<string>("Confirmed");
 
+  // Amazon Export state
+  const listTemplatesFn = useServerFn(amazonListTemplates);
+  const exportFn = useServerFn(amazonExportOrders);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [amazonModalOpen, setAmazonModalOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [amazonExporting, setAmazonExporting] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  const templatesQ = useQuery({
+    queryKey: ["admin", "amazon-templates"],
+    queryFn: () => listTemplatesFn(),
+  });
+  const amazonTemplates: AmazonTemplate[] = Array.isArray(templatesQ.data) ? templatesQ.data : [];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleAmazonExport = async () => {
+    if (!selectedTemplateId) return toast.error("Select a template.");
+    setAmazonExporting(true);
+    try {
+      const scope = selected.length > 0 ? selected : [];
+      const result = await exportFn({
+        data: {
+          templateId: selectedTemplateId,
+          orderIds: scope,
+          filters:
+            scope.length === 0
+              ? {
+                  status: search.status,
+                  paymentStatus: search.payment,
+                  from: search.from,
+                  to: search.to,
+                }
+              : {},
+        },
+      });
+      if (result.warnings.length > 0) {
+        toast.warning(
+          `Export completed with ${result.warnings.length} missing value(s). Check the file for blank cells.`,
+        );
+      } else {
+        toast.success(`Exported ${result.rowCount} row(s)`);
+      }
+      // Trigger browser download
+      const byteChars = atob(result.base64);
+      const byteArr = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: result.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      setAmazonModalOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Export failed.");
+    } finally {
+      setAmazonExporting(false);
+    }
+  };
+
   const ordersQ = useQuery({
     queryKey: ["admin", "orders"],
     queryFn: () => listFn(),
@@ -216,6 +294,7 @@ function OrdersPage() {
   }, [filtered]);
 
   return (
+    <React.Fragment>
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -225,9 +304,76 @@ function OrdersPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => csvExport(filtered)}>
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
+          {/* Export Dropdown */}
+          <div className="relative" ref={exportMenuRef}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setExportMenuOpen((v) => !v)}
+            >
+              <Download className="h-4 w-4" /> Export
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover shadow-lg py-1">
+                <button
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
+                  onClick={() => {
+                    csvExport(filtered);
+                    setExportMenuOpen(false);
+                  }}
+                >
+                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">Export RIOTOUS CSV</div>
+                    <div className="text-[11px] text-muted-foreground">Standard order export</div>
+                  </div>
+                </button>
+                <div className="h-px bg-border mx-2 my-1" />
+                {amazonTemplates.length === 0 ? (
+                  <Link
+                    to="/admin/settings"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
+                    onClick={() => setExportMenuOpen(false)}
+                  >
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">Amazon Export</div>
+                      <div className="text-[11px] text-muted-foreground">Configure templates first →</div>
+                    </div>
+                  </Link>
+                ) : (
+                  amazonTemplates.map((tmpl) => (
+                    <button
+                      key={tmpl.id}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
+                      onClick={() => {
+                        setSelectedTemplateId(tmpl.id);
+                        setAmazonModalOpen(true);
+                        setExportMenuOpen(false);
+                      }}
+                    >
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="font-medium">{tmpl.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {tmpl.purpose} · {tmpl.headers.length} cols
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+                <div className="h-px bg-border mx-2 my-1" />
+                <Link
+                  to="/admin/settings"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/60"
+                  onClick={() => setExportMenuOpen(false)}
+                >
+                  <ExternalLink className="h-3 w-3" /> Manage Amazon Templates
+                </Link>
+              </div>
+            )}
+          </div>
           <AdminEraseDataButton
             section="orders"
             sectionLabel="Orders"
@@ -489,8 +635,117 @@ function OrdersPage() {
         </div>
       )}
     </div>
+
+    {/* Amazon Export Confirmation Modal */}
+    {amazonModalOpen && (
+      <AmazonExportModal
+        template={amazonTemplates.find((t) => t.id === selectedTemplateId) ?? null}
+        exportScope={
+          selected.length > 0
+            ? `${selected.length} selected order(s)`
+            : `${filtered.length} filtered order(s)`
+        }
+        exporting={amazonExporting}
+        onClose={() => setAmazonModalOpen(false)}
+        onConfirm={handleAmazonExport}
+      />
+    )}
+    </React.Fragment>
   );
 }
+
+function AmazonExportModal({
+  template,
+  exportScope,
+  exporting,
+  onClose,
+  onConfirm,
+}: {
+  template: import("@/lib/amazon-export.functions").AmazonTemplate | null;
+  exportScope: string;
+  exporting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const unmappedCount = template
+    ? template.headers.filter((h) => !template.mapping[h]).length
+    : 0;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-card shadow-2xl">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <Package className="h-6 w-6 text-brand-red" />
+            <div>
+              <h2 className="font-bold text-base">Amazon Export</h2>
+              <p className="text-xs text-muted-foreground">{template?.name}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Template</span>
+              <span className="font-medium">{template?.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Purpose</span>
+              <span>{template?.purpose}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Scope</span>
+              <span>{exportScope}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Columns</span>
+              <span>{template?.headers.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Mapped</span>
+              <span>{(template?.headers.length ?? 0) - unmappedCount}</span>
+            </div>
+          </div>
+
+          {unmappedCount > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                {unmappedCount} column{unmappedCount > 1 ? "s" : ""} are not mapped
+                and will be blank in the output. Go to{" "}
+                <Link to="/admin/settings" className="underline">Settings → Amazon Export</Link>{" "}
+                to complete the mapping.
+              </span>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Orders with multiple items generate <strong>one row per item</strong>. The output file
+            will exactly match your uploaded Amazon template structure.
+          </p>
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+              disabled={exporting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-brand-red text-white hover:bg-brand-red/90"
+              disabled={exporting}
+              onClick={onConfirm}
+            >
+              {exporting ? "Generating…" : "Generate & Download"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (

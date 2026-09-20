@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   getStoreSettings,
   updateStoreSettings,
@@ -51,7 +51,24 @@ import {
   ExternalLink,
   Layers,
   Lock,
+  Package,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Upload,
+  CheckCheck,
+  X,
 } from "lucide-react";
+import {
+  amazonListTemplates,
+  amazonSaveTemplate,
+  amazonUpdateMapping,
+  amazonDeleteTemplate,
+  amazonParseTemplateHeaders,
+  RIOTOUS_FIELD_KEYS,
+  type AmazonTemplate,
+} from "@/lib/amazon-export.functions";
 import { toast } from "sonner";
 import { useRouteContext } from "@tanstack/react-router";
 
@@ -80,6 +97,7 @@ type SettingsTab =
   | "shipping"
   | "website"
   | "data"
+  | "amazon"
   | "danger";
 
 function AdminSettingsPage() {
@@ -221,6 +239,7 @@ function AdminSettingsPage() {
     { id: "shipping", label: "Shipping & Delivery", icon: Truck },
     { id: "website", label: "Website & SEO", icon: Globe },
     { id: "data", label: "Data Export & Backup", icon: Database },
+    { id: "amazon", label: "Amazon Export", icon: Package },
     { id: "danger", label: "Danger Zone", icon: AlertOctagon },
   ];
 
@@ -1300,6 +1319,9 @@ function AdminSettingsPage() {
         </div>
       </div>
 
+      {/* TAB: AMAZON EXPORT */}
+      {activeTab === "amazon" && <AmazonExportSettings />}
+
       {/* MAINTENANCE MODE CONFIRMATION DIALOG */}
       <Dialog open={maintenanceDialog} onOpenChange={setMaintenanceDialog}>
         <DialogContent className="max-w-md">
@@ -1349,3 +1371,443 @@ function AdminSettingsPage() {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AmazonExportSettings — Standalone component (avoids polluting parent state)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PURPOSES = [
+  "Shipment Confirmation",
+  "Order Report",
+  "Inventory Loader",
+  "Return Merchandise",
+  "General",
+];
+
+function AmazonExportSettings() {
+  const qc = useQueryClient();
+
+  const listFn = useServerFn(amazonListTemplates);
+  const saveFn = useServerFn(amazonSaveTemplate);
+  const updateMappingFn = useServerFn(amazonUpdateMapping);
+  const deleteFn = useServerFn(amazonDeleteTemplate);
+  const parseFn = useServerFn(amazonParseTemplateHeaders);
+
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [uploadStep, setUploadStep] = useState<"idle" | "parsed" | "saving">("idle");
+  const [parsedHeaders, setParsedHeaders] = useState<string[]>([]);
+  const [parsedFormat, setParsedFormat] = useState("");
+  const [parsedFileName, setParsedFileName] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newPurpose, setNewPurpose] = useState("Shipment Confirmation");
+  const [parseError, setParseError] = useState("");
+  const [localMapping, setLocalMapping] = useState<Record<string, string>>({});
+  const [mappingDirty, setMappingDirty] = useState(false);
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const templatesQ = useQuery({
+    queryKey: ["admin", "amazon-templates"],
+    queryFn: () => listFn(),
+  });
+
+  const templates: AmazonTemplate[] = Array.isArray(templatesQ.data) ? templatesQ.data : [];
+
+  const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? null;
+
+  // Sync local mapping when active template changes
+  useEffect(() => {
+    if (activeTemplate) {
+      setLocalMapping({ ...activeTemplate.mapping });
+      setMappingDirty(false);
+    }
+  }, [activeTemplateId, activeTemplate?.id]);
+
+  const saveMutation = useMutation({
+    mutationFn: (d: Parameters<typeof saveFn>[0]["data"]) => saveFn({ data: d }),
+    onSuccess: () => {
+      toast.success("Template saved!");
+      qc.invalidateQueries({ queryKey: ["admin", "amazon-templates"] });
+      setUploadStep("idle");
+      setParsedHeaders([]);
+      setNewName("");
+      setNewPurpose("Shipment Confirmation");
+      setParsedFileName("");
+    },
+    onError: (e: any) => toast.error(e?.message || "Save failed."),
+  });
+
+  const updateMappingMutation = useMutation({
+    mutationFn: (d: Parameters<typeof updateMappingFn>[0]["data"]) =>
+      updateMappingFn({ data: d }),
+    onSuccess: () => {
+      toast.success("Mapping saved!");
+      setMappingDirty(false);
+      qc.invalidateQueries({ queryKey: ["admin", "amazon-templates"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Save failed."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { templateId: id } }),
+    onSuccess: () => {
+      toast.success("Template deleted.");
+      setActiveTemplateId(null);
+      qc.invalidateQueries({ queryKey: ["admin", "amazon-templates"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Delete failed."),
+  });
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setParseError("");
+      setUploadStep("idle");
+      setParsedHeaders([]);
+      setNewName(file.name.replace(/\.[^.]+$/, ""));
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const base64 = (ev.target?.result as string).split(",")[1];
+          const result = await parseFn({ data: { base64, fileName: file.name } });
+          setParsedHeaders(result.headers);
+          setParsedFormat(result.detectedFormat);
+          setParsedFileName(file.name);
+          setUploadStep("parsed");
+        } catch (err: any) {
+          setParseError(err?.message || "Failed to parse file.");
+        }
+      };
+      reader.readAsDataURL(file);
+    },
+    [parseFn],
+  );
+
+  const handleSaveTemplate = () => {
+    if (!newName.trim()) return toast.error("Please enter a template name.");
+    if (parsedHeaders.length === 0) return toast.error("No headers detected.");
+    saveMutation.mutate({
+      name: newName,
+      purpose: newPurpose,
+      fileName: parsedFileName,
+      fileFormat: parsedFormat,
+      headers: parsedHeaders,
+      mapping: {},
+    });
+  };
+
+  const handleMappingChange = (amazonCol: string, riotousKey: string) => {
+    setLocalMapping((prev) => ({ ...prev, [amazonCol]: riotousKey }));
+    setMappingDirty(true);
+  };
+
+  const handleSaveMapping = () => {
+    if (!activeTemplateId) return;
+    updateMappingMutation.mutate({
+      templateId: activeTemplateId,
+      mapping: localMapping,
+    });
+  };
+
+  const riotousOptions = Object.entries(RIOTOUS_FIELD_KEYS);
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-brand-red" /> Amazon Export Templates
+          </CardTitle>
+          <CardDescription>
+            Upload any Amazon spreadsheet template to detect its column structure. Then map
+            each Amazon column to the corresponding RIOTOUS order field. At export time,
+            RIOTOUS generates a file that exactly matches your Amazon template structure.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+
+          {/* Upload new template */}
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Upload className="h-4 w-4 text-brand-red" /> Upload Amazon Template
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload the actual Amazon template file (.xlsx, .xls, .csv, or tab-delimited .txt).
+              RIOTOUS will detect all column headers from the first row.
+              Your template's column names are treated as the source of truth — nothing is hardcoded.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" /> Choose Template File
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.txt,.tsv"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {parsedFileName && (
+                <span className="text-xs text-muted-foreground">{parsedFileName}</span>
+              )}
+            </div>
+            {parseError && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" /> {parseError}
+              </div>
+            )}
+
+            {uploadStep === "parsed" && (
+              <div className="space-y-4 pt-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CheckCheck className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    {parsedHeaders.length} columns detected
+                  </span>
+                  <span className="text-xs text-muted-foreground">({parsedFormat.toUpperCase()})</span>
+                </div>
+
+                {/* Preview headers */}
+                <div className="flex flex-wrap gap-1.5">
+                  {parsedHeaders.map((h) => (
+                    <span
+                      key={h}
+                      className="rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-foreground"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="tmpl-name">Template Name</Label>
+                    <Input
+                      id="tmpl-name"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Amazon Shipment Confirmation"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="tmpl-purpose">Purpose / Type</Label>
+                    <select
+                      id="tmpl-purpose"
+                      className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                      value={newPurpose}
+                      onChange={(e) => setNewPurpose(e.target.value)}
+                    >
+                      {PURPOSES.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  className="bg-brand-red text-white hover:bg-brand-red/90"
+                  disabled={saveMutation.isPending}
+                  onClick={handleSaveTemplate}
+                >
+                  <Save className="mr-2 h-3.5 w-3.5" />
+                  {saveMutation.isPending ? "Saving…" : "Save Template"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Saved templates */}
+          {templatesQ.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <RefreshCw className="h-4 w-4 animate-spin" /> Loading templates…
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              No templates saved yet. Upload an Amazon template above to get started.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Saved Templates ({templates.length})</p>
+              {templates.map((tmpl) => {
+                const isExpanded = expandedTemplateId === tmpl.id;
+                const isActive = activeTemplateId === tmpl.id;
+                const mappedCount = Object.values(tmpl.mapping).filter(Boolean).length;
+
+                return (
+                  <div
+                    key={tmpl.id}
+                    className={`rounded-xl border transition-colors ${
+                      isActive ? "border-brand-red/40 bg-brand-red/5" : "border-border bg-card"
+                    }`}
+                  >
+                    {/* Template header row */}
+                    <div className="flex flex-wrap items-center gap-3 p-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{tmpl.name}</span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                            {tmpl.purpose}
+                          </span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-mono">
+                            .{tmpl.fileFormat}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {tmpl.headers.length} columns ·{" "}
+                          {mappedCount} mapped ·{" "}
+                          {tmpl.headers.length - mappedCount} unmapped
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant={isActive ? "default" : "outline"}
+                          className={isActive ? "bg-brand-red text-white hover:bg-brand-red/90" : ""}
+                          onClick={() => {
+                            setActiveTemplateId(isActive ? null : tmpl.id);
+                            setExpandedTemplateId(isActive ? null : tmpl.id);
+                          }}
+                        >
+                          {isActive ? "Close Mapping" : "Edit Mapping"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => {
+                            if (confirm(`Delete template "${tmpl.name}"?`)) {
+                              deleteMutation.mutate(tmpl.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Column mapping editor */}
+                    {isActive && isExpanded && (
+                      <div className="border-t px-4 pb-4 space-y-4">
+                        <div className="pt-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                            Column Mapping — Amazon Column → RIOTOUS Field
+                          </p>
+                          <p className="text-xs text-muted-foreground mb-4">
+                            For each column in your Amazon template, choose which RIOTOUS data field
+                            should populate it. Leave unmapped columns blank in the export.
+                            Orders with multiple items will generate one row per item.
+                          </p>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground w-1/2">
+                                    Amazon Column Header
+                                  </th>
+                                  <th className="text-left py-2 text-xs font-semibold text-muted-foreground w-1/2">
+                                    Maps to RIOTOUS Field
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tmpl.headers.map((header) => {
+                                  const currentVal = localMapping[header] ?? "";
+                                  return (
+                                    <tr key={header} className="border-b border-border/50">
+                                      <td className="py-2 pr-4">
+                                        <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                                          {header}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5">
+                                        <select
+                                          className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                          value={currentVal}
+                                          onChange={(e) =>
+                                            handleMappingChange(header, e.target.value)
+                                          }
+                                        >
+                                          <option value="">— skip this column —</option>
+                                          <optgroup label="Order Fields">
+                                            {riotousOptions
+                                              .filter(([k]) => k.startsWith("order."))
+                                              .map(([k, label]) => (
+                                                <option key={k} value={k}>{label}</option>
+                                              ))}
+                                          </optgroup>
+                                          <optgroup label="Item Fields (one row per item)">
+                                            {riotousOptions
+                                              .filter(([k]) => k.startsWith("item."))
+                                              .map(([k, label]) => (
+                                                <option key={k} value={k}>{label}</option>
+                                              ))}
+                                          </optgroup>
+                                          <optgroup label="Utility">
+                                            {riotousOptions
+                                              .filter(([k]) => k.startsWith("computed."))
+                                              .map(([k, label]) => (
+                                                <option key={k} value={k}>{label}</option>
+                                              ))}
+                                          </optgroup>
+                                        </select>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="pt-3 flex items-center gap-3">
+                            <Button
+                              size="sm"
+                              className="bg-brand-red text-white hover:bg-brand-red/90"
+                              disabled={!mappingDirty || updateMappingMutation.isPending}
+                              onClick={handleSaveMapping}
+                            >
+                              <Save className="mr-2 h-3.5 w-3.5" />
+                              {updateMappingMutation.isPending ? "Saving…" : "Save Mapping"}
+                            </Button>
+                            {!mappingDirty && mappedCount > 0 && (
+                              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                <CheckCheck className="h-3.5 w-3.5" /> Mapping saved
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Info box */}
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+            <p className="font-semibold">How Amazon Export works</p>
+            <ul className="list-disc list-inside space-y-0.5 text-blue-600 dark:text-blue-400">
+              <li>Upload any Amazon template file — column names are read directly from your file, nothing is hardcoded.</li>
+              <li>Map each Amazon column to the matching RIOTOUS field using the dropdowns above.</li>
+              <li>Orders with multiple products generate <strong>one row per product</strong> in the output file.</li>
+              <li>To export: go to <strong>Admin → Orders</strong> and use the <strong>Export ▾</strong> dropdown.</li>
+              <li>The exported file will have the exact same column structure as your uploaded Amazon template.</li>
+            </ul>
+          </div>
+
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+

@@ -634,7 +634,8 @@ export async function ensureDbSchema() {
             to_regclass('public.website_published') IS NOT NULL AS has_website,
             to_regclass('public.store_settings') IS NOT NULL AS has_settings,
             to_regclass('public.coupons') IS NOT NULL AS has_coupons,
-            to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage
+            to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage,
+            to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates
         `;
         const row = check?.[0];
         if (row && (row.has_products || row.has_profiles || row.has_website || row.has_settings)) {
@@ -694,6 +695,24 @@ export async function ensureDbSchema() {
               `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
               `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
               `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
+            );
+          }
+          if (!row.has_amazon_templates) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS amazon_export_templates (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                purpose TEXT NOT NULL DEFAULT 'General',
+                file_name TEXT NOT NULL,
+                file_format TEXT NOT NULL,
+                headers JSONB NOT NULL DEFAULT '[]'::jsonb,
+                mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
             );
           }
           if (!row.has_website) {
@@ -1103,6 +1122,20 @@ export async function ensureDbSchema() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           created_by TEXT
         )`,
+        `CREATE TABLE IF NOT EXISTS amazon_export_templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          purpose TEXT NOT NULL DEFAULT 'General',
+          file_name TEXT NOT NULL,
+          file_format TEXT NOT NULL,
+          headers JSONB NOT NULL DEFAULT '[]'::jsonb,
+          mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_by TEXT
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_website_media_created ON website_media (created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
