@@ -17,6 +17,11 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  Flame,
+  Layers,
+  Eye,
+  RefreshCw,
+  ShoppingBag,
 } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
 import { ProductCard } from "@/components/product-card";
@@ -331,19 +336,111 @@ export function WebsiteHomepageContent({
   );
 }
 
+interface HeroDrop {
+  id: string;
+  tag: string;
+  title: string;
+  subTitle: string;
+  price: string;
+  colorName: string;
+  colorHex: string;
+  glowColor: string;
+  accentBadge: string;
+  frontImage: string;
+  backImage: string;
+  frontLabel: string;
+  backLabel: string;
+  link: string;
+  specs: {
+    gsm: string;
+    print: string;
+    fit: string;
+    finish: string;
+  };
+}
+
+const HERO_DROPS: HeroDrop[] = [
+  {
+    id: "drop-01",
+    tag: "DROP 01 // ARCHIVE",
+    title: "ONI ZORO HEAVYWEIGHT",
+    subTitle: "Archival DTF Back Graphic · Signature Boxy Silhouette",
+    price: "₹999",
+    colorName: "Pitch Black",
+    colorHex: "#141416",
+    glowColor: "rgba(240, 11, 17, 0.2)",
+    accentBadge: "BESTSELLER",
+    frontImage: "/assets/tee-zoro-front-trans.png",
+    backImage: "/assets/tee-zoro-back-trans.png",
+    frontLabel: "Front: Minimal Samurai Chest Emblem",
+    backLabel: "Back: HD 12-Pass Zoro Back Print",
+    link: "/shop",
+    specs: {
+      gsm: "240 GSM",
+      print: "Archival Ultra-HD DTF",
+      fit: "Drop-Shoulder Boxy",
+      finish: "Bio-Washed Cotton",
+    },
+  },
+  {
+    id: "drop-02",
+    tag: "DROP 02 // LIGHTNING",
+    title: "THUNDER BREATH MAROON",
+    subTitle: "Zenitsu Electric Strike · Dual-Tone Heavy Cotton",
+    price: "₹1,099",
+    colorName: "Oxblood Maroon",
+    colorHex: "#45141c",
+    glowColor: "rgba(225, 29, 72, 0.24)",
+    accentBadge: "NEW DROP",
+    frontImage: "/assets/tee-maroon-front.webp",
+    backImage: "/assets/tee-zenitsu-back-trans.png",
+    frontLabel: "Front: Heavyweight Raw Minimalist",
+    backLabel: "Back: Zenitsu High-Voltage Canvas",
+    link: "/shop",
+    specs: {
+      gsm: "240 GSM",
+      print: "Crack-Proof Vivid DTF",
+      fit: "Relaxed Streetwear Cut",
+      finish: "Enzyme Softened",
+    },
+  },
+  {
+    id: "drop-03",
+    tag: "DROP 03 // TACTICAL",
+    title: "KATANA RONIN OLIVE",
+    subTitle: "Military Earth · Pocket Katana Chest Emblem",
+    price: "₹999",
+    colorName: "Combat Olive",
+    colorHex: "#2b3424",
+    glowColor: "rgba(52, 211, 153, 0.16)",
+    accentBadge: "LIMITED RUN",
+    frontImage: "/assets/tee-olive-front-trans.png",
+    backImage: "/assets/tee-olive-back.webp",
+    frontLabel: "Front: Tactical Pocket Katana Emblem",
+    backLabel: "Back: Ronin Minimalist Back Crest",
+    link: "/shop",
+    specs: {
+      gsm: "240 GSM",
+      print: "Screen-Grade Precision DTF",
+      fit: "Engineered Oversized Fit",
+      finish: "Ring-Spun Cotton",
+    },
+  },
+];
+
 function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
-  const primaryCta = hero.primaryCtaText || "SHOP COLLECTION";
+  const primaryCta = hero.primaryCtaText || "EXPLORE THE DROP";
   const primaryLink = hero.primaryCtaLink || "/shop";
-  const secondaryCta = hero.secondaryCtaText || "DESIGN YOUR OWN";
+  const secondaryCta = hero.secondaryCtaText || "CUSTOM STUDIO (3D)";
   const secondaryLink = hero.secondaryCtaLink || "/design";
-  const badgeText = hero.badge || "EDITION // 2025-26 · HEAVYWEIGHT DTF STUDIO";
-  const headingText = (hero.heading || "").trim() || "BUILT TO\nSTAND OUT.";
+  const badgeText = hero.badge || "EDITION // DROP 04 · HEAVYWEIGHT DTF ARCHIVE";
+  const headingText = (hero.heading || "").trim() || "WE DON'T FOLLOW TRENDS.\nWE PRINT THEM.";
   const descriptionText =
     hero.description ||
     hero.subheading ||
-    "Premium DTF streetwear made for those who create their own identity. Heavyweight oversized silhouettes engineered in India.";
+    "Archival 240 GSM combed cotton silhouettes engineered with zero-crack HD DTF prints. Built for the creators, outlaws, and streetwear purists.";
 
   const alignment = hero.alignment || "left";
   const isVideo =
@@ -351,39 +448,14 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     Boolean(hero.videoUrl || (hero.mediaUrl && hero.mediaType === "video"));
   const videoSrc = hero.videoUrl || hero.mediaUrl || "";
 
+  // Interactive lookbook states
+  const [selectedDropIndex, setSelectedDropIndex] = useState(0);
+  const [viewSide, setViewSide] = useState<"front" | "back">("back");
+
   // Video playback states
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
-
-  // Parallax tracking states
-  const heroRef = useRef<HTMLElement | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      if (prefersReducedMotion || !heroRef.current) return;
-      const rect = heroRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      setMousePos({ x, y });
-    },
-    [prefersReducedMotion],
-  );
-
-  const handleMouseLeave = useCallback(() => {
-    setMousePos({ x: 0, y: 0 });
-  }, []);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -412,7 +484,7 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     customImg !== "/assets/riotous-hero-graphic-clean.jpg" &&
     customImg !== "/assets/riotous-hero-graphic-clean.png";
 
-  // Heading lines treatment (Black primary, RIOTOUS Red accent on punchline)
+  // Heading lines treatment
   const headingLines = useMemo(() => {
     const raw = headingText.split("\n").map((s) => s.trim()).filter(Boolean);
     if (raw.length > 1) return raw;
@@ -423,162 +495,129 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     return [headingText];
   }, [headingText]);
 
-  const alignClass =
-    alignment === "center"
-      ? "text-center items-center mx-auto"
-      : alignment === "right"
-        ? "text-right items-end ml-auto"
-        : "text-left items-start";
-
-  const alignCtaClass =
-    alignment === "center"
-      ? "justify-center"
-      : alignment === "right"
-        ? "justify-end"
-        : "justify-start";
+  const activeDrop = HERO_DROPS[selectedDropIndex];
+  const activeImage = viewSide === "front" ? activeDrop.frontImage : activeDrop.backImage;
+  const activeLabel = viewSide === "front" ? activeDrop.frontLabel : activeDrop.backLabel;
 
   return (
     <section
-      ref={heroRef}
       key="sec-hero"
-      aria-label="RIOTOUS Editorial Streetwear Hero"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className="relative w-full overflow-hidden bg-[#faf9f6] dark:bg-[#0f0f12] text-neutral-950 dark:text-neutral-50 border-b border-neutral-200/70 dark:border-neutral-800/80 transition-colors duration-300"
+      aria-label="RIOTOUS Streetwear Hero"
+      className="relative w-full overflow-hidden bg-[#09090b] text-neutral-50 border-b border-neutral-800 transition-colors duration-300 select-none"
       style={{
         backgroundImage:
-          "radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px)",
-        backgroundSize: "32px 32px",
+          "radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px)",
+        backgroundSize: "28px 28px",
       }}
     >
-      {/* Huge Faint Editorial Ghost Branding in Background */}
+      {/* Background Architectural Watermark */}
       <div
-        className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 select-none text-[18vw] font-black tracking-tighter text-neutral-950/[0.03] dark:text-white/[0.03] leading-none whitespace-nowrap z-0 transition-transform duration-500 ease-out"
-        style={{
-          transform: prefersReducedMotion
-            ? "translateX(-50%)"
-            : `translate3d(calc(-50% + ${mousePos.x * -6}px), ${mousePos.y * -4}px, 0)`,
-        }}
+        className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 select-none text-[20vw] font-black tracking-tighter text-white/[0.02] leading-none whitespace-nowrap z-0"
         aria-hidden="true"
       >
         RIOTOUS
       </div>
 
-      {/* Subtle Warm Ambient Glows */}
+      {/* Subtle Dynamic Ambient Color Field */}
       <div
-        className="pointer-events-none absolute -top-32 right-1/4 h-[500px] w-[500px] rounded-full bg-brand-red/8 blur-[120px] dark:bg-brand-red/12 z-0"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute bottom-12 -left-20 h-[380px] w-[380px] rounded-full bg-amber-500/5 blur-[100px] dark:bg-white/5 z-0"
+        className="pointer-events-none absolute top-1/4 right-1/4 h-[550px] w-[550px] rounded-full blur-[140px] transition-colors duration-700 opacity-60 z-0"
+        style={{ backgroundColor: activeDrop.glowColor }}
         aria-hidden="true"
       />
 
-      {/* Decorative Technical Editorial Markings */}
-      <div
-        className="pointer-events-none absolute top-6 left-6 text-[10px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 hidden md:block select-none z-10"
-        aria-hidden="true"
-      >
-        <span>+ 28.6139° N, 77.2090° E // EDITORIAL CAMPAIGN</span>
-      </div>
-      <div
-        className="pointer-events-none absolute top-6 right-6 text-[10px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 hidden md:block select-none z-10"
-        aria-hidden="true"
-      >
-        <span>SPEC: 240 GSM DTF // AUTHENTIC STREETWEAR +</span>
-      </div>
-
-      <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 py-12 sm:py-16 md:py-20 lg:py-24 z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 xl:gap-16 items-center">
-          {/* Left Column: Streetwear Content Engine */}
-          <div className={`lg:col-span-5 xl:col-span-5 flex flex-col z-20 ${alignClass}`}>
-            {/* Live Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/85 dark:bg-neutral-900/85 px-4 py-1.5 backdrop-blur-md shadow-xs mb-6">
-              <span className="h-2 w-2 rounded-xs bg-brand-red animate-pulse" />
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-800 dark:text-neutral-200">
+      <div className="relative mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12 pt-12 sm:pt-16 md:pt-20 pb-12 z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 xl:gap-16 items-center">
+          
+          {/* LEFT COLUMN: Streetwear Editorial Core */}
+          <div className="lg:col-span-6 xl:col-span-6 flex flex-col items-start z-20">
+            {/* Live Drop Status Pill */}
+            <div className="inline-flex items-center gap-3 rounded-full border border-neutral-800 bg-neutral-900/90 px-4 py-1.5 backdrop-blur-md shadow-md mb-6">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-red" />
+              </span>
+              <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                 {badgeText}
+              </span>
+              <span className="hidden sm:inline-block text-neutral-600 font-mono text-xs">|</span>
+              <span className="hidden sm:inline-block font-mono text-[10px] tracking-widest text-neutral-500">
+                DISPATCH &lt;24H
               </span>
             </div>
 
-            {/* High-Fashion Editorial Heading */}
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[72px] xl:text-[80px] font-black tracking-tight leading-[0.98] text-neutral-950 dark:text-white mb-6">
+            {/* Streetwear Typography Headline */}
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[70px] xl:text-[78px] font-black tracking-tight leading-[0.96] text-white mb-6 uppercase">
               {headingLines.length > 1 ? (
                 <>
-                  <span className="block text-neutral-950 dark:text-white">{headingLines[0]}</span>
+                  <span className="block text-white">{headingLines[0]}</span>
                   <span className="block mt-1 sm:mt-2 text-brand-red tracking-tight">
                     {headingLines.slice(1).join(" ")}
                   </span>
                 </>
               ) : (
-                <span className="block text-neutral-950 dark:text-white whitespace-pre-line">
+                <span className="block text-white whitespace-pre-line">
                   {headingText}
                 </span>
               )}
             </h1>
 
-            {/* Concise Editorial Description */}
-            <p className="text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-400 font-normal leading-relaxed max-w-lg mb-8">
+            {/* Editorial Streetwear Description */}
+            <p className="text-base sm:text-lg text-neutral-400 font-normal leading-relaxed max-w-lg mb-8">
               {descriptionText}
             </p>
 
-            {/* High-Conversion Action Buttons */}
-            <div
-              className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-10 ${alignCtaClass}`}
-            >
+            {/* High-Impact Action CTAs */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-10">
               <Link
                 to={primaryLink}
-                aria-label={`${primaryCta} - Browse Collection`}
-                className="group relative inline-flex items-center justify-center gap-2.5 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-300 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
+                aria-label={`${primaryCta} - Browse Streetwear Collection`}
+                className="group relative inline-flex items-center justify-center gap-3 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/30 transition-all duration-200 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
               >
                 <span>{primaryCta}</span>
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
               </Link>
 
               <Link
                 to={secondaryLink}
-                aria-label={`${secondaryCta} - Open Custom Apparel Studio`}
-                className="group inline-flex items-center justify-center gap-2.5 rounded-full border-2 border-neutral-950 dark:border-white bg-white/80 dark:bg-neutral-900/80 px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-950 dark:text-white transition-all duration-300 hover:bg-neutral-950/5 dark:hover:bg-white/10 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-white"
+                aria-label={`${secondaryCta} - Launch 3D Apparel Studio`}
+                className="group inline-flex items-center justify-center gap-2.5 rounded-full border border-neutral-700 bg-neutral-900/90 hover:bg-neutral-800/90 px-7 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
-                <Sparkles className="h-4 w-4 text-brand-red transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                <Sparkles className="h-4 w-4 text-brand-red transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110" />
                 <span>{secondaryCta}</span>
               </Link>
             </div>
 
-            {/* Technical Editorial Proof Bar */}
-            <div className="w-full pt-6 border-t border-neutral-300/60 dark:border-neutral-800/80">
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-4 sm:gap-6 text-xs text-neutral-600 dark:text-neutral-400">
-                <div className="flex items-center gap-1.5">
-                  <div className="flex text-amber-500 text-sm leading-none tracking-tighter">
-                    ★★★★★
-                  </div>
-                  <span className="font-semibold text-neutral-900 dark:text-white">4.9/5</span>
-                  <span className="hidden sm:inline">(2.5k+ reviews)</span>
+            {/* Streetwear Production Spec Matrix */}
+            <div className="w-full pt-6 border-t border-neutral-800">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+                <div className="flex flex-col">
+                  <span className="text-neutral-500 text-[10px] tracking-wider uppercase">FABRIC</span>
+                  <span className="font-bold text-neutral-200 text-sm mt-0.5">240 GSM COMBED</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Package className="h-4 w-4 text-brand-red shrink-0" />
-                  <span>
-                    <strong className="font-semibold text-neutral-900 dark:text-white">240+ GSM</strong> Heavyweight
+                <div className="flex flex-col">
+                  <span className="text-neutral-500 text-[10px] tracking-wider uppercase">PRINT CURE</span>
+                  <span className="font-bold text-neutral-200 text-sm mt-0.5">HD DTF RESIN</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-neutral-500 text-[10px] tracking-wider uppercase">SILHOUETTE</span>
+                  <span className="font-bold text-neutral-200 text-sm mt-0.5">DROP SHOULDER</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-neutral-500 text-[10px] tracking-wider uppercase">COMMUNITY</span>
+                  <span className="font-bold text-neutral-200 text-sm mt-0.5 flex items-center gap-1">
+                    <span className="text-amber-400">★ 4.9</span>
+                    <span className="text-neutral-500 text-xs font-normal">(2.5K+)</span>
                   </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-4 w-4 text-amber-500 shrink-0" />
-                  <span>
-                    <strong className="font-semibold text-neutral-900 dark:text-white">HD DTF</strong> Non-cracking
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Truck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Free shipping ₹1499+</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Original Editorial Product Composition */}
-          <div className="lg:col-span-7 xl:col-span-7 relative w-full flex items-center justify-center">
+          {/* RIGHT COLUMN: Tactile Lookbook & Interactive Garment Showcase */}
+          <div className="lg:col-span-6 xl:col-span-6 relative w-full flex flex-col items-center">
             {isVideo ? (
               /* Custom Video Hero Player */
-              <div className="relative w-full overflow-hidden rounded-3xl border border-neutral-300 dark:border-neutral-800 bg-black shadow-2xl">
+              <div className="relative w-full overflow-hidden rounded-3xl border border-neutral-800 bg-black shadow-2xl">
                 <video
                   ref={videoRef}
                   src={videoSrc}
@@ -609,7 +648,7 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
               </div>
             ) : isCustomUploadedImage ? (
               /* Custom Uploaded Hero Image */
-              <div className="group relative w-full overflow-hidden rounded-3xl border border-neutral-300 dark:border-neutral-800 bg-white/40 dark:bg-neutral-900/40 p-2 shadow-2xl">
+              <div className="group relative w-full overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/60 p-2 shadow-2xl">
                 <img
                   src={customImg}
                   alt={headingText}
@@ -620,188 +659,193 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
                 />
               </div>
             ) : (
-              /* Original RIOTOUS 3-Tee Dynamic 3D Editorial Staging */
-              <div
-                className="relative w-full aspect-[4/3] sm:aspect-[16/11] lg:aspect-[1/1] max-w-[640px] mx-auto flex items-center justify-center select-none py-6"
-                style={{
-                  perspective: "1200px",
-                  perspectiveOrigin: "50% 45%",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                {/* Editorial Framing Halo */}
-                <div
-                  className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[460px] sm:w-[520px] aspect-square rounded-full border border-dashed border-brand-red/30 dark:border-brand-red/40 z-0 select-none flex items-center justify-center transition-transform duration-700 ease-out"
-                  style={{
-                    transform: prefersReducedMotion
-                      ? "translate(-50%, -50%)"
-                      : `translate(calc(-50% + ${mousePos.x * -8}px), calc(-50% + ${mousePos.y * -8}px))`,
-                  }}
-                  aria-hidden="true"
-                >
-                  <div className="w-[85%] aspect-square rounded-full bg-gradient-to-tr from-brand-red/12 via-brand-red/5 to-transparent blur-2xl" />
-                  <div className="w-[68%] aspect-square rounded-full border border-neutral-950/5 dark:border-white/5" />
+              /* Bespoke Interactive Lookbook & Tactile Garment Showcase */
+              <div className="w-full flex flex-col items-center gap-4">
+                
+                {/* 1. Drop Switcher Tabs */}
+                <div className="w-full flex items-center justify-between gap-2 p-1.5 rounded-2xl border border-neutral-800 bg-neutral-900/80 backdrop-blur-md">
+                  {HERO_DROPS.map((drop, idx) => {
+                    const isSelected = selectedDropIndex === idx;
+                    return (
+                      <button
+                        key={drop.id}
+                        type="button"
+                        onClick={() => setSelectedDropIndex(idx)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all duration-200 text-left ${
+                          isSelected
+                            ? "bg-neutral-800 border border-neutral-700 text-white shadow-xs"
+                            : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                        }`}
+                      >
+                        <span
+                          className="h-3 w-3 rounded-full border border-white/20 shrink-0"
+                          style={{ backgroundColor: drop.colorHex }}
+                        />
+                        <div className="flex flex-col truncate">
+                          <span className="text-[11px] font-mono font-bold uppercase truncate leading-tight">
+                            {drop.title.split(" ")[0]} {drop.title.split(" ")[1] || ""}
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-400 truncate">
+                            {drop.price}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* 3D Stage Technical Markings */}
-                <div
-                  className="pointer-events-none absolute top-0 left-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none hidden sm:block z-0"
-                  aria-hidden="true"
-                >
-                  + STAGE_3D // CAMPAIGN PERSPECTIVE
-                </div>
-                <div
-                  className="pointer-events-none absolute bottom-1 right-2 text-[9px] font-mono tracking-widest text-neutral-400 dark:text-neutral-600 select-none hidden sm:block z-0"
-                  aria-hidden="true"
-                >
-                  DTF HD CURE // 240 GSM HEAVYWEIGHT +
-                </div>
+                {/* 2. Tactile Garment Showcase Box */}
+                <div className="relative w-full rounded-3xl border border-neutral-800/90 bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-neutral-950 p-6 sm:p-8 flex flex-col items-center justify-between shadow-2xl min-h-[460px] sm:min-h-[520px]">
+                  
+                  {/* Top Bar: Front / Back Optical Toggle + Badge */}
+                  <div className="w-full flex items-center justify-between gap-3 z-30">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-800/80 border border-neutral-700 text-neutral-300 font-mono text-[10px] uppercase tracking-wider">
+                      <span className="h-1.5 w-1.5 rounded-full bg-brand-red" />
+                      <span>{activeDrop.accentBadge}</span>
+                    </div>
 
-                {/* Dynamic 3D Ground Shadow System */}
-                <div
-                  className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 w-[85%] h-14 z-0"
-                  style={{
-                    animation: prefersReducedMotion ? "none" : "hero-ground-shadow 8s ease-in-out infinite",
-                  }}
-                  aria-hidden="true"
-                >
-                  <div className="w-full h-full rounded-[100%] bg-gradient-to-r from-transparent via-neutral-950/35 to-transparent blur-xl dark:via-black/70" />
-                  <div className="absolute inset-x-[15%] inset-y-[20%] rounded-[100%] bg-gradient-to-r from-transparent via-brand-red/10 to-transparent blur-lg" />
-                </div>
-
-                {/* 1. REAR-LEFT SHIRT: Zenitsu Lightning Graphic Maroon Tee (Angled Back in 3D) */}
-                <div
-                  className="absolute top-0 left-0 sm:top-2 sm:left-4 w-[54%] sm:w-[56%] z-10 origin-bottom-left pointer-events-none"
-                  style={{
-                    animation: prefersReducedMotion
-                      ? "none"
-                      : "hero-float-secondary 9s ease-in-out infinite 0.4s",
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  <div
-                    className="w-full transition-transform duration-200 ease-out"
-                    style={{
-                      transform: prefersReducedMotion
-                        ? "rotate(-12deg)"
-                        : `translate3d(${mousePos.x * 16}px, ${mousePos.y * 12}px, -35px) rotateX(${mousePos.y * -14 + 6}deg) rotateY(${mousePos.x * 18 + 18}deg) rotateZ(-12deg)`,
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    <img
-                      src="/assets/tee-zenitsu-back-trans.png"
-                      alt="Zenitsu Lightning Maroon Oversized T-Shirt - RIOTOUS"
-                      loading="eager"
-                      decoding="async"
-                      width={995}
-                      height={1280}
-                      className="w-full h-auto object-contain drop-shadow-[0_26px_36px_rgba(0,0,0,0.32)] drop-shadow-[0_8px_12px_rgba(0,0,0,0.18)]"
-                    />
-                    {/* Garment tag */}
-                    <span className="hidden sm:inline-block absolute top-4 left-2 rounded-md bg-neutral-900/85 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-md border border-white/10">
-                      MAROON // DROP 02
-                    </span>
+                    {/* Mechanical Front/Back Switch */}
+                    <div className="inline-flex items-center rounded-full border border-neutral-700 bg-neutral-900/90 p-1 backdrop-blur-md shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => setViewSide("front")}
+                        className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-200 ${
+                          viewSide === "front"
+                            ? "bg-white text-neutral-950 font-bold shadow-xs scale-105"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        <Eye className="h-3 w-3" />
+                        <span>Front</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewSide("back")}
+                        className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-200 ${
+                          viewSide === "back"
+                            ? "bg-brand-red text-white font-bold shadow-xs scale-105"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        <Flame className="h-3 w-3" />
+                        <span>Back</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* 2. REAR-RIGHT SHIRT: Katana Pocket Graphic Olive Tee (Angled Back in 3D) */}
-                <div
-                  className="absolute bottom-0 right-0 sm:bottom-2 sm:right-4 w-[50%] sm:w-[52%] z-10 origin-bottom-right pointer-events-none"
-                  style={{
-                    animation: prefersReducedMotion
-                      ? "none"
-                      : "hero-float-tertiary 10s ease-in-out infinite 0.8s",
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  <div
-                    className="w-full transition-transform duration-200 ease-out"
-                    style={{
-                      transform: prefersReducedMotion
-                        ? "rotate(14deg)"
-                        : `translate3d(${mousePos.x * 14}px, ${mousePos.y * 14}px, -25px) rotateX(${mousePos.y * -14 + 4}deg) rotateY(${mousePos.x * 18 - 18}deg) rotateZ(14deg)`,
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    <img
-                      src="/assets/tee-olive-front-trans.png"
-                      alt="Katana Pocket Olive Oversized T-Shirt - RIOTOUS"
-                      loading="eager"
-                      decoding="async"
-                      width={995}
-                      height={1280}
-                      className="w-full h-auto object-contain drop-shadow-[0_24px_32px_rgba(0,0,0,0.28)] drop-shadow-[0_6px_10px_rgba(0,0,0,0.16)]"
+                  {/* Garment Stage & Visual Graphic */}
+                  <div className="relative w-full flex-1 flex items-center justify-center my-4 group/stage">
+                    {/* Architectural Garment Silhouette Halo */}
+                    <div
+                      className="absolute inset-8 rounded-full blur-3xl opacity-30 transition-all duration-700 pointer-events-none"
+                      style={{ backgroundColor: activeDrop.glowColor }}
                     />
-                    {/* Garment tag */}
-                    <span className="hidden sm:inline-block absolute bottom-6 right-2 rounded-md bg-neutral-900/85 text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 backdrop-blur-xs shadow-md border border-white/10">
-                      OLIVE // BOXY 03
-                    </span>
-                  </div>
-                </div>
 
-                {/* 3. FOREGROUND CENTERPIECE SHIRT: Zoro Samurai Graphic Black Heavyweight Tee (Dynamic 3D Projection) */}
-                <div
-                  className="relative z-20 w-[72%] sm:w-[74%] cursor-pointer group/center"
-                  style={{
-                    animation: prefersReducedMotion
-                      ? "none"
-                      : "hero-float-main 8s ease-in-out infinite",
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  <div
-                    className="w-full transition-transform duration-200 ease-out"
-                    style={{
-                      transform: prefersReducedMotion
-                        ? "rotate(-2deg)"
-                        : `translate3d(${mousePos.x * -20}px, ${mousePos.y * -18}px, 45px) rotateX(${mousePos.y * -22 - 4}deg) rotateY(${mousePos.x * 26 - 6}deg) rotateZ(${mousePos.x * 8 - 2}deg)`,
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    <Link to="/shop" aria-label="Explore Zoro Heavyweight Oversized Tee">
+                    {/* Garment Image Presentation */}
+                    <div className="relative w-full max-w-[420px] aspect-square flex items-center justify-center">
                       <img
-                        src="/assets/tee-zoro-back-trans.png"
-                        alt="Zoro Samurai Back Print Heavyweight Oversized Black Tee - RIOTOUS"
-                        fetchPriority="high"
+                        key={`${activeDrop.id}-${viewSide}`}
+                        src={activeImage}
+                        alt={`${activeDrop.title} - ${viewSide === "front" ? "Front Chest" : "Back Graphic"}`}
+                        className="max-h-[380px] sm:max-h-[420px] w-auto object-contain transition-transform duration-300 group-hover/stage:scale-[1.03] filter drop-shadow-[0_20px_35px_rgba(0,0,0,0.7)]"
                         loading="eager"
                         decoding="async"
-                        width={995}
-                        height={1280}
-                        className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover/center:scale-[1.03] drop-shadow-[0_36px_50px_rgba(0,0,0,0.38)] drop-shadow-[0_14px_22px_rgba(0,0,0,0.24)] drop-shadow-[-10px_22px_30px_rgba(240,11,17,0.16)]"
+                        fetchPriority="high"
                       />
 
-                      {/* Interactive Floating Product Pill popping in 3D */}
-                      <div
-                        className="absolute top-6 right-0 sm:top-8 sm:-right-2 z-30 inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/95 dark:bg-neutral-900/95 px-3.5 py-1.5 shadow-2xl backdrop-blur-md transition-all duration-300 group-hover/center:-translate-y-1 group-hover/center:shadow-red-500/20"
-                        style={{
-                          transform: "translateZ(55px)",
-                        }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-brand-red animate-ping" />
-                        <span className="text-[11px] font-bold tracking-wider uppercase text-neutral-900 dark:text-white">
-                          ZORO OVERSIZED · ₹999
-                        </span>
-                        <ArrowUpRight className="h-3 w-3 text-neutral-400 group-hover/center:text-brand-red transition-colors" />
+                      {/* Interactive Spec Hotspot Badges */}
+                      <div className="hidden sm:block absolute top-6 right-2 rounded-md bg-neutral-900/90 border border-neutral-700/80 px-2.5 py-1 backdrop-blur-md text-[10px] font-mono text-neutral-300 uppercase tracking-wider shadow-md">
+                        <span className="text-brand-red font-bold">+</span> 1.25&quot; RIBBED COLLAR
                       </div>
-                    </Link>
+
+                      <div className="hidden sm:block absolute bottom-8 left-2 rounded-md bg-neutral-900/90 border border-neutral-700/80 px-2.5 py-1 backdrop-blur-md text-[10px] font-mono text-neutral-300 uppercase tracking-wider shadow-md">
+                        <span className="text-brand-red font-bold">+</span> 240 GSM DROP SHOULDER
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Bar: Product Details & Direct Action */}
+                  <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-800/80 z-30">
+                    <div className="flex flex-col text-center sm:text-left">
+                      <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                        {activeDrop.title}
+                      </span>
+                      <span className="text-[11px] font-mono text-neutral-400">
+                        {activeLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={activeDrop.link}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-neutral-200 text-neutral-950 text-xs font-mono font-bold uppercase tracking-wider transition-all duration-150 hover:scale-105 active:scale-95 shadow-md"
+                      >
+                        <ShoppingBag className="h-3 w-3" />
+                        <span>BUY · {activeDrop.price}</span>
+                      </Link>
+
+                      <Link
+                        to="/design"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-mono uppercase tracking-wider transition-colors duration-150"
+                        title="Customize silhouette in 3D studio"
+                      >
+                        <span>CUSTOMIZE</span>
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
 
-                {/* Bottom Editorial Caption Pill */}
-                <div
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap"
-                  style={{
-                    transform: "translateX(-50%) translateZ(35px)",
-                  }}
-                >
-                  <div className="inline-flex items-center gap-2 rounded-full border border-neutral-950/10 dark:border-white/15 bg-white/90 dark:bg-neutral-900/90 px-4 py-1.5 shadow-lg backdrop-blur-md text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
-                    <span className="h-1 w-1 rounded-full bg-brand-red" />
-                    <span>240 GSM // HIGH-DENSITY DTF CURE // BOX-CUT</span>
-                  </div>
+                {/* Micro Technical Proof Stamp */}
+                <div className="w-full flex items-center justify-between text-[10px] font-mono text-neutral-500 px-2">
+                  <span>SPEC: ARCHIVAL HEAVYWEIGHT COMBED COTTON</span>
+                  <span>100% NON-CRACK DIRECT-TO-FILM</span>
                 </div>
               </div>
             )}
           </div>
+
+        </div>
+      </div>
+
+      {/* CONTINUOUS INDUSTRIAL STREETWEAR MARQUEE TICKER */}
+      <div className="relative w-full border-t border-neutral-800/80 bg-neutral-950/90 backdrop-blur-md overflow-hidden py-3 text-neutral-400 select-none">
+        <div className="animate-marquee whitespace-nowrap text-xs font-mono tracking-widest uppercase flex items-center gap-8">
+          <span className="inline-flex items-center gap-2 text-neutral-200 font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-red" />
+            HEAVYWEIGHT 240 GSM COMBED COTTON
+          </span>
+          <span className="text-neutral-600">✕</span>
+          <span>ARCHIVAL HIGH-DEFINITION DTF</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-neutral-200 font-bold">100% ZERO CRACK GUARANTEE</span>
+          <span className="text-neutral-600">✕</span>
+          <span>DROP-SHOULDER BOXY FIT</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-neutral-200 font-bold">DESIGN YOUR OWN IN 3D STUDIO</span>
+          <span className="text-neutral-600">✕</span>
+          <span>DISPATCH WITHIN 24 HOURS</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-brand-red font-bold">WE DON&apos;T FOLLOW TRENDS. WE PRINT THEM.</span>
+          <span className="text-neutral-600">✕</span>
+          {/* Loop duplicate for seamless continuous wrap */}
+          <span className="inline-flex items-center gap-2 text-neutral-200 font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-red" />
+            HEAVYWEIGHT 240 GSM COMBED COTTON
+          </span>
+          <span className="text-neutral-600">✕</span>
+          <span>ARCHIVAL HIGH-DEFINITION DTF</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-neutral-200 font-bold">100% ZERO CRACK GUARANTEE</span>
+          <span className="text-neutral-600">✕</span>
+          <span>DROP-SHOULDER BOXY FIT</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-neutral-200 font-bold">DESIGN YOUR OWN IN 3D STUDIO</span>
+          <span className="text-neutral-600">✕</span>
+          <span>DISPATCH WITHIN 24 HOURS</span>
+          <span className="text-neutral-600">✕</span>
+          <span className="text-brand-red font-bold">WE DON&apos;T FOLLOW TRENDS. WE PRINT THEM.</span>
+          <span className="text-neutral-600">✕</span>
         </div>
       </div>
     </section>
