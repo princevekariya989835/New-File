@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 
 export type Favorite = {
   id: string;
@@ -16,7 +16,6 @@ export const getMyFavorites = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<Favorite[]> => {
     try {
-      await ensureDbSchema();
       const sql = getSql();
       const authCtx = context as any;
       const rows = await sql`
@@ -51,7 +50,6 @@ export const addFavorite = createServerFn({ method: "POST" })
     }) => d,
   )
   .handler(async ({ data, context }): Promise<Favorite> => {
-    await ensureDbSchema();
     const sql = getSql();
     const authCtx = context as any;
     const favId = `fav_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -79,7 +77,6 @@ export const removeFavorite = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
-    await ensureDbSchema();
     const sql = getSql();
     const authCtx = context as any;
     await sql`

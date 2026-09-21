@@ -374,9 +374,20 @@ export function getDatabaseUrl(): string | null {
   return null;
 }
 
+let _cachedSql: any = null;
+let _cachedSqlUrl: string | null = null;
+
 export function getSql() {
   const url = getDatabaseUrl();
-  if (!url) {
+  if (url) {
+    if (_cachedSql && _cachedSqlUrl === url) {
+      return _cachedSql;
+    }
+    _cachedSql = neon(url);
+    _cachedSqlUrl = url;
+    return _cachedSql;
+  }
+  {
     const mockSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]) => {
       let queryStr = "";
       if (typeof strings === "string") {
@@ -1238,7 +1249,6 @@ export function getSql() {
     (mockSql as any).query = async (str: string) => mockSql([str] as any);
     return mockSql as any;
   }
-  return neon(url);
 }
 
 async function runDdlStatement(sql: any, stmt: string) {
@@ -1647,76 +1657,12 @@ export async function ensureDbSchema() {
             );
           }
 
-          // Ensure columns on existing tables are present
-          missingStatements.push(
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_url TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMP WITH TIME ZONE`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_address TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_state TEXT DEFAULT 'Normal'`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'Razorpay'`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_signature TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE`,
-            `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS zippyy_order_id TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS zippyy_shipment_id TEXT`,
-            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_label_url TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS zippyy_order_id TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS zippyy_shipment_id TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS shipping_label_url TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS manifest_url TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS ndr_status TEXT DEFAULT 'None'`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS ndr_last_reason TEXT`,
-            `ALTER TABLE shipments ADD COLUMN IF NOT EXISTS ndr_attempts INTEGER DEFAULT 0`,
-            `CREATE TABLE IF NOT EXISTS shipment_tracking_events (
-              id TEXT PRIMARY KEY,
-              order_id TEXT NOT NULL,
-              shipment_id TEXT,
-              awb_number TEXT NOT NULL,
-              status TEXT NOT NULL,
-              location TEXT,
-              activity TEXT,
-              event_time TIMESTAMP WITH TIME ZONE NOT NULL,
-              raw_payload JSONB,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )`,
-            `CREATE INDEX IF NOT EXISTS idx_trk_evts_order_id ON shipment_tracking_events (order_id)`,
-            `CREATE INDEX IF NOT EXISTS idx_trk_evts_awb ON shipment_tracking_events (awb_number)`,
-            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS design_submission_id TEXT`,
-            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_size TEXT`,
-            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_color TEXT`,
-            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS subtotal NUMERIC DEFAULT 0`,
-            `ALTER TABLE design_submissions ADD COLUMN IF NOT EXISTS preview_data_url TEXT`,
-            `ALTER TABLE design_submissions ADD COLUMN IF NOT EXISTS preview_images JSONB DEFAULT '[]'::jsonb`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'customer'`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active'`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS state TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS postal_code TEXT`,
-            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country TEXT`,
-          );
-
           if (missingStatements.length > 0) {
             for (const stmt of missingStatements) {
               try {
                 await runDdlStatement(sql, stmt);
               } catch (stmtErr: any) {
-                console.warn("[Neon DB] Missing table/column DDL warning:", stmtErr?.message || stmtErr);
+                console.warn("[Neon DB] Missing table DDL warning:", stmtErr?.message || stmtErr);
               }
             }
           }

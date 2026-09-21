@@ -1,4 +1,4 @@
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 import { createServerFn } from "@tanstack/react-start";
 import { logServerSyncEvent } from "@/lib/server-logger";
 import {

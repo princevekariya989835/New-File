@@ -1,6 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { decodeToken, isAdminEmail, type AuthUser } from "@/lib/auth";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 
 export type AuthenticatedContext = {
   userId: string;
@@ -36,7 +36,6 @@ export const requireAuth = createMiddleware({ type: "function" })
   })
   .server(async (opts: any) => {
     const { next, data, request, headers, context } = opts;
-    await ensureDbSchema();
     const sql = getSql();
     let token: string | null = null;
 
@@ -219,11 +218,13 @@ export const requireAuth = createMiddleware({ type: "function" })
 
     if (isAdminEmail(user.email)) {
       isAdmin = true;
-      user.role = "Super Admin";
-      try {
-        await sql`UPDATE profiles SET role = 'Super Admin' WHERE id = ${user.id} OR email = ${user.email}`;
-      } catch {
-        // ignore
+      if (user.role !== "Super Admin") {
+        user.role = "Super Admin";
+        try {
+          await sql`UPDATE profiles SET role = 'Super Admin' WHERE id = ${user.id} OR email = ${user.email}`;
+        } catch {
+          // ignore
+        }
       }
     }
 

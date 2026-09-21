@@ -1,13 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 import type { CartItem } from "@/stores/cart-store";
 
 export const getMyCart = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<CartItem[]> => {
     try {
-      await ensureDbSchema();
       const sql = getSql();
       const authCtx = context as any;
       const rows = await sql`
@@ -28,7 +27,6 @@ export const saveMyCart = createServerFn({ method: "POST" })
   .inputValidator((d: { items: CartItem[] }) => ({ items: d.items ?? [] }))
   .handler(async ({ data, context }) => {
     try {
-      await ensureDbSchema();
       const sql = getSql();
       const authCtx = context as any;
       const jsonItems = JSON.stringify(data.items);
