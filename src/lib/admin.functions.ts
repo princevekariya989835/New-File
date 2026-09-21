@@ -756,6 +756,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
     try {
       await assertAdmin(context as any);
       await ensureDbSchema();
+      const sql = getSql();
       let orders: any[] = [];
       try {
         orders = await sql`

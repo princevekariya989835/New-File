@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart } from "lucide-react";
+import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import type { CatalogProduct } from "@/lib/catalog";
 import { formatPrice } from "@/lib/catalog";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -15,8 +16,9 @@ export function ProductCard({
   priority?: boolean;
 }) {
   const p = product.node;
-  const img = p.images.edges[0]?.node;
-  const img2 = p.images.edges[1]?.node ?? img;
+  const images = p.images.edges;
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
+  const currentImg = images[activeImgIdx]?.node ?? images[0]?.node;
   const price = p.priceRange.minVariantPrice;
   const soldOut = p.variants.edges.every((v) => !v.node.availableForSale);
 
@@ -38,38 +40,77 @@ export function ProductCard({
     toggle({
       handle: p.handle,
       title: p.title,
-      image: img?.url ?? null,
+      image: currentImg?.url ?? null,
       price: Number(price.amount),
       currency: price.currencyCode,
     });
   };
 
+  const onPrevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (images.length <= 1) return;
+    setActiveImgIdx((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+  };
+
+  const onNextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (images.length <= 1) return;
+    setActiveImgIdx((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+  };
+
   return (
     <Link to="/product/$handle" params={{ handle: p.handle }} className="group block">
       <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
-        {img && (
+        {currentImg && (
           <img
-            src={img.url}
-            alt={img.altText ?? p.title}
+            key={currentImg.url}
+            src={currentImg.url}
+            alt={currentImg.altText ?? p.title}
             width={400}
             height={400}
             decoding="async"
-            className="max-h-full max-w-full object-contain transition-opacity duration-500 group-hover:opacity-0"
+            className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
             loading={priority ? "eager" : "lazy"}
             {...(priority ? { fetchPriority: "high" } : {})}
           />
         )}
-        {img2 && (
-          <img
-            src={img2.url}
-            alt={img2.altText ?? p.title}
-            width={400}
-            height={400}
-            decoding="async"
-            className="absolute inset-0 m-auto max-h-[85%] max-w-[85%] object-contain opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-            loading="lazy"
-          />
+
+        {/* Moving Prev/Next Navigation Arrows on Card */}
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={onPrevImage}
+              aria-label="Previous image"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
+            >
+              <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              onClick={onNextImage}
+              aria-label="Next image"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
+            >
+              <ChevronRight className="h-4 w-4 stroke-[2.5]" />
+            </button>
+
+            {/* Indicator Dots */}
+            <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 backdrop-blur-md shadow-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {images.slice(0, 6).map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1 rounded-full transition-all duration-200 ${
+                    activeImgIdx === i ? "w-3 bg-brand-red" : "w-1 bg-foreground/30"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
         )}
+
         {tag && (
           <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest backdrop-blur">
             {tag}

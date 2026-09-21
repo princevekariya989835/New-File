@@ -273,6 +273,43 @@ function ProductPage() {
   const router = useRouter();
   const navigate = useNavigate();
 
+  // Swipe handlers for mobile touch interaction
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
+  const handlePrevImage = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (images.length <= 1) return;
+    setActiveImage((curr) => (curr > 0 ? curr - 1 : images.length - 1));
+  }, [images.length]);
+
+  const handleNextImage = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (images.length <= 1) return;
+    setActiveImage((curr) => (curr < images.length - 1 ? curr + 1 : 0));
+  }, [images.length]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    if (distance > 45 && images.length > 1) {
+      // Swiped left -> next
+      handleNextImage();
+    } else if (distance < -45 && images.length > 1) {
+      // Swiped right -> prev
+      handlePrevImage();
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
       <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
@@ -280,20 +317,27 @@ function ProductPage() {
         <div className="flex flex-col gap-4">
           <button
             onClick={() => router.history.back()}
-            className="flex h-10 w-10 items-center justify-center self-start rounded-full hover:bg-secondary"
+            className="flex h-10 w-10 items-center justify-center self-start rounded-full hover:bg-secondary transition-colors"
             aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-secondary">
+
+          <div
+            className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
             {images[activeImage] && (
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
-                className="group block h-full w-full cursor-zoom-in"
+                className="group/img block h-full w-full cursor-zoom-in focus:outline-none"
                 aria-label="Open full-size image"
               >
                 <img
+                  key={images[activeImage].node.url}
                   src={images[activeImage].node.url}
                   alt={images[activeImage].node.altText ?? p.title}
                   width={600}
@@ -301,9 +345,51 @@ function ProductPage() {
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
-                  className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                  className="h-full w-full object-contain transition-transform duration-500 group-hover/img:scale-[1.02]"
                 />
               </button>
+            )}
+
+            {/* Moving Prev/Next Navigation Arrows */}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrevImage}
+                  aria-label="Previous product image"
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronLeft className="h-6 w-6 stroke-[2.5]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextImage}
+                  aria-label="Next product image"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronRight className="h-6 w-6 stroke-[2.5]" />
+                </button>
+
+                {/* Floating Pagination Dots */}
+                <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-background/75 px-3 py-1.5 backdrop-blur-md shadow-xs border border-border/30">
+                  {images.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImage(i);
+                      }}
+                      aria-label={`Go to image ${i + 1} of ${images.length}`}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        activeImage === i
+                          ? "w-6 bg-brand-red"
+                          : "w-2 bg-foreground/30 hover:bg-foreground/60"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
           {images.length > 1 && (
