@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { sendTemplateEmail } from "@/lib/email-templates/send-email";
+import { sendLoginOtp, sendForgotPasswordOtp, sendWelcomeEmail } from "@/lib/email";
 
 export type StaffRole = "Super Admin" | "Admin" | "Manager" | "Staff";
 export type StaffStatus = "Active" | "Inactive" | "Suspended";
@@ -308,12 +308,17 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
         VALUES (${otpId}, ${data.email}, ${otp}, ${data.purpose}, ${expiresAt})
       `;
 
-      const emailRes = await sendTemplateEmail("otp-email", data.email, {
-        templateData: { otp, purpose: data.purpose },
-      });
-
-      if (!emailRes.sent) {
-        console.warn("[Auth] Failed to send OTP email:", emailRes.reason);
+      // Send OTP via Brevo
+      if (data.purpose === "forgot_password") {
+        const emailRes = await sendForgotPasswordOtp({ to: data.email, otp, expirationMinutes: 10 });
+        if (!emailRes.sent) {
+          console.warn("[Auth] Failed to send forgot-password OTP email:", emailRes.reason);
+        }
+      } else {
+        const emailRes = await sendLoginOtp({ to: data.email, otp, expirationMinutes: 10 });
+        if (!emailRes.sent) {
+          console.warn("[Auth] Failed to send login OTP email:", emailRes.reason);
+        }
       }
 
       return { ok: true };
@@ -380,6 +385,11 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
         role,
       };
       const token = signToken(user.id, user.email, user.role);
+
+      // Send welcome email via Brevo (fire and forget)
+      sendWelcomeEmail({ to: data.email, name: data.fullName, userId }).catch((err) =>
+        console.warn("[Auth] Welcome email failed (non-fatal):", err),
+      );
 
       return { ok: true, session: { token, user } };
     } catch (err: any) {

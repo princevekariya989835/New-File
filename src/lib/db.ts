@@ -127,6 +127,8 @@ let _mockCouponUsage: any[] = [
   },
 ];
 
+let _mockEmailLogs: any[] = [];
+
 let _mockOrders: any[] = [
   {
     id: "ord_1001",
@@ -1029,6 +1031,39 @@ export function getSql() {
         ];
       }
 
+      // SELECT from email_logs
+      if (lower.includes("from email_logs")) {
+        if (lower.includes("order_id =") && lower.includes("email_type =")) {
+          const orderId = String(values[0] ?? "");
+          const emailType = String(values[1] ?? "");
+          return _mockEmailLogs.filter(
+            (l) => String(l.order_id) === orderId && String(l.email_type) === emailType,
+          );
+        }
+        return [..._mockEmailLogs];
+      }
+
+      // INSERT INTO email_logs
+      if (lower.startsWith("insert into email_logs") || lower.includes("insert into email_logs")) {
+        const id = values[0] ? String(values[0]) : `eml_${Date.now()}`;
+        const newLog = {
+          id,
+          user_id: values[1] ? String(values[1]) : null,
+          order_id: values[2] ? String(values[2]) : null,
+          email_type: values[3] ? String(values[3]) : "UNKNOWN",
+          recipient: values[4] ? String(values[4]) : "",
+          sender: values[5] ? String(values[5]) : "",
+          status: values[6] ? String(values[6]) : "sent",
+          provider: values[7] ? String(values[7]) : "brevo",
+          provider_message_id: values[8] ? String(values[8]) : null,
+          error_message: values[9] ? String(values[9]) : null,
+          created_at: new Date().toISOString(),
+          sent_at: values[6] === "sent" ? new Date().toISOString() : null,
+        };
+        _mockEmailLogs.unshift(newLog);
+        return [{ id }];
+      }
+
       return [];
     };
 
@@ -1082,13 +1117,36 @@ export async function ensureDbSchema() {
             to_regclass('public.store_settings') IS NOT NULL AS has_settings,
             to_regclass('public.coupons') IS NOT NULL AS has_coupons,
             to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage,
-            to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates
+            to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates,
+            to_regclass('public.email_logs') IS NOT NULL AS has_email_logs
         `;
         const row = check?.[0];
         if (row && (row.has_products || row.has_profiles || row.has_orders || row.has_website || row.has_settings)) {
           // Core database schema exists.
           // Check if newly introduced or missing tables are needed and create only what is needed:
           const missingStatements: string[] = [];
+
+          if (!row.has_email_logs) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS email_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                order_id TEXT,
+                email_type TEXT NOT NULL,
+                recipient TEXT NOT NULL,
+                sender TEXT NOT NULL,
+                status TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'brevo',
+                provider_message_id TEXT,
+                error_message TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                sent_at TIMESTAMP WITH TIME ZONE
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`,
+              `CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`,
+              `CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`
+            );
+          }
 
           if (!row.has_orders) {
             missingStatements.push(
@@ -1764,6 +1822,23 @@ export async function ensureDbSchema() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           created_by TEXT
         )`,
+        `CREATE TABLE IF NOT EXISTS email_logs (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          order_id TEXT,
+          email_type TEXT NOT NULL,
+          recipient TEXT NOT NULL,
+          sender TEXT NOT NULL,
+          status TEXT NOT NULL,
+          provider TEXT NOT NULL DEFAULT 'brevo',
+          provider_message_id TEXT,
+          error_message TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          sent_at TIMESTAMP WITH TIME ZONE
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`,
+        `CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`,
         `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_website_media_created ON website_media (created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,

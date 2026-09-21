@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, logAudit } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { sendOrderShipped, sendOutForDelivery, sendOrderDelivered } from "@/lib/email";
 
 export type ShipmentStatus =
   | "Pending"
@@ -259,6 +260,49 @@ export const adminUpdateShipmentStatus = createServerFn({ method: "POST" })
       from: currentStatus,
       to: data.newStatus,
     });
+
+    // Fire status-transition transactional emails (fire and forget, idempotent)
+    if (currentStatus !== data.newStatus) {
+      try {
+        // Fetch order + customer details for the email
+        const orderRow = await sql`
+          SELECT o.id, o.order_number, o.shipping_email, o.shipping_name, o.user_id,
+                 o.courier_name, o.tracking_number, o.tracking_url
+          FROM shipments s
+          JOIN orders o ON s.order_id = o.id
+          WHERE s.id = ${data.shipmentId}
+          LIMIT 1
+        `;
+        if (orderRow.length > 0) {
+          const o = orderRow[0] as any;
+          const baseOpts = {
+            to: String(o.shipping_email || ""),
+            orderNumber: String(o.order_number || ""),
+            orderId: String(o.id || ""),
+            customerName: String(o.shipping_name || "Customer"),
+            userId: o.user_id ? String(o.user_id) : null,
+          };
+          if (data.newStatus === "Shipped") {
+            sendOrderShipped({
+              ...baseOpts,
+              courierName: o.courier_name || null,
+              trackingNumber: o.tracking_number || null,
+              trackingUrl: o.tracking_url || null,
+            }).catch((e) => console.warn("[Shipping] Shipped email failed:", e));
+          } else if (data.newStatus === "Out for Delivery") {
+            sendOutForDelivery(baseOpts).catch((e) =>
+              console.warn("[Shipping] Out-for-delivery email failed:", e),
+            );
+          } else if (data.newStatus === "Delivered") {
+            sendOrderDelivered(baseOpts).catch((e) =>
+              console.warn("[Shipping] Delivered email failed:", e),
+            );
+          }
+        }
+      } catch (emailErr) {
+        console.warn("[Shipping] Email dispatch lookup failed (non-fatal):", emailErr);
+      }
+    }
 
     return { ok: true as const };
   });

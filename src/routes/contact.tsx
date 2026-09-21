@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Mail, Instagram } from "lucide-react";
+import { Mail, Instagram, Phone } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Reach RIOTOUS about orders, custom prints, or wholesale. Email, WhatsApp, or Instagram.",
+          "Reach RIOTOUS about orders, custom prints, or wholesale. Email, Phone, or Instagram.",
       },
       { property: "og:title", content: "Contact RIOTOUS | Customer Support & Custom Orders" },
       {
@@ -31,6 +31,7 @@ export const Route = createFileRoute("/contact")({
           "@type": "LocalBusiness",
           name: "RIOTOUS",
           url: "https://riotous.store/contact",
+          telephone: "+91 90998 66791",
           description:
             "Premium DTF printed streetwear studio. Orders, custom prints and wholesale support.",
           areaServed: "IN",
@@ -65,8 +66,9 @@ function ContactPage() {
     cntTxt?.description ||
     "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.";
   const supportEmail = cntTxt?.email || config?.general?.contactEmail || "support@riotous.store";
+  const supportPhone = cntTxt?.phone || config?.general?.contactPhone || "+91 90998 66791";
   const businessHours = cntTxt?.businessHours || "Mon — Sat · 10:00 — 19:00 IST";
-  const instagram = cntTxt?.instagram || "@riotous";
+  const instagram = cntTxt?.instagram || "@riotous_store";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,10 +94,23 @@ function ContactPage() {
           </p>
 
           <div className="mt-12 space-y-6">
-            <a href={`mailto:${supportEmail}`} className="block">
+            <a href={`mailto:${supportEmail}`} className="block hover:opacity-80 transition-opacity">
               <ContactRow icon={Mail} label="Support" value={supportEmail} />
             </a>
-            <ContactRow icon={Instagram} label="Instagram" value={instagram} />
+            <a
+              href={`tel:${supportPhone.replace(/\s+/g, "")}`}
+              className="block hover:opacity-80 transition-opacity"
+            >
+              <ContactRow icon={Phone} label="Helpline" value={supportPhone} />
+            </a>
+            <a
+              href="https://www.instagram.com/riotous_store"
+              target="_blank"
+              rel="noreferrer"
+              className="block hover:opacity-80 transition-opacity"
+            >
+              <ContactRow icon={Instagram} label="Instagram" value={instagram} />
+            </a>
           </div>
 
           <div className="mt-12 border-t border-border pt-8">

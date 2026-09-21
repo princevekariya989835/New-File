@@ -33,7 +33,7 @@ export const Route = createFileRoute("/about")({
             name: "RIOTOUS",
             url: "https://riotous.store",
             logo: "https://riotous.store/favicon.svg",
-            sameAs: ["https://instagram.com/riotous.store"],
+            sameAs: ["https://www.instagram.com/riotous_store"],
           },
         }),
       },

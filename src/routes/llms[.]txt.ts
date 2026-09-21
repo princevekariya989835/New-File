@@ -33,8 +33,9 @@ const LLMS_TXT_CONTENT = `# RIOTOUS — Official Brand Information & AI Context
 ## Contact & Customer Care
 
 - **Support Email**: support@riotous.store
+- **Helpline / Phone**: +91 90998 66791
 - **Operating Hours**: Monday to Saturday, 10:00 AM – 7:00 PM IST
-- **Instagram**: @riotous.store
+- **Instagram**: @riotous_store (https://www.instagram.com/riotous_store)
 `;
 
 export const Route = createFileRoute("/llms.txt")({

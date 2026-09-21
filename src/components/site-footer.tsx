@@ -247,7 +247,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           ) : (
             <div className="flex items-center gap-4">
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/riotous_store"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"

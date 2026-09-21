@@ -275,7 +275,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMessage: "We are currently updating the store. Please check back shortly.",
     currencySymbol: "₹",
     contactEmail: "support@riotous.store",
-    contactPhone: "+91 98765 43210",
+    contactPhone: "+91 90998 66791",
     freeShippingThreshold: 1499,
   },
   settings: {
@@ -284,7 +284,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMode: false,
     currency: "INR",
     storeEmail: "support@riotous.store",
-    storePhone: "+91 98765 43210",
+    storePhone: "+91 90998 66791",
   },
   seo: {
     metaTitle: "RIOTOUS — We Don't Follow Trends. We Print Them.",
@@ -486,11 +486,11 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       },
     ],
     socialLinks: {
-      instagram: "https://instagram.com",
+      instagram: "https://www.instagram.com/riotous_store",
       youtube: "https://youtube.com",
       facebook: "https://facebook.com",
       twitter: "",
-      whatsapp: "https://wa.me/919876543210",
+      whatsapp: "https://wa.me/919099866791",
     },
   },
   sectionOrder: {
@@ -546,10 +546,10 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     description:
       "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.",
     email: "support@riotous.store",
-    phone: "+91 98765 43210",
+    phone: "+91 90998 66791",
     address: "Studio RIOTOUS, Surat, Gujarat, India",
     businessHours: "Mon — Sat · 10:00 — 19:00 IST",
-    instagram: "@riotous",
+    instagram: "@riotous_store",
     wholesaleText:
       "Looking for custom runs, band merch, or wholesale orders? Let's talk.",
   },

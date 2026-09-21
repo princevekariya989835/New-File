@@ -9,6 +9,7 @@ import {
 import { type ReturnStatus } from "@/lib/returns-shared";
 import { getSql } from "@/lib/db";
 import { restoreReturnInventory } from "@/lib/inventory.service";
+import { sendReturnApproved, sendReturnRejected, sendRefundProcessed } from "@/lib/email";
 
 export type { AdminReturnRecord };
 
@@ -99,7 +100,56 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
     await logAudit(context as any, "return.update", "return", data.returnId, {
       status: data.status,
     });
-    return { ok: true as const, emailSent: false };
+
+    // Fire return status-transition emails (fire and forget)
+    if (data.status === "Approved" || data.status === "Rejected" || data.status === "Refunded") {
+      try {
+        const retRow = await sql`
+          SELECT r.id, r.return_number, r.order_id, r.refund_amount, r.refund_reference, r.currency,
+                 o.order_number, o.shipping_email, o.shipping_name, o.user_id
+          FROM returns r
+          LEFT JOIN orders o ON r.order_id = o.id
+          WHERE r.id = ${data.returnId}
+          LIMIT 1
+        `;
+        if (retRow.length > 0) {
+          const r = retRow[0] as any;
+          const to = String(r.shipping_email || "");
+          const customerName = String(r.shipping_name || to);
+          const orderNumber = String(r.order_number || r.order_id || "");
+          const returnNumber = String(r.return_number || r.id);
+          const userId = r.user_id ? String(r.user_id) : null;
+          const baseOpts = { to, orderNumber, returnNumber, orderId: String(r.order_id || ""), customerName, userId };
+
+          if (to) {
+            if (data.status === "Approved") {
+              sendReturnApproved({
+                ...baseOpts,
+                instructions: data.pickupDetails ?? undefined,
+              }).catch((e) => console.warn("[AdminReturns] Approved email failed:", e));
+            } else if (data.status === "Rejected") {
+              sendReturnRejected({
+                ...baseOpts,
+                reason: data.rejectionReason ?? undefined,
+              }).catch((e) => console.warn("[AdminReturns] Rejected email failed:", e));
+            } else if (data.status === "Refunded") {
+              const refundAmt = data.refundAmount ?? Number(r.refund_amount || 0);
+              sendRefundProcessed({
+                ...baseOpts,
+                returnNumber,
+                refundAmount: refundAmt,
+                currency: String(r.currency || "₹"),
+                refundReference: data.refundReference ?? r.refund_reference ?? null,
+              }).catch((e) => console.warn("[AdminReturns] Refund email failed:", e));
+            }
+          }
+        }
+      } catch (emailErr) {
+        console.warn("[AdminReturns] Email dispatch lookup failed (non-fatal):", emailErr);
+      }
+    }
+
+    return { ok: true as const, emailSent: data.status === "Approved" || data.status === "Rejected" || data.status === "Refunded" };
   });
 
 export const adminGetReturnSettings = createServerFn({ method: "GET" })

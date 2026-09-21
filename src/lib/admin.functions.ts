@@ -13,6 +13,7 @@ import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
 import { logServerSyncEvent } from "@/lib/server-logger";
 import { removeProductFromFile } from "@/lib/fallback-products-manager.server";
+import { sendOrderShipped, sendOrderDelivered, sendPaymentConfirmation } from "@/lib/email";
 import {
   addInventory,
   removeInventory,
@@ -908,6 +909,50 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     }
 
     await logAudit(context as any, "order.update", "order", data.orderId, { status: data.status });
+
+    // Fire transactional emails on key status transitions (fire and forget, idempotent)
+    if (data.status === "Shipped" || data.status === "Delivered" || data.paymentStatus === "Paid") {
+      try {
+        const orderRow = await sql`
+          SELECT id, order_number, shipping_email, shipping_name, user_id,
+                 courier_name, tracking_number, tracking_url, total_amount, currency, payment_method
+          FROM orders WHERE id::text = ${String(data.orderId)} LIMIT 1
+        `;
+        if (orderRow.length > 0) {
+          const o = orderRow[0] as any;
+          const baseOpts = {
+            to: String(o.shipping_email || ""),
+            orderNumber: String(o.order_number || ""),
+            orderId: String(o.id || ""),
+            customerName: String(o.shipping_name || "Customer"),
+            userId: o.user_id ? String(o.user_id) : null,
+          };
+          if (data.status === "Shipped") {
+            sendOrderShipped({
+              ...baseOpts,
+              courierName: data.courierName ?? (o.courier_name || null),
+              trackingNumber: data.trackingNumber ?? (o.tracking_number || null),
+              trackingUrl: data.trackingUrl ?? (o.tracking_url || null),
+            }).catch((e) => console.warn("[Admin] Shipped email failed:", e));
+          } else if (data.status === "Delivered") {
+            sendOrderDelivered(baseOpts).catch((e) =>
+              console.warn("[Admin] Delivered email failed:", e),
+            );
+          } else if (data.paymentStatus === "Paid") {
+            sendPaymentConfirmation({
+              ...baseOpts,
+              total: Number(o.total_amount || 0).toLocaleString("en-IN"),
+              currency: "₹",
+              paymentMethod: String(o.payment_method || "COD"),
+              transactionId: null,
+            }).catch((e) => console.warn("[Admin] Payment confirmation email failed:", e));
+          }
+        }
+      } catch (emailErr) {
+        console.warn("[Admin] Email dispatch lookup failed (non-fatal):", emailErr);
+      }
+    }
+
     return { ok: true };
   });
 

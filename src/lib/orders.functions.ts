@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { sendOrderConfirmation } from "@/lib/email";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import {
   deductOrderInventory,
@@ -377,14 +378,59 @@ export const placeOrder = createServerFn({ method: "POST" })
       })),
     };
 
-    // Send customer order confirmation & invoice email in background
-    sendTemplateEmail("customer-order-confirmation", data.shippingEmail, {
-      templateData,
+    // Send customer order confirmation via Brevo (fire and forget)
+    sendOrderConfirmation({
+      to: data.shippingEmail,
+      orderNumber,
+      orderId,
+      customerName: data.shippingName,
+      shippingAddress: data.shippingAddress,
+      items: items.map((i) => ({
+        name: i.productName,
+        quantity: i.quantity,
+        size: i.selectedSize ?? null,
+        color: i.selectedColor ?? null,
+        price: i.price.toLocaleString("en-IN"),
+      })),
+      subtotal: itemsTotal.toLocaleString("en-IN"),
+      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      discountCode: appliedCoupon ? appliedCoupon.code : null,
+      shippingCharge: shipping.toLocaleString("en-IN"),
+      total: total.toLocaleString("en-IN"),
+      currency: "₹",
+      paymentMethod: "Cash on Delivery (COD)",
+      paymentStatus: "Confirmed",
+      userId: String(authCtx.userId),
     }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
 
-    // Send store owner / admin notification & invoice copy email in background
+    // Send store owner / admin notification via legacy template (fire and forget)
+    const adminTemplateData = {
+      orderNumber,
+      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      customerName: data.shippingName,
+      customerEmail: data.shippingEmail,
+      customerPhone: data.shippingPhone || null,
+      shippingAddress: data.shippingAddress,
+      paymentMethod: "Cash on Delivery (COD)",
+      subtotal: itemsTotal.toLocaleString("en-IN"),
+      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
+      shippingCharge: shipping.toLocaleString("en-IN"),
+      total: total.toLocaleString("en-IN"),
+      currency: data.currency,
+      hasCustomDesign: items.some((i) => !!i.designSubmissionId),
+      items: items.map((i) => ({
+        name: i.productName,
+        quantity: i.quantity,
+        size: i.selectedSize || null,
+        color: i.selectedColor || null,
+        price: i.price.toLocaleString("en-IN"),
+        subtotal: i.subtotal.toLocaleString("en-IN"),
+        isCustomDesign: !!i.designSubmissionId,
+      })),
+    };
     sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-      templateData,
+      templateData: adminTemplateData,
     }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
 
     return {

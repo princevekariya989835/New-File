@@ -1,13 +1,15 @@
 /**
- * Server-only email layer for return notifications.
+ * RIOTOUS Return Email Notifications (Brevo)
+ * Server-only — never import from client components.
  *
- * Provider agnostic: the only place that knows how a mail is actually sent is
- * `deliver()` below. Today it supports a generic HTTP provider configured via
- * server env vars (RESEND_API_KEY + RETURN_EMAIL_FROM). If no provider is
- * configured the notification is recorded as `pending` so nothing is lost and
- * an admin can retry it later — the return itself never fails.
+ * Replaces legacy Resend-based return email delivery.
+ * Records each return event in return_notifications for idempotency.
+ * Email delivery is via the central Brevo service.
+ * Never throws: email failures must not break return workflows.
  */
 import type { ReturnEmailEvent } from "@/lib/returns-shared";
+import { sendBrevoEmail, BREVO_SENDER_ORDERS, BREVO_REPLY_TO } from "@/lib/email/brevo";
+import { ensureDbSchema, getSql } from "@/lib/db";
 
 type ReturnLike = {
   id: string;
@@ -112,47 +114,6 @@ export function emailContent(event: ReturnEmailEvent, r: ReturnLike) {
   }
 }
 
-function isProviderConfigured() {
-  return !!process.env["RESEND_API_KEY"];
-}
-
-/** The single provider-specific call. Swap this to change email provider. */
-async function deliver(to: string, subject: string, text: string) {
-  const key = process.env["RESEND_API_KEY"];
-  const customFrom = process.env["RETURN_EMAIL_FROM"] || process.env["EMAIL_FROM"];
-  const isFreePublicMail =
-    customFrom &&
-    /@(gmail\.com|googlemail\.com|yahoo\.com|hotmail\.com|outlook\.com)/i.test(customFrom);
-  const from = customFrom && !isFreePublicMail ? customFrom : "RIOTOUS <onboarding@resend.dev>";
-  if (!key) throw new Error("no_email_provider_configured");
-
-  let res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${key}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ from, to, subject, text }),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    if (errText.includes("not verified") && from !== "RIOTOUS <onboarding@resend.dev>") {
-      res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${key}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ from: "RIOTOUS <onboarding@resend.dev>", to, subject, text }),
-      });
-      if (res.ok) return;
-    }
-    throw new Error(`Email provider error ${res.status}: ${errText}`);
-  }
-}
-
-import { ensureDbSchema, getSql } from "@/lib/db";
-
 /**
  * Records + sends one return email exactly once per (return, event).
  * Never throws: email problems must not break the return workflow.
@@ -177,7 +138,8 @@ export async function notifyReturnEvent(
       LIMIT 1
     `;
     const existing = existingRows[0] as
-      { id: string; status: string; attempts: number } | undefined;
+      | { id: string; status: string; attempts: number }
+      | undefined;
 
     if (existing?.status === "sent") return { sent: true };
 
@@ -190,40 +152,45 @@ export async function notifyReturnEvent(
       `;
     }
 
-    if (!isProviderConfigured()) {
-      if (rowId) {
-        await sql`
-          UPDATE return_notifications
-          SET status = 'pending', error = 'No email provider configured (set RESEND_API_KEY and RETURN_EMAIL_FROM)', recipient = ${recipient}, subject = ${subject}
-          WHERE id = ${rowId}
-        `;
-      }
-      return { sent: false, reason: "no_provider" };
-    }
+    // Build minimal HTML for Brevo
+    const htmlContent = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <h2 style="color:#09090b;margin-bottom:16px;">${BRAND}</h2>
+      <p style="white-space:pre-line;font-size:14px;line-height:1.6;color:#3f3f46;">${content.lines.filter(Boolean).join("\n")}</p>
+      <hr style="border:none;border-top:1px solid #e4e4e7;margin:24px 0;">
+      <p style="font-size:12px;color:#71717a;">RIOTOUS Streetwear · support@riotous.store</p>
+    </div>`;
 
-    try {
-      await deliver(recipient, subject, text);
-      if (rowId) {
-        const attempts = (Number(existing?.attempts) || 0) + 1;
+    const result = await sendBrevoEmail({
+      sender: BREVO_SENDER_ORDERS,
+      to: [{ email: recipient }],
+      subject,
+      htmlContent,
+      textContent: text,
+      replyTo: BREVO_REPLY_TO,
+      meta: {
+        emailType: `RETURN_${event.toUpperCase()}`,
+        orderId: ret.order_number ?? undefined,
+      },
+    });
+
+    if (rowId) {
+      const attempts = (Number(existing?.attempts) || 0) + 1;
+      if (result.sent) {
         await sql`
           UPDATE return_notifications
           SET status = 'sent', sent_at = CURRENT_TIMESTAMP, error = NULL, attempts = ${attempts}
           WHERE id = ${rowId}
         `;
-      }
-      return { sent: true };
-    } catch (err) {
-      if (rowId) {
-        const attempts = (Number(existing?.attempts) || 0) + 1;
-        const errMsg = err instanceof Error ? err.message.slice(0, 500) : "Unknown error";
+      } else {
         await sql`
           UPDATE return_notifications
-          SET status = 'failed', error = ${errMsg}, attempts = ${attempts}
+          SET status = 'failed', error = ${result.reason ?? "Brevo send failed"}, attempts = ${attempts}
           WHERE id = ${rowId}
         `;
       }
-      return { sent: false, reason: "failed" };
     }
+
+    return result.sent ? { sent: true } : { sent: false, reason: result.reason ?? "failed" };
   } catch {
     return { sent: false, reason: "log_failed" };
   }
