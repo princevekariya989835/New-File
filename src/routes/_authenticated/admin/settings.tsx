@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -28,6 +28,7 @@ import {
   Store,
   User,
   Shield,
+  Activity,
   Bell,
   Globe2,
   Palette,
@@ -262,14 +263,22 @@ function AdminSettingsPage() {
             Configure store preferences, business profile, security, and administrative settings.
           </p>
         </div>
-        <Button
-          onClick={() => saveSettingsMutation.mutate(form)}
-          disabled={saveSettingsMutation.isPending}
-          className="bg-brand-red text-white hover:bg-brand-red/90"
-        >
-          <Save className="mr-2 h-4 w-4" />
-          {saveSettingsMutation.isPending ? "Saving..." : "Save All Settings"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/admin/health">
+            <Button variant="outline" className="gap-2">
+              <Activity className="h-4 w-4 text-brand-red" />
+              System Health
+            </Button>
+          </Link>
+          <Button
+            onClick={() => saveSettingsMutation.mutate(form)}
+            disabled={saveSettingsMutation.isPending}
+            className="bg-brand-red text-white hover:bg-brand-red/90"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saveSettingsMutation.isPending ? "Saving..." : "Save All Settings"}
+          </Button>
+        </div>
       </div>
 
       {/* Settings Layout: Sidebar + Main Content */}

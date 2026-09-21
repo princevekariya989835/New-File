@@ -25,6 +25,11 @@ export type CustomerOrder = {
   processedAt: string;
   financialStatus: string | null;
   fulfillmentStatus: string | null;
+  paymentMethod: string | null;
+  subtotal: { amount: string; currencyCode: string };
+  discount: { amount: string; currencyCode: string; code?: string | null };
+  shippingCharge: { amount: string; currencyCode: string };
+  taxAmount: { amount: string; currencyCode: string };
   total: { amount: string; currencyCode: string };
   shipping: {
     name: string;
@@ -32,6 +37,13 @@ export type CustomerOrder = {
     phone: string | null;
     address: string;
   };
+  billingAddress: string | null;
+  courierName: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  cancelledAt: string | null;
   lineItems: OrderLineItem[];
 };
 
@@ -62,25 +74,50 @@ export const getMyOrders = createServerFn({ method: "GET" })
       await ensureDbSchema();
       const sql = getSql();
       const authCtx = context as any;
+      const userId = String(authCtx.userId || "");
+      const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+
+      // Opportunistic safe link: if legacy orders exist with matching verified email but unassigned user_id, associate them
+      if (userId && userEmail) {
+        try {
+          await sql`
+            UPDATE orders
+            SET user_id = ${userId}
+            WHERE (user_id IS NULL OR user_id = '' OR user_id = ${userEmail})
+              AND LOWER(shipping_email) = ${userEmail}
+          `;
+        } catch {
+          // non-fatal
+        }
+      }
 
       const orders = await sql`
-        SELECT id, order_number, created_at, total_amount, currency, status, payment_status,
-          shipping_name, shipping_email, shipping_phone, shipping_address
+        SELECT id, order_number, created_at, subtotal, discount_amount, discount_code,
+          shipping_charge, tax_amount, total_amount, currency, status, payment_status,
+          payment_method, shipping_name, shipping_email, shipping_phone, shipping_address,
+          billing_address, courier_name, tracking_number, tracking_url,
+          shipped_at, delivered_at, cancelled_at
         FROM orders
-        WHERE user_id::text = ${String(authCtx.userId)}
+        WHERE user_id::text = ${userId}
+           OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
+           OR (user_id::text = ${userEmail})
         ORDER BY created_at DESC
       `;
 
       if (orders.length === 0) return [];
 
-      const orderIds = orders.map((o: any) => String(o.id));
       const items = await sql`
         SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
           i.design_submission_id, d.preview_data_url, p.images as product_images_json
         FROM order_items i
-        LEFT JOIN design_submissions d ON i.design_submission_id = d.id
+        LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
         LEFT JOIN products p ON i.product_id::text = p.id::text
-        WHERE i.order_id::text = ANY(${orderIds}::text[])
+        WHERE i.order_id IN (
+          SELECT id FROM orders
+          WHERE user_id::text = ${userId}
+             OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
+             OR (user_id::text = ${userEmail})
+        )
       `;
 
       const itemsByOrderId = new Map<string, OrderLineItem[]>();
@@ -101,24 +138,43 @@ export const getMyOrders = createServerFn({ method: "GET" })
         });
       }
 
-      return orders.map((o: any) => ({
-        id: String(o.id),
-        name: o.order_number,
-        processedAt: new Date(o.created_at).toISOString(),
-        financialStatus: o.payment_status || "Pending",
-        fulfillmentStatus: o.status || "Pending",
-        total: { amount: String(o.total_amount || 0), currencyCode: o.currency || "INR" },
-        shipping: {
-          name: o.shipping_name || "",
-          email: o.shipping_email || "",
-          phone: o.shipping_phone || null,
-          address: o.shipping_address || "",
-        },
-        lineItems: itemsByOrderId.get(String(o.id)) || [],
-      }));
-    } catch (e) {
-      console.warn("getMyOrders error", e);
-      return [];
+      return orders.map((o: any) => {
+        const currency = o.currency || "INR";
+        return {
+          id: String(o.id),
+          name: o.order_number,
+          processedAt: new Date(o.created_at).toISOString(),
+          financialStatus: o.payment_status || "Pending",
+          fulfillmentStatus: o.status || "Pending",
+          paymentMethod: o.payment_method || null,
+          subtotal: { amount: String(o.subtotal || o.total_amount || 0), currencyCode: currency },
+          discount: {
+            amount: String(o.discount_amount || 0),
+            currencyCode: currency,
+            code: o.discount_code || null,
+          },
+          shippingCharge: { amount: String(o.shipping_charge || 0), currencyCode: currency },
+          taxAmount: { amount: String(o.tax_amount || 0), currencyCode: currency },
+          total: { amount: String(o.total_amount || 0), currencyCode: currency },
+          shipping: {
+            name: o.shipping_name || "",
+            email: o.shipping_email || "",
+            phone: o.shipping_phone || null,
+            address: o.shipping_address || "",
+          },
+          billingAddress: o.billing_address || null,
+          courierName: o.courier_name || null,
+          trackingNumber: o.tracking_number || null,
+          trackingUrl: o.tracking_url || null,
+          shippedAt: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
+          deliveredAt: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
+          cancelledAt: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
+          lineItems: itemsByOrderId.get(String(o.id)) || [],
+        };
+      });
+    } catch (e: any) {
+      console.error("[Customer Orders] getMyOrders error:", e);
+      throw new Error(e?.message || "Failed to load your orders.");
     }
   });
 
@@ -352,12 +408,16 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
     const authCtx = context as any;
+    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
     const rows = await sql`
       SELECT id, user_id, status, order_number FROM orders
-      WHERE id::text = ${data.orderId} AND user_id::text = ${String(authCtx.userId)}
+      WHERE id::text = ${data.orderId}
+        AND (user_id::text = ${String(authCtx.userId)}
+          OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
+          OR user_id::text = ${userEmail})
       LIMIT 1
     `;
-    if (rows.length === 0) throw new Error("Order not found");
+    if (rows.length === 0) throw new Error("Order not found or you are not authorized to cancel it");
     if (["Shipped", "Delivered", "Cancelled", "Returned"].includes(rows[0].status)) {
       throw new Error(
         `Order cannot be cancelled because it is already ${rows[0].status.toLowerCase()}`,

@@ -14,7 +14,8 @@ import { adminDashboard } from "@/lib/admin-dashboard.functions";
 import { AdminDashboardSkeleton } from "@/components/admin/admin-skeletons";
 import { money, dateTime, STATUS_TONE } from "@/components/admin/format";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, IndianRupee, Package, Receipt, Users, Ticket, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, IndianRupee, Package, Receipt, Users, Ticket, ArrowRight, Activity } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
@@ -121,12 +122,20 @@ function Dashboard() {
             Live overview of sales, orders, inventory and customers.
           </p>
         </div>
-        <AdminEraseDataButton
-          section="dashboard"
-          sectionLabel="Dashboard & Operations"
-          buttonText="Erase All Operational Data"
-          onSuccess={() => q.refetch()}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/admin/health">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Activity className="h-4 w-4 text-brand-red" />
+              System Health
+            </Button>
+          </Link>
+          <AdminEraseDataButton
+            section="dashboard"
+            sectionLabel="Dashboard & Operations"
+            buttonText="Erase All Operational Data"
+            onSuccess={() => q.refetch()}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

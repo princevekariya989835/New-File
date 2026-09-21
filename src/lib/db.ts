@@ -127,6 +127,197 @@ let _mockCouponUsage: any[] = [
   },
 ];
 
+let _mockOrders: any[] = [
+  {
+    id: "ord_1001",
+    user_id: "usr_cust_1",
+    order_number: "ORD-9842",
+    subtotal: 1499,
+    discount_amount: 150,
+    discount_code: "RIOTOUS10",
+    shipping_charge: 0,
+    tax_amount: 0,
+    total_amount: 1349,
+    currency: "INR",
+    status: "Shipped",
+    payment_status: "Paid",
+    payment_method: "Razorpay (Online)",
+    stock_state: "Normal",
+    shipping_name: "Aarav Sharma",
+    shipping_email: "aarav.sharma@example.com",
+    shipping_phone: "+91 98765 43210",
+    shipping_address: "Flat 402, Skyline Residency, Bandra West, Mumbai, Maharashtra 400050",
+    billing_address: "Flat 402, Skyline Residency, Bandra West, Mumbai, Maharashtra 400050",
+    courier_name: "BlueDart Express",
+    tracking_number: "BD982341209IN",
+    tracking_url: "https://www.bluedart.com/tracking/BD982341209IN",
+    shipped_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    delivered_at: null,
+    cancelled_at: null,
+    admin_notes: "Customer requested discreet packaging.",
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+  },
+  {
+    id: "ord_1002",
+    user_id: "usr_cust_2",
+    order_number: "ORD-9843",
+    subtotal: 1299,
+    discount_amount: 0,
+    discount_code: null,
+    shipping_charge: 50,
+    tax_amount: 0,
+    total_amount: 1349,
+    currency: "INR",
+    status: "Processing",
+    payment_status: "Paid",
+    payment_method: "UPI (PhonePe)",
+    stock_state: "Normal",
+    shipping_name: "Priya Patel",
+    shipping_email: "priya.patel@example.com",
+    shipping_phone: "+91 98123 45678",
+    shipping_address: "12, Shanti Niketan Society, Navrangpura, Ahmedabad, Gujarat 380009",
+    billing_address: "12, Shanti Niketan Society, Navrangpura, Ahmedabad, Gujarat 380009",
+    courier_name: "Delhivery",
+    tracking_number: "DLV10928374",
+    tracking_url: "https://www.delhivery.com/track/package/DLV10928374",
+    shipped_at: null,
+    delivered_at: null,
+    cancelled_at: null,
+    admin_notes: "Priority shipment.",
+    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+  },
+  {
+    id: "ord_1003",
+    user_id: "usr_cust_3",
+    order_number: "ORD-9844",
+    subtotal: 1799,
+    discount_amount: 0,
+    discount_code: null,
+    shipping_charge: 0,
+    tax_amount: 0,
+    total_amount: 1799,
+    currency: "INR",
+    status: "Confirmed",
+    payment_status: "Pending",
+    payment_method: "Cash on Delivery",
+    stock_state: "Normal",
+    shipping_name: "Rohan Verma",
+    shipping_email: "rohan.v@example.com",
+    shipping_phone: "+91 97234 56789",
+    shipping_address: "Tower B-601, Cyber City Greens, Sector 24, Gurugram, Haryana 122002",
+    billing_address: "Tower B-601, Cyber City Greens, Sector 24, Gurugram, Haryana 122002",
+    courier_name: null,
+    tracking_number: null,
+    tracking_url: null,
+    shipped_at: null,
+    delivered_at: null,
+    cancelled_at: null,
+    admin_notes: null,
+    created_at: new Date(Date.now() - 8 * 3600000).toISOString(),
+    updated_at: new Date(Date.now() - 8 * 3600000).toISOString(),
+  },
+  {
+    id: "ord_1004",
+    user_id: "usr_cust_4",
+    order_number: "ORD-9845",
+    subtotal: 1399,
+    discount_amount: 0,
+    discount_code: null,
+    shipping_charge: 0,
+    tax_amount: 0,
+    total_amount: 1399,
+    currency: "INR",
+    status: "Pending",
+    payment_status: "Pending",
+    payment_method: "Cash on Delivery",
+    stock_state: "Normal",
+    shipping_name: "Ananya Iyer",
+    shipping_email: "ananya.iyer@example.com",
+    shipping_phone: "+91 99345 67890",
+    shipping_address: "45, Indiranagar 100ft Road, Bangalore, Karnataka 560038",
+    billing_address: "45, Indiranagar 100ft Road, Bangalore, Karnataka 560038",
+    courier_name: null,
+    tracking_number: null,
+    tracking_url: null,
+    shipped_at: null,
+    delivered_at: null,
+    cancelled_at: null,
+    admin_notes: null,
+    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+    updated_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+  },
+];
+
+let _mockOrderItems: any[] = [
+  {
+    id: "item_1001",
+    order_id: "ord_1001",
+    product_id: "prod_1",
+    variant_id: "var_1_l_black",
+    design_submission_id: null,
+    product_name: "Acid Wash Oversized Tee",
+    product_image: "/placeholder-tee.jpg",
+    quantity: 1,
+    price: 1499,
+    selected_size: "L",
+    selected_color: "Vintage Black",
+    subtotal: 1499,
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+  {
+    id: "item_1002",
+    order_id: "ord_1002",
+    product_id: "prod_2",
+    variant_id: "var_2_m_black",
+    design_submission_id: null,
+    product_name: "Cyberpunk Graphic Tee",
+    product_image: "/placeholder-tee.jpg",
+    quantity: 1,
+    price: 1299,
+    selected_size: "M",
+    selected_color: "Jet Black",
+    subtotal: 1299,
+    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+  },
+  {
+    id: "item_1003",
+    order_id: "ord_1003",
+    product_id: "prod_3",
+    variant_id: "var_3_xl_white",
+    design_submission_id: null,
+    product_name: "Heavyweight Boxy Tee",
+    product_image: "/placeholder-tee.jpg",
+    quantity: 1,
+    price: 1799,
+    selected_size: "XL",
+    selected_color: "Off-White",
+    subtotal: 1799,
+    created_at: new Date(Date.now() - 8 * 3600000).toISOString(),
+  },
+  {
+    id: "item_1004",
+    order_id: "ord_1004",
+    product_id: "prod_4",
+    variant_id: "var_4_s_grey",
+    design_submission_id: null,
+    product_name: "Distressed Street Tee",
+    product_image: "/placeholder-tee.jpg",
+    quantity: 1,
+    price: 1399,
+    selected_size: "S",
+    selected_color: "Washed Grey",
+    subtotal: 1399,
+    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+  },
+];
+
+let _mockReturns: any[] = [];
+let _mockReviews: any[] = [];
+let _mockDesignSubmissions: any[] = [];
+let _mockInventoryTransactions: any[] = [];
+
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
   const norm = String(productIdOrSlug).toLowerCase().trim();
@@ -589,6 +780,255 @@ export function getSql() {
         return [{ id: usageId }];
       }
 
+      // SELECT from orders
+      if (lower.includes("from orders")) {
+        if (lower.includes("count(*)::int as total_orders") || lower.includes("count(*) as total_orders")) {
+          const validOrders = _mockOrders.filter((o) => !["Cancelled", "Returned", "Refunded"].includes(o.status));
+          const totalSales = validOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+          return [
+            {
+              total_orders: _mockOrders.length,
+              total_sales: totalSales,
+              sales_today: totalSales,
+              sales_month: totalSales,
+              revenue_orders_count: validOrders.length,
+            },
+          ];
+        }
+
+        if (lower.includes("group by status")) {
+          const counts: Record<string, number> = {};
+          for (const o of _mockOrders) {
+            counts[o.status] = (counts[o.status] || 0) + 1;
+          }
+          return Object.entries(counts).map(([status, count]) => ({ status, count }));
+        }
+
+        if (lower.includes("group by payment_status")) {
+          const counts: Record<string, number> = {};
+          for (const o of _mockOrders) {
+            counts[o.payment_status] = (counts[o.payment_status] || 0) + 1;
+          }
+          return Object.entries(counts).map(([payment_status, count]) => ({ payment_status, count }));
+        }
+
+        if (lower.includes("group by to_char(created_at")) {
+          const map: Record<string, { revenue: number; orders: number }> = {};
+          for (const o of _mockOrders) {
+            if (["Cancelled", "Returned", "Refunded"].includes(o.status)) continue;
+            const d = String(o.created_at || "").slice(0, 10);
+            if (!map[d]) map[d] = { revenue: 0, orders: 0 };
+            map[d].revenue += Number(o.total_amount || 0);
+            map[d].orders += 1;
+          }
+          return Object.entries(map).map(([date, val]) => ({ date, revenue: val.revenue, orders: val.orders }));
+        }
+
+        if (lower.includes("user_id::text =") || lower.includes("user_id =")) {
+          const uid = String(values[0] ?? "");
+          const email = String(values[1] ?? values[0] ?? "").toLowerCase().trim();
+          return _mockOrders.filter((o) => {
+            const oUid = String(o.user_id || "");
+            const oEmail = String(o.shipping_email || "").toLowerCase().trim();
+            return (uid && oUid === uid) || (email && oEmail === email) || (email && oUid === email);
+          });
+        }
+
+        if (lower.includes("id::text =") || lower.includes("id =")) {
+          const idVal = String(values[0] ?? "");
+          const match = _mockOrders.find((o) => String(o.id) === idVal || String(o.order_number) === idVal);
+          return match ? [match] : [];
+        }
+
+        return [..._mockOrders];
+      }
+
+      // INSERT INTO orders
+      if (lower.startsWith("insert into orders") || lower.includes("insert into orders")) {
+        const orderId = values[0] ? String(values[0]) : `ord_${Date.now()}`;
+        const newOrder = {
+          id: orderId,
+          user_id: values[1] ? String(values[1]) : null,
+          order_number: values[2] ? String(values[2]) : `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+          subtotal: Number(values[3] || 0),
+          discount_amount: Number(values[4] || 0),
+          discount_code: values[5] ? String(values[5]) : null,
+          shipping_charge: Number(values[6] || 0),
+          tax_amount: Number(values[7] || 0),
+          total_amount: Number(values[8] || 0),
+          currency: values[9] ? String(values[9]) : "INR",
+          status: values[10] ? String(values[10]) : "Pending",
+          payment_status: values[11] ? String(values[11]) : "Pending",
+          payment_method: values[12] ? String(values[12]) : "COD",
+          stock_state: values[13] ? String(values[13]) : "Normal",
+          shipping_name: values[14] ? String(values[14]) : "",
+          shipping_email: values[15] ? String(values[15]) : "",
+          shipping_phone: values[16] ? String(values[16]) : null,
+          shipping_address: values[17] ? String(values[17]) : "",
+          billing_address: values[18] ? String(values[18]) : null,
+          courier_name: null,
+          tracking_number: null,
+          tracking_url: null,
+          shipped_at: null,
+          delivered_at: null,
+          cancelled_at: null,
+          admin_notes: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        _mockOrders.unshift(newOrder);
+        return [{ id: orderId }];
+      }
+
+      // UPDATE orders
+      if (lower.startsWith("update orders") || lower.includes("update orders")) {
+        const idVal = String(values[values.length - 1] ?? "");
+        const targetIds = Array.isArray(values[0]) ? values[0].map(String) : [idVal];
+        for (const o of _mockOrders) {
+          if (targetIds.includes(String(o.id)) || String(o.id) === idVal) {
+            if (lower.includes("status =")) {
+              const match = queryStr.match(/status\s*=\s*'([^']+)'/i) || queryStr.match(/status\s*=\s*__VAL_(\d+)__/i);
+              if (match) {
+                o.status = match[1].startsWith("__") ? String(values[Number(match[1].replace(/\D/g, ""))]) : match[1];
+              } else if (values[0]) {
+                o.status = String(values[0]);
+              }
+              if (o.status === "Shipped" && !o.shipped_at) o.shipped_at = new Date().toISOString();
+              if (o.status === "Delivered" && !o.delivered_at) o.delivered_at = new Date().toISOString();
+              if (o.status === "Cancelled" && !o.cancelled_at) o.cancelled_at = new Date().toISOString();
+            }
+            if (lower.includes("payment_status =")) {
+              o.payment_status = String(values[0] ?? "Paid");
+            }
+            if (lower.includes("courier_name =")) {
+              o.courier_name = values[0] ? String(values[0]) : null;
+            }
+            if (lower.includes("tracking_number =")) {
+              o.tracking_number = values[0] ? String(values[0]) : null;
+            }
+            if (lower.includes("tracking_url =")) {
+              o.tracking_url = values[0] ? String(values[0]) : null;
+            }
+            if (lower.includes("admin_notes =")) {
+              o.admin_notes = values[0] ? String(values[0]) : null;
+            }
+            if (lower.includes("stock_state =")) {
+              o.stock_state = String(values[0] ?? "Normal");
+            }
+            o.updated_at = new Date().toISOString();
+          }
+        }
+        return [{ id: idVal }];
+      }
+
+      // SELECT from order_items
+      if (lower.includes("from order_items")) {
+        if (lower.includes("oi.product_name") && lower.includes("group by oi.product_name")) {
+          const map: Record<string, { units: number; revenue: number }> = {};
+          for (const item of _mockOrderItems) {
+            const name = item.product_name || "Product";
+            if (!map[name]) map[name] = { units: 0, revenue: 0 };
+            map[name].units += Number(item.quantity || 1);
+            map[name].revenue += Number(item.subtotal || 0);
+          }
+          return Object.entries(map).map(([name, val]) => ({ name, units: val.units, revenue: val.revenue }));
+        }
+
+        if (lower.includes("order_id::text =") || lower.includes("order_id =")) {
+          const oId = String(values[0] ?? "");
+          return _mockOrderItems.filter((i) => String(i.order_id) === oId);
+        }
+
+        return [..._mockOrderItems];
+      }
+
+      // INSERT INTO order_items
+      if (lower.startsWith("insert into order_items") || lower.includes("insert into order_items")) {
+        const itemId = values[0] ? String(values[0]) : `item_${Date.now()}`;
+        const newItem = {
+          id: itemId,
+          order_id: values[1] ? String(values[1]) : "",
+          product_id: values[2] ? String(values[2]) : null,
+          variant_id: values[3] ? String(values[3]) : null,
+          design_submission_id: values[4] ? String(values[4]) : null,
+          product_name: values[5] ? String(values[5]) : "Item",
+          product_image: values[6] ? String(values[6]) : null,
+          quantity: Number(values[7] || 1),
+          price: Number(values[8] || 0),
+          selected_size: values[9] ? String(values[9]) : null,
+          selected_color: values[10] ? String(values[10]) : null,
+          subtotal: Number(values[11] || 0),
+          created_at: new Date().toISOString(),
+        };
+        _mockOrderItems.push(newItem);
+        return [{ id: itemId }];
+      }
+
+      // SELECT from returns
+      if (lower.includes("from returns")) {
+        return [..._mockReturns];
+      }
+
+      // INSERT INTO returns
+      if (lower.startsWith("insert into returns") || lower.includes("insert into returns")) {
+        const id = values[0] ? String(values[0]) : `ret_${Date.now()}`;
+        const newRet = { id, created_at: new Date().toISOString() };
+        _mockReturns.unshift(newRet);
+        return [{ id }];
+      }
+
+      // SELECT from reviews
+      if (lower.includes("from reviews")) {
+        return [..._mockReviews];
+      }
+
+      // INSERT INTO reviews
+      if (lower.startsWith("insert into reviews") || lower.includes("insert into reviews")) {
+        const id = values[0] ? String(values[0]) : `rev_${Date.now()}`;
+        const newRev = { id, created_at: new Date().toISOString() };
+        _mockReviews.unshift(newRev);
+        return [{ id }];
+      }
+
+      // SELECT from design_submissions
+      if (lower.includes("from design_submissions")) {
+        return [..._mockDesignSubmissions];
+      }
+
+      // INSERT INTO design_submissions
+      if (lower.startsWith("insert into design_submissions") || lower.includes("insert into design_submissions")) {
+        const id = values[0] ? String(values[0]) : `des_${Date.now()}`;
+        const newDes = { id, created_at: new Date().toISOString() };
+        _mockDesignSubmissions.unshift(newDes);
+        return [{ id }];
+      }
+
+      // SELECT from inventory_transactions
+      if (lower.includes("from inventory_transactions")) {
+        return [..._mockInventoryTransactions];
+      }
+
+      // INSERT INTO inventory_transactions
+      if (lower.startsWith("insert into inventory_transactions") || lower.includes("insert into inventory_transactions")) {
+        const id = values[0] ? String(values[0]) : `itx_${Date.now()}`;
+        _mockInventoryTransactions.unshift({ id, created_at: new Date().toISOString() });
+        return [{ id }];
+      }
+
+      // SELECT from profiles
+      if (lower.includes("from profiles")) {
+        return [
+          {
+            id: "usr_admin_1",
+            email: "admin@riotous.store",
+            full_name: "Admin User",
+            role: "admin",
+            status: "Active",
+            created_at: new Date().toISOString(),
+          },
+        ];
+      }
+
       return [];
     };
 
@@ -631,6 +1071,13 @@ export async function ensureDbSchema() {
           SELECT 
             to_regclass('public.products') IS NOT NULL AS has_products,
             to_regclass('public.profiles') IS NOT NULL AS has_profiles,
+            to_regclass('public.orders') IS NOT NULL AS has_orders,
+            to_regclass('public.order_items') IS NOT NULL AS has_order_items,
+            to_regclass('public.returns') IS NOT NULL AS has_returns,
+            to_regclass('public.return_settings') IS NOT NULL AS has_return_settings,
+            to_regclass('public.reviews') IS NOT NULL AS has_reviews,
+            to_regclass('public.design_submissions') IS NOT NULL AS has_design_submissions,
+            to_regclass('public.inventory_transactions') IS NOT NULL AS has_inv_tx,
             to_regclass('public.website_published') IS NOT NULL AS has_website,
             to_regclass('public.store_settings') IS NOT NULL AS has_settings,
             to_regclass('public.coupons') IS NOT NULL AS has_coupons,
@@ -638,10 +1085,162 @@ export async function ensureDbSchema() {
             to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates
         `;
         const row = check?.[0];
-        if (row && (row.has_products || row.has_profiles || row.has_website || row.has_settings)) {
-          // Core database schema already exists.
-          // Check if newly introduced tables are missing and create only what is needed:
+        if (row && (row.has_products || row.has_profiles || row.has_orders || row.has_website || row.has_settings)) {
+          // Core database schema exists.
+          // Check if newly introduced or missing tables are needed and create only what is needed:
           const missingStatements: string[] = [];
+
+          if (!row.has_orders) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS orders (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                order_number TEXT UNIQUE NOT NULL,
+                subtotal NUMERIC NOT NULL DEFAULT 0,
+                discount_amount NUMERIC NOT NULL DEFAULT 0,
+                discount_code TEXT,
+                shipping_charge NUMERIC NOT NULL DEFAULT 0,
+                tax_amount NUMERIC NOT NULL DEFAULT 0,
+                total_amount NUMERIC NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT 'INR',
+                status TEXT NOT NULL DEFAULT 'Pending',
+                payment_status TEXT NOT NULL DEFAULT 'Pending',
+                payment_method TEXT NOT NULL DEFAULT 'COD',
+                stock_state TEXT DEFAULT 'Normal',
+                shipping_name TEXT NOT NULL,
+                shipping_email TEXT NOT NULL,
+                shipping_phone TEXT,
+                shipping_address TEXT NOT NULL,
+                billing_address TEXT,
+                courier_name TEXT,
+                tracking_number TEXT,
+                tracking_url TEXT,
+                shipped_at TIMESTAMP WITH TIME ZONE,
+                delivered_at TIMESTAMP WITH TIME ZONE,
+                cancelled_at TIMESTAMP WITH TIME ZONE,
+                admin_notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
+            );
+          }
+
+          if (!row.has_order_items) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS order_items (
+                id TEXT PRIMARY KEY,
+                order_id TEXT,
+                product_id TEXT,
+                variant_id TEXT,
+                design_submission_id TEXT,
+                product_name TEXT NOT NULL,
+                product_image TEXT,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                price NUMERIC NOT NULL DEFAULT 0,
+                selected_size TEXT,
+                selected_color TEXT,
+                subtotal NUMERIC NOT NULL DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
+            );
+          }
+
+          if (!row.has_returns) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS returns (
+                id TEXT PRIMARY KEY,
+                return_number TEXT UNIQUE NOT NULL,
+                order_id TEXT,
+                order_item_id TEXT,
+                customer_id TEXT,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL DEFAULT 'Pending',
+                reason TEXT NOT NULL,
+                comments TEXT,
+                refund_amount NUMERIC DEFAULT 0,
+                items JSONB,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_returns_order_id ON returns (order_id)`,
+            );
+          }
+
+          if (!row.has_return_settings) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS return_settings (
+                id TEXT PRIMARY KEY DEFAULT 'default',
+                window_days INTEGER NOT NULL DEFAULT 7,
+                require_delivered BOOLEAN NOT NULL DEFAULT true,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+            );
+          }
+
+          if (!row.has_reviews) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS reviews (
+                id TEXT PRIMARY KEY,
+                product_id TEXT,
+                user_id TEXT,
+                author_name TEXT NOT NULL,
+                rating INTEGER NOT NULL DEFAULT 5,
+                title TEXT,
+                content TEXT NOT NULL,
+                is_verified_buyer BOOLEAN NOT NULL DEFAULT false,
+                status TEXT NOT NULL DEFAULT 'approved',
+                images JSONB NOT NULL DEFAULT '[]'::jsonb,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
+            );
+          }
+
+          if (!row.has_design_submissions) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS design_submissions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                customer_name TEXT,
+                customer_email TEXT,
+                color_name TEXT NOT NULL,
+                placement TEXT NOT NULL,
+                product_title TEXT,
+                variant_id TEXT,
+                price NUMERIC,
+                preview_data_url TEXT,
+                preview_images JSONB DEFAULT '[]'::jsonb,
+                canvases JSONB,
+                emailed_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+            );
+          }
+
+          if (!row.has_inv_tx) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS inventory_transactions (
+                id TEXT PRIMARY KEY,
+                product_id TEXT,
+                variant_id TEXT,
+                order_id TEXT,
+                quantity_change INTEGER NOT NULL,
+                previous_quantity INTEGER NOT NULL,
+                new_quantity INTEGER NOT NULL,
+                transaction_type TEXT NOT NULL,
+                reason TEXT,
+                created_by TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_inv_tx_order_id ON inventory_transactions (order_id)`,
+            );
+          }
+
           if (!row.has_coupons) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS coupons (
@@ -673,6 +1272,7 @@ export async function ensureDbSchema() {
               `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
             );
           }
+
           if (!row.has_coupon_usage) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS coupon_usage (
@@ -689,14 +1289,9 @@ export async function ensureDbSchema() {
               `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
               `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
               `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
-              `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
             );
           }
+
           if (!row.has_amazon_templates) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS amazon_export_templates (
@@ -715,6 +1310,7 @@ export async function ensureDbSchema() {
               `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
             );
           }
+
           if (!row.has_website) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS website_published (
@@ -743,6 +1339,7 @@ export async function ensureDbSchema() {
               )`,
             );
           }
+
           if (!row.has_settings) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS store_settings (
@@ -755,12 +1352,44 @@ export async function ensureDbSchema() {
               `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
             );
           }
+
+          // Ensure columns on existing tables are present
+          missingStatements.push(
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_url TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipped_at TIMESTAMP WITH TIME ZONE`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_state TEXT DEFAULT 'Normal'`,
+            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS design_submission_id TEXT`,
+            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_size TEXT`,
+            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_color TEXT`,
+            `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS subtotal NUMERIC DEFAULT 0`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'customer'`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active'`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS state TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS postal_code TEXT`,
+            `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country TEXT`,
+          );
+
           if (missingStatements.length > 0) {
             for (const stmt of missingStatements) {
               try {
                 await runDdlStatement(sql, stmt);
               } catch (stmtErr: any) {
-                console.warn("[Neon DB] Missing table DDL warning:", stmtErr?.message || stmtErr);
+                console.warn("[Neon DB] Missing table/column DDL warning:", stmtErr?.message || stmtErr);
               }
             }
           }

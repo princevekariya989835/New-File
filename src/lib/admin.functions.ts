@@ -765,7 +765,6 @@ export const adminListOrders = createServerFn({ method: "GET" })
 
       if (orders.length === 0) return [];
 
-      const orderIds = orders.map((o: any) => String(o.id));
       const items = await sql`
         SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
           i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
@@ -773,9 +772,11 @@ export const adminListOrders = createServerFn({ method: "GET" })
           d.preview_images as design_preview_images,
           p.images as product_images_json
         FROM order_items i
-        LEFT JOIN design_submissions d ON i.design_submission_id = d.id
+        LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
         LEFT JOIN products p ON i.product_id::text = p.id::text
-        WHERE i.order_id::text = ANY(${orderIds}::text[])
+        WHERE i.order_id IN (
+          SELECT id FROM orders ORDER BY created_at DESC LIMIT 500
+        )
       `;
 
       const itemsByOrderId = new Map<string, AdminOrderItem[]>();
@@ -784,6 +785,20 @@ export const adminListOrders = createServerFn({ method: "GET" })
         if (!itemsByOrderId.has(oId)) itemsByOrderId.set(oId, []);
         const pImages = Array.isArray(item.product_images_json) ? item.product_images_json : [];
         const fallbackImg = typeof pImages[0] === "string" ? pImages[0] : pImages[0]?.url || null;
+
+        let parsedPreviewImages: Record<string, string> | null = null;
+        if (item.design_preview_images) {
+          if (typeof item.design_preview_images === "object") {
+            parsedPreviewImages = item.design_preview_images;
+          } else if (typeof item.design_preview_images === "string") {
+            try {
+              parsedPreviewImages = JSON.parse(item.design_preview_images);
+            } catch {
+              parsedPreviewImages = null;
+            }
+          }
+        }
+
         itemsByOrderId.get(oId)!.push({
           id: String(item.id),
           product_id: item.product_id ? String(item.product_id) : null,
@@ -796,11 +811,7 @@ export const adminListOrders = createServerFn({ method: "GET" })
           subtotal: Number(item.subtotal || 0),
           design_submission_id: (item.design_submission_id as string) || null,
           design_preview: (item.design_preview as string) || null,
-          design_preview_images: item.design_preview_images
-            ? typeof item.design_preview_images === "string"
-              ? JSON.parse(item.design_preview_images)
-              : item.design_preview_images
-            : null,
+          design_preview_images: parsedPreviewImages,
         });
       }
 
@@ -833,9 +844,9 @@ export const adminListOrders = createServerFn({ method: "GET" })
         admin_notes: o.admin_notes || null,
         items: itemsByOrderId.get(String(o.id)) || [],
       }));
-    } catch (err) {
-      console.warn("[Admin] adminListOrders error:", err);
-      return [];
+    } catch (err: any) {
+      console.error("[Admin] adminListOrders error:", err);
+      throw new Error(err?.message || "Failed to load orders from database");
     }
   });
 
@@ -859,7 +870,7 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     const authCtx = context as any;
 
     if (data.status) {
-      if (data.status === "Cancelled" || data.status === "Returned") {
+      if (data.status === "Cancelled" || data.status === "Returned" || data.status === "Refunded") {
         await restoreOrderInventory(
           data.orderId,
           `Admin set status to ${data.status}`,
@@ -867,7 +878,15 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
         );
         if (data.status === "Returned") {
           await sql`UPDATE orders SET status = 'Returned', updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+        } else if (data.status === "Refunded") {
+          await sql`UPDATE orders SET status = 'Refunded', payment_status = 'Refunded', updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+        } else if (data.status === "Cancelled") {
+          await sql`UPDATE orders SET status = 'Cancelled', cancelled_at = COALESCE(cancelled_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
         }
+      } else if (data.status === "Shipped") {
+        await sql`UPDATE orders SET status = 'Shipped', shipped_at = COALESCE(shipped_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+      } else if (data.status === "Delivered") {
+        await sql`UPDATE orders SET status = 'Delivered', delivered_at = COALESCE(delivered_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
       } else {
         await sql`UPDATE orders SET status = ${data.status}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
       }
@@ -904,7 +923,7 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
     const authCtx = context as any;
     if (!data.orderIds.length) return { ok: true, updated: 0 };
 
-    if (data.status === "Cancelled" || data.status === "Returned") {
+    if (data.status === "Cancelled" || data.status === "Returned" || data.status === "Refunded") {
       for (const orderId of data.orderIds) {
         await restoreOrderInventory(
           orderId,
@@ -912,19 +931,25 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
           authCtx.userId,
         );
       }
-      if (data.status === "Returned") {
-        await sql`
-          UPDATE orders
-          SET status = 'Returned', updated_at = NOW()
-          WHERE id::text = ANY(${data.orderIds}::text[])
-        `;
+      for (const orderId of data.orderIds) {
+        if (data.status === "Returned") {
+          await sql`UPDATE orders SET status = 'Returned', updated_at = NOW() WHERE id::text = ${orderId}`;
+        } else if (data.status === "Refunded") {
+          await sql`UPDATE orders SET status = 'Refunded', payment_status = 'Refunded', updated_at = NOW() WHERE id::text = ${orderId}`;
+        } else if (data.status === "Cancelled") {
+          await sql`UPDATE orders SET status = 'Cancelled', cancelled_at = COALESCE(cancelled_at, NOW()), updated_at = NOW() WHERE id::text = ${orderId}`;
+        }
       }
     } else {
-      await sql`
-        UPDATE orders
-        SET status = ${data.status}, updated_at = NOW()
-        WHERE id::text = ANY(${data.orderIds}::text[])
-      `;
+      for (const orderId of data.orderIds) {
+        if (data.status === "Shipped") {
+          await sql`UPDATE orders SET status = 'Shipped', shipped_at = COALESCE(shipped_at, NOW()), updated_at = NOW() WHERE id::text = ${orderId}`;
+        } else if (data.status === "Delivered") {
+          await sql`UPDATE orders SET status = 'Delivered', delivered_at = COALESCE(delivered_at, NOW()), updated_at = NOW() WHERE id::text = ${orderId}`;
+        } else {
+          await sql`UPDATE orders SET status = ${data.status}, updated_at = NOW() WHERE id::text = ${orderId}`;
+        }
+      }
     }
 
     await logAudit(context as any, "order.bulk_update", "order", null, {

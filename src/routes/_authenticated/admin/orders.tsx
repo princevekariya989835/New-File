@@ -21,9 +21,24 @@ import { money, dateTime, STATUS_TONE } from "@/components/admin/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp, Printer, Download, Package, AlertTriangle, ExternalLink } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  Download,
+  Package,
+  AlertTriangle,
+  ExternalLink,
+  RefreshCw,
+  Truck,
+  Clock,
+  Calendar,
+  MapPin,
+  Mail,
+  Phone,
+  User,
+  CreditCard,
+} from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 type Search = { q?: string; status?: string; payment?: string; from?: string; to?: string };
@@ -454,7 +469,18 @@ function OrdersPage() {
         </div>
       )}
 
-      {ordersQ.isLoading ? (
+      {ordersQ.isError ? (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-8 text-center space-y-3">
+          <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
+          <h3 className="font-semibold text-lg text-destructive">Failed to load orders from database</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            {(ordersQ.error as Error)?.message || "A database query or authorization error occurred while fetching orders."}
+          </p>
+          <Button variant="outline" className="gap-2" onClick={() => ordersQ.refetch()}>
+            <RefreshCw className="h-4 w-4" /> Retry loading orders
+          </Button>
+        </div>
+      ) : ordersQ.isLoading ? (
         <div className="space-y-3 animate-pulse">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
@@ -483,155 +509,301 @@ function OrdersPage() {
             </div>
           ))}
         </div>
+      ) : orders.length === 0 ? (
+        <div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
+          <Package className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+          <h3 className="font-semibold text-lg">No orders yet</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            When customer purchases are made on the live RIOTOUS storefront, orders will be recorded and displayed here in real time.
+          </p>
+        </div>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground">No orders match these filters.</p>
+        <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
+          <p className="font-medium text-foreground">No orders match these filters.</p>
+          <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different status filter.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ search: {}, replace: true })}
+          >
+            Clear all filters
+          </Button>
+        </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((o) => (
-            <div key={o.id} className="rounded-xl border bg-card">
-              <div className="flex flex-wrap items-center gap-3 p-4">
-                <input
-                  type="checkbox"
-                  aria-label={`Select ${o.order_number}`}
-                  checked={selected.includes(o.id)}
-                  onChange={(e) =>
-                    setSelected((s) =>
-                      e.target.checked ? [...s, o.id] : s.filter((x) => x !== o.id),
-                    )
-                  }
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{o.order_number}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[o.status] ?? "bg-muted"}`}
-                    >
-                      {o.status}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONE[o.payment_status] ?? "bg-muted"}`}
-                    >
-                      {o.payment_status}
-                    </span>
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {dateTime(o.created_at)} · {o.shipping_name} · {o.shipping_email}
-                    {o.shipping_phone ? ` · ${o.shipping_phone}` : ""}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold">{money(o.total_amount, o.currency)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {(o.items ?? []).length} item(s)
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1"
-                    onClick={() => {
-                      const w = window.open("", "_blank", "width=820,height=900");
-                      if (!w) return toast.error("Allow pop-ups to print invoices");
-                      w.document.write(invoiceHtml(o));
-                      w.document.close();
-                    }}
-                  >
-                    <Printer className="h-3.5 w-3.5" /> Invoice
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setExpanded(expanded === o.id ? null : o.id)}
-                  >
-                    {expanded === o.id ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+          {filtered.map((o) => {
+            const d = new Date(o.created_at);
+            const dateStr = !isNaN(d.getTime())
+              ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+              : o.created_at;
+            const timeStr = !isNaN(d.getTime())
+              ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+              : "";
+            const totalQuantity = (o.items ?? []).reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
+            const shippingStatusLabel = o.courier_name && o.tracking_number
+              ? `${o.courier_name} (${o.tracking_number})`
+              : o.status === "Delivered"
+                ? "Delivered to Customer"
+                : o.status === "Shipped"
+                  ? "In Transit / Dispatched"
+                  : o.status === "Cancelled"
+                    ? "Order Cancelled"
+                    : o.status === "Returned"
+                      ? "Item Returned"
+                      : o.status === "Refunded"
+                        ? "Refund Completed"
+                        : "Pending Dispatch";
 
-              {expanded === o.id && (
-                <div className="grid gap-6 border-t p-4 lg:grid-cols-2">
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold uppercase text-muted-foreground">Items</h3>
-                    {o.items.map((i) => {
-                      const sides = Object.entries(i.design_preview_images ?? {}).filter(
-                        ([, url]) => typeof url === "string" && url.startsWith("data:image/"),
-                      );
-                      if (sides.length === 0 && i.design_preview) {
-                        sides.push(["Design", i.design_preview]);
-                      }
-
-                      return (
-                        <div key={i.id} className="space-y-2 rounded-lg border border-border p-3">
-                          <div className="flex items-center gap-3 text-sm">
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{i.product_name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {[i.selected_size, i.selected_color].filter(Boolean).join(" · ")}
-                                {i.design_submission_id ? " · custom design" : ""}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">×{i.quantity}</div>
-                            <div className="w-20 text-right font-medium">
-                              {money(i.subtotal, o.currency)}
-                            </div>
-                          </div>
-
-                          {sides.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-3">
-                              {sides.map(([side, url]) => (
-                                <a
-                                  key={side}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="relative block overflow-hidden rounded-lg border bg-muted"
-                                  title={`View ${side} design`}
-                                >
-                                  <img
-                                    src={url}
-                                    alt={`${side} design`}
-                                    className="h-24 w-20 object-contain p-1"
-                                  />
-                                  <span className="absolute left-1 top-1 rounded bg-background/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
-                                    {side}
-                                  </span>
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <div className="space-y-1 border-t pt-3 text-sm">
-                      <Row
-                        label="Subtotal"
-                        value={money(o.subtotal || o.total_amount, o.currency)}
+            return (
+              <div key={o.id} className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                <div className="p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${o.order_number}`}
+                        checked={selected.includes(o.id)}
+                        onChange={(e) =>
+                          setSelected((s) =>
+                            e.target.checked ? [...s, o.id] : s.filter((x) => x !== o.id),
+                          )
+                        }
                       />
-                      <Row label="Discount" value={`-${money(o.discount_amount, o.currency)}`} />
-                      <Row label="Shipping" value={money(o.shipping_charge, o.currency)} />
-                      <Row label="Tax" value={money(o.tax_amount, o.currency)} />
-                      <Row label="Total" value={money(o.total_amount, o.currency)} bold />
+                      <span className="font-mono font-bold text-base tracking-tight">{o.order_number}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.status] ?? "bg-muted text-foreground"}`}>
+                        {o.status}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.payment_status] ?? "bg-muted text-foreground"}`}>
+                        {o.payment_status}
+                      </span>
+                      <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+                        <Truck className="h-3 w-3" /> {shippingStatusLabel}
+                      </span>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      <div className="font-medium text-foreground">Shipping address</div>
-                      <div className="whitespace-pre-line">{o.shipping_address}</div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="text-right mr-2">
+                        <div className="font-bold text-base text-foreground">{money(o.total_amount, o.currency)}</div>
+                        <div className="text-[11px] text-muted-foreground">{totalQuantity} item(s)</div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 h-8 text-xs"
+                        onClick={() => {
+                          const w = window.open("", "_blank", "width=820,height=900");
+                          if (!w) return toast.error("Allow pop-ups to print invoices");
+                          w.document.write(invoiceHtml(o));
+                          w.document.close();
+                        }}
+                      >
+                        <Printer className="h-3.5 w-3.5" /> Invoice
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setExpanded(expanded === o.id ? null : o.id)}
+                      >
+                        {expanded === o.id ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
 
-                  <OrderControls
-                    order={o}
-                    onSave={(p) => update.mutate(p)}
-                    busy={update.isPending}
-                  />
+                  {/* Customer, Date, Time, and Products Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-medium text-foreground flex items-center gap-1">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" /> {o.shipping_name}
+                      </span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" /> {o.shipping_email}
+                      </span>
+                      {o.shipping_phone && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" /> {o.shipping_phone}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" /> {dateStr}
+                      </span>
+                      {timeStr && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {timeStr}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Products, Quantity, Size, Color summary */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(o.items ?? []).map((item, idx) => (
+                      <div
+                        key={item.id || idx}
+                        className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1 text-xs"
+                      >
+                        <span className="font-medium text-foreground">{item.product_name}</span>
+                        <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-semibold border">
+                          Qty: {item.quantity}
+                        </span>
+                        {item.selected_size && (
+                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
+                            Size: {item.selected_size}
+                          </span>
+                        )}
+                        {item.selected_color && (
+                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
+                            Color: {item.selected_color}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {expanded === o.id && (
+                  <div className="grid gap-6 border-t p-5 lg:grid-cols-2 bg-muted/10">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                          Order Line Items
+                        </h3>
+                        <div className="space-y-2">
+                          {(o.items ?? []).map((i) => {
+                            const sides = Object.entries(i.design_preview_images ?? {}).filter(
+                              ([, url]) => typeof url === "string" && url.startsWith("data:image/"),
+                            );
+                            if (sides.length === 0 && i.design_preview) {
+                              sides.push(["Design", i.design_preview]);
+                            }
+
+                            return (
+                              <div key={i.id} className="rounded-lg border bg-card p-3 space-y-2">
+                                <div className="flex items-start gap-3">
+                                  {i.product_image ? (
+                                    <img
+                                      src={i.product_image}
+                                      alt={i.product_name}
+                                      className="h-14 w-12 rounded object-contain bg-muted border shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="h-14 w-12 rounded bg-muted flex items-center justify-center border shrink-0">
+                                      <Package className="h-5 w-5 text-muted-foreground/50" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-sm truncate">{i.product_name}</div>
+                                    <div className="text-xs text-muted-foreground flex flex-wrap gap-2 mt-0.5">
+                                      {i.selected_size && <span>Size: <strong>{i.selected_size}</strong></span>}
+                                      {i.selected_color && <span>Color: <strong>{i.selected_color}</strong></span>}
+                                      {i.design_submission_id && <span className="text-brand-red font-medium">Custom Artwork</span>}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Unit Price: {money(i.price, o.currency)} × {i.quantity}
+                                    </div>
+                                  </div>
+                                  <div className="text-right font-bold text-sm">
+                                    {money(i.subtotal, o.currency)}
+                                  </div>
+                                </div>
+
+                                {sides.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t">
+                                    {sides.map(([side, url]) => (
+                                      <a
+                                        key={side}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="relative block overflow-hidden rounded-md border bg-muted"
+                                        title={`View ${side} design`}
+                                      >
+                                        <img
+                                          src={url}
+                                          alt={`${side} design`}
+                                          className="h-16 w-16 object-contain p-1"
+                                        />
+                                        <span className="absolute left-1 top-1 rounded bg-background/90 px-1 py-0.5 text-[8px] font-semibold uppercase">
+                                          {side}
+                                        </span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Financial Totals */}
+                      <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">
+                        <Row label="Subtotal" value={money(o.subtotal || o.total_amount, o.currency)} />
+                        {o.discount_amount > 0 && (
+                          <Row
+                            label={`Discount${o.discount_code ? ` (${o.discount_code})` : ""}`}
+                            value={`-${money(o.discount_amount, o.currency)}`}
+                          />
+                        )}
+                        <Row label="Shipping" value={o.shipping_charge > 0 ? money(o.shipping_charge, o.currency) : "FREE"} />
+                        <Row label="Tax" value={money(o.tax_amount, o.currency)} />
+                        <div className="border-t pt-2">
+                          <Row label="Grand Total" value={money(o.total_amount, o.currency)} bold />
+                        </div>
+                      </div>
+
+                      {/* Customer Addresses */}
+                      <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                        <div className="rounded-lg border bg-card p-3 space-y-1">
+                          <div className="font-semibold text-foreground flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5 text-brand-red" /> Shipping Address
+                          </div>
+                          <div className="font-medium text-foreground">{o.shipping_name}</div>
+                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
+                            {o.shipping_address}
+                          </div>
+                          {o.shipping_phone && <div className="text-muted-foreground pt-1">{o.shipping_phone}</div>}
+                        </div>
+
+                        <div className="rounded-lg border bg-card p-3 space-y-1">
+                          <div className="font-semibold text-foreground flex items-center gap-1">
+                            <CreditCard className="h-3.5 w-3.5 text-brand-red" /> Billing Address
+                          </div>
+                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
+                            {o.billing_address || o.shipping_address}
+                          </div>
+                          <div className="pt-1 text-muted-foreground">
+                            Payment Method: <strong>{o.payment_method}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <OrderControls
+                      order={o}
+                      onSave={(p) => update.mutate(p)}
+                      busy={update.isPending}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

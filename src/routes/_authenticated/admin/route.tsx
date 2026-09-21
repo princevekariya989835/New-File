@@ -50,6 +50,7 @@ import {
   UserCog,
   Settings,
   Ticket,
+  Activity,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -85,6 +86,7 @@ const NAV: Array<{
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/staff", label: "Staff", icon: UserCog },
   { to: "/admin/settings", label: "Settings", icon: Settings },
+  { to: "/admin/health", label: "System Health", icon: Activity },
   { to: "/admin/activity", label: "Activity log", icon: ScrollText },
 ];
 
