@@ -28,6 +28,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as ProductHandleRouteImport } from './routes/product.$handle'
+import { Route as TrackingWebhookRouteImport } from './routes/tracking.webhook'
 import { Route as AuthenticatedAccountFavoritesRouteImport } from './routes/_authenticated/account.favorites'
 import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
 import { Route as AuthenticatedAccountReturnsRouteImport } from './routes/_authenticated/account.returns'
@@ -153,6 +154,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const ProductHandleRoute = ProductHandleRouteImport.update({
   id: '/product/$handle',
   path: '/product/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackingWebhookRoute = TrackingWebhookRouteImport.update({
+  id: '/tracking/webhook',
+  path: '/tracking/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAccountFavoritesRoute =
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
+  '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -407,6 +414,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
+  '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -461,6 +469,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/auth_/callback': typeof AuthCallbackRoute
   '/product/$handle': typeof ProductHandleRoute
+  '/tracking/webhook': typeof TrackingWebhookRoute
   '/_authenticated/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/_authenticated/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -515,6 +524,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth/callback'
     | '/product/$handle'
+    | '/tracking/webhook'
     | '/account/favorites'
     | '/account/orders'
     | '/account/returns'
@@ -566,6 +576,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/auth/callback'
     | '/product/$handle'
+    | '/tracking/webhook'
     | '/account/favorites'
     | '/account/orders'
     | '/account/returns'
@@ -619,6 +630,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/auth_/callback'
     | '/product/$handle'
+    | '/tracking/webhook'
     | '/_authenticated/account/favorites'
     | '/_authenticated/account/orders'
     | '/_authenticated/account/returns'
@@ -672,6 +684,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   ProductHandleRoute: typeof ProductHandleRoute
+  TrackingWebhookRoute: typeof TrackingWebhookRoute
   ApiMediaIdRoute: typeof ApiMediaIdRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicProductImageRoute: typeof ApiPublicProductImageRoute
@@ -816,6 +829,13 @@ declare module '@tanstack/react-router' {
       path: '/product/$handle'
       fullPath: '/product/$handle'
       preLoaderRoute: typeof ProductHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tracking/webhook': {
+      id: '/tracking/webhook'
+      path: '/tracking/webhook'
+      fullPath: '/tracking/webhook'
+      preLoaderRoute: typeof TrackingWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/account/favorites': {
@@ -1133,6 +1153,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   ProductHandleRoute: ProductHandleRoute,
+  TrackingWebhookRoute: TrackingWebhookRoute,
   ApiMediaIdRoute: ApiMediaIdRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicProductImageRoute: ApiPublicProductImageRoute,
