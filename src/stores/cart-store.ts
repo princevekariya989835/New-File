@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { getMyCart, saveMyCart } from "@/lib/cart.functions";
+import { saveMyCart } from "@/lib/cart.functions";
 
 export interface CartItem {
   /** Stable key: `${productId}|${size}|${color}` (custom designs append the design id). */
@@ -132,39 +132,12 @@ export const useCartStore = create<CartStore>()(
         try {
           const token = getSessionToken();
           if (!token) return;
-          const remote = await getMyCart({
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch((err: unknown) => {
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            if (errorMsg.includes("Unauthorized") || errorMsg.includes("401")) {
-              safeStorage.removeItem("riotous_session");
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("riotous_auth_changed"));
-              }
-            }
-            return [] as CartItem[];
-          });
-          const safeRemote = Array.isArray(remote) ? remote : [];
-          const local = Array.isArray(get().items) ? get().items : [];
-          if (local.length === 0) {
-            set({ items: safeRemote });
-            return;
-          }
-          const merged = [...safeRemote];
-          for (const item of local) {
-            if (!item?.variantId) continue;
-            const idx = merged.findIndex((i) => i?.variantId === item.variantId);
-            if (idx >= 0)
-              merged[idx] = {
-                ...merged[idx],
-                quantity: Math.max(Number(merged[idx]?.quantity) || 1, Number(item?.quantity) || 1),
-              };
-            else merged.push(item);
-          }
-          set({ items: merged });
-          await persistRemote(merged);
+          // STRICT RULE: NO USER ACTION = NO CART MUTATION.
+          // Only persist the user's authoritative local cart to remote storage if authenticated.
+          // Never fetch or inject remote products into the local cart automatically.
+          const currentItems = Array.isArray(get().items) ? get().items : [];
+          await persistRemote(currentItems);
         } catch (e: unknown) {
-          // Handled gracefully
           console.warn("syncCart warning:", e);
         } finally {
           set({ isSyncing: false });
@@ -188,9 +161,44 @@ export const useCartStore = create<CartStore>()(
       storage: createJSONStorage(() => safeStorage),
       partialize: (s) => ({ items: Array.isArray(s?.items) ? s.items : [] }),
       onRehydrateStorage: () => (state) => {
-        if (state && !Array.isArray(state.items)) {
-          state.items = [];
+        if (!state || !Array.isArray(state.items)) {
+          if (state) state.items = [];
+          return;
         }
+        // Validate restored items from localStorage:
+        // Must be valid objects with non-empty variantId, valid price, and positive quantity.
+        // Never call addItem or add any new product during restoration.
+        const validated: CartItem[] = [];
+        const seenVariantIds = new Set<string>();
+
+        for (const raw of state.items) {
+          if (!raw || typeof raw !== "object") continue;
+          const variantId = typeof raw.variantId === "string" ? raw.variantId.trim() : "";
+          if (!variantId || seenVariantIds.has(variantId)) continue;
+
+          const quantity = Math.floor(Number(raw.quantity));
+          if (!quantity || quantity <= 0 || isNaN(quantity)) continue;
+
+          const amount = raw.price?.amount != null ? String(raw.price.amount) : "0";
+          const currencyCode = raw.price?.currencyCode || "INR";
+
+          seenVariantIds.add(variantId);
+          validated.push({
+            variantId,
+            productId: typeof raw.productId === "string" ? raw.productId : null,
+            productHandle: typeof raw.productHandle === "string" ? raw.productHandle : "",
+            productTitle: typeof raw.productTitle === "string" ? raw.productTitle : "Product",
+            variantTitle: typeof raw.variantTitle === "string" ? raw.variantTitle : "",
+            imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : null,
+            price: { amount, currencyCode },
+            quantity,
+            selectedOptions: Array.isArray(raw.selectedOptions) ? raw.selectedOptions : [],
+            attributes: Array.isArray(raw.attributes) ? raw.attributes : undefined,
+            designSubmissionId:
+              typeof raw.designSubmissionId === "string" ? raw.designSubmissionId : null,
+          });
+        }
+        state.items = validated;
       },
     },
   ),
