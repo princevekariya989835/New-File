@@ -85,8 +85,6 @@ export function CartDrawer() {
                 <p className="text-sm text-muted-foreground">{emptySub}</p>
               </div>
             </div>
-              </div>
-            </div>
           ) : (
             <>
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
