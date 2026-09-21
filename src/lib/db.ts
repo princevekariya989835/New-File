@@ -24,6 +24,33 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
   })),
 );
 
+let _mockProfiles: any[] = [
+  {
+    id: "usr_admin_default",
+    email: "princevekariya9898@gmail.com",
+    password_hash: "28e75cfdc4bbd91da3c6046e9fc0a316b2cf771f286b2bb6ee8119eb1ea1e459",
+    full_name: "Prince Vekariya",
+    role: "Super Admin",
+    status: "Active",
+    permissions: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "usr_demo_customer",
+    email: "customer@example.com",
+    password_hash: "28e75cfdc4bbd91da3c6046e9fc0a316b2cf771f286b2bb6ee8119eb1ea1e459",
+    full_name: "Demo Customer",
+    role: "customer",
+    status: "Active",
+    permissions: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+let _mockEmailOtps: any[] = [];
+
 let _mockCoupons: any[] = [
   {
     id: "cpn_riotous10",
@@ -1084,6 +1111,118 @@ export function getSql() {
         return [{ id }];
       }
 
+      // SELECT from profiles
+      if (lower.includes("from profiles")) {
+        if (lower.includes("where id =") || lower.includes("where id::text =")) {
+          const targetId = String(values[0] ?? "").toLowerCase();
+          const p = _mockProfiles.find(
+            (u) => u.id.toLowerCase() === targetId || u.email.toLowerCase() === targetId,
+          );
+          return p ? [p] : [];
+        }
+        if (
+          lower.includes("where email =") ||
+          lower.includes("where lower(email) =") ||
+          lower.includes("email::text =") ||
+          lower.includes("lower(email) = lower(")
+        ) {
+          const targetEmail = String(values[0] ?? "").toLowerCase();
+          const p = _mockProfiles.find((u) => u.email.toLowerCase() === targetEmail);
+          return p ? [p] : [];
+        }
+        return [..._mockProfiles];
+      }
+
+      // INSERT INTO profiles
+      if (lower.startsWith("insert into profiles") || lower.includes("insert into profiles")) {
+        const id = values[0] ? String(values[0]) : `usr_${Date.now().toString(36)}`;
+        const email = values[1] ? String(values[1]).toLowerCase() : "";
+        const password_hash = values[2] ? String(values[2]) : "";
+        const full_name = values[3] ? String(values[3]) : null;
+        const role = values[4] ? String(values[4]) : "customer";
+        const status = values[5] ? String(values[5]) : "Active";
+        const existingIdx = _mockProfiles.findIndex((u) => u.email.toLowerCase() === email);
+        const newProf = {
+          id,
+          email,
+          password_hash,
+          full_name,
+          role,
+          status,
+          permissions: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (existingIdx >= 0) {
+          _mockProfiles[existingIdx] = { ..._mockProfiles[existingIdx], ...newProf };
+        } else {
+          _mockProfiles.push(newProf);
+        }
+        return [newProf];
+      }
+
+      // UPDATE profiles
+      if (lower.includes("update profiles")) {
+        const targetVal = String(values[values.length - 1] ?? "").toLowerCase();
+        const p = _mockProfiles.find(
+          (u) => u.email.toLowerCase() === targetVal || u.id.toLowerCase() === targetVal,
+        );
+        if (p) {
+          if (lower.includes("password_hash =")) {
+            p.password_hash = String(values[0] ?? p.password_hash);
+          }
+          p.updated_at = new Date().toISOString();
+        }
+        return [{ updated: 1 }];
+      }
+
+      // SELECT from email_otps
+      if (lower.includes("from email_otps")) {
+        const email = String(values[0] ?? "").toLowerCase();
+        const purpose = String(values[1] ?? "");
+        const otp = values[2] ? String(values[2]) : null;
+        const matched = _mockEmailOtps.filter((o) => {
+          if (o.email.toLowerCase() !== email) return false;
+          if (purpose && o.purpose !== purpose) return false;
+          if (otp && o.otp !== otp) return false;
+          return true;
+        });
+        return matched;
+      }
+
+      // INSERT INTO email_otps
+      if (lower.startsWith("insert into email_otps") || lower.includes("insert into email_otps")) {
+        const id = values[0] ? String(values[0]) : `otp_${Date.now().toString(36)}`;
+        const email = values[1] ? String(values[1]).toLowerCase() : "";
+        const otp = values[2] ? String(values[2]) : "";
+        const purpose = values[3] ? String(values[3]) : "signup";
+        const expires_at = values[4]
+          ? String(values[4])
+          : new Date(Date.now() + 600000).toISOString();
+        _mockEmailOtps = _mockEmailOtps.filter(
+          (o) => !(o.email.toLowerCase() === email && o.purpose === purpose),
+        );
+        _mockEmailOtps.push({
+          id,
+          email,
+          otp,
+          purpose,
+          expires_at,
+          created_at: new Date().toISOString(),
+        });
+        return [{ id }];
+      }
+
+      // DELETE FROM email_otps
+      if (lower.includes("delete from email_otps")) {
+        const email = String(values[0] ?? "").toLowerCase();
+        const purpose = values[1] ? String(values[1]) : "";
+        _mockEmailOtps = _mockEmailOtps.filter(
+          (o) => !(o.email.toLowerCase() === email && (purpose ? o.purpose === purpose : true)),
+        );
+        return [{ deleted: 1 }];
+      }
+
       return [];
     };
 
@@ -1126,6 +1265,7 @@ export async function ensureDbSchema() {
           SELECT 
             to_regclass('public.products') IS NOT NULL AS has_products,
             to_regclass('public.profiles') IS NOT NULL AS has_profiles,
+            to_regclass('public.email_otps') IS NOT NULL AS has_email_otps,
             to_regclass('public.orders') IS NOT NULL AS has_orders,
             to_regclass('public.order_items') IS NOT NULL AS has_order_items,
             to_regclass('public.returns') IS NOT NULL AS has_returns,
@@ -1145,6 +1285,45 @@ export async function ensureDbSchema() {
           // Core database schema exists.
           // Check if newly introduced or missing tables are needed and create only what is needed:
           const missingStatements: string[] = [];
+
+          if (!row.has_profiles) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS profiles (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT,
+                role TEXT NOT NULL DEFAULT 'customer',
+                phone TEXT,
+                avatar TEXT,
+                status TEXT DEFAULT 'Active',
+                permissions JSONB DEFAULT '{}'::jsonb,
+                address TEXT,
+                city TEXT,
+                state TEXT,
+                postal_code TEXT,
+                country TEXT,
+                last_login_at TIMESTAMP WITH TIME ZONE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles (LOWER(email))`
+            );
+          }
+
+          if (!row.has_email_otps) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS email_otps (
+                id TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                otp TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_email_otps_email ON email_otps (LOWER(email), purpose)`
+            );
+          }
 
           if (!row.has_email_logs) {
             missingStatements.push(

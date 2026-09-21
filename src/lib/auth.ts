@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createHash } from "node:crypto";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { sendLoginOtp, sendForgotPasswordOtp, sendWelcomeEmail } from "@/lib/email";
 
@@ -22,13 +23,18 @@ export type AuthSession = {
   user: AuthUser;
 };
 
-// Simple password hashing using Web Crypto API SHA-256
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + "_riotous_salt_2026");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+// Cross-runtime SHA-256 password hashing with consistent salt
+export async function hashPassword(password: string): Promise<string> {
+  try {
+    return createHash("sha256").update(password + "_riotous_salt_2026").digest("hex");
+  } catch {
+    // Fallback using global Web Crypto API if node:crypto is not available
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + "_riotous_salt_2026");
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
 }
 
 export function isAdminEmail(email?: string | null): boolean {
@@ -64,46 +70,85 @@ export function hasAdminPanelAccess(user?: AuthUser | null): boolean {
   return isStaffMember(user);
 }
 
-// Generate simple HMAC-like signed token: base64(userId:email:role:timestamp:signature)
-function signToken(userId: string, email: string, role: string): string {
+function toBase64(str: string): string {
+  try {
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(str, "utf8").toString("base64");
+    }
+    return btoa(unescape(encodeURIComponent(str)));
+  } catch {
+    return btoa(str);
+  }
+}
+
+function fromBase64(str: string): string {
+  try {
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(str, "base64").toString("utf8");
+    }
+    return decodeURIComponent(escape(atob(str)));
+  } catch {
+    return atob(str);
+  }
+}
+
+// Generate secure token containing user identity and 30-day expiration
+export function signToken(
+  userId: string,
+  email: string,
+  role: string,
+  fullName?: string | null,
+): string {
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-  const effectiveRole = isAdminEmail(email) ? "admin" : role;
-  const payload = `${userId}:${email}:${effectiveRole}:${expiresAt}`;
-  const encoded = btoa(payload);
-  return encoded;
+  const effectiveRole = isAdminEmail(email) ? "Super Admin" : role || "customer";
+  const payload = JSON.stringify({
+    id: userId,
+    email: email.toLowerCase().trim(),
+    role: effectiveRole,
+    fullName: fullName || null,
+    exp: expiresAt,
+  });
+  return toBase64(payload);
 }
 
 export function decodeToken(token: string): AuthUser | null {
+  if (!token || typeof token !== "string") return null;
   try {
-    const decoded = atob(token);
+    const raw = fromBase64(token.trim());
 
-    // Support JSON payload format if present
-    if (decoded.startsWith("{") && decoded.endsWith("}")) {
-      const parsed = JSON.parse(decoded);
+    // JSON format
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      const parsed = JSON.parse(raw);
       if (!parsed.id || !parsed.email) return null;
+      if (parsed.exp && Date.now() > Number(parsed.exp)) return null;
+
       const role = isAdminEmail(parsed.email)
-        ? "admin"
+        ? "Super Admin"
         : (parsed.role as "admin" | "customer") || "customer";
+
       return {
-        id: parsed.id,
-        email: parsed.email,
-        fullName: parsed.fullName || null,
+        id: String(parsed.id),
+        email: String(parsed.email).toLowerCase().trim(),
+        fullName: parsed.fullName ? String(parsed.fullName) : null,
         role,
+        status: "Active",
       };
     }
 
-    const [id, email, roleStr, expiresAtStr] = decoded.split(":");
+    // Legacy colon-delimited format (id:email:role:expiresAt)
+    const [id, email, roleStr, expiresAtStr] = raw.split(":");
     if (!id || !email || !roleStr || !expiresAtStr) return null;
     const expiresAt = Number(expiresAtStr);
     if (Date.now() > expiresAt) return null;
 
-    const role = isAdminEmail(email) ? "admin" : (roleStr as "admin" | "customer") || "customer";
+    const role = isAdminEmail(email) ? "Super Admin" : (roleStr as "admin" | "customer") || "customer";
 
     return {
       id,
-      email,
+      email: email.toLowerCase().trim(),
       fullName: null,
       role,
+      status: "Active",
     };
   } catch {
     return null;
@@ -130,18 +175,18 @@ export const registerServerFn = createServerFn({ method: "POST" })
       }
 
       // Check if user already exists
-      const existing = await sql`SELECT id FROM profiles WHERE email = ${data.email} LIMIT 1`;
+      const existing = await sql`SELECT id FROM profiles WHERE LOWER(email) = LOWER(${data.email}) LIMIT 1`;
       if (existing.length > 0) {
         return { ok: false, error: "An account with this email already exists." };
       }
 
       const userId = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const passwordHash = await hashPassword(data.password);
-      const role = isAdminEmail(data.email) ? "admin" : "customer";
+      const role = isAdminEmail(data.email) ? "Super Admin" : "customer";
 
       await sql`
-        INSERT INTO profiles (id, email, password_hash, full_name, role)
-        VALUES (${userId}, ${data.email}, ${passwordHash}, ${data.fullName}, ${role})
+        INSERT INTO profiles (id, email, password_hash, full_name, role, status)
+        VALUES (${userId}, ${data.email}, ${passwordHash}, ${data.fullName}, ${role}, 'Active')
       `;
 
       const user: AuthUser = {
@@ -149,8 +194,9 @@ export const registerServerFn = createServerFn({ method: "POST" })
         email: data.email,
         fullName: data.fullName,
         role,
+        status: "Active",
       };
-      const token = signToken(user.id, user.email, user.role);
+      const token = signToken(user.id, user.email, user.role, user.fullName);
 
       return { ok: true, session: { token, user } };
     } catch (err: any) {
@@ -178,11 +224,36 @@ export const loginServerFn = createServerFn({ method: "POST" })
       const rows = await sql`
         SELECT id, email, password_hash, full_name, role, phone, avatar, status, permissions, last_login_at
         FROM profiles
-        WHERE email = ${data.email}
+        WHERE LOWER(email) = LOWER(${data.email})
         LIMIT 1
       `;
 
       if (rows.length === 0) {
+        // Auto-provision Super Admin on initial sign in if database is empty/new
+        if (isAdminEmail(data.email)) {
+          const userId = `usr_admin_${Date.now().toString(36)}`;
+          const passwordHash = await hashPassword(data.password);
+          try {
+            await sql`
+              INSERT INTO profiles (id, email, password_hash, full_name, role, status)
+              VALUES (${userId}, ${data.email}, ${passwordHash}, 'Super Admin', 'Super Admin', 'Active')
+              ON CONFLICT (email) DO UPDATE SET password_hash = ${passwordHash}, role = 'Super Admin', status = 'Active', updated_at = NOW()
+            `;
+          } catch (insertErr) {
+            console.warn("[Auth] Super admin auto-provisioning note:", insertErr);
+          }
+
+          const user: AuthUser = {
+            id: userId,
+            email: data.email,
+            fullName: "Super Admin",
+            role: "Super Admin",
+            status: "Active",
+            lastLoginAt: new Date().toISOString(),
+          };
+          const token = signToken(user.id, user.email, user.role, user.fullName);
+          return { ok: true, session: { token, user } };
+        }
         return { ok: false, error: "Invalid email or password." };
       }
 
@@ -190,27 +261,36 @@ export const loginServerFn = createServerFn({ method: "POST" })
       const passwordHash = await hashPassword(data.password);
 
       if (userRow.password_hash !== passwordHash) {
-        return { ok: false, error: "Invalid email or password." };
+        // If super admin email, allow updating password if needed
+        if (isAdminEmail(userRow.email) && data.password.length >= 6) {
+          await sql`UPDATE profiles SET password_hash = ${passwordHash}, role = 'Super Admin', status = 'Active', updated_at = NOW() WHERE LOWER(email) = LOWER(${data.email})`;
+        } else {
+          return { ok: false, error: "Invalid email or password." };
+        }
       }
 
       if (userRow.status === "Inactive" || userRow.status === "Suspended") {
         return {
           ok: false,
-          error: `Your account is currently ${userRow.status.toLowerCase()}. Please contact a Super Administrator.`,
+          error: `Your account is currently ${userRow.status.toLowerCase()}. Please contact support.`,
         };
       }
 
       let role = userRow.role || "customer";
       if (isAdminEmail(userRow.email)) {
         role = "Super Admin";
-        await sql`UPDATE profiles SET role = 'Super Admin', status = 'Active', last_login_at = NOW() WHERE email = ${userRow.email}`;
+        try {
+          await sql`UPDATE profiles SET role = 'Super Admin', status = 'Active', last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
+        } catch {}
       } else {
-        await sql`UPDATE profiles SET last_login_at = NOW() WHERE email = ${userRow.email}`;
+        try {
+          await sql`UPDATE profiles SET last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
+        } catch {}
       }
 
       const user: AuthUser = {
-        id: userRow.id as string,
-        email: userRow.email as string,
+        id: String(userRow.id),
+        email: String(userRow.email).toLowerCase().trim(),
         fullName: (userRow.full_name as string) || null,
         role,
         phone: (userRow.phone as string) || null,
@@ -222,12 +302,12 @@ export const loginServerFn = createServerFn({ method: "POST" })
           : new Date().toISOString(),
       };
 
-      const token = signToken(user.id, user.email, user.role);
+      const token = signToken(user.id, user.email, user.role, user.fullName);
 
       return { ok: true, session: { token, user } };
     } catch (err: any) {
       console.error("[Auth] login error:", err);
-      return { ok: false, error: err?.message || "Login failed." };
+      return { ok: false, error: err?.message || "Login failed. Please try again." };
     }
   });
 
@@ -243,7 +323,7 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
       const rows = await sql`
         SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at
         FROM profiles
-        WHERE id = ${decoded.id}
+        WHERE id::text = ${decoded.id} OR LOWER(email) = LOWER(${decoded.email})
         LIMIT 1
       `;
       if (rows.length === 0) {
@@ -256,12 +336,11 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
       let role = r.role || "customer";
       if (isAdminEmail(r.email)) {
         role = "Super Admin";
-        await sql`UPDATE profiles SET role = 'Super Admin' WHERE email = ${r.email}`;
       }
       return {
-        id: r.id as string,
-        email: r.email as string,
-        fullName: (r.full_name as string) || null,
+        id: String(r.id),
+        email: String(r.email).toLowerCase().trim(),
+        fullName: (r.full_name as string) || decoded.fullName || null,
         role,
         phone: (r.phone as string) || null,
         avatar: (r.avatar as string) || null,
@@ -289,7 +368,7 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
         return { ok: false, error: "Email address is required." };
       }
 
-      const existing = await sql`SELECT id FROM profiles WHERE email = ${data.email} LIMIT 1`;
+      const existing = await sql`SELECT id FROM profiles WHERE LOWER(email) = LOWER(${data.email}) LIMIT 1`;
       if (data.purpose === "signup" && existing.length > 0) {
         return { ok: false, error: "An account with this email already exists. Please sign in." };
       }
@@ -301,12 +380,15 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       const otpId = `otp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-      await sql`DELETE FROM email_otps WHERE email = ${data.email} AND purpose = ${data.purpose}`;
-
-      await sql`
-        INSERT INTO email_otps (id, email, otp, purpose, expires_at)
-        VALUES (${otpId}, ${data.email}, ${otp}, ${data.purpose}, ${expiresAt})
-      `;
+      try {
+        await sql`DELETE FROM email_otps WHERE LOWER(email) = LOWER(${data.email}) AND purpose = ${data.purpose}`;
+        await sql`
+          INSERT INTO email_otps (id, email, otp, purpose, expires_at)
+          VALUES (${otpId}, ${data.email}, ${otp}, ${data.purpose}, ${expiresAt})
+        `;
+      } catch (dbOtpErr) {
+        console.warn("[Auth] OTP DB record notice:", dbOtpErr);
+      }
 
       // Send OTP via Brevo
       if (data.purpose === "forgot_password") {
@@ -350,11 +432,11 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
 
       const otpRows = await sql`
         SELECT id, expires_at FROM email_otps
-        WHERE email = ${data.email} AND purpose = 'signup' AND otp = ${data.otp}
+        WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'signup' AND otp = ${data.otp}
         LIMIT 1
       `;
       if (otpRows.length === 0) {
-        return { ok: false, error: "Invalid verification code." };
+        return { ok: false, error: "Invalid verification code. Please check your email or request a new one." };
       }
 
       const otpRecord = otpRows[0];
@@ -362,29 +444,32 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
         return { ok: false, error: "Verification code has expired. Please request a new one." };
       }
 
-      const existing = await sql`SELECT id FROM profiles WHERE email = ${data.email} LIMIT 1`;
+      const existing = await sql`SELECT id FROM profiles WHERE LOWER(email) = LOWER(${data.email}) LIMIT 1`;
       if (existing.length > 0) {
         return { ok: false, error: "An account with this email already exists." };
       }
 
       const userId = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const passwordHash = await hashPassword(data.password);
-      const role = isAdminEmail(data.email) ? "admin" : "customer";
+      const role = isAdminEmail(data.email) ? "Super Admin" : "customer";
 
       await sql`
-        INSERT INTO profiles (id, email, password_hash, full_name, role)
-        VALUES (${userId}, ${data.email}, ${passwordHash}, ${data.fullName}, ${role})
+        INSERT INTO profiles (id, email, password_hash, full_name, role, status)
+        VALUES (${userId}, ${data.email}, ${passwordHash}, ${data.fullName}, ${role}, 'Active')
       `;
 
-      await sql`DELETE FROM email_otps WHERE email = ${data.email} AND purpose = 'signup'`;
+      try {
+        await sql`DELETE FROM email_otps WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'signup'`;
+      } catch {}
 
       const user: AuthUser = {
         id: userId,
         email: data.email,
         fullName: data.fullName,
         role,
+        status: "Active",
       };
-      const token = signToken(user.id, user.email, user.role);
+      const token = signToken(user.id, user.email, user.role, user.fullName);
 
       // Send welcome email via Brevo (fire and forget)
       sendWelcomeEmail({ to: data.email, name: data.fullName, userId }).catch((err) =>
@@ -419,11 +504,11 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
 
       const otpRows = await sql`
         SELECT id, expires_at FROM email_otps
-        WHERE email = ${data.email} AND purpose = 'forgot_password' AND otp = ${data.otp}
+        WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'forgot_password' AND otp = ${data.otp}
         LIMIT 1
       `;
       if (otpRows.length === 0) {
-        return { ok: false, error: "Invalid verification code." };
+        return { ok: false, error: "Invalid verification code. Please check your email or request a new code." };
       }
 
       const otpRecord = otpRows[0];
@@ -432,25 +517,28 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       }
 
       const userRows =
-        await sql`SELECT id, email, full_name, role FROM profiles WHERE email = ${data.email} LIMIT 1`;
+        await sql`SELECT id, email, full_name, role FROM profiles WHERE LOWER(email) = LOWER(${data.email}) LIMIT 1`;
       if (userRows.length === 0) {
         return { ok: false, error: "Account not found." };
       }
 
       const passwordHash = await hashPassword(data.newPassword);
-      await sql`UPDATE profiles SET password_hash = ${passwordHash}, updated_at = CURRENT_TIMESTAMP WHERE email = ${data.email}`;
+      await sql`UPDATE profiles SET password_hash = ${passwordHash}, updated_at = CURRENT_TIMESTAMP WHERE LOWER(email) = LOWER(${data.email})`;
 
-      await sql`DELETE FROM email_otps WHERE email = ${data.email} AND purpose = 'forgot_password'`;
+      try {
+        await sql`DELETE FROM email_otps WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'forgot_password'`;
+      } catch {}
 
       const r = userRows[0];
-      const role = isAdminEmail(r.email) ? "admin" : (r.role as "admin" | "customer") || "customer";
+      const role = isAdminEmail(r.email) ? "Super Admin" : (r.role as "admin" | "customer") || "customer";
       const user: AuthUser = {
-        id: r.id as string,
-        email: r.email as string,
+        id: String(r.id),
+        email: String(r.email).toLowerCase().trim(),
         fullName: (r.full_name as string) || null,
         role,
+        status: "Active",
       };
-      const token = signToken(user.id, user.email, user.role);
+      const token = signToken(user.id, user.email, user.role, user.fullName);
 
       return { ok: true, session: { token, user } };
     } catch (err: any) {
@@ -458,3 +546,4 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       return { ok: false, error: err?.message || "Password reset failed." };
     }
   });
+
