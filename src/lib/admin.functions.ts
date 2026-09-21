@@ -84,6 +84,9 @@ export type AdminOrder = {
   delivered_at: string | null;
   cancelled_at: string | null;
   admin_notes: string | null;
+  razorpay_order_id?: string | null;
+  razorpay_payment_id?: string | null;
+  paid_at?: string | null;
   items: AdminOrderItem[];
 };
 
@@ -758,7 +761,8 @@ export const adminListOrders = createServerFn({ method: "GET" })
         SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
           shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
           shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
-          courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes
+          courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
+          razorpay_order_id, razorpay_payment_id, paid_at
         FROM orders
         ORDER BY created_at DESC
         LIMIT 500
@@ -843,6 +847,9 @@ export const adminListOrders = createServerFn({ method: "GET" })
         delivered_at: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
         cancelled_at: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
         admin_notes: o.admin_notes || null,
+        razorpay_order_id: o.razorpay_order_id || null,
+        razorpay_payment_id: o.razorpay_payment_id || null,
+        paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
         items: itemsByOrderId.get(String(o.id)) || [],
       }));
     } catch (err: any) {

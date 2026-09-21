@@ -874,6 +874,11 @@ export function getSql() {
           shipped_at: null,
           delivered_at: null,
           cancelled_at: null,
+          razorpay_order_id: null,
+          razorpay_payment_id: null,
+          razorpay_signature: null,
+          paid_at: null,
+          payment_gateway: null,
           admin_notes: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -887,7 +892,7 @@ export function getSql() {
         const idVal = String(values[values.length - 1] ?? "");
         const targetIds = Array.isArray(values[0]) ? values[0].map(String) : [idVal];
         for (const o of _mockOrders) {
-          if (targetIds.includes(String(o.id)) || String(o.id) === idVal) {
+          if (targetIds.includes(String(o.id)) || String(o.id) === idVal || String(o.order_number) === idVal || String(o.razorpay_order_id) === idVal) {
             if (lower.includes("status =")) {
               const match = queryStr.match(/status\s*=\s*'([^']+)'/i) || queryStr.match(/status\s*=\s*__VAL_(\d+)__/i);
               if (match) {
@@ -901,6 +906,21 @@ export function getSql() {
             }
             if (lower.includes("payment_status =")) {
               o.payment_status = String(values[0] ?? "Paid");
+            }
+            if (lower.includes("payment_method =")) {
+              o.payment_method = String(values[0] ?? "Online Payment");
+            }
+            if (lower.includes("razorpay_order_id =")) {
+              o.razorpay_order_id = String(values[0] ?? "");
+            }
+            if (lower.includes("razorpay_payment_id =")) {
+              o.razorpay_payment_id = String(values[0] ?? "");
+            }
+            if (lower.includes("razorpay_signature =")) {
+              o.razorpay_signature = String(values[0] ?? "");
+            }
+            if (lower.includes("paid_at =")) {
+              o.paid_at = new Date().toISOString();
             }
             if (lower.includes("courier_name =")) {
               o.courier_name = values[0] ? String(values[0]) : null;
@@ -1944,6 +1964,13 @@ export async function ensureDbSchema() {
         `ALTER TABLE orders ALTER COLUMN payment_status TYPE TEXT`,
         `ALTER TABLE orders ALTER COLUMN razorpay_order_id TYPE TEXT`,
         `ALTER TABLE orders ALTER COLUMN razorpay_payment_id TYPE TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_signature TEXT`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE`,
+        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT`,
+        `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id ON orders (razorpay_payment_id)`,
         `ALTER TABLE orders ALTER COLUMN shipping_full_name TYPE TEXT`,
         `ALTER TABLE orders ALTER COLUMN shipping_phone TYPE TEXT`,
         `ALTER TABLE orders ALTER COLUMN shipping_address_line1 TYPE TEXT`,

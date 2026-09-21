@@ -93,7 +93,7 @@ function invoiceHtml(o: AdminOrder) {
   </style></head><body>
   <h1>RI<span style="color:#f00b11">O</span>T<span style="color:#f00b11">O</span>US</h1>
   <div class="muted">Tax invoice · ${esc(o.order_number)}</div>
-  <p class="muted">Date: ${esc(dateTime(o.created_at))}<br/>Payment: ${esc(o.payment_method)} (${esc(o.payment_status)})<br/>Status: ${esc(o.status)}</p>
+  <p class="muted">Date: ${esc(dateTime(o.created_at))}<br/>Payment: ${esc(o.payment_method)} (${esc(o.payment_status)})${o.razorpay_payment_id ? `<br/>Razorpay Txn: ${esc(o.razorpay_payment_id)}` : ""}${o.razorpay_order_id ? `<br/>Razorpay Order: ${esc(o.razorpay_order_id)}` : ""}<br/>Status: ${esc(o.status)}</p>
   <p><strong>Ship to</strong><br/>${esc(o.shipping_name)}<br/>${esc(o.shipping_address).replace(/\n/g, "<br/>")}<br/>${esc(o.shipping_email)}${o.shipping_phone ? `<br/>${esc(o.shipping_phone)}` : ""}</p>
   <table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="totals">
@@ -118,6 +118,8 @@ function csvExport(orders: AdminOrder[]) {
     "Status",
     "Payment",
     "Method",
+    "Razorpay Order ID",
+    "Razorpay Payment ID",
     "Total",
     "Courier",
     "Tracking",
@@ -132,6 +134,8 @@ function csvExport(orders: AdminOrder[]) {
     o.status,
     o.payment_status,
     o.payment_method,
+    o.razorpay_order_id ?? "",
+    o.razorpay_payment_id ?? "",
     String(o.total_amount),
     o.courier_name ?? "",
     o.tracking_number ?? "",
@@ -787,8 +791,24 @@ function OrdersPage() {
                           <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
                             {o.billing_address || o.shipping_address}
                           </div>
-                          <div className="pt-1 text-muted-foreground">
-                            Payment Method: <strong>{o.payment_method}</strong>
+                          <div className="pt-1 text-muted-foreground space-y-0.5">
+                            <div>Payment Method: <strong>{o.payment_method}</strong></div>
+                            <div>Payment Status: <strong className={o.payment_status === "Paid" ? "text-emerald-500" : ""}>{o.payment_status}</strong></div>
+                            {o.razorpay_order_id && (
+                              <div className="font-mono text-[11px] text-muted-foreground">
+                                Razorpay Order: <span className="text-foreground">{o.razorpay_order_id}</span>
+                              </div>
+                            )}
+                            {o.razorpay_payment_id && (
+                              <div className="font-mono text-[11px] text-muted-foreground">
+                                Razorpay Txn: <span className="text-foreground font-semibold">{o.razorpay_payment_id}</span>
+                              </div>
+                            )}
+                            {o.paid_at && (
+                              <div className="text-[11px] text-emerald-500">
+                                Paid At: {new Date(o.paid_at).toLocaleString("en-IN")}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

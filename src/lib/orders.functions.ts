@@ -9,6 +9,11 @@ import {
   InventoryError,
 } from "@/lib/inventory.service";
 import { validateAndCalculateCoupon } from "@/lib/coupons.functions";
+import {
+  createRazorpayOrder,
+  verifyRazorpayPaymentSignature,
+  getRazorpayKeyId,
+} from "@/lib/razorpay.server";
 
 export type OrderLineItem = {
   title: string;
@@ -444,6 +449,383 @@ export const placeOrder = createServerFn({ method: "POST" })
     };
   });
 
+export const createOnlineOrder = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: PlaceOrderInput) => {
+    const name = str(d?.shippingName, 120);
+    const email = str(d?.shippingEmail, 255);
+    const address = str(d?.shippingAddress, 1000);
+    if (!name || !email || !address) throw new Error("Missing shipping details");
+    if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
+    return {
+      shippingName: name,
+      shippingEmail: email,
+      shippingPhone: str(d.shippingPhone, 30) || null,
+      shippingAddress: address,
+      currency: str(d.currency, 8) || "INR",
+      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
+      couponCode: d.couponCode ? str(d.couponCode, 50).toUpperCase().replace(/\s+/g, "") : null,
+      items: d.items.map((i) => ({
+        productId: typeof i.productId === "string" ? i.productId : null,
+        designSubmissionId: typeof i.designSubmissionId === "string" ? i.designSubmissionId : null,
+        productName: str(i.productName, 200) || "Item",
+        productImage: typeof i.productImage === "string" ? i.productImage.slice(0, 2000) : null,
+        quantity: Math.max(1, Math.min(99, Math.round(Number(i.quantity) || 1))),
+        selectedSize: str(i.selectedSize, 40) || null,
+        selectedColor: str(i.selectedColor, 40) || null,
+      })),
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await ensureDbSchema();
+    const sql = getSql();
+    const authCtx = context as any;
+
+    const productIds = data.items.map((i) => i.productId).filter((v): v is string => !!v);
+    const priceById = new Map<string, number>();
+    if (productIds.length) {
+      const prods = await sql`
+        SELECT id, price FROM products WHERE id::text = ANY(${productIds}::text[])
+      `;
+      for (const p of prods as any[]) priceById.set(String(p.id), Number(p.price || 0));
+    }
+
+    const CUSTOM_PRICE = 1499;
+    const items = data.items.map((i) => {
+      const price = i.productId ? (priceById.get(i.productId) ?? CUSTOM_PRICE) : CUSTOM_PRICE;
+      return { ...i, price, subtotal: price * i.quantity };
+    });
+
+    const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
+
+    // Validate and calculate coupon discount if code was provided
+    let discountAmount = 0;
+    let appliedCoupon: any = null;
+    let eligibleAmount = itemsTotal;
+
+    if (data.couponCode) {
+      const couponRes = await validateAndCalculateCoupon({
+        code: data.couponCode,
+        items: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          price: i.price,
+          productName: i.productName,
+        })),
+        subtotal: itemsTotal,
+        customerEmail: data.shippingEmail,
+        customerId: String(authCtx.userId),
+      });
+
+      if (!couponRes.valid) {
+        throw new Error(couponRes.error || "Invalid coupon code.");
+      }
+
+      discountAmount = couponRes.discountAmount;
+      appliedCoupon = couponRes.coupon;
+      eligibleAmount = couponRes.eligibleSubtotal;
+    }
+
+    const finalSubtotal = Math.max(0, itemsTotal - discountAmount);
+    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
+    const total = finalSubtotal + shipping;
+    const amountInPaise = Math.round(total * 100);
+
+    const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
+    const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
+
+    // Create Razorpay Order via official API
+    let razorpayOrder: any;
+    try {
+      razorpayOrder = await createRazorpayOrder({
+        amountInPaise,
+        currency: "INR",
+        receipt: orderNumber,
+        notes: {
+          orderId,
+          orderNumber,
+          userId: String(authCtx.userId),
+          customerEmail: data.shippingEmail,
+        },
+      });
+    } catch (rzpErr: any) {
+      console.error("[Orders] Failed to create Razorpay order:", rzpErr);
+      throw new Error(rzpErr.message || "Failed to initialize payment with Razorpay. Please try again.");
+    }
+
+    // Record order in database in Pending payment state
+    await sql`
+      INSERT INTO orders (
+        id, user_id, order_number, subtotal, discount_amount, discount_code, coupon_id,
+        discount_type, discount_value, eligible_amount, original_subtotal, final_subtotal,
+        shipping_charge, tax_amount, total_amount, currency, status, payment_status,
+        payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
+        shipping_email, shipping_phone, shipping_address
+      ) VALUES (
+        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
+        ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
+        ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
+        ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
+        'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
+        ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
+      );
+    `;
+
+    for (const i of items) {
+      const itemId = `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      await sql`
+        INSERT INTO order_items (
+          id, order_id, product_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
+        ) VALUES (
+          ${itemId}, ${orderId}, ${i.productId}, ${i.designSubmissionId}, ${i.productName}, ${i.productImage},
+          ${i.quantity}, ${i.price}, ${i.selectedSize}, ${i.selectedColor}, ${i.subtotal}
+        );
+      `;
+    }
+
+    return {
+      ok: true,
+      orderId,
+      orderNumber,
+      razorpayOrderId: razorpayOrder.id,
+      razorpayKeyId: getRazorpayKeyId(),
+      amount: amountInPaise,
+      currency: "INR",
+      customerName: data.shippingName,
+      customerEmail: data.shippingEmail,
+      customerPhone: data.shippingPhone || "",
+      total,
+      discountAmount,
+      shipping,
+      couponCode: appliedCoupon?.code ?? null,
+    };
+  });
+
+export type VerifyPaymentInput = {
+  orderId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+};
+
+export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: VerifyPaymentInput) => ({
+    orderId: String(d?.orderId || "").trim(),
+    razorpayOrderId: String(d?.razorpayOrderId || "").trim(),
+    razorpayPaymentId: String(d?.razorpayPaymentId || "").trim(),
+    razorpaySignature: String(d?.razorpaySignature || "").trim(),
+  }))
+  .handler(async ({ data, context }) => {
+    if (!data.orderId || !data.razorpayOrderId || !data.razorpayPaymentId || !data.razorpaySignature) {
+      throw new Error("Missing required payment verification parameters.");
+    }
+
+    const isValid = verifyRazorpayPaymentSignature({
+      razorpayOrderId: data.razorpayOrderId,
+      razorpayPaymentId: data.razorpayPaymentId,
+      razorpaySignature: data.razorpaySignature,
+    });
+
+    if (!isValid) {
+      console.error("[Orders] Invalid Razorpay signature:", data);
+      throw new Error("Payment signature verification failed. Please contact support if your money was debited.");
+    }
+
+    await ensureDbSchema();
+    const sql = getSql();
+    const authCtx = context as any;
+
+    const orderRows = await sql`
+      SELECT * FROM orders WHERE id::text = ${data.orderId} LIMIT 1
+    `;
+
+    if (!orderRows || orderRows.length === 0) {
+      throw new Error("Order not found for verification.");
+    }
+
+    const order = orderRows[0];
+
+    // Idempotency check: if order is already paid, return early
+    if (order.payment_status === "Paid") {
+      return {
+        ok: true,
+        alreadyProcessed: true,
+        orderId: String(order.id),
+        orderNumber: String(order.order_number),
+      };
+    }
+
+    // Retrieve order items
+    const orderItems = await sql`
+      SELECT * FROM order_items WHERE order_id::text = ${data.orderId}
+    `;
+
+    // Atomically deduct inventory now that payment is confirmed
+    try {
+      await deductOrderInventory(
+        data.orderId,
+        (orderItems as any[]).map((i) => ({
+          productId: i.product_id,
+          productName: i.product_name,
+          quantity: Number(i.quantity || 1),
+          selectedSize: i.selected_size,
+          selectedColor: i.selected_color,
+        })),
+        String(authCtx.userId),
+      );
+    } catch (invErr: any) {
+      console.warn("[Orders] Inventory deduction during payment confirmation warning:", invErr);
+      // Non-fatal if already deducted
+    }
+
+    // Atomically claim coupon slot if coupon was applied
+    if (order.coupon_id) {
+      try {
+        await sql`
+          UPDATE coupons
+          SET used_count = used_count + 1, updated_at = NOW()
+          WHERE id = ${order.coupon_id}
+        `;
+        const usageId = `usg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        await sql`
+          INSERT INTO coupon_usage (
+            id, coupon_id, order_id, customer_id, customer_email, coupon_code, discount_amount, order_amount, used_at
+          ) VALUES (
+            ${usageId}, ${order.coupon_id}, ${data.orderId}, ${String(authCtx.userId)}, ${String(order.shipping_email).toLowerCase().trim()},
+            ${order.discount_code || ""}, ${Number(order.discount_amount || 0)}, ${Number(order.total_amount || 0)}, NOW()
+          ) ON CONFLICT (id) DO NOTHING;
+        `;
+      } catch (couponErr) {
+        console.warn("[Orders] Coupon usage tracking warning:", couponErr);
+      }
+    }
+
+    // Update order status to Paid & Confirmed
+    await sql`
+      UPDATE orders
+      SET status = 'Confirmed',
+          payment_status = 'Paid',
+          payment_method = 'Online Payment (Razorpay)',
+          razorpay_payment_id = ${data.razorpayPaymentId},
+          razorpay_signature = ${data.razorpaySignature},
+          paid_at = NOW(),
+          stock_state = 'Deducted',
+          updated_at = NOW()
+      WHERE id::text = ${data.orderId}
+    `;
+
+    // Record in payments table
+    const paymentRecordId = `pay_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    try {
+      await sql`
+        INSERT INTO payments (
+          id, order_id, customer_id, transaction_id, payment_method, amount, currency,
+          status, paid_at, admin_note, created_at, updated_at
+        ) VALUES (
+          ${paymentRecordId}, ${data.orderId}, ${String(authCtx.userId)}, ${data.razorpayPaymentId},
+          'Online Payment (Razorpay)', ${Number(order.total_amount || 0)}, 'INR', 'Paid', NOW(),
+          'Verified Razorpay online payment', NOW(), NOW()
+        ) ON CONFLICT (id) DO NOTHING;
+      `;
+    } catch (payErr) {
+      console.warn("[Orders] Payment log insertion warning:", payErr);
+    }
+
+    // Clear cart in Neon DB
+    await sql`
+      INSERT INTO carts (user_id, items, updated_at)
+      VALUES (${authCtx.userId}, '[]'::jsonb, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET items = '[]'::jsonb, updated_at = NOW();
+    `;
+
+    // Dispatch customer confirmation email via Brevo (fire and forget)
+    sendOrderConfirmation({
+      to: String(order.shipping_email),
+      orderNumber: String(order.order_number),
+      orderId: String(order.id),
+      customerName: String(order.shipping_name),
+      shippingAddress: String(order.shipping_address),
+      items: (orderItems as any[]).map((i) => ({
+        name: i.product_name,
+        quantity: Number(i.quantity || 1),
+        size: i.selected_size ?? null,
+        color: i.selected_color ?? null,
+        price: Number(i.price || 0).toLocaleString("en-IN"),
+      })),
+      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+      discountCode: order.discount_code || null,
+      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+      currency: "₹",
+      paymentMethod: "Online Payment (Razorpay)",
+      paymentStatus: "Paid",
+      userId: String(authCtx.userId),
+    }).catch((err) => console.warn("[Order Service] Customer email notice on online payment:", err));
+
+    // Send store owner / admin notification
+    const adminTemplateData = {
+      orderNumber: String(order.order_number),
+      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+      customerName: String(order.shipping_name),
+      customerEmail: String(order.shipping_email),
+      customerPhone: order.shipping_phone || null,
+      shippingAddress: String(order.shipping_address),
+      paymentMethod: "Online Payment (Razorpay)",
+      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+      couponCode: order.discount_code || null,
+      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+      currency: "INR",
+      hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
+      items: (orderItems as any[]).map((i) => ({
+        name: i.product_name,
+        quantity: Number(i.quantity || 1),
+        size: i.selected_size || null,
+        color: i.selected_color || null,
+        price: Number(i.price || 0).toLocaleString("en-IN"),
+        subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
+        isCustomDesign: !!i.design_submission_id,
+      })),
+    };
+    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
+      templateData: adminTemplateData,
+    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+
+    return {
+      ok: true,
+      orderId: String(order.id),
+      orderNumber: String(order.order_number),
+      total: Number(order.total_amount || 0),
+    };
+  });
+
+export const recordPaymentFailure = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { orderId: string; reason?: string }) => ({
+    orderId: String(d?.orderId || "").trim(),
+    reason: d?.reason ? String(d.reason).slice(0, 300) : "Customer payment dismissed or failed",
+  }))
+  .handler(async ({ data }) => {
+    await ensureDbSchema();
+    const sql = getSql();
+    try {
+      await sql`
+        UPDATE orders
+        SET payment_status = 'Failed',
+            admin_notes = COALESCE(admin_notes || ' | ', '') || ${data.reason},
+            updated_at = NOW()
+        WHERE id::text = ${data.orderId}
+          AND payment_status = 'Pending'
+      `;
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message };
+    }
+  });
+
 export const cancelMyOrder = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { orderId: string; reason?: string }) => ({
@@ -472,3 +854,4 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     const res = await restoreOrderInventory(data.orderId, data.reason, authCtx.userId);
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });
+

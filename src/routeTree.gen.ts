@@ -55,6 +55,7 @@ import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media.upload'
 import { Route as ApiPublicProductImageRouteImport } from './routes/api/public/product-image'
 import { Route as ApiPublicReviewImageRouteImport } from './routes/api/public/review-image'
+import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay.webhook'
 import { Route as ApiStorefrontContentRouteImport } from './routes/api/storefront/content'
 import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storefront/navigation'
 import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
@@ -309,6 +310,11 @@ const ApiPublicReviewImageRoute = ApiPublicReviewImageRouteImport.update({
   path: '/api/public/review-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRazorpayWebhookRoute = ApiRazorpayWebhookRouteImport.update({
+  id: '/api/razorpay/webhook',
+  path: '/api/razorpay/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStorefrontContentRoute = ApiStorefrontContentRouteImport.update({
   id: '/api/storefront/content',
   path: '/api/storefront/content',
@@ -370,6 +376,7 @@ export interface FileRoutesByFullPath {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
@@ -419,6 +426,7 @@ export interface FileRoutesByTo {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
@@ -471,6 +479,7 @@ export interface FileRoutesById {
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
@@ -523,6 +532,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/razorpay/webhook'
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/razorpay/webhook'
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
@@ -623,6 +634,7 @@ export interface FileRouteTypes {
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/razorpay/webhook'
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
@@ -652,6 +664,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicProductImageRoute: typeof ApiPublicProductImageRoute
   ApiPublicReviewImageRoute: typeof ApiPublicReviewImageRoute
+  ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiStorefrontContentRoute: typeof ApiStorefrontContentRoute
   ApiStorefrontNavigationRoute: typeof ApiStorefrontNavigationRoute
   ApiStorefrontSettingsRoute: typeof ApiStorefrontSettingsRoute
@@ -981,6 +994,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicReviewImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/razorpay/webhook': {
+      id: '/api/razorpay/webhook'
+      path: '/api/razorpay/webhook'
+      fullPath: '/api/razorpay/webhook'
+      preLoaderRoute: typeof ApiRazorpayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/storefront/content': {
       id: '/api/storefront/content'
       path: '/api/storefront/content'
@@ -1097,6 +1117,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicProductImageRoute: ApiPublicProductImageRoute,
   ApiPublicReviewImageRoute: ApiPublicReviewImageRoute,
+  ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiStorefrontContentRoute: ApiStorefrontContentRoute,
   ApiStorefrontNavigationRoute: ApiStorefrontNavigationRoute,
   ApiStorefrontSettingsRoute: ApiStorefrontSettingsRoute,
