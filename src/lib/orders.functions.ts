@@ -14,6 +14,7 @@ import {
   verifyRazorpayPaymentSignature,
   getRazorpayKeyId,
 } from "@/lib/razorpay.server";
+import { syncOrderToZippyy } from "@/lib/zippyy";
 
 export type OrderLineItem = {
   title: string;
@@ -438,6 +439,11 @@ export const placeOrder = createServerFn({ method: "POST" })
       templateData: adminTemplateData,
     }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
 
+    // Automated Forward Shipment fulfillment via Zippyy
+    syncOrderToZippyy(orderId).catch((err) =>
+      console.warn("[Zippyy Auto-Dispatch] Error for COD order:", err),
+    );
+
     return {
       ok: true,
       orderId,
@@ -793,6 +799,11 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
       templateData: adminTemplateData,
     }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+
+    // Automated Forward Shipment fulfillment via Zippyy
+    syncOrderToZippyy(String(order.id)).catch((err) =>
+      console.warn("[Zippyy Auto-Dispatch] Error for online order:", err),
+    );
 
     return {
       ok: true,

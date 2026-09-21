@@ -59,6 +59,7 @@ import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay.we
 import { Route as ApiStorefrontContentRouteImport } from './routes/api/storefront/content'
 import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storefront/navigation'
 import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
+import { Route as ApiZippyyWebhookRouteImport } from './routes/api/zippyy.webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -330,6 +331,11 @@ const ApiStorefrontSettingsRoute = ApiStorefrontSettingsRouteImport.update({
   path: '/api/storefront/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiZippyyWebhookRoute = ApiZippyyWebhookRouteImport.update({
+  id: '/api/zippyy/webhook',
+  path: '/api/zippyy/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -380,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -430,6 +437,7 @@ export interface FileRoutesByTo {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -483,6 +491,7 @@ export interface FileRoutesById {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -536,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/webhook'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -586,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/webhook'
     | '/admin'
   id:
     | '__root__'
@@ -638,6 +649,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/webhook'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -668,6 +680,7 @@ export interface RootRouteChildren {
   ApiStorefrontContentRoute: typeof ApiStorefrontContentRoute
   ApiStorefrontNavigationRoute: typeof ApiStorefrontNavigationRoute
   ApiStorefrontSettingsRoute: typeof ApiStorefrontSettingsRoute
+  ApiZippyyWebhookRoute: typeof ApiZippyyWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1022,6 +1035,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStorefrontSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/zippyy/webhook': {
+      id: '/api/zippyy/webhook'
+      path: '/api/zippyy/webhook'
+      fullPath: '/api/zippyy/webhook'
+      preLoaderRoute: typeof ApiZippyyWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1121,6 +1141,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStorefrontContentRoute: ApiStorefrontContentRoute,
   ApiStorefrontNavigationRoute: ApiStorefrontNavigationRoute,
   ApiStorefrontSettingsRoute: ApiStorefrontSettingsRoute,
+  ApiZippyyWebhookRoute: ApiZippyyWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
