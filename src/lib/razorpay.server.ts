@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 export type CreateRazorpayOrderParams = {
   amountInPaise: number;
@@ -47,41 +47,47 @@ export async function createRazorpayOrder(
   const keySecret = getRazorpayKeySecret();
 
   if (!keyId || !keySecret) {
-    // If running in development without Razorpay keys, generate a deterministic test order
-    console.warn(
-      "[Razorpay Server] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is not set. Generating fallback order for development.",
+    throw new Error(
+      "Razorpay API credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured on the server. Please set them in your environment variables.",
     );
-    return {
-      id: `order_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-      entity: "order",
-      amount: params.amountInPaise,
-      amount_paid: 0,
-      amount_due: params.amountInPaise,
-      currency: params.currency || "INR",
-      receipt: params.receipt,
-      status: "created",
-      attempts: 0,
-      notes: params.notes || {},
-      created_at: Math.floor(Date.now() / 1000),
-    };
   }
 
-  const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
+  const authPayload = `${keyId}:${keySecret}`;
+  const authBase64 =
+    typeof Buffer !== "undefined"
+      ? Buffer.from(authPayload).toString("base64")
+      : btoa(authPayload);
+  const authHeader = `Basic ${authBase64}`;
 
-  const response = await fetch("https://api.razorpay.com/v1/orders", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: authHeader,
-    },
-    body: JSON.stringify({
-      amount: Math.round(params.amountInPaise),
-      currency: params.currency || "INR",
-      receipt: params.receipt.slice(0, 40),
-      notes: params.notes || {},
-      payment_capture: 1,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.razorpay.com/v1/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+      body: JSON.stringify({
+        amount: Math.round(params.amountInPaise),
+        currency: params.currency || "INR",
+        receipt: params.receipt.slice(0, 40),
+        notes: params.notes || {},
+        payment_capture: 1,
+      }),
+      signal: controller.signal,
+    });
+  } catch (netErr: any) {
+    clearTimeout(timeoutId);
+    if (netErr?.name === "AbortError") {
+      throw new Error("Razorpay Orders API request timed out after 10 seconds.");
+    }
+    throw new Error(`Razorpay Orders API network error: ${netErr?.message || netErr}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -90,13 +96,27 @@ export async function createRazorpayOrder(
       const parsed = JSON.parse(errorBody);
       errorMessage = parsed.error?.description || parsed.message || errorMessage;
     } catch {
-      errorMessage = `${errorMessage}: ${errorBody}`;
+      errorMessage = `${errorMessage} (${response.status}): ${errorBody}`;
     }
     console.error("[Razorpay Server] Create Order API error:", response.status, errorMessage);
     throw new Error(errorMessage);
   }
 
   return (await response.json()) as RazorpayOrderResponse;
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }
 
 /**
@@ -110,11 +130,6 @@ export function verifyRazorpayPaymentSignature(params: {
 }): boolean {
   const keySecret = getRazorpayKeySecret();
   if (!keySecret) {
-    // If in development mode without secrets, allow mock payment IDs starting with 'pay_mock_'
-    if (params.razorpayPaymentId.startsWith("pay_mock_") || params.razorpaySignature === "mock_signature") {
-      console.warn("[Razorpay Server] Allowing mock payment in development mode.");
-      return true;
-    }
     console.error("[Razorpay Server] Cannot verify payment: RAZORPAY_KEY_SECRET is not configured.");
     return false;
   }
@@ -123,14 +138,7 @@ export function verifyRazorpayPaymentSignature(params: {
     const body = `${params.razorpayOrderId}|${params.razorpayPaymentId}`;
     const expectedSignature = createHmac("sha256", keySecret).update(body).digest("hex");
 
-    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-    const receivedBuffer = Buffer.from(params.razorpaySignature, "utf8");
-
-    if (expectedBuffer.length !== receivedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(expectedBuffer, receivedBuffer);
+    return timingSafeEqualStr(expectedSignature, params.razorpaySignature);
   } catch (error) {
     console.error("[Razorpay Server] Signature verification error:", error);
     return false;
@@ -153,16 +161,10 @@ export function verifyRazorpayWebhookSignature(params: {
   try {
     const expectedSignature = createHmac("sha256", webhookSecret).update(params.rawBody).digest("hex");
 
-    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-    const receivedBuffer = Buffer.from(params.signature, "utf8");
-
-    if (expectedBuffer.length !== receivedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(expectedBuffer, receivedBuffer);
+    return timingSafeEqualStr(expectedSignature, params.signature);
   } catch (error) {
     console.error("[Razorpay Server] Webhook signature verification error:", error);
     return false;
   }
 }
+
