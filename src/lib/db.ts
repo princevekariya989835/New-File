@@ -1268,6 +1268,7 @@ export async function ensureDbSchema() {
             to_regclass('public.email_otps') IS NOT NULL AS has_email_otps,
             to_regclass('public.orders') IS NOT NULL AS has_orders,
             to_regclass('public.order_items') IS NOT NULL AS has_order_items,
+            to_regclass('public.payments') IS NOT NULL AS has_payments,
             to_regclass('public.returns') IS NOT NULL AS has_returns,
             to_regclass('public.return_settings') IS NOT NULL AS has_return_settings,
             to_regclass('public.reviews') IS NOT NULL AS has_reviews,
@@ -1325,6 +1326,27 @@ export async function ensureDbSchema() {
             );
           }
 
+          if (!row.has_payments) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS payments (
+                id TEXT PRIMARY KEY,
+                order_id TEXT NOT NULL,
+                customer_id TEXT,
+                transaction_id TEXT,
+                payment_method TEXT NOT NULL DEFAULT 'Online Payment (Razorpay)',
+                amount NUMERIC NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT 'INR',
+                status TEXT NOT NULL DEFAULT 'Pending',
+                paid_at TIMESTAMP WITH TIME ZONE,
+                admin_note TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments (order_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments (transaction_id)`
+            );
+          }
+
           if (!row.has_email_logs) {
             missingStatements.push(
               `CREATE TABLE IF NOT EXISTS email_logs (
@@ -1363,6 +1385,11 @@ export async function ensureDbSchema() {
                 status TEXT NOT NULL DEFAULT 'Pending',
                 payment_status TEXT NOT NULL DEFAULT 'Pending',
                 payment_method TEXT NOT NULL DEFAULT 'COD',
+                payment_gateway TEXT DEFAULT 'Razorpay',
+                razorpay_order_id TEXT,
+                razorpay_payment_id TEXT,
+                razorpay_signature TEXT,
+                paid_at TIMESTAMP WITH TIME ZONE,
                 stock_state TEXT DEFAULT 'Normal',
                 shipping_name TEXT NOT NULL,
                 shipping_email TEXT NOT NULL,
@@ -1381,6 +1408,7 @@ export async function ensureDbSchema() {
               )`,
               `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)`,
               `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
+              `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`
             );
           }
 
@@ -1626,6 +1654,12 @@ export async function ensureDbSchema() {
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE`,
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT`,
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_state TEXT DEFAULT 'Normal'`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'Razorpay'`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_signature TEXT`,
+            `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE`,
+            `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`,
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS zippyy_order_id TEXT`,
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS zippyy_shipment_id TEXT`,
             `ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_label_url TEXT`,

@@ -560,22 +560,56 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     }
 
     // Record order in database in Pending payment state
-    await sql`
-      INSERT INTO orders (
-        id, user_id, order_number, subtotal, discount_amount, discount_code, coupon_id,
-        discount_type, discount_value, eligible_amount, original_subtotal, final_subtotal,
-        shipping_charge, tax_amount, total_amount, currency, status, payment_status,
-        payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
-        shipping_email, shipping_phone, shipping_address
-      ) VALUES (
-        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
-        ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
-        ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
-        ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
-        'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
-        ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
-      );
-    `;
+    try {
+      await sql`
+        INSERT INTO orders (
+          id, user_id, order_number, subtotal, discount_amount, discount_code, coupon_id,
+          discount_type, discount_value, eligible_amount, original_subtotal, final_subtotal,
+          shipping_charge, tax_amount, total_amount, currency, status, payment_status,
+          payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
+          shipping_email, shipping_phone, shipping_address
+        ) VALUES (
+          ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
+          ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
+          ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
+          ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
+          'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
+          ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
+        );
+      `;
+    } catch (insertErr: any) {
+      if (insertErr?.message?.includes("payment_gateway") || insertErr?.message?.includes("razorpay") || insertErr?.message?.includes("column")) {
+        console.warn("[Orders] Adding missing columns to orders relation dynamically:", insertErr?.message);
+        try {
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'Razorpay'`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_signature TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE`;
+          await sql`CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`;
+        } catch (alterErr) {
+          console.warn("[Orders] Dynamic schema migration warning:", alterErr);
+        }
+        await sql`
+          INSERT INTO orders (
+            id, user_id, order_number, subtotal, discount_amount, discount_code, coupon_id,
+            discount_type, discount_value, eligible_amount, original_subtotal, final_subtotal,
+            shipping_charge, tax_amount, total_amount, currency, status, payment_status,
+            payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
+            shipping_email, shipping_phone, shipping_address
+          ) VALUES (
+            ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
+            ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
+            ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
+            ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
+            'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
+            ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
+          );
+        `;
+      } else {
+        throw insertErr;
+      }
+    }
 
     for (const i of items) {
       const itemId = `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
