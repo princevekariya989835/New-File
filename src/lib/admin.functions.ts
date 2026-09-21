@@ -756,33 +756,59 @@ export const adminListOrders = createServerFn({ method: "GET" })
     try {
       await assertAdmin(context as any);
       await ensureDbSchema();
-      const sql = getSql();
-      const orders = await sql`
-        SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
-          shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
-          shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
-          courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
-          razorpay_order_id, razorpay_payment_id, paid_at
-        FROM orders
-        ORDER BY created_at DESC
-        LIMIT 500
-      `;
+      let orders: any[] = [];
+      try {
+        orders = await sql`
+          SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
+            shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
+            shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
+            courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
+            razorpay_order_id, razorpay_payment_id, paid_at
+          FROM orders
+          ORDER BY created_at DESC
+          LIMIT 500
+        `;
+      } catch (orderErr: any) {
+        console.warn("[Admin] Primary orders query warning, falling back to base select:", orderErr?.message);
+        try {
+          orders = await sql`
+            SELECT * FROM orders ORDER BY created_at DESC LIMIT 500
+          `;
+        } catch (fbErr) {
+          console.error("[Admin] Critical orders query error:", fbErr);
+          return [];
+        }
+      }
 
       if (orders.length === 0) return [];
 
-      const items = await sql`
-        SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
-          i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
-          d.preview_data_url as design_preview,
-          d.preview_images as design_preview_images,
-          p.images as product_images_json
-        FROM order_items i
-        LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
-        LEFT JOIN products p ON i.product_id::text = p.id::text
-        WHERE i.order_id IN (
-          SELECT id FROM orders ORDER BY created_at DESC LIMIT 500
-        )
-      `;
+      let items: any[] = [];
+      try {
+        items = await sql`
+          SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
+            i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
+            d.preview_data_url as design_preview,
+            d.preview_images as design_preview_images,
+            p.images as product_images_json
+          FROM order_items i
+          LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+          LEFT JOIN products p ON i.product_id::text = p.id::text
+          WHERE i.order_id IN (
+            SELECT id FROM orders ORDER BY created_at DESC LIMIT 500
+          )
+        `;
+      } catch (itemErr: any) {
+        console.warn("[Admin] Extended order_items query warning, using direct query:", itemErr?.message);
+        try {
+          items = await sql`
+            SELECT * FROM order_items
+            WHERE order_id IN (SELECT id FROM orders ORDER BY created_at DESC LIMIT 500)
+          `;
+        } catch (itemFbErr) {
+          console.warn("[Admin] Fallback order_items query failed:", itemFbErr);
+          items = [];
+        }
+      }
 
       const itemsByOrderId = new Map<string, AdminOrderItem[]>();
       for (const item of items) {
