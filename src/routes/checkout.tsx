@@ -61,11 +61,31 @@ function loadRazorpayScript(): Promise<boolean> {
       resolve(true);
       return;
     }
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      setTimeout(() => resolve(Boolean((window as any).Razorpay)), 6000);
+      return;
+    }
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    const timer = setTimeout(() => {
+      resolve(Boolean((window as any).Razorpay));
+    }, 8000);
+    script.onload = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    script.onerror = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
     document.body.appendChild(script);
   });
 }
@@ -86,6 +106,7 @@ function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [placingText, setPlacingText] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   // Coupon state
@@ -219,6 +240,7 @@ function CheckoutPage() {
     };
 
     setPlacing(true);
+    setPlacingText(paymentMethod === "ONLINE" ? "Initializing Razorpay..." : "Placing Order...");
 
     if (paymentMethod === "COD") {
       // Cash on Delivery flow
@@ -231,6 +253,7 @@ function CheckoutPage() {
         toast.error((e as Error).message || "Could not place your order");
       } finally {
         setPlacing(false);
+        setPlacingText(null);
       }
       return;
     }
@@ -238,28 +261,55 @@ function CheckoutPage() {
     // Online Payment (Razorpay) flow
     try {
       const onlineOrderRes = await createOnlineOrderFn({ data: orderPayload });
+
+      if (!onlineOrderRes) {
+        throw new Error("No response received from order creation server.");
+      }
+      if (!onlineOrderRes.razorpayKeyId) {
+        throw new Error("Razorpay Key ID is not configured on the server. Please check RAZORPAY_KEY_ID environment variable.");
+      }
+      if (!onlineOrderRes.razorpayOrderId) {
+        throw new Error("Failed to create Razorpay order ID on the server.");
+      }
+
+      setPlacingText("Loading Razorpay Checkout...");
       const isScriptLoaded = await loadRazorpayScript();
 
       if (!isScriptLoaded || !(window as any).Razorpay) {
-        throw new Error("Unable to load Razorpay payment gateway. Please check your internet connection.");
+        throw new Error("Unable to load Razorpay payment SDK. Please check your internet connection or ad-blocker.");
       }
 
       const options = {
         key: onlineOrderRes.razorpayKeyId,
         amount: onlineOrderRes.amount,
-        currency: onlineOrderRes.currency,
+        currency: onlineOrderRes.currency || "INR",
         name: "RIOTOUS",
         description: `Order ${onlineOrderRes.orderNumber}`,
         image: "/favicon.png",
         order_id: onlineOrderRes.razorpayOrderId,
         prefill: {
-          name: onlineOrderRes.customerName,
-          email: onlineOrderRes.customerEmail,
+          name: onlineOrderRes.customerName || name,
+          email: onlineOrderRes.customerEmail || email,
           contact: onlineOrderRes.customerPhone || phone || "",
         },
         theme: {
           color: "#f00b11",
           backdrop_color: "#0a0a0a",
+        },
+        modal: {
+          ondismiss: () => {
+            setPlacing(false);
+            setPlacingText(null);
+            toast.info("Payment window was closed. You can retry or choose Cash on Delivery.");
+            recordFailureFn({
+              data: {
+                orderId: onlineOrderRes.orderId,
+                reason: "Customer closed Razorpay Checkout modal",
+              },
+            }).catch(() => {});
+          },
+          escape: true,
+          backdropclose: false,
         },
         handler: async (response: {
           razorpay_payment_id: string;
@@ -268,6 +318,7 @@ function CheckoutPage() {
         }) => {
           try {
             setPlacing(true);
+            setPlacingText("Verifying payment security...");
             const verifyRes = await verifyPaymentFn({
               data: {
                 orderId: onlineOrderRes.orderId,
@@ -288,44 +339,48 @@ function CheckoutPage() {
             navigate({ to: "/account/orders" });
           } finally {
             setPlacing(false);
+            setPlacingText(null);
           }
-        },
-        modal: {
-          ondismiss: () => {
-            setPlacing(false);
-            toast.info("Payment window was closed. You can retry or choose Cash on Delivery.");
-            recordFailureFn({
-              data: {
-                orderId: onlineOrderRes.orderId,
-                reason: "Customer closed Razorpay Checkout modal",
-              },
-            }).catch(() => {});
-          },
         },
       };
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on("payment.failed", (failedRes: any) => {
-        setPlacing(false);
-        const reason =
-          failedRes?.error?.description ||
-          failedRes?.error?.reason ||
-          "Payment failed. Please try another card or UPI app.";
-        toast.error(reason);
-        recordFailureFn({
-          data: {
-            orderId: onlineOrderRes.orderId,
-            reason: `Razorpay payment.failed: ${reason}`,
-          },
-        }).catch(() => {});
-      });
+      try {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", (failedRes: any) => {
+          setPlacing(false);
+          setPlacingText(null);
+          const reason =
+            failedRes?.error?.description ||
+            failedRes?.error?.reason ||
+            "Payment failed. Please try another card, netbanking, or UPI app.";
+          toast.error(reason);
+          recordFailureFn({
+            data: {
+              orderId: onlineOrderRes.orderId,
+              reason: `Razorpay payment.failed: ${reason}`,
+            },
+          }).catch(() => {});
+        });
 
-      rzp.open();
-    } catch (e) {
+        rzp.open();
+        // Unfreeze placing button once modal is requested so the page is not stuck
+        setTimeout(() => {
+          setPlacing(false);
+          setPlacingText(null);
+        }, 500);
+      } catch (rzpOpenErr: any) {
+        setPlacing(false);
+        setPlacingText(null);
+        throw new Error(rzpOpenErr?.message || "Failed to launch Razorpay Checkout popup.");
+      }
+    } catch (e: any) {
       setPlacing(false);
-      toast.error((e as Error).message || "Could not initialize online payment. Please try again.");
+      setPlacingText(null);
+      console.error("[Checkout] Online payment error:", e);
+      toast.error(e?.message || "Could not initialize online payment. Please try again.");
     }
   };
+
 
   if (displayItems.length === 0) {
     return (
@@ -665,7 +720,7 @@ function CheckoutPage() {
               {isLoading || isSyncing || placing ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{paymentMethod === "ONLINE" ? "Opening Razorpay..." : "Placing Order..."}</span>
+                  <span>{placingText || (paymentMethod === "ONLINE" ? "Opening Razorpay..." : "Placing Order...")}</span>
                 </div>
               ) : (
                 <>
