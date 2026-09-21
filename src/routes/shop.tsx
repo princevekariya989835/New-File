@@ -16,9 +16,9 @@ import {
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 const productsQuery = {
-  queryKey: ["products", "shop"],
+  queryKey: ["products", "catalog", 50],
   queryFn: () => fetchProducts(50),
-  staleTime: 1000 * 15,
+  staleTime: 1000 * 60,
   gcTime: 1000 * 60 * 30,
 };
 
@@ -306,8 +306,8 @@ function ShopPage() {
         )
       ) : (
         <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
-          {filtered.map((p) => (
-            <ProductCard key={p.node.id} product={p} />
+          {filtered.map((p, idx) => (
+            <ProductCard key={p.node.id} product={p} priority={idx < 4} />
           ))}
         </div>
       )}

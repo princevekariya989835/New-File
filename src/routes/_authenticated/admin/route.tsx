@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
 import { checkIsAdmin } from "@/lib/admin.functions";
-import { adminDashboard } from "@/lib/admin-dashboard.functions";
+import { getAdminNotifications } from "@/lib/admin-dashboard.functions";
 import { AdminLayoutSkeleton } from "@/components/admin/admin-skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +95,7 @@ function AdminLayout() {
     user: { id: string; email: string; role?: string };
   };
   const isAdminFn = useServerFn(checkIsAdmin);
-  const dashFn = useServerFn(adminDashboard);
+  const notifFn = useServerFn(getAdminNotifications);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -120,12 +120,12 @@ function AdminLayout() {
     retry: 1,
   });
 
-  const dashQ = useQuery({
-    queryKey: ["admin", "dashboard"],
-    queryFn: () => dashFn(),
+  const notifQ = useQuery({
+    queryKey: ["admin", "notifications"],
+    queryFn: () => notifFn(),
     enabled: roleQ.data !== false,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 
   const { signOut: authSignOut } = useAuth();
@@ -167,7 +167,7 @@ function AdminLayout() {
     );
   }
 
-  const notifications = dashQ.data?.notifications ?? [];
+  const notifications = notifQ.data ?? [];
 
   const sidebar = (
     <nav className="flex flex-col gap-1 p-3">

@@ -19,9 +19,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
   const navigate = useNavigate();
 
   const { data: rawProducts = [] } = useQuery({
-    queryKey: ["products", "search-dialog"],
+    queryKey: ["products", "catalog", 50],
     queryFn: () => fetchProducts(50),
-    staleTime: 1000 * 15,
+    enabled: open,
+    staleTime: 1000 * 60,
   });
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 

@@ -70,9 +70,69 @@ export type AdminDashboard = {
 
 const VOID = new Set(["Cancelled", "Returned", "Refunded"]);
 
+let _dashboardCache: { data: AdminDashboard; timestamp: number } | null = null;
+const DASHBOARD_CACHE_TTL = 15_000;
+
+export function invalidateAdminDashboardCache() {
+  _dashboardCache = null;
+}
+
+/**
+ * Lightweight notifications endpoint for the admin navbar bell icon (<15ms).
+ * Runs only 2 simple bounded queries instead of computing full store analytics.
+ */
+export const getAdminNotifications = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<AdminNotification[]> => {
+    try {
+      await assertAdmin(context as any);
+      const sql = getSql();
+
+      const [recentOrdersRes, outOfStockRes] = await Promise.all([
+        sql`
+          SELECT id, order_number, created_at, total_amount, shipping_name
+          FROM orders
+          ORDER BY created_at DESC
+          LIMIT 5
+        `,
+        sql`
+          SELECT id, name
+          FROM products
+          WHERE is_active = true AND (stock_quantity - reserved_stock) <= 0
+          LIMIT 5
+        `,
+      ]);
+
+      const notifications: AdminNotification[] = [];
+      for (const o of (recentOrdersRes || []) as any[]) {
+        notifications.push({
+          kind: "order",
+          title: `New Order ${o.order_number}`,
+          detail: `${o.shipping_name || "Customer"} placed an order worth ₹${Number(o.total_amount || 0)}`,
+          at: o.created_at ? new Date(o.created_at).toISOString() : null,
+        });
+      }
+      for (const p of (outOfStockRes || []) as any[]) {
+        notifications.push({
+          kind: "out_of_stock",
+          title: `Out of Stock: ${p.name}`,
+          detail: `0 units remaining in stock`,
+          at: null,
+        });
+      }
+      return notifications;
+    } catch {
+      return [];
+    }
+  });
+
 export const adminDashboard = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminDashboard> => {
+    if (_dashboardCache && Date.now() - _dashboardCache.timestamp < DASHBOARD_CACHE_TTL) {
+      return _dashboardCache.data;
+    }
+
     const now = new Date();
     const daysMap = new Map<string, { revenue: number; orders: number }>();
     for (let i = 13; i >= 0; i--) {
@@ -83,7 +143,6 @@ export const adminDashboard = createServerFn({ method: "GET" })
 
     try {
       await assertAdmin(context as any);
-      await ensureDbSchema();
       const sql = getSql();
 
       const [
@@ -264,7 +323,7 @@ export const adminDashboard = createServerFn({ method: "GET" })
         });
       }
 
-      return {
+      const result: AdminDashboard = {
         currency,
         totals: {
           sales: totalSales,
@@ -285,6 +344,9 @@ export const adminDashboard = createServerFn({ method: "GET" })
         salesByDay,
         notifications,
       };
+
+      _dashboardCache = { data: result, timestamp: Date.now() };
+      return result;
     } catch (err) {
       console.error("[Admin Dashboard] error:", err);
       return {

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, logAudit } from "@/lib/admin-utils";
 import {
@@ -193,18 +193,31 @@ export const getAdminWebsiteState = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<WebsiteStateResponse> => {
     await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
 
-    // 1. Fetch Published
-    let publishedRow = (
-      await sql`
+    // Concurrently fetch Published, Draft, and Version History
+    const [publishedRes, draftRes, versionRows] = await Promise.all([
+      sql`
         SELECT version_id, version_number, config, published_at, published_by
         FROM website_published
         WHERE id = 'live'
         LIMIT 1
-      `
-    )[0];
+      `,
+      sql`
+        SELECT config, updated_at, updated_by
+        FROM website_draft
+        WHERE id = 'current'
+        LIMIT 1
+      `,
+      sql`
+        SELECT id, version_number, config, published_at, published_by, change_summary, status
+        FROM website_versions
+        ORDER BY version_number DESC, published_at DESC
+        LIMIT 30
+      `,
+    ]);
+
+    let publishedRow = publishedRes?.[0];
 
     // If published is missing, initialize
     if (!publishedRow) {
@@ -241,15 +254,8 @@ export const getAdminWebsiteState = createServerFn({ method: "GET" })
         : publishedRow.config;
     const pubConfig = mergeWithDefaults(pubConfigRaw);
 
-    // 2. Fetch Draft
-    let draftRow = (
-      await sql`
-        SELECT config, updated_at, updated_by
-        FROM website_draft
-        WHERE id = 'current'
-        LIMIT 1
-      `
-    )[0];
+    // Draft handling
+    let draftRow = draftRes?.[0];
 
     if (!draftRow) {
       await sql`
@@ -267,14 +273,6 @@ export const getAdminWebsiteState = createServerFn({ method: "GET" })
     const draftConfigRaw =
       typeof draftRow.config === "string" ? JSON.parse(draftRow.config) : draftRow.config;
     const draftConfig = mergeWithDefaults(draftConfigRaw);
-
-    // 3. Fetch Version History (ordered newest first)
-    const versionRows = await sql`
-      SELECT id, version_number, config, published_at, published_by, change_summary, status
-      FROM website_versions
-      ORDER BY version_number DESC, published_at DESC
-      LIMIT 30
-    `;
 
     const latestVersions: WebsiteVersion[] = (versionRows || []).map((row: any) => {
       const cfg = typeof row.config === "string" ? JSON.parse(row.config) : row.config;
@@ -324,7 +322,6 @@ export const adminSaveWebsiteDraft = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
 
     if (!data.config || typeof data.config !== "object") {
@@ -374,7 +371,6 @@ export const adminPublishWebsite = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
 
@@ -468,7 +464,6 @@ export const adminUndoLastPublish = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
 
@@ -570,7 +565,6 @@ export const adminDiscardDraft = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     const admin = await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
 
@@ -623,7 +617,6 @@ export const adminRestoreSpecificVersion = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const admin = await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
     const userIdentifier = (admin as any)?.email ?? (context as any)?.user?.email ?? "Admin";
 
@@ -725,7 +718,6 @@ export const uploadHeroMediaServerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any);
-    await ensureDbSchema();
     const sql = getSql();
 
     if (!data.dataBase64) {

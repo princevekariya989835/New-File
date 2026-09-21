@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib/admin-utils";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
 import { invalidatePublicWebsiteConfigCache } from "@/lib/website-config.functions";
 import { invalidateCatalogCache } from "@/lib/catalog";
@@ -53,11 +53,23 @@ async function hashSettingsPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// In-memory cache for store settings (60s TTL)
+let _storeSettingsCache: { data: StoreSettings; timestamp: number } | null = null;
+const STORE_SETTINGS_CACHE_TTL = 60_000;
+
+export function invalidateStoreSettingsCache() {
+  _storeSettingsCache = null;
+}
+
 export const getStoreSettings = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<StoreSettings> => {
     await assertAdmin(context);
-    await ensureDbSchema();
+
+    if (_storeSettingsCache && Date.now() - _storeSettingsCache.timestamp < STORE_SETTINGS_CACHE_TTL) {
+      return _storeSettingsCache.data;
+    }
+
     const sql = getSql();
 
     const rows = await sql`
@@ -71,11 +83,15 @@ export const getStoreSettings = createServerFn({ method: "GET" })
       `;
       const inserted = await sql`SELECT * FROM store_settings WHERE id = 'default' LIMIT 1`;
       if (inserted.length > 0) {
-        return mapRowToSettings(inserted[0]);
+        const res = mapRowToSettings(inserted[0]);
+        _storeSettingsCache = { data: res, timestamp: Date.now() };
+        return res;
       }
     }
 
-    return mapRowToSettings(rows[0]);
+    const res = mapRowToSettings(rows[0]);
+    _storeSettingsCache = { data: res, timestamp: Date.now() };
+    return res;
   });
 
 function mapRowToSettings(r: any): StoreSettings {
@@ -127,7 +143,6 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
   .inputValidator((d: Partial<StoreSettings>) => d)
   .handler(async ({ data, context }) => {
     await assertPermission(context, "settings", "edit");
-    await ensureDbSchema();
     const sql = getSql();
 
     const actorName = context.user.fullName || context.user.email || "Admin";
@@ -269,6 +284,7 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
 
     invalidatePublicWebsiteConfigCache();
     invalidateCatalogCache();
+    invalidateStoreSettingsCache();
 
     return { ok: true, message: "Settings saved successfully." };
   });
@@ -284,7 +300,6 @@ export const updateAccountProfile = createServerFn({ method: "POST" })
     avatar: d.avatar ? String(d.avatar).trim() : null,
   }))
   .handler(async ({ data, context }) => {
-    await ensureDbSchema();
     const sql = getSql();
 
     if (!data.fullName) throw new Error("Full name is required.");
@@ -323,7 +338,6 @@ export const changeAccountPassword = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await ensureDbSchema();
     const sql = getSql();
 
     if (!data.currentPassword) throw new Error("Current password is required.");
@@ -379,7 +393,6 @@ export const exportStoreData = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertPermission(context, "settings", "view");
-    await ensureDbSchema();
     const sql = getSql();
 
     let rawData: any[] = [];
@@ -471,7 +484,6 @@ export const toggleMaintenanceMode = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context);
-    await ensureDbSchema();
     const sql = getSql();
 
     await sql`
@@ -493,6 +505,7 @@ export const toggleMaintenanceMode = createServerFn({ method: "POST" })
     );
 
     invalidatePublicWebsiteConfigCache();
+    invalidateStoreSettingsCache();
 
     return {
       ok: true,

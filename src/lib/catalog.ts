@@ -167,7 +167,7 @@ let _seedPromise: Promise<void> | null = null;
 // Micro-cache (2s burst debounce) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
-const CATALOG_CACHE_TTL = 2_000;
+const CATALOG_CACHE_TTL = 60_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();
