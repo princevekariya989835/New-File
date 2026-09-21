@@ -164,10 +164,10 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// High-speed in-memory server cache (30s SWR TTL)
+// Micro-cache (2s burst debounce) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
-const CATALOG_CACHE_TTL = 30_000;
+const CATALOG_CACHE_TTL = 2_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();
@@ -278,89 +278,98 @@ export async function seedInitialProductsIfNeeded() {
   return _seedPromise;
 }
 
+/**
+ * Direct high-performance query for published storefront products from Neon PostgreSQL.
+ * Single source of truth across all edge workers and visitor sessions.
+ */
+export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]> {
+  const sql = getSql();
+
+  const products = await sql`
+    SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+    FROM products
+    WHERE is_active = true OR is_active IS NULL
+    ORDER BY name ASC, id ASC
+    LIMIT ${first}
+  `;
+
+  if (!products || products.length === 0) {
+    return [];
+  }
+
+  const productIds = products.map((p: any) => String(p.id));
+  let variants: any[] = [];
+  if (productIds.length > 0) {
+    try {
+      variants = await sql`
+        SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
+        FROM product_variants
+        WHERE product_id::text = ANY(${productIds}::text[])
+      `;
+    } catch {
+      variants = [];
+    }
+  }
+
+  const variantsByProductId = new Map<string, VariantRow[]>();
+  for (const v of variants) {
+    const pId = String(v.product_id);
+    if (!variantsByProductId.has(pId)) variantsByProductId.set(pId, []);
+    variantsByProductId.get(pId)!.push({
+      id: String(v.id),
+      size: (v.size as string) || "",
+      color: (v.color as string) || "",
+      stock_quantity: Number(v.stock_quantity || 0),
+      reserved_stock: Number(v.reserved_stock || 0),
+      low_stock_threshold: Number(v.low_stock_threshold || 2),
+    });
+  }
+
+  const rows: ProductRow[] = products.map((p: any) => ({
+    id: String(p.id),
+    name: p.name as string,
+    slug: p.slug as string,
+    description: (p.description as string) || null,
+    price: Number(p.price || 0),
+    currency: (p.currency as string) || "INR",
+    images: Array.isArray(p.images)
+      ? p.images
+      : typeof p.images === "string"
+        ? JSON.parse(p.images)
+        : [],
+    category: (p.category as string) || null,
+    sizes: Array.isArray(p.sizes)
+      ? p.sizes
+      : typeof p.sizes === "string"
+        ? JSON.parse(p.sizes)
+        : [],
+    colors: Array.isArray(p.colors)
+      ? p.colors
+      : typeof p.colors === "string"
+        ? JSON.parse(p.colors)
+        : [],
+    stock_quantity: Number(p.stock_quantity || 0),
+    is_active: Boolean(p.is_active),
+    tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
+    product_variants: variantsByProductId.get(String(p.id)) || [],
+  }));
+
+  return rows.map(toCatalogProduct);
+}
+
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { first?: number }) => ({ first: Number(d.first || 20) }))
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
     const first = data.first || 20;
 
-    // Check high-speed memory cache first (1ms return)
+    // Check burst debounce cache first (2s TTL)
     const cached = _productsCache.get(first);
     if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
       return cached.data;
     }
 
     try {
-      await ensureDbSchema();
-      await seedInitialProductsIfNeeded();
-      const sql = getSql();
-
-      // Query active products directly from the database - Single Source of Truth
-      const products = await sql`
-        SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-        FROM products
-        WHERE is_active = true OR is_active IS NULL
-        ORDER BY name ASC, id ASC
-        LIMIT ${first}
-      `;
-
-      if (!products || products.length === 0) {
-        return [];
-      }
-
-      const productIds = products.map((p: any) => String(p.id));
-      let variants: any[] = [];
-      if (productIds.length > 0) {
-        variants = await sql`
-          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-          FROM product_variants
-          WHERE product_id::text = ANY(${productIds}::text[])
-        `;
-      }
-
-      const variantsByProductId = new Map<string, VariantRow[]>();
-      for (const v of variants) {
-        const pId = String(v.product_id);
-        if (!variantsByProductId.has(pId)) variantsByProductId.set(pId, []);
-        variantsByProductId.get(pId)!.push({
-          id: String(v.id),
-          size: (v.size as string) || "",
-          color: (v.color as string) || "",
-          stock_quantity: Number(v.stock_quantity || 0),
-          reserved_stock: Number(v.reserved_stock || 0),
-          low_stock_threshold: Number(v.low_stock_threshold || 2),
-        });
-      }
-
-      const rows: ProductRow[] = products.map((p: any) => ({
-        id: String(p.id),
-        name: p.name as string,
-        slug: p.slug as string,
-        description: (p.description as string) || null,
-        price: Number(p.price || 0),
-        currency: (p.currency as string) || "INR",
-        images: Array.isArray(p.images)
-          ? p.images
-          : typeof p.images === "string"
-            ? JSON.parse(p.images)
-            : [],
-        category: (p.category as string) || null,
-        sizes: Array.isArray(p.sizes)
-          ? p.sizes
-          : typeof p.sizes === "string"
-            ? JSON.parse(p.sizes)
-            : [],
-        colors: Array.isArray(p.colors)
-          ? p.colors
-          : typeof p.colors === "string"
-            ? JSON.parse(p.colors)
-            : [],
-        stock_quantity: Number(p.stock_quantity || 0),
-        is_active: Boolean(p.is_active),
-        tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
-        product_variants: variantsByProductId.get(String(p.id)) || [],
-      }));
-
-      const results = rows.map(toCatalogProduct);
+      const results = await getPublishedProducts(first);
       _productsCache.set(first, { data: results, timestamp: Date.now() });
       return results;
     } catch (err: any) {
@@ -389,15 +398,13 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<CatalogProductNode | null> => {
     const handleKey = String(data.handle).toLowerCase().trim();
 
-    // Check high-speed memory cache first
+    // Check burst debounce cache first
     const cached = _productHandleCache.get(handleKey);
     if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
       return cached.data;
     }
 
     try {
-      await ensureDbSchema();
-      await seedInitialProductsIfNeeded();
       const sql = getSql();
 
       // Read directly from database - Single Source of Truth
@@ -414,11 +421,16 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       }
 
       const p = products[0];
-      const variants = await sql`
-        SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-        FROM product_variants
-        WHERE product_id::text = ${String(p.id)}
-      `;
+      let variants: any[] = [];
+      try {
+        variants = await sql`
+          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
+          FROM product_variants
+          WHERE product_id::text = ${String(p.id)}
+        `;
+      } catch {
+        variants = [];
+      }
 
       const variantRows: VariantRow[] = variants.map((v: any) => ({
         id: String(v.id),
@@ -445,8 +457,8 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         sizes: Array.isArray(p.sizes)
           ? p.sizes
           : typeof p.sizes === "string"
-            ? JSON.parse(p.sizes)
-            : [],
+        ? JSON.parse(p.sizes)
+        : [],
         colors: Array.isArray(p.colors)
           ? p.colors
           : typeof p.colors === "string"

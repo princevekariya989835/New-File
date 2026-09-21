@@ -362,7 +362,16 @@ export function removeMockProduct(productIdOrSlug: string): boolean {
 }
 
 export function getDatabaseUrl(): string | null {
-  return process.env.DATABASE_URL || null;
+  if (typeof process !== "undefined" && process.env?.DATABASE_URL) {
+    return process.env.DATABASE_URL.trim();
+  }
+  if (typeof globalThis !== "undefined") {
+    const g = globalThis as any;
+    if (g.DATABASE_URL) return String(g.DATABASE_URL).trim();
+    if (g.__env__?.DATABASE_URL) return String(g.__env__.DATABASE_URL).trim();
+    if (g.process?.env?.DATABASE_URL) return String(g.process.env.DATABASE_URL).trim();
+  }
+  return null;
 }
 
 export function getSql() {
@@ -2107,6 +2116,9 @@ export async function ensureDbSchema() {
         `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
         `CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON profiles (created_at DESC)`,
         `CREATE INDEX IF NOT EXISTS idx_products_is_active ON products (is_active)`,
+        `CREATE INDEX IF NOT EXISTS idx_products_slug ON products (slug)`,
+        `CREATE INDEX IF NOT EXISTS idx_products_category ON products (category)`,
+        `CREATE INDEX IF NOT EXISTS idx_products_active_name ON products (is_active, name ASC)`,
         `CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants (product_id)`,
         `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
         `CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`,

@@ -4,7 +4,8 @@ import { useMemo, useState, useEffect } from "react";
 import { fetchProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product-card";
 import { EmptyProducts } from "@/components/empty-products";
-import { Search, X } from "lucide-react";
+import { ShopSkeleton } from "@/components/shop/shop-skeleton";
+import { Search, X, AlertCircle, RefreshCw } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -68,15 +69,27 @@ export const Route = createFileRoute("/shop")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(productsQuery),
+  loader: async ({ context }) => {
+    // Fast non-blocking prefetch capped at 300ms so SSR never freezes on cold starts
+    await Promise.race([
+      context.queryClient.ensureQueryData(productsQuery),
+      new Promise((resolve) => setTimeout(resolve, 300)),
+    ]).catch(() => {});
+  },
+  pendingComponent: () => (
+    <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
+      <div className="mb-12 max-w-3xl animate-pulse space-y-3">
+        <div className="h-4 w-20 bg-muted/60 rounded" />
+        <div className="h-12 w-3/4 bg-muted/60 rounded" />
+      </div>
+      <ShopSkeleton count={8} />
+    </div>
+  ),
   component: ShopPage,
 });
 
 function ShopPage() {
-  const { data: rawProducts = [] } = useQuery({
-    ...productsQuery,
-    initialData: [],
-  });
+  const { data: rawProducts, isLoading, isError, refetch } = useQuery(productsQuery);
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
@@ -248,7 +261,28 @@ function ShopPage() {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {/* Content Rendering: Loading, Error, Empty, and Success */}
+      {isLoading && products.length === 0 ? (
+        <ShopSkeleton count={8} />
+      ) : isError && products.length === 0 ? (
+        <div className="mx-auto max-w-md py-16 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle className="h-7 w-7" />
+          </div>
+          <h2 className="text-xl font-bold">Unable to load products</h2>
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            We encountered an issue connecting to the catalog. Please try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-red px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Try Again
+          </button>
+        </div>
+      ) : filtered.length === 0 ? (
         q.trim() ? (
           <div className="mx-auto max-w-md py-16 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
