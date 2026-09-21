@@ -26,6 +26,7 @@ import { useCartStore } from "@/stores/cart-store";
 import { toast } from "sonner";
 import { BrandName } from "@/components/brand-name";
 import { ProductReviews } from "@/components/reviews/product-reviews";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 const productQuery = (handle: string) => ({
   queryKey: ["product", handle],
@@ -173,6 +174,15 @@ function ProductPage() {
   const addItem = useCartStore((s) => s.addItem);
   const isLoading = useCartStore((s) => s.isLoading);
   const [justAdded, setJustAdded] = useState(false);
+  const { config } = usePublishedWebsiteConfig();
+  const prodTxt = config?.productContent;
+  const addToCartLabel = prodTxt?.addToCartLabel || "Add to Bag";
+  const outOfStockLabel = prodTxt?.outOfStockLabel || "Sold out";
+  const sizeGuideLabel = prodTxt?.sizeGuideLabel || "Size Guide";
+  const sizeGuideTitle = prodTxt?.sizeGuideLabel || "Oversized Fit Size Guide";
+  const selectSizeLabel = prodTxt?.selectSizeLabel || "Select Size";
+  const quantityLabel = prodTxt?.quantityLabel || "Quantity";
+  const detailsLabel = prodTxt?.descriptionLabel || "Details";
 
   const handleAdd = async () => {
     if (!currentVariant) return;
@@ -278,7 +288,7 @@ function ProductPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold tracking-wide">
-                        {isSize ? "Select Size" : opt.name}:
+                        {isSize ? selectSizeLabel : opt.name}:
                       </span>
                       <span className="text-sm font-bold text-foreground">
                         {selected[opt.name] || opt.values[0]}
@@ -292,13 +302,13 @@ function ProductPage() {
                             type="button"
                             className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
                           >
-                            <Ruler className="h-3.5 w-3.5" /> Size Guide
+                            <Ruler className="h-3.5 w-3.5" /> {sizeGuideLabel}
                           </button>
                         </DialogTrigger>
                         <DialogContent className="max-w-md">
                           <DialogHeader>
                             <DialogTitle className="text-lg font-bold">
-                              Oversized Fit Size Guide
+                              {sizeGuideTitle}
                             </DialogTitle>
                           </DialogHeader>
                           <p className="text-xs text-muted-foreground">
@@ -389,7 +399,7 @@ function ProductPage() {
 
             {/* Quantity */}
             <div>
-              <span className="mb-3 block text-sm font-medium">Quantity</span>
+              <span className="mb-3 block text-sm font-medium">{quantityLabel}</span>
               <div className="inline-flex items-center gap-4 rounded-full border border-border px-2 py-1">
                 <button
                   onClick={() => setQty(Math.max(1, qty - 1))}
@@ -432,9 +442,9 @@ function ProductPage() {
                   <Check className="h-4 w-4" /> Added
                 </>
               ) : currentVariant?.availableForSale ? (
-                "Add to Bag"
+                addToCartLabel
               ) : (
-                "Sold out"
+                outOfStockLabel
               )}
             </button>
             <Link
@@ -448,7 +458,7 @@ function ProductPage() {
           {/* Description */}
           {p.description && (
             <div className="mt-10 border-t border-border pt-8">
-              <h2 className="text-sm font-semibold uppercase tracking-widest">Details</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-widest">{detailsLabel}</h2>
               <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {p.description}
               </p>

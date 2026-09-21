@@ -1,3 +1,17 @@
+export interface WebsiteHeroAnimationSettings {
+  enabled: boolean;
+  speed: "slow" | "normal" | "fast" | number;
+  direction: "normal" | "reverse";
+  scale: number;
+  desktopEnabled: boolean;
+  mobileEnabled: boolean;
+  textPosition: "top" | "center" | "bottom";
+  textAlignment: "left" | "center" | "right";
+  primaryButtonVisible: boolean;
+  secondaryButtonVisible: boolean;
+  tshirtCount?: number;
+}
+
 export interface WebsiteHeroConfig {
   active: boolean;
   enabled?: boolean;
@@ -18,6 +32,7 @@ export interface WebsiteHeroConfig {
   alignment: "left" | "center" | "right";
   animation?: "none" | "fade" | "zoom" | "subtle" | "default" | string;
   showTShirtBadge?: boolean;
+  animationSettings?: WebsiteHeroAnimationSettings;
 }
 
 export interface WebsiteAnnouncementConfig {
@@ -107,6 +122,62 @@ export interface WebsiteSeoConfig {
   ogDescription: string;
   canonicalUrl: string;
   keywords: string;
+  homepageTitle?: string;
+  homepageDescription?: string;
+  shopTitle?: string;
+  shopDescription?: string;
+  ogImageUrl?: string;
+  googleSearchConsoleCode?: string;
+}
+
+export interface WebsiteCartContent {
+  heading: string;
+  emptyMessage: string;
+  emptySubmessage: string;
+  continueShoppingText: string;
+  removeText: string;
+  quantityLabel: string;
+  subtotalLabel: string;
+  checkoutButtonText: string;
+  viewCartText: string;
+  freeShippingMessage: string;
+}
+
+export interface WebsiteShopContent {
+  pageTitle: string;
+  pageDescription: string;
+  allProductsLabel: string;
+  newArrivalsLabel: string;
+  bestSellersLabel: string;
+  filterLabel: string;
+  sortLabel: string;
+  loadMoreLabel: string;
+  noProductsFoundText: string;
+}
+
+export interface WebsiteProductContent {
+  addToCartLabel: string;
+  buyNowLabel: string;
+  selectSizeLabel: string;
+  selectColorLabel: string;
+  quantityLabel: string;
+  sizeGuideLabel: string;
+  descriptionLabel: string;
+  reviewsLabel: string;
+  relatedProductsLabel: string;
+  outOfStockLabel: string;
+  notifyMeLabel: string;
+}
+
+export interface WebsiteContactContent {
+  pageTitle: string;
+  description: string;
+  email: string;
+  phone: string;
+  address: string;
+  businessHours: string;
+  instagram: string;
+  wholesaleText: string;
 }
 
 export interface WebsiteGeneralSettings {
@@ -134,6 +205,11 @@ export interface WebsiteSectionOrderItem {
   id: WebsiteSectionType;
   name: string;
   enabled: boolean;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  buttonText?: string;
+  buttonUrl?: string;
 }
 
 export interface WebsiteSectionOrderConfig {
@@ -158,6 +234,10 @@ export interface WebsiteConfig {
   reviewsSection: WebsiteReviewsSectionConfig;
   footer: WebsiteFooterConfig;
   sectionOrder: WebsiteSectionOrderConfig;
+  cartContent?: WebsiteCartContent;
+  shopContent?: WebsiteShopContent;
+  productContent?: WebsiteProductContent;
+  contactContent?: WebsiteContactContent;
 }
 
 export interface WebsiteVersion {
@@ -215,6 +295,13 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     canonicalUrl: "https://riotous.store",
     keywords:
       "streetwear, DTF printing, oversized tees, graphic tees, custom apparel, made in India",
+    homepageTitle: "RIOTOUS — We Don't Follow Trends. We Print Them.",
+    homepageDescription:
+      "Premium DTF printed streetwear made in India. Custom apparel for creators, dreamers, and streetwear lovers.",
+    shopTitle: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS",
+    shopDescription: "Browse the full RIOTOUS collection. DTF printed tees, oversized fits, and limited drops.",
+    ogImageUrl: "/assets/riotous-hero-graphic-clean.jpg",
+    googleSearchConsoleCode: "",
   },
   announcement: {
     enabled: false,
@@ -240,6 +327,19 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     imageUrl: "/assets/riotous-hero-graphic-clean.jpg",
     videoUrl: "",
     alignment: "left",
+    animationSettings: {
+      enabled: true,
+      speed: "normal",
+      direction: "normal",
+      scale: 1,
+      desktopEnabled: true,
+      mobileEnabled: true,
+      textPosition: "center",
+      textAlignment: "center",
+      primaryButtonVisible: true,
+      secondaryButtonVisible: true,
+      tshirtCount: 12,
+    },
   },
   navigation: [
     { id: "nav_shop", label: "Shop", to: "/shop", enabled: true },
@@ -404,5 +504,53 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       { id: "reviews", name: "Community Reviews", enabled: true },
       { id: "footer", name: "Footer", enabled: true },
     ],
+  },
+  cartContent: {
+    heading: "Your bag",
+    emptyMessage: "Your bag is empty.",
+    emptySubmessage: "Nothing here yet.",
+    continueShoppingText: "Continue Shopping",
+    removeText: "Remove",
+    quantityLabel: "Quantity",
+    subtotalLabel: "Subtotal",
+    checkoutButtonText: "Checkout",
+    viewCartText: "View Bag",
+    freeShippingMessage: "Free shipping on orders over ₹1499",
+  },
+  shopContent: {
+    pageTitle: "The full collection.",
+    pageDescription: "Heavyweight DTF printed streetwear crafted in India.",
+    allProductsLabel: "All Products",
+    newArrivalsLabel: "New Arrivals",
+    bestSellersLabel: "Best Sellers",
+    filterLabel: "Filter",
+    sortLabel: "Sort by",
+    loadMoreLabel: "Load More",
+    noProductsFoundText: "No products found matching your criteria.",
+  },
+  productContent: {
+    addToCartLabel: "Add to Bag",
+    buyNowLabel: "Buy Now",
+    selectSizeLabel: "Select Size",
+    selectColorLabel: "Select Colour",
+    quantityLabel: "Quantity",
+    sizeGuideLabel: "Oversized Fit Size Guide",
+    descriptionLabel: "Details",
+    reviewsLabel: "Customer Reviews",
+    relatedProductsLabel: "You Might Also Like",
+    outOfStockLabel: "Sold out",
+    notifyMeLabel: "Notify Me When Available",
+  },
+  contactContent: {
+    pageTitle: "Say hi.",
+    description:
+      "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.",
+    email: "support@riotous.store",
+    phone: "+91 98765 43210",
+    address: "Studio RIOTOUS, Surat, Gujarat, India",
+    businessHours: "Mon — Sat · 10:00 — 19:00 IST",
+    instagram: "@riotous",
+    wholesaleText:
+      "Looking for custom runs, band merch, or wholesale orders? Let's talk.",
   },
 };

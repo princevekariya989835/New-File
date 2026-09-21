@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 const productsQuery = {
   queryKey: ["products", "shop"],
@@ -79,6 +80,14 @@ function ShopPage() {
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: "/shop" });
+  const { config } = usePublishedWebsiteConfig();
+  const shopTxt = config?.shopContent;
+
+  const pageTitle = shopTxt?.pageTitle || "The full collection.";
+  const pageDesc = shopTxt?.pageDescription;
+  const sortLbl = shopTxt?.sortLabel || "Sort";
+  const filterLbl = shopTxt?.filterLabel || "Filter";
+  const noProductsFound = shopTxt?.noProductsFoundText || "No matching products found";
 
   const [sort, setSort] = useState(searchParams.sort || "featured");
   const [size, setSize] = useState<string>(searchParams.size || "all");
@@ -103,30 +112,23 @@ function ShopPage() {
     navigate({
       search: (prev) => ({
         ...prev,
-        q: val.trim() ? val.trim() : undefined,
+        q: val.trim() ? val : undefined,
       }),
       replace: true,
-      resetScroll: false,
     });
   };
 
   const filtered = useMemo(() => {
     let list = products;
-
     if (q.trim()) {
-      const term = q.trim().toLowerCase();
-      list = list.filter((p) => {
-        const title = p.node.title.toLowerCase();
-        const desc = (p.node.description || "").toLowerCase();
-        const tags = (p.node.tags || []).join(" ").toLowerCase();
-        const handle = p.node.handle.toLowerCase();
-        return (
-          title.includes(term) ||
-          desc.includes(term) ||
-          tags.includes(term) ||
-          handle.includes(term)
-        );
-      });
+      const term = q.toLowerCase().trim();
+      list = list.filter(
+        (p) =>
+          p.node.title.toLowerCase().includes(term) ||
+          p.node.description?.toLowerCase().includes(term) ||
+          p.node.productType?.toLowerCase().includes(term) ||
+          p.node.tags?.some((t) => t.toLowerCase().includes(term)),
+      );
     }
 
     if (size !== "all") {
@@ -161,11 +163,16 @@ function ShopPage() {
     <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
       <div className="mb-12 max-w-3xl">
         <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-          Shop
+          {filterLbl}
         </p>
         <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">
-          {q.trim() ? `Search: "${q.trim()}"` : "The full collection."}
+          {q.trim() ? `Search: "${q.trim()}"` : pageTitle}
         </h1>
+        {pageDesc && !q.trim() && (
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            {pageDesc}
+          </p>
+        )}
         {q.trim() && (
           <p className="mt-2 text-sm text-muted-foreground">
             Showing results for "{q.trim()}".{" "}

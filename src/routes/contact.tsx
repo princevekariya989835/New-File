@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Mail, Instagram } from "lucide-react";
 import { BrandName } from "@/components/brand-name";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -56,6 +57,16 @@ const schema = z.object({
 
 function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const { config } = usePublishedWebsiteConfig();
+  const cntTxt = config?.contactContent;
+
+  const pageTitle = cntTxt?.pageTitle || "Say hi.";
+  const description =
+    cntTxt?.description ||
+    "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.";
+  const supportEmail = cntTxt?.email || config?.general?.contactEmail || "support@riotous.store";
+  const businessHours = cntTxt?.businessHours || "Mon — Sat · 10:00 — 19:00 IST";
+  const instagram = cntTxt?.instagram || "@riotous";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,23 +86,23 @@ function ContactPage() {
           <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
             Contact
           </p>
-          <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">Say hi.</h1>
-          <p className="mt-6 max-w-md text-muted-foreground">
-            Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.
+          <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">{pageTitle}</h1>
+          <p className="mt-6 max-w-md text-muted-foreground leading-relaxed">
+            {description}
           </p>
 
           <div className="mt-12 space-y-6">
-            <a href="mailto:support@riotous.store" className="block">
-              <ContactRow icon={Mail} label="Support" value="support@riotous.store" />
+            <a href={`mailto:${supportEmail}`} className="block">
+              <ContactRow icon={Mail} label="Support" value={supportEmail} />
             </a>
-            <ContactRow icon={Instagram} label="Instagram" value="@riotous" />
+            <ContactRow icon={Instagram} label="Instagram" value={instagram} />
           </div>
 
           <div className="mt-12 border-t border-border pt-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Studio hours
             </p>
-            <p className="mt-3 text-sm">Mon — Sat · 10:00 — 19:00 IST</p>
+            <p className="mt-3 text-sm">{businessHours}</p>
           </div>
         </div>
 

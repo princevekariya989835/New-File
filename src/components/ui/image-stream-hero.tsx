@@ -96,6 +96,16 @@ export type ImageStreamHeroProps = {
   speed?: number;
   /** Vertical placement of the corridor's axis, as a percentage of height. @default 52 */
   axis?: number;
+  /** Animation direction: normal (towards viewer) or reverse. @default "normal" */
+  direction?: "normal" | "reverse";
+  /** Corridor scale multiplier. @default 1 */
+  scale?: number;
+  /** Global animation toggle. @default true */
+  enabled?: boolean;
+  /** Desktop animation toggle. @default true */
+  desktopEnabled?: boolean;
+  /** Mobile animation toggle. @default true */
+  mobileEnabled?: boolean;
   /** Override any part of the corridor geometry. Merged over the defaults. */
   path?: CorridorPath;
   /** Content rendered above the corridor. */
@@ -108,6 +118,11 @@ function ImageStreamHeroInner({
   cards,
   speed = 18,
   axis = 52,
+  direction = "normal",
+  scale = 1,
+  enabled = true,
+  desktopEnabled = true,
+  mobileEnabled = true,
   path,
   children,
   className,
@@ -117,12 +132,26 @@ function ImageStreamHeroInner({
   const isMobile = useIsMobile();
   const effectiveCards = cards ?? (isMobile ? 3 : 9);
 
+  const isAnimActive =
+    enabled !== false &&
+    (isMobile ? mobileEnabled !== false : desktopEnabled !== false);
+
   const right = `ish-r-${id}`;
   const left = `ish-l-${id}`;
   const card = `ish-c-${id}`;
 
   const defaultPath = isMobile ? MOBILE_PATH : DESKTOP_PATH;
-  const p = React.useMemo(() => ({ ...defaultPath, ...path }), [defaultPath, path]);
+  const p = React.useMemo(() => {
+    const base = { ...defaultPath, ...path };
+    if (scale && scale !== 1) {
+      return {
+        ...base,
+        cardWidth: base.cardWidth * scale,
+        cardHeight: base.cardHeight * scale,
+      };
+    }
+    return base;
+  }, [defaultPath, path, scale]);
 
   const css = React.useMemo(
     () => `
@@ -155,57 +184,59 @@ function ImageStreamHeroInner({
       style={{ containerType: "inline-size", ...props.style }}
     >
       <style>{css}</style>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          perspective: `${p.perspective}cqw`,
-          perspectiveOrigin: `50% ${axis}%`,
-        }}
-      >
-        <div className="absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
-          {[right, left].map((name) =>
-            Array.from({ length: effectiveCards }, (_, i) => {
-              const img = images[i % Math.max(images.length, 1)];
-              const isFirst = i === 0;
-              return (
-                <div
-                  key={`${name}-${i}`}
-                  className={cn(
-                    card,
-                    "absolute overflow-hidden bg-neutral-900 border border-neutral-800/80 ring-1 ring-white/10 shadow-2xl transition-shadow will-change-transform"
-                  )}
-                  style={{
-                    left: "50%",
-                    top: `${axis}%`,
-                    width: `${p.cardWidth}cqw`,
-                    height: `${p.cardHeight}cqw`,
-                    marginLeft: `${-p.cardWidth / 2}cqw`,
-                    marginTop: `${-p.cardHeight / 2}cqw`,
-                    borderRadius: `${p.cardRadius}cqw`,
-                    animation: `${name} ${speed}s linear infinite`,
-                    animationDelay: `${-(i * speed) / effectiveCards}s`,
-                    backfaceVisibility: "hidden",
-                    contain: "layout paint",
-                  }}
-                >
-                  {img ? (
-                    <img
-                      src={img.src}
-                      alt={img.alt ?? ""}
-                      loading={isFirst ? "eager" : "lazy"}
-                      fetchPriority={isFirst ? "high" : "low"}
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                      draggable={false}
-                    />
-                  ) : null}
-                </div>
-              );
-            })
-          )}
+      {isAnimActive && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            perspective: `${p.perspective}cqw`,
+            perspectiveOrigin: `50% ${axis}%`,
+          }}
+        >
+          <div className="absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
+            {[right, left].map((name) =>
+              Array.from({ length: effectiveCards }, (_, i) => {
+                const img = images[i % Math.max(images.length, 1)];
+                const isFirst = i === 0;
+                return (
+                  <div
+                    key={`${name}-${i}`}
+                    className={cn(
+                      card,
+                      "absolute overflow-hidden bg-neutral-900 border border-neutral-800/80 ring-1 ring-white/10 shadow-2xl transition-shadow will-change-transform"
+                    )}
+                    style={{
+                      left: "50%",
+                      top: `${axis}%`,
+                      width: `${p.cardWidth}cqw`,
+                      height: `${p.cardHeight}cqw`,
+                      marginLeft: `${-p.cardWidth / 2}cqw`,
+                      marginTop: `${-p.cardHeight / 2}cqw`,
+                      borderRadius: `${p.cardRadius}cqw`,
+                      animation: `${name} ${speed}s linear infinite ${direction === "reverse" ? "reverse" : "normal"}`,
+                      animationDelay: `${-(i * speed) / effectiveCards}s`,
+                      backfaceVisibility: "hidden",
+                      contain: "layout paint",
+                    }}
+                  >
+                    {img ? (
+                      <img
+                        src={img.src}
+                        alt={img.alt ?? ""}
+                        loading={isFirst ? "eager" : "lazy"}
+                        fetchPriority={isFirst ? "high" : "low"}
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {children}
     </div>
   );

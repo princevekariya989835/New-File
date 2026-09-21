@@ -48,11 +48,15 @@ import { Route as AuthenticatedAdminReviewsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin/settings'
 import { Route as AuthenticatedAdminShippingRouteImport } from './routes/_authenticated/admin/shipping'
 import { Route as AuthenticatedAdminStaffRouteImport } from './routes/_authenticated/admin/staff'
+import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/admin/storefront'
 import { Route as AuthenticatedAdminWebsiteRouteImport } from './routes/_authenticated/admin/website'
 import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media.upload'
 import { Route as ApiPublicProductImageRouteImport } from './routes/api/public/product-image'
 import { Route as ApiPublicReviewImageRouteImport } from './routes/api/public/review-image'
+import { Route as ApiStorefrontContentRouteImport } from './routes/api/storefront/content'
+import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storefront/navigation'
+import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -266,6 +270,12 @@ const AuthenticatedAdminStaffRoute = AuthenticatedAdminStaffRouteImport.update({
   path: '/staff',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
 } as any)
+const AuthenticatedAdminStorefrontRoute =
+  AuthenticatedAdminStorefrontRouteImport.update({
+    id: '/storefront',
+    path: '/storefront',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminWebsiteRoute =
   AuthenticatedAdminWebsiteRouteImport.update({
     id: '/website',
@@ -290,6 +300,21 @@ const ApiPublicProductImageRoute = ApiPublicProductImageRouteImport.update({
 const ApiPublicReviewImageRoute = ApiPublicReviewImageRouteImport.update({
   id: '/api/public/review-image',
   path: '/api/public/review-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStorefrontContentRoute = ApiStorefrontContentRouteImport.update({
+  id: '/api/storefront/content',
+  path: '/api/storefront/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStorefrontNavigationRoute = ApiStorefrontNavigationRouteImport.update({
+  id: '/api/storefront/navigation',
+  path: '/api/storefront/navigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStorefrontSettingsRoute = ApiStorefrontSettingsRouteImport.update({
+  id: '/api/storefront/settings',
+  path: '/api/storefront/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -331,11 +356,15 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/shipping': typeof AuthenticatedAdminShippingRoute
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/storefront/content': typeof ApiStorefrontContentRoute
+  '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
+  '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -375,11 +404,15 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/shipping': typeof AuthenticatedAdminShippingRoute
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/storefront/content': typeof ApiStorefrontContentRoute
+  '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
+  '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -422,11 +455,15 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/shipping': typeof AuthenticatedAdminShippingRoute
   '/_authenticated/admin/staff': typeof AuthenticatedAdminStaffRoute
+  '/_authenticated/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/admin/website': typeof AuthenticatedAdminWebsiteRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
   '/api/public/review-image': typeof ApiPublicReviewImageRoute
+  '/api/storefront/content': typeof ApiStorefrontContentRoute
+  '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
+  '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -469,11 +506,15 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/shipping'
     | '/admin/staff'
+    | '/admin/storefront'
     | '/admin/website'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/storefront/content'
+    | '/api/storefront/navigation'
+    | '/api/storefront/settings'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -513,11 +554,15 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/shipping'
     | '/admin/staff'
+    | '/admin/storefront'
     | '/admin/website'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/storefront/content'
+    | '/api/storefront/navigation'
+    | '/api/storefront/settings'
     | '/admin'
   id:
     | '__root__'
@@ -559,11 +604,15 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/shipping'
     | '/_authenticated/admin/staff'
+    | '/_authenticated/admin/storefront'
     | '/_authenticated/admin/website'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
     | '/api/public/review-image'
+    | '/api/storefront/content'
+    | '/api/storefront/navigation'
+    | '/api/storefront/settings'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -590,6 +639,9 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicProductImageRoute: typeof ApiPublicProductImageRoute
   ApiPublicReviewImageRoute: typeof ApiPublicReviewImageRoute
+  ApiStorefrontContentRoute: typeof ApiStorefrontContentRoute
+  ApiStorefrontNavigationRoute: typeof ApiStorefrontNavigationRoute
+  ApiStorefrontSettingsRoute: typeof ApiStorefrontSettingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -867,6 +919,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminStaffRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/storefront': {
+      id: '/_authenticated/admin/storefront'
+      path: '/storefront'
+      fullPath: '/admin/storefront'
+      preLoaderRoute: typeof AuthenticatedAdminStorefrontRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/website': {
       id: '/_authenticated/admin/website'
       path: '/website'
@@ -902,6 +961,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicReviewImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/storefront/content': {
+      id: '/api/storefront/content'
+      path: '/api/storefront/content'
+      fullPath: '/api/storefront/content'
+      preLoaderRoute: typeof ApiStorefrontContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/storefront/navigation': {
+      id: '/api/storefront/navigation'
+      path: '/api/storefront/navigation'
+      fullPath: '/api/storefront/navigation'
+      preLoaderRoute: typeof ApiStorefrontNavigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/storefront/settings': {
+      id: '/api/storefront/settings'
+      path: '/api/storefront/settings'
+      fullPath: '/api/storefront/settings'
+      preLoaderRoute: typeof ApiStorefrontSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -921,6 +1001,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminShippingRoute: typeof AuthenticatedAdminShippingRoute
   AuthenticatedAdminStaffRoute: typeof AuthenticatedAdminStaffRoute
+  AuthenticatedAdminStorefrontRoute: typeof AuthenticatedAdminStorefrontRoute
   AuthenticatedAdminWebsiteRoute: typeof AuthenticatedAdminWebsiteRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -942,6 +1023,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
     AuthenticatedAdminShippingRoute: AuthenticatedAdminShippingRoute,
     AuthenticatedAdminStaffRoute: AuthenticatedAdminStaffRoute,
+    AuthenticatedAdminStorefrontRoute: AuthenticatedAdminStorefrontRoute,
     AuthenticatedAdminWebsiteRoute: AuthenticatedAdminWebsiteRoute,
     AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   }
@@ -993,6 +1075,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicProductImageRoute: ApiPublicProductImageRoute,
   ApiPublicReviewImageRoute: ApiPublicReviewImageRoute,
+  ApiStorefrontContentRoute: ApiStorefrontContentRoute,
+  ApiStorefrontNavigationRoute: ApiStorefrontNavigationRoute,
+  ApiStorefrontSettingsRoute: ApiStorefrontSettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

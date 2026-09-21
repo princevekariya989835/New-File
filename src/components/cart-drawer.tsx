@@ -12,12 +12,22 @@ import {
 } from "@/components/ui/sheet";
 import { useCartStore } from "@/stores/cart-store";
 import { formatPrice } from "@/lib/catalog";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 export function CartDrawer() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const { items, isLoading, isSyncing, updateQuantity, removeItem, syncCart } = useCartStore();
+  const { config } = usePublishedWebsiteConfig();
+  const cartTxt = config?.cartContent;
+
+  const cartHeading = cartTxt?.heading || "Your bag";
+  const emptyMsg = cartTxt?.emptyMessage || "Your bag is empty.";
+  const emptySub = cartTxt?.emptySubmessage || "Nothing here yet.";
+  const removeLabel = cartTxt?.removeText || "Remove";
+  const subtotalLabel = cartTxt?.subtotalLabel || "Subtotal";
+  const checkoutBtn = cartTxt?.checkoutButtonText || "Checkout";
 
   useEffect(() => {
     setMounted(true);
@@ -59,10 +69,10 @@ export function CartDrawer() {
       </SheetTrigger>
       <SheetContent className="flex h-full w-full flex-col sm:max-w-lg">
         <SheetHeader className="flex-shrink-0">
-          <SheetTitle className="text-2xl tracking-tight">Your bag</SheetTitle>
+          <SheetTitle className="text-2xl tracking-tight">{cartHeading}</SheetTitle>
           <SheetDescription>
             {totalItems === 0
-              ? "Your bag is empty."
+              ? emptyMsg
               : `${totalItems} item${totalItems !== 1 ? "s" : ""}`}
           </SheetDescription>
         </SheetHeader>
@@ -72,7 +82,9 @@ export function CartDrawer() {
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
                 <ShoppingBag className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Nothing here yet.</p>
+                <p className="text-sm text-muted-foreground">{emptySub}</p>
+              </div>
+            </div>
               </div>
             </div>
           ) : (
@@ -137,7 +149,7 @@ export function CartDrawer() {
 
               <div className="flex-shrink-0 space-y-4 border-t border-border pt-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">Subtotal</span>
+                  <span className="text-sm text-muted-foreground">{subtotalLabel}</span>
                   <span className="text-xl font-semibold tracking-tight">
                     {formatPrice(totalPrice, currency)}
                   </span>
@@ -155,7 +167,7 @@ export function CartDrawer() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      Checkout <ArrowUpRight className="ml-2 h-4 w-4" />
+                      {checkoutBtn} <ArrowUpRight className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </Button>

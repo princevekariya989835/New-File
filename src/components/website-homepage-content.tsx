@@ -404,13 +404,32 @@ export const TEE_STREAM_IMAGES: StreamImage[] = [
 function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean }) {
   if (!hero || (hero.enabled === false && hero.active === false)) return null;
 
-  const eyebrow = "NEW COLLECTION 2026";
+  const anim = hero.animationSettings;
+  const speed =
+    anim?.speed === "slow"
+      ? 26
+      : anim?.speed === "fast"
+        ? 12
+        : typeof anim?.speed === "number"
+          ? anim.speed
+          : 18;
+
+  const eyebrow = hero.badge || "NEW COLLECTION 2026";
+  const heading = hero.heading || "WEAR YOUR ATTITUDE.";
   const primaryCta = hero.primaryCtaText || "SHOP COLLECTION";
   const primaryLink = hero.primaryCtaLink || "/shop";
+  const secondaryCta = hero.secondaryCtaText || "CUSTOMIZE IN 3D";
+  const secondaryLink = hero.secondaryCtaLink || "/design";
   const descriptionText =
     hero.description ||
     hero.subheading ||
     "Premium streetwear designed for people who refuse to blend in.";
+
+  const showPrimaryBtn = anim?.primaryButtonVisible ?? true;
+  const showSecondaryBtn = anim?.secondaryButtonVisible ?? true;
+  const textAlignment = anim?.textAlignment || "center";
+  const textPosition = anim?.textPosition || "center";
+  const headingLines = heading.split("\n");
 
   return (
     <section
@@ -420,8 +439,14 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     >
       <ImageStreamHero
         images={TEE_STREAM_IMAGES}
-        speed={18}
-        axis={52}
+        speed={speed}
+        axis={textPosition === "top" ? 60 : textPosition === "bottom" ? 44 : 52}
+        direction={anim?.direction || "normal"}
+        scale={anim?.scale || 1}
+        enabled={anim?.enabled ?? true}
+        desktopEnabled={anim?.desktopEnabled ?? true}
+        mobileEnabled={anim?.mobileEnabled ?? true}
+        cards={anim?.tshirtCount ? Math.ceil(anim.tshirtCount / 2) : undefined}
         className="w-full min-h-[520px] sm:min-h-[640px] lg:min-h-[720px] flex items-center justify-center overflow-hidden"
       >
         {/* Soft Radial Vignette for contrast so text stands out cleanly while t-shirt rails stream forward */}
@@ -431,46 +456,75 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
         />
 
         {/* Central Brand Headline & Call to Action */}
-        <div className="relative z-10 mx-auto max-w-[1280px] px-6 py-14 sm:py-20 flex flex-col items-center text-center">
+        <div
+          className={`relative z-10 mx-auto max-w-[1280px] px-6 py-14 sm:py-20 flex flex-col ${
+            textAlignment === "left"
+              ? "items-start text-left"
+              : textAlignment === "right"
+                ? "items-end text-right"
+                : "items-center text-center"
+          }`}
+        >
           {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2.5 mb-5 sm:mb-6 px-4 py-1.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-200/80 dark:border-neutral-800/80 shadow-xs">
-            <span className="h-2 w-2 rounded-full bg-brand-red animate-pulse" />
-            <span className="text-xs sm:text-[13px] font-mono font-bold tracking-[0.25em] text-neutral-700 dark:text-neutral-300 uppercase">
-              {eyebrow}
-            </span>
-          </div>
+          {eyebrow && (
+            <div className="inline-flex items-center gap-2.5 mb-5 sm:mb-6 px-4 py-1.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-200/80 dark:border-neutral-800/80 shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-brand-red animate-pulse" />
+              <span className="text-xs sm:text-[13px] font-mono font-bold tracking-[0.25em] text-neutral-700 dark:text-neutral-300 uppercase">
+                {eyebrow}
+              </span>
+            </div>
+          )}
 
           {/* Large Bold Editorial Headline */}
-          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[84px] xl:text-[96px] font-black tracking-[-0.04em] leading-[0.92] text-neutral-950 dark:text-white uppercase mb-6 drop-shadow-xs max-w-4xl">
-            <span className="block sm:inline">WEAR YOUR </span>
-            <span className="block sm:inline text-brand-red">ATTITUDE.</span>
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[84px] xl:text-[96px] font-black tracking-[-0.04em] leading-[0.92] text-neutral-950 dark:text-white uppercase mb-6 drop-shadow-xs max-w-4xl whitespace-pre-line">
+            {headingLines.map((line, idx) => (
+              <span key={idx} className="block">
+                {line}
+              </span>
+            ))}
           </h1>
 
           {/* Editorial Description */}
-          <p className="text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-normal leading-relaxed max-w-xl mb-8 sm:mb-10 text-balance">
-            {descriptionText}
-          </p>
+          {descriptionText && (
+            <p className="text-base sm:text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-normal leading-relaxed max-w-xl mb-8 sm:mb-10 text-balance">
+              {descriptionText}
+            </p>
+          )}
 
           {/* Dual Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to={primaryLink}
-              aria-label="Shop Collection - Browse RIOTOUS Streetwear"
-              className="group relative inline-flex items-center justify-center gap-3 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-200 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
+          {(showPrimaryBtn || showSecondaryBtn) && (
+            <div
+              className={`flex flex-wrap items-center gap-4 ${
+                textAlignment === "left"
+                  ? "justify-start"
+                  : textAlignment === "right"
+                    ? "justify-end"
+                    : "justify-center"
+              }`}
             >
-              <span>{primaryCta}</span>
-              <span className="text-base transition-transform duration-200 group-hover:translate-x-1.5">
-                →
-              </span>
-            </Link>
+              {showPrimaryBtn && (
+                <Link
+                  to={primaryLink}
+                  aria-label={`${primaryCta} - Browse RIOTOUS Streetwear`}
+                  className="group relative inline-flex items-center justify-center gap-3 rounded-full bg-brand-red px-8 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-white shadow-lg shadow-red-600/25 transition-all duration-200 hover:bg-[#d4080e] hover:shadow-xl hover:shadow-red-600/35 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red"
+                >
+                  <span>{primaryCta}</span>
+                  <span className="text-base transition-transform duration-200 group-hover:translate-x-1.5">
+                    →
+                  </span>
+                </Link>
+              )}
 
-            <Link
-              to="/design"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-300 dark:border-neutral-700 px-7 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900 dark:text-white shadow-xs transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <span>CUSTOMIZE IN 3D</span>
-            </Link>
-          </div>
+              {showSecondaryBtn && (
+                <Link
+                  to={secondaryLink}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-neutral-300 dark:border-neutral-700 px-7 py-4 text-sm sm:text-base font-bold uppercase tracking-wider text-neutral-900 dark:text-white shadow-xs transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  <span>{secondaryCta}</span>
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Micro Proof Stamp */}
           <div className="mt-10 sm:mt-12 flex items-center gap-3 text-[11px] font-mono tracking-widest text-neutral-500 dark:text-neutral-400 uppercase pointer-events-none">

@@ -35,6 +35,10 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
     hero: {
       ...def.hero,
       ...(savedConfig.hero || {}),
+      animationSettings: {
+        ...def.hero.animationSettings!,
+        ...(savedConfig.hero?.animationSettings || {}),
+      },
     },
     navigation:
       Array.isArray(savedConfig.navigation) && savedConfig.navigation.length > 0
@@ -85,6 +89,22 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
         savedConfig.sectionOrder.sections.length > 0
           ? savedConfig.sectionOrder.sections
           : def.sectionOrder.sections,
+    },
+    cartContent: {
+      ...def.cartContent!,
+      ...(savedConfig.cartContent || {}),
+    },
+    shopContent: {
+      ...def.shopContent!,
+      ...(savedConfig.shopContent || {}),
+    },
+    productContent: {
+      ...def.productContent!,
+      ...(savedConfig.productContent || {}),
+    },
+    contactContent: {
+      ...def.contactContent!,
+      ...(savedConfig.contactContent || {}),
     },
   };
 }
