@@ -1,4 +1,4 @@
-import { createFileRoute, notFound, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, notFound, Link, useRouter, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -148,11 +148,14 @@ function ProductPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const currentVariant = useMemo(() => {
+    const hasUnselectedOption = p.options.some((o) => !selected[o.name]);
+    if (hasUnselectedOption) return null;
+
     return (
       variants.find((v) => v.selectedOptions.every((o) => selected[o.name] === o.value)) ??
-      variants[0]
+      null
     );
-  }, [variants, selected]);
+  }, [variants, selected, p.options]);
 
   /** Units still buyable for the picked size/colour. */
   const available = currentVariant?.available ?? 0;
@@ -172,7 +175,11 @@ function ProductPage() {
     );
 
   const addItem = useCartStore((s) => s.addItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const cartItems = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [sizeError, setSizeError] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const { config } = usePublishedWebsiteConfig();
   const prodTxt = config?.productContent;
@@ -185,7 +192,21 @@ function ProductPage() {
   const detailsLabel = prodTxt?.descriptionLabel || "Details";
 
   const handleAdd = async () => {
-    if (!currentVariant) return;
+    if (isLoading || isPurchasing) return;
+    const sizeOpt = p.options.find((o) => o.name.toLowerCase() === "size");
+    if (sizeOpt && !selected[sizeOpt.name]) {
+      setSizeError(true);
+      toast.error("Please select a size");
+      return;
+    }
+    if (!currentVariant || !currentVariant.availableForSale || available <= 0) {
+      toast.error("This item is currently out of stock");
+      return;
+    }
+    if (qty > available) {
+      toast.error(`Only ${available} available in this size`);
+      return;
+    }
     await addItem({
       variantId: currentVariant.id,
       productId: p.productId,
@@ -202,9 +223,55 @@ function ProductPage() {
     setTimeout(() => setJustAdded(false), 1500);
   };
 
+  const handlePurchaseNow = async () => {
+    if (isPurchasing || isLoading) return;
+
+    const sizeOpt = p.options.find((o) => o.name.toLowerCase() === "size");
+    if (sizeOpt && !selected[sizeOpt.name]) {
+      setSizeError(true);
+      toast.error("Please select a size before purchasing");
+      return;
+    }
+    if (!currentVariant || !currentVariant.availableForSale || available <= 0) {
+      toast.error("This item is currently out of stock");
+      return;
+    }
+    if (qty > available) {
+      toast.error(`Only ${available} available in this size`);
+      return;
+    }
+
+    setIsPurchasing(true);
+    try {
+      const existing = cartItems.find((i) => i.variantId === currentVariant.id);
+      if (existing) {
+        await updateQuantity(currentVariant.id, qty);
+      } else {
+        await addItem({
+          variantId: currentVariant.id,
+          productId: p.productId,
+          productHandle: p.handle,
+          productTitle: p.title,
+          variantTitle: currentVariant.title,
+          imageUrl: currentVariant.image?.url ?? p.images.edges[0]?.node.url ?? null,
+          price: currentVariant.price,
+          quantity: qty,
+          selectedOptions: currentVariant.selectedOptions,
+        });
+      }
+      await navigate({ to: "/checkout" });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to proceed to checkout");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
   const images = p.images.edges;
 
   const router = useRouter();
+  const navigate = useNavigate();
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
@@ -290,8 +357,14 @@ function ProductPage() {
                       <span className="text-sm font-semibold tracking-wide">
                         {isSize ? selectSizeLabel : opt.name}:
                       </span>
-                      <span className="text-sm font-bold text-foreground">
-                        {selected[opt.name] || opt.values[0]}
+                      <span
+                        className={`text-sm font-bold ${
+                          isSize && sizeError && !selected[opt.name]
+                            ? "text-destructive"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {selected[opt.name] || (isSize ? "None selected" : "")}
                       </span>
                     </div>
 
@@ -368,6 +441,12 @@ function ProductPage() {
                     )}
                   </div>
 
+                  {isSize && sizeError && !selected[opt.name] && (
+                    <p className="text-xs font-medium text-destructive">
+                      Please select a size to proceed
+                    </p>
+                  )}
+
                   <div className="flex flex-wrap gap-2.5">
                     {opt.values.map((v) => {
                       const active = selected[opt.name] === v;
@@ -379,12 +458,22 @@ function ProductPage() {
                           type="button"
                           disabled={!inStock}
                           title={inStock ? `Select size ${v}` : `${v} (Out of Stock)`}
-                          onClick={() => setSelected((s) => ({ ...s, [opt.name]: v }))}
+                          onClick={() => {
+                            setSelected((s) => ({
+                              ...s,
+                              [opt.name]: s[opt.name] === v ? "" : v,
+                            }));
+                            if (isSize) setSizeError(false);
+                          }}
                           className={`relative flex h-11 min-w-[3.25rem] px-4 items-center justify-center rounded-xl border text-sm font-bold tracking-wider transition-all ${
                             active
                               ? "border-foreground bg-foreground text-background shadow-sm ring-2 ring-foreground/20"
                               : inStock
-                                ? "border-border bg-card text-foreground hover:border-foreground hover:bg-secondary/60"
+                                ? `border-border bg-card text-foreground hover:border-foreground hover:bg-secondary/60 ${
+                                    isSize && sizeError && !selected[opt.name]
+                                      ? "border-destructive/60"
+                                      : ""
+                                  }`
                                 : "cursor-not-allowed border-border/40 bg-secondary/30 text-muted-foreground line-through opacity-40"
                           }`}
                         >
@@ -431,28 +520,45 @@ function ProductPage() {
           {/* Actions */}
           <div className="mt-8 space-y-3">
             <button
+              type="button"
               onClick={handleAdd}
-              disabled={isLoading || !currentVariant?.availableForSale}
+              disabled={
+                isLoading ||
+                isPurchasing ||
+                !currentVariant?.availableForSale ||
+                available <= 0
+              }
               className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {isLoading ? (
+              {isLoading && !isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : justAdded ? (
                 <>
                   <Check className="h-4 w-4" /> Added
                 </>
-              ) : currentVariant?.availableForSale ? (
+              ) : currentVariant?.availableForSale && available > 0 ? (
                 addToCartLabel
               ) : (
                 outOfStockLabel
               )}
             </button>
-            <Link
-              to="/design"
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-medium hover:bg-secondary"
+            <button
+              type="button"
+              onClick={handlePurchaseNow}
+              disabled={
+                isLoading ||
+                isPurchasing ||
+                !currentVariant?.availableForSale ||
+                available <= 0
+              }
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-medium hover:bg-secondary disabled:opacity-50 transition-all cursor-pointer disabled:cursor-not-allowed"
             >
-              Design Your Own <ArrowUpRight className="h-4 w-4" />
-            </Link>
+              {isPurchasing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Purchase Now"
+              )}
+            </button>
           </div>
 
           {/* Description */}
