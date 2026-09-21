@@ -11,27 +11,31 @@ let cachedToken: {
 
 export function getZippyyConfig(): ZippyyAuthConfig {
   return {
-    baseUrl: process.env.ZIPPYY_BASE_URL || "https://api.zippyy.in",
+    baseUrl: process.env.ZIPPYY_BASE_URL || "https://sellingpartnerapi-in.zippyy.ai",
     email: process.env.ZIPPYY_EMAIL || "",
     password: process.env.ZIPPYY_PASSWORD || "",
+    apiKey: process.env.ZIPPYY_API_KEY || "",
     warehouseId: process.env.ZIPPYY_DEFAULT_WAREHOUSE_ID || "wh_default_01",
     pickupPincode: process.env.ZIPPYY_PICKUP_PINCODE || "395006",
     webhookSecret: process.env.ZIPPYY_WEBHOOK_SECRET || "",
-    isSandbox: process.env.ZIPPYY_SANDBOX_MODE === "true" || !process.env.ZIPPYY_EMAIL,
+    isSandbox: process.env.ZIPPYY_SANDBOX_MODE === "true" || (!process.env.ZIPPYY_EMAIL && !process.env.ZIPPYY_API_KEY),
   };
 }
 
 export function isZippyyConfigured(): boolean {
   const config = getZippyyConfig();
-  return Boolean(config.email && config.password);
+  return Boolean((config.email && config.password) || config.apiKey);
 }
 
 /**
- * Retrieves a valid Zippyy Access Token, refreshing or logging in as necessary.
- * Prevents redundant calls to POST /v1/external/auth/login by caching in-memory.
+ * Retrieves a valid Zippyy Access Token or API Key.
  */
 export async function getZippyyAccessToken(forceRefresh = false): Promise<string> {
   const config = getZippyyConfig();
+
+  if (config.apiKey) {
+    return config.apiKey;
+  }
 
   // If credentials are not configured, return a mock token for development
   if (!config.email || !config.password) {
@@ -76,7 +80,6 @@ export async function getZippyyAccessToken(forceRefresh = false): Promise<string
     return cachedToken.accessToken;
   } catch (error: any) {
     console.error("[Zippyy Client] Error fetching access token:", error);
-    // Return cached token if still exists as fallback or throw
     if (cachedToken) {
       return cachedToken.accessToken;
     }
@@ -86,7 +89,6 @@ export async function getZippyyAccessToken(forceRefresh = false): Promise<string
 
 /**
  * Generic authenticated request wrapper for Zippyy API endpoints.
- * Automatically manages Authorization headers and single 401 retry.
  */
 export async function zippyyRequest<T>(
   endpoint: string,
@@ -102,6 +104,7 @@ export async function zippyyRequest<T>(
     "Content-Type": "application/json",
     Accept: "application/json",
     Authorization: `Bearer ${token}`,
+    ...(config.apiKey ? { "x-api-key": config.apiKey } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
 
@@ -110,7 +113,7 @@ export async function zippyyRequest<T>(
     headers,
   });
 
-  if (res.status === 401 && !retried) {
+  if (res.status === 401 && !retried && !config.apiKey) {
     console.warn("[Zippyy Client] Token expired (401). Retrying with fresh login...");
     return zippyyRequest<T>(endpoint, options, true);
   }

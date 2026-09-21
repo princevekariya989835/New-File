@@ -4,8 +4,9 @@
 
 export interface ZippyyAuthConfig {
   baseUrl: string;
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
+  apiKey?: string;
   warehouseId?: string;
   pickupPincode?: string;
   webhookSecret?: string;

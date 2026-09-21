@@ -64,6 +64,32 @@ function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
+    if (search?.mode && ["signin", "signup", "forgot", "signup_verify", "forgot_verify"].includes(search.mode)) {
+      setMode(search.mode as AuthMode);
+    }
+  }, [search?.mode]);
+
+  function handleSwitchMode(newMode: AuthMode, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setMode(newMode);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("mode", newMode);
+      window.history.replaceState(null, "", url.toString());
+    } catch {
+      // ignore
+    }
+    navigate({
+      to: "/auth",
+      search: (prev: any) => ({ ...prev, mode: newMode }),
+      replace: true,
+    }).catch(() => {});
+  }
+
+  useEffect(() => {
     if (user && !authLoading) {
       if (search?.redirect) {
         navigate({ to: search.redirect as any });
@@ -420,8 +446,8 @@ function AuthPage() {
                       Already have an account?{" "}
                       <button
                         type="button"
-                        onClick={() => setMode("signin")}
-                        className="font-semibold text-neutral-950 underline underline-offset-2 hover:text-brand-red transition-colors"
+                        onClick={(e) => handleSwitchMode("signin", e)}
+                        className="font-semibold text-neutral-950 underline underline-offset-2 hover:text-brand-red transition-colors cursor-pointer"
                       >
                         Login Now!
                       </button>
@@ -521,8 +547,8 @@ function AuthPage() {
                         </label>
                         <button
                           type="button"
-                          onClick={() => setMode("forgot")}
-                          className="text-xs font-medium text-neutral-600 hover:text-brand-red hover:underline"
+                          onClick={(e) => handleSwitchMode("forgot", e)}
+                          className="text-xs font-medium text-neutral-600 hover:text-brand-red hover:underline cursor-pointer"
                         >
                           Forgot password?
                         </button>
@@ -559,8 +585,8 @@ function AuthPage() {
                       Don't have an account?{" "}
                       <button
                         type="button"
-                        onClick={() => setMode("signup")}
-                        className="font-semibold text-neutral-950 underline underline-offset-2 hover:text-brand-red transition-colors"
+                        onClick={(e) => handleSwitchMode("signup", e)}
+                        className="font-semibold text-neutral-950 underline underline-offset-2 hover:text-brand-red transition-colors cursor-pointer"
                       >
                         Sign Up Now!
                       </button>
@@ -601,8 +627,8 @@ function AuthPage() {
 
                     <button
                       type="button"
-                      onClick={() => setMode("signin")}
-                      className="flex w-full items-center justify-center gap-2 text-xs font-medium text-neutral-600 hover:text-neutral-900 pt-1 transition-colors"
+                      onClick={(e) => handleSwitchMode("signin", e)}
+                      className="flex w-full items-center justify-center gap-2 text-xs font-medium text-neutral-600 hover:text-neutral-900 pt-1 transition-colors cursor-pointer"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" /> Back to Sign In
                     </button>
@@ -674,8 +700,8 @@ function AuthPage() {
                     <div className="flex justify-between items-center text-xs pt-2">
                       <button
                         type="button"
-                        onClick={() => setMode("forgot")}
-                        className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors"
+                        onClick={(e) => handleSwitchMode("forgot", e)}
+                        className="text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <ArrowLeft className="h-3.5 w-3.5" /> Back to email
                       </button>
