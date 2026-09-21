@@ -112,13 +112,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "/assets/riotous-logo.png",
         fetchPriority: "high",
       },
-      {
-        rel: "preload",
-        as: "image",
-        href: "/assets/tee-zoro-back-trans.png",
-        type: "image/png",
-        fetchPriority: "high",
-      },
       { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
     ],
     scripts: [

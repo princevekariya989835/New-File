@@ -420,10 +420,9 @@ function WebsiteHero({ hero }: { hero: WebsiteConfig["hero"]; isPreview: boolean
     >
       <ImageStreamHero
         images={TEE_STREAM_IMAGES}
-        cards={9}
         speed={18}
         axis={52}
-        className="w-full min-h-[580px] sm:min-h-[640px] lg:min-h-[720px] flex items-center justify-center overflow-hidden"
+        className="w-full min-h-[520px] sm:min-h-[640px] lg:min-h-[720px] flex items-center justify-center overflow-hidden"
       >
         {/* Soft Radial Vignette for contrast so text stands out cleanly while t-shirt rails stream forward */}
         <div

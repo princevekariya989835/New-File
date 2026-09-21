@@ -22,11 +22,22 @@ const websiteConfigQuery = {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    await Promise.allSettled([
-      context.queryClient.ensureQueryData(websiteConfigQuery),
-      context.queryClient.ensureQueryData(productsQuery),
+    // Fast prefetch for SSR/cached queries, capped at 600ms so mobile/cold DB never hangs
+    await Promise.race([
+      Promise.allSettled([
+        context.queryClient.ensureQueryData(websiteConfigQuery),
+        context.queryClient.ensureQueryData(productsQuery),
+      ]),
+      new Promise((resolve) => setTimeout(resolve, 600)),
     ]);
   },
+  pendingComponent: () => (
+    <WebsiteHomepageContent
+      config={DEFAULT_WEBSITE_CONFIG}
+      products={[]}
+      isPreview={false}
+    />
+  ),
   head: () => ({
     meta: [
       { title: "RIOTOUS — We Don't Follow Trends. We Print Them." },

@@ -1,14 +1,8 @@
 "use client";
 import * as React from "react";
 import { cn } from "@/lib/utils";
-
-/* ── the corridor ────────────────────────────────────────────────
-Two rails of cards ride from far behind the screen toward the
-viewer. Perspective alone does the work that looks like two
-animations: as a card's z grows it gets bigger and its screen x
-sweeps outward from the vanishing point, because the projection
-scales position and size by the same factor.
-─────────────────────────────────────────────────────────────── */
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ErrorBoundary } from "./error-boundary";
 
 export type CorridorPath = {
   /** Strength of the projection. Lower is a wider-angle, more dramatic rush. @default 30 */
@@ -17,7 +11,7 @@ export type CorridorPath = {
   cardWidth?: number;
   /** Card height in world units. @default 25 */
   cardHeight?: number;
-  /** Corner radius applied to each card. @default 0.4 */
+  /** Corner radius applied to each card. @default 0.6 */
   cardRadius?: number;
   /** On-screen card height at the waist, where a card is born. @default 2.6 */
   birthHeight?: number;
@@ -36,11 +30,11 @@ export type CorridorPath = {
   turnBirth?: number;
   /** Y-rotation at exit, degrees. @default 28 */
   turnExit?: number;
-  /** Keyframe stops used to trace the curve. Raise only if motion looks faceted. @default 24 */
+  /** Keyframe stops used to trace the curve. @default 20 */
   stops?: number;
 };
 
-const PATH: Required<CorridorPath> = {
+const DESKTOP_PATH: Required<CorridorPath> = {
   perspective: 30,
   cardWidth: 18,
   cardHeight: 25,
@@ -52,7 +46,22 @@ const PATH: Required<CorridorPath> = {
   fan: 3.3,
   turnBirth: 6,
   turnExit: 28,
-  stops: 24,
+  stops: 20,
+};
+
+const MOBILE_PATH: Required<CorridorPath> = {
+  perspective: 26,
+  cardWidth: 26,
+  cardHeight: 35,
+  cardRadius: 0.8,
+  birthHeight: 3.8,
+  exitHeight: 48,
+  railBirth: -8,
+  railExit: 46,
+  fan: 2.6,
+  turnBirth: 4,
+  turnExit: 20,
+  stops: 10,
 };
 
 /** Sample the path once so the CSS keyframes trace the real curve. */
@@ -81,11 +90,11 @@ export type StreamImage = {
 export type ImageStreamHeroProps = {
   /** Images cycled onto the rails. */
   images: StreamImage[];
-  /** Cards on each rail at once. @default 9 */
+  /** Cards on each rail at once. @default 9 for desktop, 3 for mobile */
   cards?: number;
   /** Seconds for one card to travel the whole corridor. @default 18 */
   speed?: number;
-  /** Vertical placement of the corridor's axis, as a percentage of height. @default 55 */
+  /** Vertical placement of the corridor's axis, as a percentage of height. @default 52 */
   axis?: number;
   /** Override any part of the corridor geometry. Merged over the defaults. */
   path?: CorridorPath;
@@ -94,24 +103,48 @@ export type ImageStreamHeroProps = {
   className?: string;
 };
 
-export function ImageStreamHero({
+function ImageStreamHeroInner({
   images,
-  cards = 9,
+  cards,
   speed = 18,
-  axis = 55,
+  axis = 52,
   path,
   children,
   className,
   ...props
 }: React.ComponentProps<"div"> & ImageStreamHeroProps) {
   const id = React.useId().replace(/[^a-zA-Z0-9]/g, "");
+  const isMobile = useIsMobile();
+  const effectiveCards = cards ?? (isMobile ? 3 : 9);
+
   const right = `ish-r-${id}`;
   const left = `ish-l-${id}`;
   const card = `ish-c-${id}`;
-  const p = React.useMemo(() => ({ ...PATH, ...path }), [path]);
+
+  const defaultPath = isMobile ? MOBILE_PATH : DESKTOP_PATH;
+  const p = React.useMemo(() => ({ ...defaultPath, ...path }), [defaultPath, path]);
+
   const css = React.useMemo(
-    () =>
-      `${keyframes(1, right, p)}${keyframes(-1, left, p)}@media(prefers-reduced-motion:reduce){.${card}{animation-play-state:paused}}`,
+    () => `
+      ${keyframes(1, right, p)}
+      ${keyframes(-1, left, p)}
+      @media (max-width: 767px) {
+        .${card} {
+          box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.45) !important;
+        }
+        /* Mobile performance: hide excess cards if SSR rendered extra */
+        .${card}:nth-child(n+4) {
+          display: none !important;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .${card} {
+          animation: none !important;
+          transform: none !important;
+          opacity: 0.15 !important;
+        }
+      }
+    `,
     [right, left, card, p]
   );
 
@@ -132,14 +165,15 @@ export function ImageStreamHero({
       >
         <div className="absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
           {[right, left].map((name) =>
-            Array.from({ length: cards }, (_, i) => {
+            Array.from({ length: effectiveCards }, (_, i) => {
               const img = images[i % Math.max(images.length, 1)];
+              const isFirst = i === 0;
               return (
                 <div
                   key={`${name}-${i}`}
                   className={cn(
                     card,
-                    "absolute overflow-hidden shadow-2xl bg-neutral-900 border border-neutral-800/80 ring-1 ring-white/10"
+                    "absolute overflow-hidden bg-neutral-900 border border-neutral-800/80 ring-1 ring-white/10 shadow-2xl transition-shadow will-change-transform"
                   )}
                   style={{
                     left: "50%",
@@ -150,15 +184,17 @@ export function ImageStreamHero({
                     marginTop: `${-p.cardHeight / 2}cqw`,
                     borderRadius: `${p.cardRadius}cqw`,
                     animation: `${name} ${speed}s linear infinite`,
-                    animationDelay: `${-(i * speed) / cards}s`,
+                    animationDelay: `${-(i * speed) / effectiveCards}s`,
                     backfaceVisibility: "hidden",
+                    contain: "layout paint",
                   }}
                 >
                   {img ? (
                     <img
                       src={img.src}
                       alt={img.alt ?? ""}
-                      loading="lazy"
+                      loading={isFirst ? "eager" : "lazy"}
+                      fetchPriority={isFirst ? "high" : "low"}
                       decoding="async"
                       className="h-full w-full object-cover"
                       draggable={false}
@@ -172,6 +208,28 @@ export function ImageStreamHero({
       </div>
       {children}
     </div>
+  );
+}
+
+export function ImageStreamHero(props: React.ComponentProps<"div"> & ImageStreamHeroProps) {
+  return (
+    <ErrorBoundary
+      fallback={
+        <div
+          className={cn("relative overflow-hidden flex items-center justify-center", props.className)}
+          style={props.style}
+        >
+          {/* Static lightweight fallback background in case 3D corridor fails */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-radial from-transparent via-neutral-900/5 to-neutral-900/20"
+          />
+          {props.children}
+        </div>
+      }
+    >
+      <ImageStreamHeroInner {...props} />
+    </ErrorBoundary>
   );
 }
 
