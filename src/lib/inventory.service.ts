@@ -62,6 +62,9 @@ export async function syncProductTotalStock(productId: string): Promise<number> 
       SET stock_quantity = ${Math.max(0, totalStock)}, updated_at = NOW()
       WHERE id::text = ${String(productId)}
     `;
+    try {
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {}
     return totalStock;
   } else {
     const prod = await sql`

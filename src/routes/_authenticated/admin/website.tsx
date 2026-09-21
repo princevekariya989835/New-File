@@ -41,6 +41,7 @@ import {
   adminDiscardDraft,
   adminRestoreSpecificVersion,
 } from "@/lib/website-config.functions";
+import { broadcastCatalogUpdate } from "@/lib/catalog-sync";
 import { fetchProducts } from "@/lib/catalog";
 import {
   type WebsiteConfig,
@@ -159,8 +160,11 @@ function AdminWebsiteManagement() {
       toast.success(res.message || "Website published successfully.");
       setPublishDialogOpen(false);
       setPublishSummary("");
+      broadcastCatalogUpdate({ type: "WEBSITE_CONFIG_UPDATED", timestamp: Date.now() });
       qc.invalidateQueries({ queryKey: ["admin-website-state"] });
       qc.invalidateQueries({ queryKey: ["website-config"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to publish website.");
@@ -174,8 +178,11 @@ function AdminWebsiteManagement() {
     onSuccess: (res) => {
       toast.success(res.message || "Previous website version restored.");
       setUndoDialogOpen(false);
+      broadcastCatalogUpdate({ type: "WEBSITE_CONFIG_UPDATED", timestamp: Date.now() });
       qc.invalidateQueries({ queryKey: ["admin-website-state"] });
       qc.invalidateQueries({ queryKey: ["website-config"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to undo last publish.");
@@ -206,8 +213,11 @@ function AdminWebsiteManagement() {
     onSuccess: (res) => {
       toast.success(res.message || "Version restored.");
       setRestoreVerTarget(null);
+      broadcastCatalogUpdate({ type: "WEBSITE_CONFIG_UPDATED", timestamp: Date.now() });
       qc.invalidateQueries({ queryKey: ["admin-website-state"] });
       qc.invalidateQueries({ queryKey: ["website-config"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["product"] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to restore version.");

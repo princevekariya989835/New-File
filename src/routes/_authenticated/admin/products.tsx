@@ -11,6 +11,7 @@ import {
   adminUpdateProduct,
   type AdminProduct,
 } from "@/lib/admin.functions";
+import { broadcastCatalogUpdate } from "@/lib/catalog-sync";
 import { ARCHIVED_TAG, ProductForm } from "@/components/admin/product-ui";
 import { money } from "@/components/admin/format";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ function ProductsPage() {
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin", "products"] });
+    qc.invalidateQueries({ queryKey: ["admin", "variants"] });
     qc.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     qc.invalidateQueries({ queryKey: ["admin-website-state"] });
     qc.invalidateQueries({ queryKey: ["products"] });
@@ -61,12 +63,13 @@ function ProductsPage() {
 
   const del = useMutation({
     mutationFn: (productId: string) => deleteFn({ data: { productId } }),
-    onSuccess: (res) => {
+    onSuccess: (res, productId) => {
       toast.success(
         res?.archived
           ? "Product archived (it appears in past orders, so history is kept)"
           : "Product deleted",
       );
+      broadcastCatalogUpdate({ type: "PRODUCT_DELETED", productId, timestamp: Date.now() });
       refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -74,8 +77,14 @@ function ProductsPage() {
 
   const toggleStatus = useMutation({
     mutationFn: (p: { productId: string; status: "ACTIVE" | "DRAFT" }) => statusFn({ data: p }),
-    onSuccess: () => {
-      toast.success("Status updated");
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === "ACTIVE" ? "Product published" : "Product moved to draft");
+      broadcastCatalogUpdate({
+        type: "PRODUCT_STATUS_CHANGED",
+        productId: variables.productId,
+        status: variables.status,
+        timestamp: Date.now(),
+      });
       refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -130,8 +139,13 @@ function ProductsPage() {
           submitLabel="Create product"
           onCancel={() => setCreating(false)}
           onSubmit={async (values) => {
-            await createFn({ data: { ...values, stock: Number(values.stock) || 0 } });
+            const res = await createFn({ data: { ...values, stock: Number(values.stock) || 0 } });
             toast.success("Product created");
+            broadcastCatalogUpdate({
+              type: "PRODUCT_CREATED",
+              productId: res?.productId || "",
+              timestamp: Date.now(),
+            });
             refresh();
             setCreating(false);
           }}
@@ -165,6 +179,11 @@ function ProductsPage() {
               },
             });
             toast.success("Product updated");
+            broadcastCatalogUpdate({
+              type: "PRODUCT_UPDATED",
+              productId: editing.id,
+              timestamp: Date.now(),
+            });
             refresh();
             setEditing(null);
           }}

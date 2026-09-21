@@ -89,17 +89,8 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
   };
 }
 
-let _cachedPublicConfig: {
-  config: WebsiteConfig;
-  versionNumber: number;
-  publishedAt: string | null;
-} | null = null;
-let _cachedPublicConfigTimestamp = 0;
-const PUBLIC_CONFIG_CACHE_TTL_MS = 60 * 1000;
-
 export function invalidatePublicWebsiteConfigCache() {
-  _cachedPublicConfig = null;
-  _cachedPublicConfigTimestamp = 0;
+  // Direct DB reads ensure instant real-time synchronization.
 }
 
 /**
@@ -113,13 +104,6 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
     versionNumber: number;
     publishedAt: string | null;
   }> => {
-    if (
-      _cachedPublicConfig &&
-      Date.now() - _cachedPublicConfigTimestamp < PUBLIC_CONFIG_CACHE_TTL_MS
-    ) {
-      return _cachedPublicConfig;
-    }
-
     try {
       const sql = getSql();
       const rows = await sql`
@@ -132,34 +116,25 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
       if (rows && rows.length > 0 && rows[0].config) {
         const raw =
           typeof rows[0].config === "string" ? JSON.parse(rows[0].config) : rows[0].config;
-        const result = {
+        return {
           config: mergeWithDefaults(raw),
           versionNumber: Number(rows[0].version_number ?? 1),
           publishedAt: rows[0].published_at ? new Date(rows[0].published_at).toISOString() : null,
         };
-        _cachedPublicConfig = result;
-        _cachedPublicConfigTimestamp = Date.now();
-        return result;
       }
 
-      const fallback = {
+      return {
         config: DEFAULT_WEBSITE_CONFIG,
         versionNumber: 1,
         publishedAt: null,
       };
-      _cachedPublicConfig = fallback;
-      _cachedPublicConfigTimestamp = Date.now();
-      return fallback;
     } catch (err) {
       console.error("[WebsiteConfig] getPublicWebsiteConfig error:", err);
-      const fallback = {
+      return {
         config: DEFAULT_WEBSITE_CONFIG,
         versionNumber: 1,
         publishedAt: null,
       };
-      _cachedPublicConfig = fallback;
-      _cachedPublicConfigTimestamp = Date.now();
-      return fallback;
     }
   },
 );

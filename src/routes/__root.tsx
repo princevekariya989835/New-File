@@ -15,6 +15,7 @@ import "../styles.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useCartSync } from "@/hooks/use-cart-sync";
+import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
 
 function NotFoundComponent() {
@@ -178,6 +179,8 @@ function RootComponent() {
 
 function AppShell() {
   useCartSync();
+  const { queryClient } = Route.useRouteContext();
+  useCatalogSync(queryClient);
   const location = useLocation();
   const isAuthPage = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 

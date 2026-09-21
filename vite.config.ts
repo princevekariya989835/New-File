@@ -71,9 +71,11 @@ export default defineConfig({
       compressPublicAssets: true,
       routeRules: {
         "/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-        "/videos/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-        "/products/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+        "/videos/**": { headers: { "cache-control": "public, max-age=86400, stale-while-revalidate=86400" } },
         "/favicon*": { headers: { "cache-control": "public, max-age=86400" } },
+        "/_server/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
+        "/_serverFn/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
+        "/api/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
       },
     }),
     viteReact(),

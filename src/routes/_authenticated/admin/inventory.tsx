@@ -12,6 +12,7 @@ import {
   type AdminVariant,
   type InventoryTransactionRecord,
 } from "@/lib/admin.functions";
+import { broadcastCatalogUpdate } from "@/lib/catalog-sync";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -288,8 +289,13 @@ function InventoryPage() {
 
   const setStock = useMutation({
     mutationFn: (p: { variantId: string; quantity: number; reason?: string }) => setFn({ data: p }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success("Stock adjusted successfully.");
+      broadcastCatalogUpdate({
+        type: "INVENTORY_CHANGED",
+        variantId: variables.variantId,
+        timestamp: Date.now(),
+      });
       refreshAll();
       setAdjustModal(null);
     },
@@ -300,6 +306,11 @@ function InventoryPage() {
     mutationFn: (p: { variantId: string; quantity: number; reason?: string }) => addFn({ data: p }),
     onSuccess: (_, variables) => {
       toast.success(`${variables.quantity} units added successfully.`);
+      broadcastCatalogUpdate({
+        type: "INVENTORY_CHANGED",
+        variantId: variables.variantId,
+        timestamp: Date.now(),
+      });
       refreshAll();
       setAdjustModal(null);
     },
@@ -311,6 +322,11 @@ function InventoryPage() {
       removeFn({ data: p }),
     onSuccess: (_, variables) => {
       toast.success(`${variables.quantity} units removed successfully.`);
+      broadcastCatalogUpdate({
+        type: "INVENTORY_CHANGED",
+        variantId: variables.variantId,
+        timestamp: Date.now(),
+      });
       refreshAll();
       setAdjustModal(null);
     },

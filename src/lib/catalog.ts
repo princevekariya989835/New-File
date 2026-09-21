@@ -1,5 +1,6 @@
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { createServerFn } from "@tanstack/react-start";
+import { logServerSyncEvent } from "@/lib/server-logger";
 import {
   FALLBACK_PRODUCTS,
   type ProductRow,
@@ -163,18 +164,10 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Server-side in-memory cache for catalog and products (TTL: 60s)
-interface CachedCatalog {
-  data: CatalogProduct[];
-  timestamp: number;
-}
-const _catalogCache = new Map<number, CachedCatalog>();
-const _handleCache = new Map<string, { data: CatalogProductNode; timestamp: number }>();
-const CATALOG_CACHE_TTL_MS = 60 * 1000;
-
+// Single Source of Truth: All storefront catalog queries read directly from Neon PostgreSQL.
+// Invalidate helper is retained for lifecycle triggers and cross-component compatibility.
 export function invalidateCatalogCache() {
-  _catalogCache.clear();
-  _handleCache.clear();
+  // Direct DB architecture ensures fresh reads on every query.
 }
 
 export async function seedInitialProductsIfNeeded() {
@@ -286,17 +279,12 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
     const first = data.first || 20;
 
-    // Check in-memory cache first for instant sub-millisecond response
-    const cached = _catalogCache.get(first);
-    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) {
-      return cached.data;
-    }
-
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
       const sql = getSql();
 
+      // Query active products directly from the database - Single Source of Truth
       const products = await sql`
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
         FROM products
@@ -306,7 +294,6 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
-        _catalogCache.set(first, { data: [], timestamp: Date.now() });
         return [];
       }
 
@@ -363,21 +350,13 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         product_variants: variantsByProductId.get(String(p.id)) || [],
       }));
 
-      // Filter out any deleted products
-      let deletedIds = new Set<string>();
-      try {
-        const { getDeletedProductIds } = await import("./fallback-products-manager.server");
-        deletedIds = new Set(getDeletedProductIds());
-      } catch {}
-
-      const filteredRows = rows.filter(
-        (r) => !deletedIds.has(r.id.toLowerCase()) && !deletedIds.has(r.slug.toLowerCase()),
-      );
-
-      const result = filteredRows.map(toCatalogProduct);
-      _catalogCache.set(first, { data: result, timestamp: Date.now() });
-      return result;
-    } catch (err) {
+      return rows.map(toCatalogProduct);
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "fetchProducts",
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
       console.warn("fetchProducts error:", err);
       return [];
     }
@@ -396,24 +375,12 @@ export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
 export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
   .handler(async ({ data }): Promise<CatalogProductNode | null> => {
-    const handleKey = data.handle.toLowerCase();
-    try {
-      const { isProductDeleted } = await import("./fallback-products-manager.server");
-      if (isProductDeleted(handleKey)) {
-        return null;
-      }
-    } catch {}
-
-    const cached = _handleCache.get(handleKey);
-    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) {
-      return cached.data;
-    }
-
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
       const sql = getSql();
 
+      // Read directly from database - Single Source of Truth
       const products = await sql`
         SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
         FROM products
@@ -470,10 +437,14 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         product_variants: variantRows,
       };
 
-      const node = toCatalogProduct(row).node;
-      _handleCache.set(handleKey, { data: node, timestamp: Date.now() });
-      return node;
-    } catch (err) {
+      return toCatalogProduct(row).node;
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "fetchProductByHandle",
+        productId: data.handle,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
       console.warn("fetchProductByHandle error:", err);
       return null;
     }

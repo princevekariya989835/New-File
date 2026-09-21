@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
+import { logServerSyncEvent } from "@/lib/server-logger";
 import { removeProductFromFile } from "@/lib/fallback-products-manager.server";
 import {
   addInventory,
@@ -250,23 +251,33 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     await sql`DELETE FROM favorites WHERE product_handle::text = ${data.productId} OR product_handle::text IN (SELECT slug FROM products WHERE id::text = ${data.productId})`;
     await sql`DELETE FROM reviews WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM inventory_transactions WHERE product_id::text = ${data.productId}`;
+
     try {
       await sql`DELETE FROM products WHERE id::text = ${data.productId} OR slug::text = ${data.productId}`;
-    } catch {}
+    } catch (delErr: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminDeleteProduct",
+        productId: data.productId,
+        status: "FAILED",
+        error: delErr?.message || String(delErr),
+      });
+      throw new Error(`Database deletion failed: ${delErr?.message || String(delErr)}`);
+    }
 
     // 1. Permanently remove from fallback source file (src/lib/fallback-products.ts) on disk & memory
     await removeProductFromFile(data.productId);
 
-    // 2. Persist deletion in store_settings tombstones
+    // 2. Persist deletion in store_settings tombstones and update catalog timestamp
     try {
       await sql`
         UPDATE store_settings
-        SET deleted_product_ids = (
-          CASE 
-            WHEN deleted_product_ids IS NULL THEN ${JSON.stringify([data.productId])}::jsonb
-            ELSE deleted_product_ids || ${JSON.stringify([data.productId])}::jsonb
-          END
-        )
+        SET updated_at = NOW(),
+            deleted_product_ids = (
+              CASE 
+                WHEN deleted_product_ids IS NULL THEN ${JSON.stringify([data.productId])}::jsonb
+                ELSE deleted_product_ids || ${JSON.stringify([data.productId])}::jsonb
+              END
+            )
         WHERE id = 'default'
       `;
     } catch {}
@@ -302,6 +313,12 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
       id: data.productId,
     });
 
+    logServerSyncEvent("PRODUCT_DELETE", {
+      operation: "adminDeleteProduct",
+      productId: data.productId,
+      status: "SUCCESS",
+    });
+
     return { ok: true, archived: false };
   });
 
@@ -319,12 +336,41 @@ export const adminSetProductStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any);
     const sql = getSql();
-    await sql`
-      UPDATE products SET is_active = ${data.status === "ACTIVE"}, updated_at = NOW()
-      WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
-    `;
-    invalidateCatalogCache();
-    return { ok: true };
+
+    try {
+      const updated = await sql`
+        UPDATE products SET is_active = ${data.status === "ACTIVE"}, updated_at = NOW()
+        WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
+        RETURNING id, name, slug, is_active
+      `;
+
+      if (!updated || updated.length === 0) {
+        throw new Error(`Product not found with ID ${data.productId}`);
+      }
+
+      try {
+        await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+      } catch {}
+
+      invalidateCatalogCache();
+
+      logServerSyncEvent("PRODUCT_PUBLISH", {
+        operation: data.status === "ACTIVE" ? "publishProduct" : "unpublishProduct",
+        productId: data.productId,
+        status: "SUCCESS",
+        details: { status: data.status, updatedId: updated[0].id },
+      });
+
+      return { ok: true, product: updated[0] };
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminSetProductStatus",
+        productId: data.productId,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
+      throw new Error(`Status update failed: ${err?.message || String(err)}`);
+    }
   });
 
 export const adminCreateProduct = createServerFn({ method: "POST" })
@@ -414,11 +460,24 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       values.sizeStock,
     );
 
+    try {
+      const sql = getSql();
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {}
+
     await logAudit(context as any, "product.create", "product", productId, {
       name: values.name,
       stock: values.stock_quantity,
     });
     invalidateCatalogCache();
+
+    logServerSyncEvent("PRODUCT_CREATE", {
+      operation: "adminCreateProduct",
+      productId,
+      status: "SUCCESS",
+      details: { name: values.name, stock: values.stock_quantity, price: values.price },
+    });
+
     return { ok: true, productId };
   });
 
@@ -432,8 +491,9 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     const values = normalizeProductInput(data);
     const sql = getSql();
 
+    let updatedRows: any[] = [];
     try {
-      await sql`
+      updatedRows = await sql`
         UPDATE products SET
           name = ${values.name},
           description = ${values.description},
@@ -447,40 +507,78 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           is_active = ${values.is_active},
           tags = ${JSON.stringify(values.tags)}::jsonb,
           updated_at = NOW()
-        WHERE id::text = ${data.productId}
+        WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
+        RETURNING id, name, slug, price, stock_quantity, is_active
       `;
-    } catch {
-      await sql`
-        UPDATE products SET
-          name = ${values.name},
-          description = ${values.description},
-          price = ${values.price},
-          images = ${JSON.stringify(values.images)}::jsonb,
-          category = ${values.category},
-          sizes = ${JSON.stringify(values.sizes)}::jsonb,
-          colors = ${JSON.stringify(values.colors)}::jsonb,
-          stock_quantity = ${values.stock_quantity},
-          is_active = ${values.is_active},
-          tags = ${JSON.stringify(values.tags)}::jsonb,
-          updated_at = NOW()
-        WHERE id::text = ${data.productId}
-      `;
+    } catch (updateErr: any) {
+      const msg = String(updateErr?.message || "").toLowerCase();
+      if (msg.includes("base_price") && msg.includes("does not exist")) {
+        updatedRows = await sql`
+          UPDATE products SET
+            name = ${values.name},
+            description = ${values.description},
+            price = ${values.price},
+            images = ${JSON.stringify(values.images)}::jsonb,
+            category = ${values.category},
+            sizes = ${JSON.stringify(values.sizes)}::jsonb,
+            colors = ${JSON.stringify(values.colors)}::jsonb,
+            stock_quantity = ${values.stock_quantity},
+            is_active = ${values.is_active},
+            tags = ${JSON.stringify(values.tags)}::jsonb,
+            updated_at = NOW()
+          WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
+          RETURNING id, name, slug, price, stock_quantity, is_active
+        `;
+      } else {
+        logServerSyncEvent("DATABASE_ERROR", {
+          operation: "adminUpdateProduct",
+          productId: data.productId,
+          status: "FAILED",
+          error: updateErr?.message || String(updateErr),
+        });
+        throw new Error(`Product update failed: ${updateErr?.message || String(updateErr)}`);
+      }
     }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminUpdateProduct",
+        productId: data.productId,
+        status: "FAILED",
+        error: "No product matched the specified ID or slug",
+      });
+      throw new Error(`Product update failed: No product found with ID "${data.productId}".`);
+    }
+
+    const canonicalId = String(updatedRows[0].id);
 
     await syncProductVariants(
       context as any,
-      data.productId,
+      canonicalId,
       values.sizes,
       values.colors,
       values.stock_quantity,
       values.sizeStock,
     );
-    await logAudit(context as any, "product.update", "product", data.productId, {
+
+    try {
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {}
+
+    await logAudit(context as any, "product.update", "product", canonicalId, {
       name: values.name,
       stock: values.stock_quantity,
     });
     invalidateCatalogCache();
-    return { ok: true };
+
+    logServerSyncEvent("PRODUCT_UPDATE", {
+      operation: "adminUpdateProduct",
+      productId: canonicalId,
+      status: "SUCCESS",
+      details: { name: values.name, price: values.price, stock: values.stock_quantity, is_active: values.is_active },
+    });
+
+    return { ok: true, product: updatedRows[0] };
   });
 
 export type AdminVariant = {
@@ -542,11 +640,34 @@ export const adminAddVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual add",
   }))
   .handler(async ({ data, context }) => {
-    return await addInventory(context as any, {
-      variantId: data.variantId,
-      quantity: data.quantity,
-      reason: data.reason,
-    });
+    try {
+      const res = await addInventory(context as any, {
+        variantId: data.variantId,
+        quantity: data.quantity,
+        reason: data.reason,
+      });
+      try {
+        const sql = getSql();
+        await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+      } catch {}
+      invalidateCatalogCache();
+      logServerSyncEvent("INVENTORY_UPDATE", {
+        operation: "adminAddVariantInventory",
+        variantId: data.variantId,
+        productId: res.productId,
+        status: "SUCCESS",
+        details: { quantityAdded: data.quantity, newTotal: res.current },
+      });
+      return res;
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminAddVariantInventory",
+        variantId: data.variantId,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
+      throw err;
+    }
   });
 
 export const adminRemoveVariantInventory = createServerFn({ method: "POST" })
@@ -557,11 +678,34 @@ export const adminRemoveVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual remove",
   }))
   .handler(async ({ data, context }) => {
-    return await removeInventory(context as any, {
-      variantId: data.variantId,
-      quantity: data.quantity,
-      reason: data.reason,
-    });
+    try {
+      const res = await removeInventory(context as any, {
+        variantId: data.variantId,
+        quantity: data.quantity,
+        reason: data.reason,
+      });
+      try {
+        const sql = getSql();
+        await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+      } catch {}
+      invalidateCatalogCache();
+      logServerSyncEvent("INVENTORY_UPDATE", {
+        operation: "adminRemoveVariantInventory",
+        variantId: data.variantId,
+        productId: res.productId,
+        status: "SUCCESS",
+        details: { quantityRemoved: data.quantity, newTotal: res.current },
+      });
+      return res;
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminRemoveVariantInventory",
+        variantId: data.variantId,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
+      throw err;
+    }
   });
 
 export const adminSetVariantInventory = createServerFn({ method: "POST" })
@@ -572,11 +716,34 @@ export const adminSetVariantInventory = createServerFn({ method: "POST" })
     reason: d.reason ? String(d.reason).slice(0, 120) : "Admin manual set",
   }))
   .handler(async ({ data, context }) => {
-    return await setInventory(context as any, {
-      variantId: data.variantId,
-      quantity: data.quantity,
-      reason: data.reason,
-    });
+    try {
+      const res = await setInventory(context as any, {
+        variantId: data.variantId,
+        quantity: data.quantity,
+        reason: data.reason,
+      });
+      try {
+        const sql = getSql();
+        await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+      } catch {}
+      invalidateCatalogCache();
+      logServerSyncEvent("INVENTORY_UPDATE", {
+        operation: "adminSetVariantInventory",
+        variantId: data.variantId,
+        productId: res.productId,
+        status: "SUCCESS",
+        details: { quantitySet: data.quantity, newTotal: res.current },
+      });
+      return res;
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminSetVariantInventory",
+        variantId: data.variantId,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
+      throw err;
+    }
   });
 
 export const adminListOrders = createServerFn({ method: "GET" })
