@@ -164,10 +164,14 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Single Source of Truth: All storefront catalog queries read directly from Neon PostgreSQL.
-// Invalidate helper is retained for lifecycle triggers and cross-component compatibility.
+// High-speed in-memory server cache (30s SWR TTL)
+const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
+const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
+const CATALOG_CACHE_TTL = 30_000;
+
 export function invalidateCatalogCache() {
-  // Direct DB architecture ensures fresh reads on every query.
+  _productsCache.clear();
+  _productHandleCache.clear();
 }
 
 export async function seedInitialProductsIfNeeded() {
@@ -279,6 +283,12 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
     const first = data.first || 20;
 
+    // Check high-speed memory cache first (1ms return)
+    const cached = _productsCache.get(first);
+    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+      return cached.data;
+    }
+
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
@@ -350,7 +360,9 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         product_variants: variantsByProductId.get(String(p.id)) || [],
       }));
 
-      return rows.map(toCatalogProduct);
+      const results = rows.map(toCatalogProduct);
+      _productsCache.set(first, { data: results, timestamp: Date.now() });
+      return results;
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "fetchProducts",
@@ -358,7 +370,7 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
         error: err?.message || String(err),
       });
       console.warn("fetchProducts error:", err);
-      return [];
+      return cached?.data || [];
     }
   });
 
@@ -375,6 +387,14 @@ export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
 export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
   .handler(async ({ data }): Promise<CatalogProductNode | null> => {
+    const handleKey = String(data.handle).toLowerCase().trim();
+
+    // Check high-speed memory cache first
+    const cached = _productHandleCache.get(handleKey);
+    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+      return cached.data;
+    }
+
     try {
       await ensureDbSchema();
       await seedInitialProductsIfNeeded();
@@ -389,6 +409,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       `;
 
       if (!products || products.length === 0) {
+        _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
         return null;
       }
 
@@ -437,7 +458,9 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         product_variants: variantRows,
       };
 
-      return toCatalogProduct(row).node;
+      const result = toCatalogProduct(row).node;
+      _productHandleCache.set(handleKey, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "fetchProductByHandle",
@@ -446,7 +469,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         error: err?.message || String(err),
       });
       console.warn("fetchProductByHandle error:", err);
-      return null;
+      return cached?.data || null;
     }
   });
 

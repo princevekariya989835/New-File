@@ -3,6 +3,8 @@ import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
+import { invalidatePublicWebsiteConfigCache } from "@/lib/website-config.functions";
+import { invalidateCatalogCache } from "@/lib/catalog";
 
 export type StoreSettings = {
   id: string;
@@ -265,6 +267,9 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
       },
     );
 
+    invalidatePublicWebsiteConfigCache();
+    invalidateCatalogCache();
+
     return { ok: true, message: "Settings saved successfully." };
   });
 
@@ -486,6 +491,8 @@ export const toggleMaintenanceMode = createServerFn({ method: "POST" })
       { maintenanceMode: data.enabled, message: data.message },
       { module: "settings", targetName: "Maintenance Mode" },
     );
+
+    invalidatePublicWebsiteConfigCache();
 
     return {
       ok: true,

@@ -9,14 +9,14 @@ import { DEFAULT_WEBSITE_CONFIG } from "@/lib/website-config.types";
 const productsQuery = {
   queryKey: ["products", "home"],
   queryFn: () => fetchProducts(8),
-  staleTime: 0,
+  staleTime: 1000 * 15,
   gcTime: 1000 * 60 * 30,
 };
 
 const websiteConfigQuery = {
   queryKey: ["website-config", "published"],
   queryFn: () => getPublicWebsiteConfig(),
-  staleTime: 0,
+  staleTime: 1000 * 15,
   gcTime: 1000 * 60 * 30,
 };
 

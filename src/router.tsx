@@ -6,9 +6,11 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 0,
-        refetchOnWindowFocus: true,
-        refetchOnMount: true,
+        staleTime: 1000 * 15, // 15s query cache allows instant navigation while catching admin changes quickly
+        gcTime: 1000 * 60 * 30, // 30m garbage collection retention
+        refetchOnWindowFocus: true, // Auto-revalidates when user refocuses tab so all users see admin updates immediately
+        refetchOnMount: true, // Auto-revalidates when mounting if stale
+        retry: 1,
       },
     },
   });
@@ -26,7 +28,8 @@ export const getRouter = () => {
       }
     },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    defaultPreload: "intent",
+    defaultPreloadStaleTime: 1000 * 30, // Instant navigation on link hover
   });
 
   return router;

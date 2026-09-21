@@ -109,8 +109,18 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
   };
 }
 
+let _publicWebsiteConfigCache: {
+  data: {
+    config: WebsiteConfig;
+    versionNumber: number;
+    publishedAt: string | null;
+  };
+  timestamp: number;
+} | null = null;
+const WEBSITE_CONFIG_CACHE_TTL = 60_000;
+
 export function invalidatePublicWebsiteConfigCache() {
-  // Direct DB reads ensure instant real-time synchronization.
+  _publicWebsiteConfigCache = null;
 }
 
 /**
@@ -124,6 +134,14 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
     versionNumber: number;
     publishedAt: string | null;
   }> => {
+    // Return cached config immediately (<0.1ms)
+    if (
+      _publicWebsiteConfigCache &&
+      Date.now() - _publicWebsiteConfigCache.timestamp < WEBSITE_CONFIG_CACHE_TTL
+    ) {
+      return _publicWebsiteConfigCache.data;
+    }
+
     try {
       const sql = getSql();
       const rows = await sql`
@@ -136,25 +154,31 @@ export const getPublicWebsiteConfig = createServerFn({ method: "GET" }).handler(
       if (rows && rows.length > 0 && rows[0].config) {
         const raw =
           typeof rows[0].config === "string" ? JSON.parse(rows[0].config) : rows[0].config;
-        return {
+        const result = {
           config: mergeWithDefaults(raw),
           versionNumber: Number(rows[0].version_number ?? 1),
           publishedAt: rows[0].published_at ? new Date(rows[0].published_at).toISOString() : null,
         };
+        _publicWebsiteConfigCache = { data: result, timestamp: Date.now() };
+        return result;
       }
 
-      return {
+      const defaultResult = {
         config: DEFAULT_WEBSITE_CONFIG,
         versionNumber: 1,
         publishedAt: null,
       };
+      _publicWebsiteConfigCache = { data: defaultResult, timestamp: Date.now() };
+      return defaultResult;
     } catch (err) {
       console.error("[WebsiteConfig] getPublicWebsiteConfig error:", err);
-      return {
-        config: DEFAULT_WEBSITE_CONFIG,
-        versionNumber: 1,
-        publishedAt: null,
-      };
+      return (
+        _publicWebsiteConfigCache?.data || {
+          config: DEFAULT_WEBSITE_CONFIG,
+          versionNumber: 1,
+          publishedAt: null,
+        }
+      );
     }
   },
 );

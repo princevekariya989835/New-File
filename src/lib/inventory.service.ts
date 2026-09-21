@@ -1,5 +1,6 @@
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { type AdminCtx, assertAdmin, logAudit } from "@/lib/admin-utils";
+import { invalidateCatalogCache } from "@/lib/catalog";
 
 export type InventoryTransactionType =
   | "ADMIN_ADD"
@@ -65,11 +66,13 @@ export async function syncProductTotalStock(productId: string): Promise<number> 
     try {
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
     } catch {}
+    invalidateCatalogCache();
     return totalStock;
   } else {
     const prod = await sql`
       SELECT stock_quantity FROM products WHERE id::text = ${String(productId)} LIMIT 1
     `;
+    invalidateCatalogCache();
     return Number(prod[0]?.stock_quantity ?? 0);
   }
 }
