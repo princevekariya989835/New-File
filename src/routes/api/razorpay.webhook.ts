@@ -4,6 +4,7 @@ import { ensureDbSchema, getSql } from "@/lib/db";
 import { deductOrderInventory } from "@/lib/inventory.service";
 import { sendOrderConfirmation } from "@/lib/email";
 import { sendTemplateEmail } from "@/lib/email-templates/send-email";
+import { syncOrderToZippyy } from "@/lib/zippyy";
 
 export const Route = createFileRoute("/api/razorpay/webhook")({
   server: {
@@ -183,6 +184,11 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                   sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
                     templateData: adminTemplateData,
                   }).catch((err) => console.warn("[Razorpay Webhook] Admin email notice:", err));
+
+                  // Automated Forward Shipment fulfillment via Zippyy
+                  syncOrderToZippyy(String(order.id)).catch((err) =>
+                    console.warn("[Zippyy Webhook Auto-Dispatch] Error:", err),
+                  );
                 }
               }
             }

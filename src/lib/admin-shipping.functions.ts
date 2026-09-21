@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, logAudit } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { sendOrderShipped, sendOutForDelivery, sendOrderDelivered } from "@/lib/email";
+import { syncOrderToZippyy, actionZippyyNdr } from "@/lib/zippyy";
 
 export type ShipmentStatus =
   | "Pending"
@@ -45,6 +46,13 @@ export type AdminShipment = {
   updatedAt: string;
   adminNote: string | null;
   updatedBy: string | null;
+  zippyyOrderId?: string | null;
+  zippyyShipmentId?: string | null;
+  shippingLabelUrl?: string | null;
+  manifestUrl?: string | null;
+  ndrStatus?: string | null;
+  ndrLastReason?: string | null;
+  ndrAttempts?: number | null;
   orderItems: Array<{
     id: string;
     productName: string;
@@ -382,4 +390,86 @@ export const adminCreateShipment = createServerFn({ method: "POST" })
 
     await logAudit(context as any, "shipment.create", "shipment", sId, { orderId: order.id });
     return { ok: true as const, shipmentId: sId };
+  });
+
+export const adminSyncZippyyShipment = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { orderId: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    const result = await syncOrderToZippyy(data.orderId);
+    if (!result) {
+      throw new Error("Failed to sync shipment with Zippyy.");
+    }
+    await logAudit(context as any, "shipment.zippyy_sync", "order", data.orderId, {
+      awbNumber: result.awbNumber,
+      courier: result.courierName,
+    });
+    return { ok: true as const, shipment: result };
+  });
+
+export const adminResolveNdr = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (d: {
+      shipmentId: string;
+      awbNumber?: string;
+      action: "REATTEMPT" | "RTO";
+      remarks?: string;
+      deferredDate?: string;
+      updatedPhone?: string;
+      updatedAddress?: string;
+    }) => d,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    const sql = getSql();
+    const authCtx = context as any;
+
+    const res = await actionZippyyNdr({
+      shipmentId: data.shipmentId,
+      awbNumber: data.awbNumber,
+      action: data.action,
+      remarks: data.remarks,
+      deferredDate: data.deferredDate,
+      updatedPhone: data.updatedPhone,
+      updatedAddress: data.updatedAddress,
+    });
+
+    const newNdrStatus = data.action === "REATTEMPT" ? "Reattempt_Requested" : "RTO_Initiated";
+    await sql`
+      UPDATE shipments
+      SET ndr_status = ${newNdrStatus},
+          admin_note = COALESCE(admin_note || ' | ', '') || ${`NDR Action: ${data.action} - ${data.remarks || ''}`},
+          updated_at = NOW(),
+          updated_by = ${authCtx.userId}
+      WHERE id = ${data.shipmentId} OR tracking_number = ${data.awbNumber}
+    `;
+
+    await logAudit(context as any, "shipment.ndr_action", "shipment", data.shipmentId, {
+      action: data.action,
+      remarks: data.remarks,
+    });
+
+    return { ok: true as const, result: res };
+  });
+
+export const adminGetTrackingEvents = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .inputValidator((d: { orderId?: string; awbNumber?: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    const events = await sql`
+      SELECT id, order_id, awb_number, status, location, activity, event_time, created_at
+      FROM shipment_tracking_events
+      WHERE (${data.orderId || null}::text IS NOT NULL AND order_id = ${data.orderId})
+         OR (${data.awbNumber || null}::text IS NOT NULL AND awb_number = ${data.awbNumber})
+      ORDER BY event_time DESC, created_at DESC
+      LIMIT 50
+    `;
+
+    return events as any[];
   });

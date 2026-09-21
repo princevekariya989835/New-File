@@ -24,6 +24,7 @@ import {
   recordPaymentFailure,
 } from "@/lib/orders.functions";
 import { validateCouponCode } from "@/lib/coupons.functions";
+import { getShippingEstimate } from "@/lib/shipping.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,12 +80,22 @@ function CheckoutPage() {
   const verifyPaymentFn = useServerFn(verifyOnlineOrderPayment);
   const recordFailureFn = useServerFn(recordPaymentFailure);
   const validateCouponFn = useServerFn(validateCouponCode);
+  const getShippingEstimateFn = useServerFn(getShippingEstimate);
 
   const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "COD">("ONLINE");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [shippingQuote, setShippingQuote] = useState<{
+    isServiceable: boolean;
+    availableCouriers: any[];
+    cheapestRate: number;
+    fastestDays: number;
+    recommendedCourier?: any;
+  } | null>(null);
+  const [checkingServiceability, setCheckingServiceability] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -126,8 +137,46 @@ function CheckoutPage() {
 
   const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
   const finalSubtotal = Math.max(0, subtotal - discountAmount);
-  const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
+  const baseShipping = shippingQuote?.cheapestRate ?? 79;
+  const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : baseShipping;
   const total = finalSubtotal + shipping;
+
+  // Check live Zippyy courier serviceability & calculate dynamic shipping rates
+  useEffect(() => {
+    const pin = pincode.trim() || (address.match(/\b([1-9][0-9]{5})\b/)?.[1] ?? "");
+    if (!/^[1-9][0-9]{5}$/.test(pin)) {
+      setShippingQuote(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchQuote = async () => {
+      setCheckingServiceability(true);
+      try {
+        const quote = await getShippingEstimateFn({
+          data: {
+            pincode: pin,
+            weightGrams: Math.max(displayItems.length * 400, 500),
+            isCod: paymentMethod === "COD",
+            orderValue: finalSubtotal,
+          },
+        });
+        if (isMounted) {
+          setShippingQuote(quote);
+        }
+      } catch (err) {
+        console.warn("[Checkout] Serviceability check error:", err);
+      } finally {
+        if (isMounted) setCheckingServiceability(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchQuote, 400);
+    return () => {
+      isMounted = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [pincode, address, paymentMethod, finalSubtotal, displayItems.length]);
 
   const applyCoupon = async () => {
     const clean = couponInput.toUpperCase().replace(/\s+/g, "").trim();
@@ -421,20 +470,61 @@ function CheckoutPage() {
                   placeholder="+91 …"
                 />
               </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="ship-pincode">PIN Code</Label>
+                  {checkingServiceability && (
+                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Checking delivery...
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="ship-pincode"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit PIN code (e.g. 400001)"
+                  maxLength={6}
+                />
+              </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ship-address">Shipping address</Label>
                 <Textarea
                   id="ship-address"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="House / street, area, city, state, PIN code"
-                  rows={4}
+                  placeholder="House / street, area, city, state"
+                  rows={3}
                 />
               </div>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Free shipping on orders over {formatPrice(1999, currency)}. Estimated delivery: 5-7
-              business days.
+
+            {/* Dynamic Zippyy Serviceability & Courier Rate Indicator */}
+            {shippingQuote && shippingQuote.isServiceable && (
+              <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300">
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    Delivery Serviceable via {shippingQuote.recommendedCourier?.courierName || "Zippyy Express"}
+                  </span>
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-300">
+                    Est. {shippingQuote.fastestDays || 3} Business Days
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-emerald-300/80">
+                  Real-time shipping rate: {shipping === 0 ? "FREE" : formatPrice(shipping, currency)} (Standard Surface/Air Transit)
+                </p>
+              </div>
+            )}
+
+            {pincode.length === 6 && shippingQuote && !shippingQuote.isServiceable && (
+              <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                ⚠️ Pincode {pincode} might have limited delivery serviceability. We will attempt standard postal delivery.
+              </div>
+            )}
+
+            <p className="mt-3 text-xs text-muted-foreground">
+              Free shipping on orders over {formatPrice(1999, currency)}. Instant dispatch within 24 hours.
             </p>
           </section>
 
