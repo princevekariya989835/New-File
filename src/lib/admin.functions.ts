@@ -334,7 +334,9 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
             )
         WHERE id = 'default'
       `;
-    } catch {}
+    } catch {
+      /* non-fatal */
+    }
 
     invalidateCatalogCache();
 
@@ -404,7 +406,9 @@ export const adminSetProductStatus = createServerFn({ method: "POST" })
 
       try {
         await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
 
       invalidateCatalogCache();
 
@@ -517,7 +521,9 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     try {
       const sql = getSql();
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-    } catch {}
+    } catch {
+      /* non-fatal */
+    }
 
     await logAudit(context as any, "product.create", "product", productId, {
       name: values.name,
@@ -617,7 +623,9 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
 
     try {
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-    } catch {}
+    } catch {
+      /* non-fatal */
+    }
 
     await logAudit(context as any, "product.update", "product", canonicalId, {
       name: values.name,
@@ -703,7 +711,9 @@ export const adminAddVariantInventory = createServerFn({ method: "POST" })
       try {
         const sql = getSql();
         await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
       invalidateCatalogCache();
       logServerSyncEvent("INVENTORY_UPDATE", {
         operation: "adminAddVariantInventory",
@@ -741,7 +751,9 @@ export const adminRemoveVariantInventory = createServerFn({ method: "POST" })
       try {
         const sql = getSql();
         await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
       invalidateCatalogCache();
       logServerSyncEvent("INVENTORY_UPDATE", {
         operation: "adminRemoveVariantInventory",
@@ -779,7 +791,9 @@ export const adminSetVariantInventory = createServerFn({ method: "POST" })
       try {
         const sql = getSql();
         await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
       invalidateCatalogCache();
       logServerSyncEvent("INVENTORY_UPDATE", {
         operation: "adminSetVariantInventory",

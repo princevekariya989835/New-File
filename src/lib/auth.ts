@@ -364,11 +364,15 @@ export const loginServerFn = createServerFn({ method: "POST" })
         role = "Super Admin";
         try {
           await sql`UPDATE profiles SET role = 'Super Admin', status = 'Active', last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
-        } catch {}
+        } catch {
+          /* non-fatal */
+        }
       } else {
         try {
           await sql`UPDATE profiles SET last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
-        } catch {}
+        } catch {
+          /* non-fatal */
+        }
       }
 
       const user: AuthUser = {
@@ -644,7 +648,9 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
       try {
         await sql`DELETE FROM email_otps WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'signup'`;
         dbQueries++;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
 
       const user: AuthUser = {
         id: userId,
@@ -755,7 +761,9 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       try {
         await sql`DELETE FROM email_otps WHERE LOWER(email) = LOWER(${data.email}) AND purpose = 'forgot_password'`;
         dbQueries++;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
 
       const r = userRows[0];
       const role = isAdminEmail(r.email) ? "Super Admin" : (r.role as "admin" | "customer") || "customer";

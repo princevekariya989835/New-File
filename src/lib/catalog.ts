@@ -183,7 +183,9 @@ export function invalidateCatalogCache() {
   _productHandleCache.clear();
   try {
     import("./product-images").then((m) => m.invalidateImageCache()).catch(() => {});
-  } catch {}
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export async function seedInitialProductsIfNeeded() {
@@ -199,7 +201,9 @@ export async function seedInitialProductsIfNeeded() {
       try {
         const { getDeletedProductIds } = await import("./fallback-products-manager.server");
         getDeletedProductIds().forEach((id) => deletedIds.add(id.toLowerCase().trim()));
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
 
       // Check if store_settings has initial_catalog_seeded flag
       try {
@@ -226,7 +230,9 @@ export async function seedInitialProductsIfNeeded() {
           _seeded = true;
           try {
             await sql`UPDATE store_settings SET initial_catalog_seeded = true WHERE id = 'default'`;
-          } catch {}
+          } catch {
+            /* non-fatal */
+          }
           return;
         }
       } catch {
@@ -277,7 +283,9 @@ export async function seedInitialProductsIfNeeded() {
 
       try {
         await sql`UPDATE store_settings SET initial_catalog_seeded = true WHERE id = 'default'`;
-      } catch {}
+      } catch {
+        /* non-fatal */
+      }
 
       _seeded = true;
     } catch (err) {

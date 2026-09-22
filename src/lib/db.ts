@@ -5,7 +5,7 @@ let _schemaInitialized = false;
 let _schemaPromise: Promise<void> | null = null;
 
 // In-memory database store for local dev when DATABASE_URL is not set
-let _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
+const _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
   ...p,
   images: [...p.images],
   sizes: [...p.sizes],
@@ -24,7 +24,7 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
   })),
 );
 
-let _mockProfiles: any[] = [
+const _mockProfiles: any[] = [
   {
     id: "usr_admin_default",
     email: "princevekariya9898@gmail.com",
@@ -51,7 +51,7 @@ let _mockProfiles: any[] = [
 
 let _mockEmailOtps: any[] = [];
 
-let _mockCoupons: any[] = [
+const _mockCoupons: any[] = [
   {
     id: "cpn_riotous10",
     code: "RIOTOUS10",
@@ -129,7 +129,7 @@ let _mockCoupons: any[] = [
   },
 ];
 
-let _mockCouponUsage: any[] = [
+const _mockCouponUsage: any[] = [
   {
     id: "usg_1",
     coupon_id: "cpn_riotous10",
@@ -154,9 +154,9 @@ let _mockCouponUsage: any[] = [
   },
 ];
 
-let _mockEmailLogs: any[] = [];
+const _mockEmailLogs: any[] = [];
 
-let _mockOrders: any[] = [
+const _mockOrders: any[] = [
   {
     id: "ord_1001",
     user_id: "usr_cust_1",
@@ -279,7 +279,7 @@ let _mockOrders: any[] = [
   },
 ];
 
-let _mockOrderItems: any[] = [
+const _mockOrderItems: any[] = [
   {
     id: "item_1001",
     order_id: "ord_1001",
@@ -342,10 +342,10 @@ let _mockOrderItems: any[] = [
   },
 ];
 
-let _mockReturns: any[] = [];
-let _mockReviews: any[] = [];
-let _mockDesignSubmissions: any[] = [];
-let _mockInventoryTransactions: any[] = [];
+const _mockReturns: any[] = [];
+const _mockReviews: any[] = [];
+const _mockDesignSubmissions: any[] = [];
+const _mockInventoryTransactions: any[] = [];
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -467,17 +467,17 @@ export function getSql() {
         let sizes: string[] = [];
         try {
           sizes = typeof values[9] === "string" ? JSON.parse(values[9]) : (values[9] || ["S", "M", "L", "XL", "XXL"]);
-        } catch {}
+        } catch { /* ignored */ }
         let colors: string[] = [];
         try {
           colors = typeof values[10] === "string" ? JSON.parse(values[10]) : (values[10] || ["Black"]);
-        } catch {}
+        } catch { /* ignored */ }
         const stock_quantity = Number(values[11] || 0);
         const is_active = values[12] !== false;
         let tags: string[] = [];
         try {
           tags = typeof values[13] === "string" ? JSON.parse(values[13]) : (values[13] || []);
-        } catch {}
+        } catch { /* ignored */ }
 
         const newProd = {
           id,
@@ -520,19 +520,19 @@ export function getSql() {
             if (values[2] !== undefined) prod.price = Number(values[2]);
             if (values[3] !== undefined) prod.base_price = Number(values[3]);
             if (values[4]) {
-              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch {}
+              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
             }
             if (values[5]) prod.category = String(values[5]);
             if (values[6]) {
-              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch {}
+              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
             }
             if (values[7]) {
-              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch {}
+              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
             }
             if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
             if (values[9] !== undefined) prod.is_active = values[9] !== false;
             if (values[10]) {
-              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch {}
+              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
             }
           }
           prod.updated_at = new Date().toISOString();
@@ -671,16 +671,16 @@ export function getSql() {
           if (colMap["is_active"] !== undefined) is_active = colMap["is_active"] !== false && colMap["is_active"] !== "false";
           if (colMap["applies_to"]) applies_to = String(colMap["applies_to"]);
           if (colMap["product_ids"] !== undefined) {
-            try { product_ids = typeof colMap["product_ids"] === "string" ? JSON.parse(colMap["product_ids"]) : (colMap["product_ids"] || []); } catch {}
+            try { product_ids = typeof colMap["product_ids"] === "string" ? JSON.parse(colMap["product_ids"]) : (colMap["product_ids"] || []); } catch { /* ignored */ }
           }
           if (colMap["category_names"] !== undefined) {
-            try { category_names = typeof colMap["category_names"] === "string" ? JSON.parse(colMap["category_names"]) : (colMap["category_names"] || []); } catch {}
+            try { category_names = typeof colMap["category_names"] === "string" ? JSON.parse(colMap["category_names"]) : (colMap["category_names"] || []); } catch { /* ignored */ }
           }
           if (colMap["excluded_product_ids"] !== undefined) {
-            try { excluded_product_ids = typeof colMap["excluded_product_ids"] === "string" ? JSON.parse(colMap["excluded_product_ids"]) : (colMap["excluded_product_ids"] || []); } catch {}
+            try { excluded_product_ids = typeof colMap["excluded_product_ids"] === "string" ? JSON.parse(colMap["excluded_product_ids"]) : (colMap["excluded_product_ids"] || []); } catch { /* ignored */ }
           }
           if (colMap["excluded_category_names"] !== undefined) {
-            try { excluded_category_names = typeof colMap["excluded_category_names"] === "string" ? JSON.parse(colMap["excluded_category_names"]) : (colMap["excluded_category_names"] || []); } catch {}
+            try { excluded_category_names = typeof colMap["excluded_category_names"] === "string" ? JSON.parse(colMap["excluded_category_names"]) : (colMap["excluded_category_names"] || []); } catch { /* ignored */ }
           }
           if (colMap["created_by"]) created_by = String(colMap["created_by"]);
         } else {
@@ -699,10 +699,10 @@ export function getSql() {
           expires_at = values[12] ? String(values[12]) : null;
           is_active = values[13] !== false;
           applies_to = values[14] ? String(values[14]) : "all";
-          try { product_ids = typeof values[15] === "string" ? JSON.parse(values[15]) : (values[15] || []); } catch {}
-          try { category_names = typeof values[16] === "string" ? JSON.parse(values[16]) : (values[16] || []); } catch {}
-          try { excluded_product_ids = typeof values[17] === "string" ? JSON.parse(values[17]) : (values[17] || []); } catch {}
-          try { excluded_category_names = typeof values[18] === "string" ? JSON.parse(values[18]) : (values[18] || []); } catch {}
+          try { product_ids = typeof values[15] === "string" ? JSON.parse(values[15]) : (values[15] || []); } catch { /* ignored */ }
+          try { category_names = typeof values[16] === "string" ? JSON.parse(values[16]) : (values[16] || []); } catch { /* ignored */ }
+          try { excluded_product_ids = typeof values[17] === "string" ? JSON.parse(values[17]) : (values[17] || []); } catch { /* ignored */ }
+          try { excluded_category_names = typeof values[18] === "string" ? JSON.parse(values[18]) : (values[18] || []); } catch { /* ignored */ }
           created_by = values[19] ? String(values[19]) : "Admin";
         }
 

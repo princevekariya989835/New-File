@@ -558,7 +558,7 @@ export const adminGetCouponStats = createServerFn({ method: "GET" })
       }
     }
 
-    let totalCoupons = coupons.length;
+    const totalCoupons = coupons.length;
     let activeCoupons = 0;
     let expiredCoupons = 0;
     let totalUsage = 0;

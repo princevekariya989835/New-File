@@ -95,7 +95,9 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                         SET used_count = used_count + 1, updated_at = NOW()
                         WHERE id = ${order.coupon_id}
                       `;
-                    } catch {}
+                    } catch {
+                      /* non-fatal */
+                    }
                   }
 
                   // Update order state

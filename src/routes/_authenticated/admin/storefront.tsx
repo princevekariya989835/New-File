@@ -242,7 +242,7 @@ export function AdminStorefrontManagement() {
   const handleResetSection = (sectionKey: string) => {
     if (!editorConfig) return;
     const defaults = JSON.parse(JSON.stringify(DEFAULT_WEBSITE_CONFIG));
-    let next = { ...editorConfig };
+    const next = { ...editorConfig };
 
     switch (sectionKey) {
       case "hero":

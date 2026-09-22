@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { CartDrawer } from "./cart-drawer";
 import { SearchDialog } from "./search-dialog";
+import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
 import { hasAdminPanelAccess } from "@/lib/auth";
@@ -96,6 +97,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
 
   return (
     <>
+      <AnnouncementBar config={config?.announcement || (config as any)?.announcementBar} />
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
       <header

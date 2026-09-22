@@ -680,7 +680,7 @@ function OrdersPage() {
           ))}
         </div>
       ) : orders.length === 0 ? (
-        Boolean(search.q || search.status || search.payment || search.from || search.to) ? (
+        search.q || search.status || search.payment || search.from || search.to ? (
           <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
             <p className="font-medium text-foreground">No orders match these filters.</p>
             <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different status filter.</p>

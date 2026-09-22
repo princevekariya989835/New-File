@@ -65,7 +65,9 @@ export async function syncProductTotalStock(productId: string): Promise<number> 
     `;
     try {
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
-    } catch {}
+    } catch {
+      /* ignored */
+    }
     invalidateCatalogCache();
     return totalStock;
   } else {

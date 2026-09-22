@@ -54,7 +54,7 @@ export const Route = createFileRoute("/tracking/webhook")({
           let isDelivered = false;
           let isNdr = false;
           let isRto = false;
-          let ndrReason = data.ndrReason || (data as any).reason || null;
+          const ndrReason = data.ndrReason || (data as any).reason || null;
 
           if (event === "DELIVERED" || status === "DELIVERED") {
             internalStatus = "Delivered";
