@@ -122,49 +122,96 @@ export const adminListProducts = createServerFn({ method: "GET" })
     await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
-    const rows = await sql`
-      SELECT id, name, slug, description, price, images, sizes, colors, tags, stock_quantity, is_active, category
-      FROM products
-      ORDER BY updated_at DESC
-    `;
 
-    const productIds = rows.map((p: any) => String(p.id));
-    let variants: any[] = [];
-    if (productIds.length > 0) {
-      variants = await sql`
-        SELECT product_id, size, stock_quantity
-        FROM product_variants
-        WHERE product_id::text = ANY(${productIds}::text[])
-      `;
-    }
-
+    let rows: any[] = [];
     const sizeStockByProd = new Map<string, Record<string, number>>();
-    for (const v of variants) {
-      const pid = String(v.product_id);
-      if (!sizeStockByProd.has(pid)) sizeStockByProd.set(pid, {});
-      const sz = String(v.size || "");
-      if (sz) {
-        sizeStockByProd.get(pid)![sz] = Number(v.stock_quantity || 0);
+
+    try {
+      rows = await sql`
+        SELECT 
+          p.id, p.name, p.slug, p.description, p.price, p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'size', v.size,
+                'stock_quantity', v.stock_quantity
+              ))
+              FROM product_variants v
+              WHERE v.product_id::text = p.id::text
+            ),
+            '[]'::jsonb
+          ) AS variants
+        FROM products p
+        ORDER BY p.updated_at DESC
+      `;
+
+      for (const p of rows) {
+        const pId = String(p.id);
+        const stockMap: Record<string, number> = {};
+        const vars = Array.isArray(p.variants) ? p.variants : [];
+        for (const v of vars) {
+          if (v && v.size) {
+            stockMap[String(v.size)] = Number(v.stock_quantity || 0);
+          }
+        }
+        sizeStockByProd.set(pId, stockMap);
+      }
+    } catch {
+      rows = await sql`
+        SELECT id, name, slug, description, price, images, sizes, colors, tags, stock_quantity, is_active, category
+        FROM products
+        ORDER BY updated_at DESC
+      `;
+      const productIds = rows.map((p: any) => String(p.id));
+      let variants: any[] = [];
+      if (productIds.length > 0) {
+        try {
+          variants = await sql`
+            SELECT product_id, size, stock_quantity
+            FROM product_variants
+            WHERE product_id::text = ANY(${productIds}::text[])
+          `;
+        } catch {
+          variants = [];
+        }
+      }
+      for (const v of variants) {
+        const pid = String(v.product_id);
+        if (!sizeStockByProd.has(pid)) sizeStockByProd.set(pid, {});
+        const sz = String(v.size || "");
+        if (sz) {
+          sizeStockByProd.get(pid)![sz] = Number(v.stock_quantity || 0);
+        }
       }
     }
 
-    return rows.map((p: any) => ({
-      id: String(p.id),
-      title: p.name,
-      name: p.name,
-      handle: p.slug,
-      status: p.is_active ? "ACTIVE" : "DRAFT",
-      totalInventory: Number(p.stock_quantity ?? 0),
-      featuredImage: Array.isArray(p.images) ? p.images[0] : null,
-      images: Array.isArray(p.images) ? p.images : [],
-      price: String(p.price),
-      description: p.description ?? null,
-      sizes: Array.isArray(p.sizes) ? p.sizes : [],
-      colors: Array.isArray(p.colors) ? p.colors : [],
-      tags: Array.isArray(p.tags) ? p.tags : [],
-      category: p.category ?? null,
-      sizeStock: sizeStockByProd.get(String(p.id)) || {},
-    }));
+    return rows.map((p: any) => {
+      const rawImgs = Array.isArray(p.images) ? p.images : [];
+      const optimizedImgs = rawImgs.map((img: string, idx: number) => {
+        if (typeof img === "string" && img.startsWith("data:image/")) {
+          return `/api/public/product-image?id=${encodeURIComponent(p.id)}&idx=${idx}`;
+        }
+        return img;
+      });
+
+      return {
+        id: String(p.id),
+        title: p.name,
+        name: p.name,
+        handle: p.slug,
+        status: p.is_active ? "ACTIVE" : "DRAFT",
+        totalInventory: Number(p.stock_quantity ?? 0),
+        featuredImage: optimizedImgs[0] || null,
+        images: optimizedImgs,
+        price: String(p.price),
+        description: p.description ?? null,
+        sizes: Array.isArray(p.sizes) ? p.sizes : [],
+        colors: Array.isArray(p.colors) ? p.colors : [],
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        category: p.category ?? null,
+        sizeStock: sizeStockByProd.get(String(p.id)) || {},
+      };
+    });
   });
 
 export const adminAddInventory = createServerFn({ method: "POST" })
@@ -802,52 +849,54 @@ export const adminListOrders = createServerFn({ method: "POST" })
       let totalRevenue = 0;
 
       try {
-        orders = await sql`
-          SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
-            shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
-            shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
-            courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
-            razorpay_order_id, razorpay_payment_id, paid_at
-          FROM orders
-          WHERE (${data.status}::text = '' OR status = ${data.status})
-            AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
-            AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
-            AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
-            AND (
-              ${qFilter}::text IS NULL OR
-              LOWER(order_number) LIKE ${qFilter} OR
-              LOWER(shipping_name) LIKE ${qFilter} OR
-              LOWER(shipping_email) LIKE ${qFilter} OR
-              LOWER(shipping_phone) LIKE ${qFilter} OR
-              LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
-            )
-          ORDER BY created_at DESC
-          LIMIT ${limit}
-          OFFSET ${offset}
-        `;
+        const [ordersRes, aggregatesRes] = await Promise.all([
+          sql`
+            SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
+              shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
+              shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
+              courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
+              razorpay_order_id, razorpay_payment_id, paid_at
+            FROM orders
+            WHERE (${data.status}::text = '' OR status = ${data.status})
+              AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
+              AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
+              AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+              AND (
+                ${qFilter}::text IS NULL OR
+                LOWER(order_number) LIKE ${qFilter} OR
+                LOWER(shipping_name) LIKE ${qFilter} OR
+                LOWER(shipping_email) LIKE ${qFilter} OR
+                LOWER(shipping_phone) LIKE ${qFilter} OR
+                LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
+              )
+            ORDER BY created_at DESC
+            LIMIT ${limit}
+            OFFSET ${offset}
+          `,
+          sql`
+            SELECT
+              COUNT(*)::int as total_count,
+              COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as net_revenue
+            FROM orders
+            WHERE (${data.status}::text = '' OR status = ${data.status})
+              AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
+              AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
+              AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+              AND (
+                ${qFilter}::text IS NULL OR
+                LOWER(order_number) LIKE ${qFilter} OR
+                LOWER(shipping_name) LIKE ${qFilter} OR
+                LOWER(shipping_email) LIKE ${qFilter} OR
+                LOWER(shipping_phone) LIKE ${qFilter} OR
+                LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
+              )
+          `,
+        ]);
 
-        const aggregates = await sql`
-          SELECT
-            COUNT(*)::int as total_count,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as net_revenue
-          FROM orders
-          WHERE (${data.status}::text = '' OR status = ${data.status})
-            AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
-            AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
-            AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
-            AND (
-              ${qFilter}::text IS NULL OR
-              LOWER(order_number) LIKE ${qFilter} OR
-              LOWER(shipping_name) LIKE ${qFilter} OR
-              LOWER(shipping_email) LIKE ${qFilter} OR
-              LOWER(shipping_phone) LIKE ${qFilter} OR
-              LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
-            )
-        `;
-
-        if (aggregates && aggregates[0]) {
-          totalCount = Number(aggregates[0].total_count || 0);
-          totalRevenue = Number(aggregates[0].net_revenue || 0);
+        orders = ordersRes;
+        if (aggregatesRes && aggregatesRes[0]) {
+          totalCount = Number(aggregatesRes[0].total_count || 0);
+          totalRevenue = Number(aggregatesRes[0].net_revenue || 0);
         }
       } catch (orderErr: any) {
         console.warn("[Admin] Primary orders query warning, falling back to base select:", orderErr?.message);

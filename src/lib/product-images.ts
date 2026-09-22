@@ -1,6 +1,38 @@
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"];
 
+export interface CachedImage {
+  bytes: Uint8Array;
+  contentType: string;
+}
+
+const MAX_CACHED_IMAGES = 200;
+const _imageCache = new Map<string, CachedImage>();
+
+export function getCachedImage(key: string): CachedImage | undefined {
+  return _imageCache.get(key);
+}
+
+export function setCachedImage(key: string, img: CachedImage) {
+  if (_imageCache.size >= MAX_CACHED_IMAGES) {
+    const firstKey = _imageCache.keys().next().value;
+    if (firstKey) _imageCache.delete(firstKey);
+  }
+  _imageCache.set(key, img);
+}
+
+export function invalidateImageCache(keyPrefix?: string) {
+  if (!keyPrefix) {
+    _imageCache.clear();
+    return;
+  }
+  for (const k of _imageCache.keys()) {
+    if (k.startsWith(keyPrefix)) {
+      _imageCache.delete(k);
+    }
+  }
+}
+
 export function productImageUrl(path: string) {
   if (!path) return "/placeholder-tee.jpg";
   if (

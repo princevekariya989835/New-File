@@ -105,51 +105,26 @@ async function seedShipmentsIfEmpty() {
       "Returned",
     ];
 
-    let i = 0;
-    for (const o of orders as any[]) {
-      const sId = `shp_${o.id || Math.random().toString(36).slice(2, 9)}`;
-      const carrier = carriers[i % carriers.length];
-      const method = methods[i % methods.length];
-      const status = statuses[i % statuses.length];
-      const tracking =
-        status !== "Pending" ? `TRK${Math.floor(100000000 + Math.random() * 900000000)}` : null;
-      const cost = Number(
-        o.shipping_charge || (method === "Express" ? 150 : method === "Same Day" ? 250 : 0),
-      );
-
-      const createdD = new Date(o.created_at || Date.now());
-      const estD = new Date(createdD.getTime() + 4 * 24 * 60 * 60 * 1000);
-      const shippedD = [
-        "Shipped",
-        "In Transit",
-        "Out for Delivery",
-        "Delivered",
-        "Returned",
-      ].includes(status)
-        ? new Date(createdD.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString()
-        : null;
-      const deliveredD =
-        status === "Delivered"
-          ? new Date(createdD.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
-          : null;
-
-      try {
-        await sql`
-          INSERT INTO shipments (
-            id, order_id, customer_id, customer_name, tracking_number, carrier, shipping_method,
-            shipping_cost, estimated_delivery_date, actual_delivery_date, status, shipping_address,
-            city, state, postal_code, country, shipped_at, delivered_at, admin_note, created_at, updated_at
-          ) VALUES (
-            ${sId}, ${o.id}, ${o.user_id || "usr_guest"}, ${o.shipping_name || "Customer"}, ${tracking},
-            ${carrier}, ${method}, ${cost}, ${estD.toISOString()}, ${deliveredD}, ${status},
-            ${o.shipping_address || "123 MG Road"}, 'Mumbai', 'Maharashtra', '400001', 'India',
-            ${shippedD}, ${deliveredD}, ${i % 3 === 0 ? "Handle with care" : null}, ${o.created_at}, NOW()
-          ) ON CONFLICT (id) DO NOTHING
-        `;
-      } catch (err) {
-        console.error("Error seeding shipment:", err);
-      }
-      i++;
+    try {
+      await sql`
+        INSERT INTO shipments (
+          id, order_id, customer_id, customer_name, tracking_number, carrier, shipping_method,
+          shipping_cost, estimated_delivery_date, actual_delivery_date, status, shipping_address,
+          city, state, postal_code, country, shipped_at, delivered_at, admin_note, created_at, updated_at
+        )
+        SELECT
+          'shp_' || o.id, o.id, COALESCE(o.user_id, 'usr_guest'), COALESCE(o.shipping_name, 'Customer'),
+          'TRK' || (100000000 + FLOOR(RANDOM() * 900000000))::text,
+          'BlueDart', 'Standard', COALESCE(o.shipping_charge, 0),
+          o.created_at + INTERVAL '4 days', NULL, 'Pending',
+          COALESCE(o.shipping_address, '123 MG Road'), 'Mumbai', 'Maharashtra', '400001', 'India',
+          NULL, NULL, NULL, o.created_at, NOW()
+        FROM orders o
+        LIMIT 25
+        ON CONFLICT (id) DO NOTHING
+      `;
+    } catch (err) {
+      console.error("Error batch seeding shipments:", err);
     }
   }
   _shipmentsSeeded = true;

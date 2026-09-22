@@ -179,11 +179,25 @@ export type AnalyticsData = {
   alerts: Array<{ type: "warning" | "info" | "success"; message: string }>;
 };
 
+const _analyticsCache = new Map<string, { data: AnalyticsData; timestamp: number }>();
+const ANALYTICS_CACHE_TTL = 30_000;
+
+export function invalidateAdminAnalyticsCache() {
+  _analyticsCache.clear();
+}
+
 export const adminGetAnalytics = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: AnalyticsInput) => d)
   .handler(async ({ data, context }): Promise<AnalyticsData> => {
     await assertAdmin(context);
+
+    const range = data?.dateRange || "Last 30 Days";
+    const cacheKey = `${range}_${data?.startDate || ""}_${data?.endDate || ""}`;
+    const cached = _analyticsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < ANALYTICS_CACHE_TTL) {
+      return cached.data;
+    }
     await ensureDbSchema();
     const sql = getSql();
 
@@ -222,54 +236,34 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
 
     // Default fallback mock analytics if DB query fails or is empty
     try {
-      // Fetch orders
-      const ordersRows = await sql`
-        SELECT id, order_number, total_amount, discount_amount, status, payment_status, user_id, shipping_email, shipping_name, created_at
-        FROM orders
-        ORDER BY created_at DESC
-      `;
-
-      // Fetch order items
-      const itemsRows = await sql`
-        SELECT oi.id, oi.order_id, oi.product_id, oi.product_name, oi.quantity, oi.price, oi.subtotal, oi.selected_size, oi.selected_color, oi.product_image
-        FROM order_items oi
-        JOIN orders o ON oi.order_id::text = o.id::text
-      `;
-
-      // Fetch products
-      const productsRows = await sql`
-        SELECT id, name, price, stock_quantity, reserved_stock, low_stock_threshold, images, category
-        FROM products
-      `;
-
-      // Fetch profiles / customers
-      const profilesRows = await sql`
-        SELECT id, email, full_name, created_at
-        FROM profiles
-      `;
-
-      // Fetch returns
-      const returnsRows = await sql`
-        SELECT id, order_id, status, refund_amount, created_at
-        FROM returns
-      `;
-
-      const filteredReturns = returnsRows.filter((r: any) => {
-        const d = new Date(r.created_at);
-        return d >= startD && d <= endD;
-      });
-
-      // Fetch reviews
-      const reviewsRows = await sql`
-        SELECT id, rating, status, created_at
-        FROM reviews
-      `;
-
-      // Fetch campaigns
-      const campaignsRows = await sql`
-        SELECT id, name, channel, budget, spent, impressions, clicks, conversions, revenue, status
-        FROM campaigns
-      `;
+      const [ordersRows, itemsRows, profilesRows, returnsRows, reviewsRows, campaignsRows] = await Promise.all([
+        sql`
+          SELECT id, order_number, total_amount, discount_amount, status, payment_status, user_id, shipping_email, shipping_name, created_at
+          FROM orders
+          ORDER BY created_at DESC
+        `,
+        sql`
+          SELECT oi.id, oi.order_id, oi.product_id, oi.product_name, oi.quantity, oi.price, oi.subtotal, oi.selected_size, oi.selected_color, oi.product_image
+          FROM order_items oi
+          JOIN orders o ON oi.order_id::text = o.id::text
+        `,
+        sql`
+          SELECT id, email, full_name, created_at
+          FROM profiles
+        `,
+        sql`
+          SELECT id, order_id, status, refund_amount, created_at
+          FROM returns
+        `,
+        sql`
+          SELECT id, rating, status, created_at
+          FROM reviews
+        `,
+        sql`
+          SELECT id, name, channel, budget, spent, impressions, clicks, conversions, revenue, status
+          FROM campaigns
+        `,
+      ]);
 
       // Filter by date range for orders
       const filteredOrders = ordersRows.filter((o: any) => {
@@ -637,7 +631,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
         });
       }
 
-      return {
+      const result: AnalyticsData = {
         periodLabel,
         summary: {
           totalRevenue: grossRevenue,
@@ -746,6 +740,9 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
         insights,
         alerts,
       };
+
+      _analyticsCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err) {
       console.error("[Admin Analytics] Error fetching analytics data:", err);
       throw new Error("Failed to compute analytics data.");

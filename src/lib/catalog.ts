@@ -86,9 +86,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
   // Optimize images: map base64 data URLs to binary streaming endpoint /api/public/product-image
   const rawImages = row.images && row.images.length > 0 ? row.images : ["/placeholder-tee.jpg"];
   const sourceImages = isListing ? [rawImages[0]] : rawImages;
+  const vHash = (row as any).updated_at ? new Date((row as any).updated_at).getTime() : 1;
   const optimizedImages = sourceImages.map((img, idx) => {
     if (typeof img === "string" && img.startsWith("data:image/")) {
-      return `/api/public/product-image?id=${encodeURIComponent(row.id)}&idx=${idx}`;
+      return `/api/public/product-image?id=${encodeURIComponent(row.id)}&idx=${idx}&v=${vHash}`;
     }
     return img || "/placeholder-tee.jpg";
   });
@@ -172,7 +173,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Micro-cache (2s burst debounce) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
+// Micro-cache (60s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
 const CATALOG_CACHE_TTL = 60_000;
@@ -180,6 +181,9 @@ const CATALOG_CACHE_TTL = 60_000;
 export function invalidateCatalogCache() {
   _productsCache.clear();
   _productHandleCache.clear();
+  try {
+    import("./product-images").then((m) => m.invalidateImageCache()).catch(() => {});
+  } catch {}
 }
 
 export async function seedInitialProductsIfNeeded() {
@@ -293,82 +297,162 @@ export async function seedInitialProductsIfNeeded() {
 export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]> {
   const sql = getSql();
 
-  // Optimized query for shop listing: fetch only primary image (images->0) and omit heavy descriptions
-  const products = await sql`
-    SELECT id, name, slug, price, currency,
-      CASE 
-        WHEN jsonb_typeof(images) = 'array' AND jsonb_array_length(images) > 0 THEN jsonb_build_array(images->0)
-        ELSE '[]'::jsonb 
-      END AS images,
-      category, sizes, colors, stock_quantity, is_active, tags
-    FROM products
-    WHERE is_active = true OR is_active IS NULL
-    ORDER BY name ASC, id ASC
-    LIMIT ${first}
-  `;
+  try {
+    // Ultra-fast single-roundtrip query: Correlated subquery fetches product + variants together
+    const products = await sql`
+      SELECT 
+        p.id, p.name, p.slug, p.price, p.currency,
+        CASE 
+          WHEN jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0 THEN jsonb_build_array(p.images->0)
+          ELSE '[]'::jsonb 
+        END AS images,
+        p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        COALESCE(
+          (
+            SELECT jsonb_agg(jsonb_build_object(
+              'id', v.id,
+              'size', v.size,
+              'color', v.color,
+              'stock_quantity', v.stock_quantity,
+              'reserved_stock', v.reserved_stock,
+              'low_stock_threshold', v.low_stock_threshold
+            ))
+            FROM product_variants v
+            WHERE v.product_id::text = p.id::text
+          ),
+          '[]'::jsonb
+        ) AS product_variants
+      FROM products p
+      WHERE p.is_active = true OR p.is_active IS NULL
+      ORDER BY p.name ASC, p.id ASC
+      LIMIT ${first}
+    `;
 
-  if (!products || products.length === 0) {
-    return [];
-  }
-
-  const productIds = products.map((p: any) => String(p.id));
-  let variants: any[] = [];
-  if (productIds.length > 0) {
-    try {
-      variants = await sql`
-        SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-        FROM product_variants
-        WHERE product_id::text = ANY(${productIds}::text[])
-      `;
-    } catch {
-      variants = [];
+    if (!products || products.length === 0) {
+      return [];
     }
+
+    const rows: ProductRow[] = products.map((p: any) => ({
+      id: String(p.id),
+      name: p.name as string,
+      slug: p.slug as string,
+      description: null,
+      price: Number(p.price || 0),
+      currency: (p.currency as string) || "INR",
+      images: Array.isArray(p.images)
+        ? p.images
+        : typeof p.images === "string"
+          ? JSON.parse(p.images)
+          : [],
+      category: (p.category as string) || null,
+      sizes: Array.isArray(p.sizes)
+        ? p.sizes
+        : typeof p.sizes === "string"
+          ? JSON.parse(p.sizes)
+          : [],
+      colors: Array.isArray(p.colors)
+        ? p.colors
+        : typeof p.colors === "string"
+          ? JSON.parse(p.colors)
+          : [],
+      stock_quantity: Number(p.stock_quantity || 0),
+      is_active: Boolean(p.is_active),
+      tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
+      updated_at: p.updated_at,
+      product_variants: Array.isArray(p.product_variants)
+        ? p.product_variants.map((v: any) => ({
+            id: String(v.id),
+            size: (v.size as string) || "",
+            color: (v.color as string) || "",
+            stock_quantity: Number(v.stock_quantity || 0),
+            reserved_stock: Number(v.reserved_stock || 0),
+            low_stock_threshold: Number(v.low_stock_threshold || 2),
+          }))
+        : typeof p.product_variants === "string"
+          ? JSON.parse(p.product_variants)
+          : [],
+    }));
+
+    return rows.map((r) => toCatalogProduct(r, true));
+  } catch (err) {
+    console.warn("[getPublishedProducts] Correlated query fallback:", err);
+    const products = await sql`
+      SELECT id, name, slug, price, currency,
+        CASE 
+          WHEN jsonb_typeof(images) = 'array' AND jsonb_array_length(images) > 0 THEN jsonb_build_array(images->0)
+          ELSE '[]'::jsonb 
+        END AS images,
+        category, sizes, colors, stock_quantity, is_active, tags, updated_at
+      FROM products
+      WHERE is_active = true OR is_active IS NULL
+      ORDER BY name ASC, id ASC
+      LIMIT ${first}
+    `;
+
+    if (!products || products.length === 0) {
+      return [];
+    }
+
+    const productIds = products.map((p: any) => String(p.id));
+    let variants: any[] = [];
+    if (productIds.length > 0) {
+      try {
+        variants = await sql`
+          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
+          FROM product_variants
+          WHERE product_id::text = ANY(${productIds}::text[])
+        `;
+      } catch {
+        variants = [];
+      }
+    }
+
+    const variantsByProductId = new Map<string, VariantRow[]>();
+    for (const v of variants) {
+      const pId = String(v.product_id);
+      if (!variantsByProductId.has(pId)) variantsByProductId.set(pId, []);
+      variantsByProductId.get(pId)!.push({
+        id: String(v.id),
+        size: (v.size as string) || "",
+        color: (v.color as string) || "",
+        stock_quantity: Number(v.stock_quantity || 0),
+        reserved_stock: Number(v.reserved_stock || 0),
+        low_stock_threshold: Number(v.low_stock_threshold || 2),
+      });
+    }
+
+    const rows: ProductRow[] = products.map((p: any) => ({
+      id: String(p.id),
+      name: p.name as string,
+      slug: p.slug as string,
+      description: null,
+      price: Number(p.price || 0),
+      currency: (p.currency as string) || "INR",
+      images: Array.isArray(p.images)
+        ? p.images
+        : typeof p.images === "string"
+          ? JSON.parse(p.images)
+          : [],
+      category: (p.category as string) || null,
+      sizes: Array.isArray(p.sizes)
+        ? p.sizes
+        : typeof p.sizes === "string"
+          ? JSON.parse(p.sizes)
+          : [],
+      colors: Array.isArray(p.colors)
+        ? p.colors
+        : typeof p.colors === "string"
+          ? JSON.parse(p.colors)
+          : [],
+      stock_quantity: Number(p.stock_quantity || 0),
+      is_active: Boolean(p.is_active),
+      tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
+      updated_at: p.updated_at,
+      product_variants: variantsByProductId.get(String(p.id)) || [],
+    }));
+
+    return rows.map((r) => toCatalogProduct(r, true));
   }
-
-  const variantsByProductId = new Map<string, VariantRow[]>();
-  for (const v of variants) {
-    const pId = String(v.product_id);
-    if (!variantsByProductId.has(pId)) variantsByProductId.set(pId, []);
-    variantsByProductId.get(pId)!.push({
-      id: String(v.id),
-      size: (v.size as string) || "",
-      color: (v.color as string) || "",
-      stock_quantity: Number(v.stock_quantity || 0),
-      reserved_stock: Number(v.reserved_stock || 0),
-      low_stock_threshold: Number(v.low_stock_threshold || 2),
-    });
-  }
-
-  const rows: ProductRow[] = products.map((p: any) => ({
-    id: String(p.id),
-    name: p.name as string,
-    slug: p.slug as string,
-    description: null,
-    price: Number(p.price || 0),
-    currency: (p.currency as string) || "INR",
-    images: Array.isArray(p.images)
-      ? p.images
-      : typeof p.images === "string"
-        ? JSON.parse(p.images)
-        : [],
-    category: (p.category as string) || null,
-    sizes: Array.isArray(p.sizes)
-      ? p.sizes
-      : typeof p.sizes === "string"
-        ? JSON.parse(p.sizes)
-        : [],
-    colors: Array.isArray(p.colors)
-      ? p.colors
-      : typeof p.colors === "string"
-        ? JSON.parse(p.colors)
-        : [],
-    stock_quantity: Number(p.stock_quantity || 0),
-    is_active: Boolean(p.is_active),
-    tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
-    product_variants: variantsByProductId.get(String(p.id)) || [],
-  }));
-
-  return rows.map((r) => toCatalogProduct(r, true));
 }
 
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
@@ -421,11 +505,27 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     try {
       const sql = getSql();
 
-      // Read directly from database - Single Source of Truth
+      // Read directly from database - single query with correlated variants
       const products = await sql`
-        SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
-        FROM products
-        WHERE (slug = ${data.handle} OR id::text = ${data.handle}) AND (is_active = true OR is_active IS NULL)
+        SELECT 
+          p.id, p.name, p.slug, p.description, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', v.id,
+                'size', v.size,
+                'color', v.color,
+                'stock_quantity', v.stock_quantity,
+                'reserved_stock', v.reserved_stock,
+                'low_stock_threshold', v.low_stock_threshold
+              ))
+              FROM product_variants v
+              WHERE v.product_id::text = p.id::text
+            ),
+            '[]'::jsonb
+          ) AS product_variants
+        FROM products p
+        WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
         LIMIT 1
       `;
 
@@ -435,25 +535,18 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
       }
 
       const p = products[0];
-      let variants: any[] = [];
-      try {
-        variants = await sql`
-          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-          FROM product_variants
-          WHERE product_id::text = ${String(p.id)}
-        `;
-      } catch {
-        variants = [];
-      }
-
-      const variantRows: VariantRow[] = variants.map((v: any) => ({
-        id: String(v.id),
-        size: (v.size as string) || "",
-        color: (v.color as string) || "",
-        stock_quantity: Number(v.stock_quantity || 0),
-        reserved_stock: Number(v.reserved_stock || 0),
-        low_stock_threshold: Number(v.low_stock_threshold || 2),
-      }));
+      const variantRows: VariantRow[] = Array.isArray(p.product_variants)
+        ? p.product_variants.map((v: any) => ({
+            id: String(v.id),
+            size: (v.size as string) || "",
+            color: (v.color as string) || "",
+            stock_quantity: Number(v.stock_quantity || 0),
+            reserved_stock: Number(v.reserved_stock || 0),
+            low_stock_threshold: Number(v.low_stock_threshold || 2),
+          }))
+        : typeof p.product_variants === "string"
+          ? JSON.parse(p.product_variants)
+          : [];
 
       const row: ProductRow = {
         id: String(p.id),
@@ -471,8 +564,8 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         sizes: Array.isArray(p.sizes)
           ? p.sizes
           : typeof p.sizes === "string"
-        ? JSON.parse(p.sizes)
-        : [],
+            ? JSON.parse(p.sizes)
+            : [],
         colors: Array.isArray(p.colors)
           ? p.colors
           : typeof p.colors === "string"
@@ -481,6 +574,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         stock_quantity: Number(p.stock_quantity || 0),
         is_active: Boolean(p.is_active),
         tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
+        updated_at: p.updated_at,
         product_variants: variantRows,
       };
 

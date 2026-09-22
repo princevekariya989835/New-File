@@ -75,6 +75,7 @@ export default defineConfig({
         "/favicon*": { headers: { "cache-control": "public, max-age=86400" } },
         "/_server/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
         "/_serverFn/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
+        "/api/public/**": { headers: { "cache-control": "public, max-age=86400, stale-while-revalidate=604800" } },
         "/api/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
       },
     }),

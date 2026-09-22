@@ -35,7 +35,7 @@ const productQuery = (handle: string) => ({
     if (!p) throw notFound();
     return p;
   },
-  staleTime: 1000 * 15,
+  staleTime: 1000 * 60 * 5,
   gcTime: 1000 * 60 * 30,
 });
 

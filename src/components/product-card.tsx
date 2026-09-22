@@ -59,9 +59,13 @@ export function ProductCard({
     if (images.length <= 1) return;
     setActiveImgIdx((prev) => (prev < images.length - 1 ? prev + 1 : 0));
   };
-
   return (
-    <Link to="/product/$handle" params={{ handle: p.handle }} className="group block">
+    <Link
+      to="/product/$handle"
+      params={{ handle: p.handle }}
+      className="group block"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "0 420px" }}
+    >
       <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
         {currentImg && (
           <img

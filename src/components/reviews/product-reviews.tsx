@@ -47,6 +47,7 @@ export function ProductReviews({
   const listQ = useQuery({
     queryKey: ["reviews", productId],
     queryFn: () => listFn({ data: { productId } }),
+    staleTime: 1000 * 60 * 2,
   });
 
   const eligQ = useQuery({

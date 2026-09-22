@@ -147,7 +147,6 @@ export const adminDashboard = createServerFn({ method: "GET" })
 
       const [
         orderTotalsRes,
-        countsRes,
         statusCountsRes,
         paymentCountsRes,
         recentOrdersRes,
@@ -162,13 +161,10 @@ export const adminDashboard = createServerFn({ method: "GET" })
             COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as total_sales,
             COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= CURRENT_DATE THEN total_amount ELSE 0 END), 0)::numeric as sales_today,
             COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN total_amount ELSE 0 END), 0)::numeric as sales_month,
-            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END)::int as revenue_orders_count
-          FROM orders
-        `,
-        sql`
-          SELECT
+            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END)::int as revenue_orders_count,
             (SELECT COUNT(*)::int FROM profiles) as total_customers,
             (SELECT COUNT(*)::int FROM products) as total_products
+          FROM orders
         `,
         sql`
           SELECT status, COUNT(*)::int as count FROM orders GROUP BY status
@@ -226,7 +222,7 @@ export const adminDashboard = createServerFn({ method: "GET" })
       ]);
 
       const orderTotals = orderTotalsRes[0] || {};
-      const counts = countsRes[0] || {};
+      const counts = orderTotals;
 
       const statusCounts: Record<string, number> = {};
       for (const row of statusCountsRes as any[]) {
