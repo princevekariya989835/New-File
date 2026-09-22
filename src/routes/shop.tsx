@@ -18,7 +18,7 @@ import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 const productsQuery = {
   queryKey: ["products", "catalog", 50],
   queryFn: () => fetchProducts(50),
-  staleTime: 1000 * 60,
+  staleTime: 1000 * 60 * 5,
   gcTime: 1000 * 60 * 30,
 };
 

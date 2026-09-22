@@ -8,6 +8,8 @@ import {
   adminListOrders,
   adminUpdateOrderStatus,
   adminBulkUpdateOrderStatus,
+  adminGetOrderDesignPreview,
+  adminExportOrdersCsv,
   ORDER_STATUSES,
   PAYMENT_STATUSES,
   type AdminOrder,
@@ -40,10 +42,20 @@ import {
   Phone,
   User,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
-type Search = { q?: string; status?: string; payment?: string; from?: string; to?: string };
+type Search = {
+  q?: string;
+  status?: string;
+  payment?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+};
 
 export const Route = createFileRoute("/_authenticated/admin/orders")({
   validateSearch: (s: Record<string, unknown>): Search => ({
@@ -52,6 +64,18 @@ export const Route = createFileRoute("/_authenticated/admin/orders")({
     payment: typeof s["payment"] === "string" ? s["payment"] : undefined,
     from: typeof s["from"] === "string" ? s["from"] : undefined,
     to: typeof s["to"] === "string" ? s["to"] : undefined,
+    page:
+      typeof s["page"] === "number"
+        ? Math.max(1, s["page"])
+        : typeof s["page"] === "string"
+          ? Math.max(1, parseInt(s["page"], 10) || 1)
+          : 1,
+    limit:
+      typeof s["limit"] === "number"
+        ? Math.max(10, Math.min(100, s["limit"]))
+        : typeof s["limit"] === "string"
+          ? Math.max(10, Math.min(100, parseInt(s["limit"], 10) || 25))
+          : 25,
   }),
   head: () => ({
     meta: [
@@ -163,6 +187,133 @@ function csvExport(orders: AdminOrder[]) {
   URL.revokeObjectURL(url);
 }
 
+function OrderLineItemsList({
+  order,
+  isExpanded,
+}: {
+  order: AdminOrder;
+  isExpanded: boolean;
+}) {
+  const getPreviewFn = useServerFn(adminGetOrderDesignPreview);
+  const hasCustomItems = useMemo(
+    () => (order.items ?? []).some((item) => Boolean(item.design_submission_id)),
+    [order.items],
+  );
+
+  const previewsQ = useQuery({
+    queryKey: ["admin", "order-preview", order.id],
+    queryFn: () => getPreviewFn({ data: { orderId: order.id } }),
+    enabled: isExpanded && hasCustomItems,
+    staleTime: Infinity,
+  });
+
+  const previews = previewsQ.data?.previews || {};
+
+  return (
+    <div className="space-y-2">
+      {(order.items ?? []).map((i) => {
+        const itemPreview = previews[String(i.id)];
+        const sides = Object.entries(itemPreview?.designPreviewImages ?? {}).filter(
+          ([, url]) =>
+            typeof url === "string" &&
+            (url.startsWith("data:image/") || url.startsWith("http")),
+        );
+        if (sides.length === 0 && itemPreview?.designPreview) {
+          sides.push(["Design", itemPreview.designPreview]);
+        }
+
+        // Exact priority: custom design preview → stored order product image / primary image fallback → clean placeholder
+        const customPreview =
+          itemPreview?.designPreview || (sides.length > 0 ? sides[0][1] : null);
+        const resolvedImage =
+          customPreview || i.product_image || "/placeholder-tee.jpg";
+
+        return (
+          <div key={i.id} className="rounded-lg border bg-card p-3 space-y-2">
+            <div className="flex items-start gap-3">
+              <img
+                src={resolvedImage}
+                alt={i.product_name || "Product"}
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (
+                    target.src !== window.location.origin + "/placeholder-tee.jpg" &&
+                    !target.src.endsWith("/placeholder-tee.jpg")
+                  ) {
+                    target.src = "/placeholder-tee.jpg";
+                  }
+                }}
+                className="h-14 w-12 rounded object-contain bg-muted border shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-sm truncate">{i.product_name}</div>
+                <div className="text-xs text-muted-foreground flex flex-wrap gap-2 mt-0.5">
+                  {i.selected_size && (
+                    <span>
+                      Size: <strong>{i.selected_size}</strong>
+                    </span>
+                  )}
+                  {i.selected_color && (
+                    <span>
+                      Color: <strong>{i.selected_color}</strong>
+                    </span>
+                  )}
+                  {i.design_submission_id && (
+                    <span className="text-brand-red font-medium">Custom Artwork</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Unit Price: {money(i.price, order.currency)} × {i.quantity}
+                </div>
+              </div>
+              <div className="text-right font-bold text-sm">
+                {money(i.subtotal, order.currency)}
+              </div>
+            </div>
+
+            {hasCustomItems && previewsQ.isLoading && (
+              <div className="text-xs text-muted-foreground flex items-center gap-2 pt-2 border-t">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Loading custom design artwork...
+              </div>
+            )}
+
+            {sides.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t">
+                {sides.map(([side, url]) => (
+                  <a
+                    key={side}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative block overflow-hidden rounded-md border bg-muted group hover:border-brand-red transition-colors"
+                    title={`View ${side} design full size`}
+                  >
+                    <img
+                      src={url}
+                      alt={`${side} design`}
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = "/placeholder-tee.jpg";
+                      }}
+                      className="h-16 w-16 object-contain p-1"
+                    />
+                    <span className="absolute left-1 top-1 rounded bg-background/90 px-1 py-0.5 text-[8px] font-semibold uppercase">
+                      {side}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OrdersPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -247,10 +398,31 @@ function OrdersPage() {
     }
   };
 
+  const exportCsvFn = useServerFn(adminExportOrdersCsv);
+  const [exportingCsv, setExportingCsv] = useState(false);
+
+  const page = search.page || 1;
+  const limit = search.limit || 25;
+
   const ordersQ = useQuery({
-    queryKey: ["admin", "orders"],
-    queryFn: () => listFn(),
-    refetchInterval: 20000,
+    queryKey: [
+      "admin",
+      "orders",
+      { page, limit, q: search.q, status: search.status, payment: search.payment, from: search.from, to: search.to },
+    ],
+    queryFn: () =>
+      listFn({
+        data: {
+          page,
+          limit,
+          q: search.q,
+          status: search.status,
+          paymentStatus: search.payment,
+          from: search.from,
+          to: search.to,
+        },
+      }),
+    staleTime: 1000 * 30,
   });
 
   const refresh = () => {
@@ -279,40 +451,53 @@ function OrdersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const setSearchKey = (key: keyof Search, value: string) =>
+  const setSearchKey = (key: keyof Search, value: any) =>
     navigate({
-      search: (prev) => ({ ...prev, [key]: value || undefined }),
+      search: (prev) => ({
+        ...prev,
+        [key]: value || undefined,
+        ...(key !== "page" ? { page: 1 } : {}),
+      }),
       replace: true,
     });
 
-  const orders = useMemo(() => (Array.isArray(ordersQ.data) ? ordersQ.data : []), [ordersQ.data]);
-  const filtered = useMemo(() => {
-    if (!Array.isArray(orders)) return [];
-    const q = (search.q ?? "").toLowerCase().trim();
-    const from = search.from ? new Date(search.from).getTime() : null;
-    const to = search.to ? new Date(search.to).getTime() + 86400000 : null;
-    return orders.filter((o) => {
-      if (!o) return false;
-      if (search.status && o.status !== search.status) return false;
-      if (search.payment && o.payment_status !== search.payment) return false;
-      const t = new Date(o.created_at).getTime();
-      if (from && t < from) return false;
-      if (to && t > to) return false;
-      if (q) {
-        const hay =
-          `${o.order_number ?? ""} ${o.shipping_name ?? ""} ${o.shipping_email ?? ""} ${o.shipping_phone ?? ""} ${o.tracking_number ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [orders, search]);
+  const ordersData = ordersQ.data;
+  const orders: AdminOrder[] = useMemo(() => {
+    if (!ordersData) return [];
+    if (Array.isArray(ordersData)) return ordersData;
+    return ordersData.orders || [];
+  }, [ordersData]);
 
-  const revenue = useMemo(() => {
-    if (!Array.isArray(filtered)) return 0;
-    return filtered
-      .filter((o) => o && !["Cancelled", "Returned", "Refunded"].includes(o.status))
-      .reduce((s, o) => s + Number(o.total_amount || 0), 0);
-  }, [filtered]);
+  const totalCount = ordersData && !Array.isArray(ordersData) ? ordersData.totalCount : orders.length;
+  const totalPages = ordersData && !Array.isArray(ordersData) ? ordersData.totalPages : 1;
+  const revenue = ordersData && !Array.isArray(ordersData) ? ordersData.totalRevenue : 0;
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const res = await exportCsvFn({
+        data: {
+          q: search.q,
+          status: search.status,
+          paymentStatus: search.payment,
+          from: search.from,
+          to: search.to,
+        },
+      });
+      const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `riotous-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${res.rowCount} order(s)`);
+    } catch (err: any) {
+      toast.error(err?.message || "Export failed.");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
 
   return (
     <React.Fragment>
@@ -321,7 +506,7 @@ function OrdersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} order(s) · {money(revenue)} net revenue
+            {totalCount} order(s) · {money(revenue)} net revenue
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -330,24 +515,28 @@ function OrdersPage() {
             <Button
               variant="outline"
               className="gap-2"
+              disabled={exportingCsv}
               onClick={() => setExportMenuOpen((v) => !v)}
             >
-              <Download className="h-4 w-4" /> Export
+              <Download className="h-4 w-4" /> {exportingCsv ? "Exporting..." : "Export"}
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
             {exportMenuOpen && (
               <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover shadow-lg py-1">
                 <button
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
+                  disabled={exportingCsv}
                   onClick={() => {
-                    csvExport(filtered);
+                    handleExportCsv();
                     setExportMenuOpen(false);
                   }}
                 >
                   <Download className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <div className="font-medium">Export RIOTOUS CSV</div>
-                    <div className="text-[11px] text-muted-foreground">Standard order export</div>
+                    <div className="font-medium">
+                      {exportingCsv ? "Exporting RIOTOUS CSV..." : "Export RIOTOUS CSV"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">Server-side filtered export</div>
                   </div>
                 </button>
                 <div className="h-px bg-border mx-2 my-1" />
@@ -516,28 +705,30 @@ function OrdersPage() {
           ))}
         </div>
       ) : orders.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
-          <Package className="h-12 w-12 text-muted-foreground/40 mx-auto" />
-          <h3 className="font-semibold text-lg">No orders yet</h3>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            When customer purchases are made on the live RIOTOUS storefront, orders will be recorded and displayed here in real time.
-          </p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
-          <p className="font-medium text-foreground">No orders match these filters.</p>
-          <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different status filter.</p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate({ search: {}, replace: true })}
-          >
-            Clear all filters
-          </Button>
-        </div>
+        Boolean(search.q || search.status || search.payment || search.from || search.to) ? (
+          <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
+            <p className="font-medium text-foreground">No orders match these filters.</p>
+            <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different status filter.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ search: {}, replace: true })}
+            >
+              Clear all filters
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
+            <Package className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+            <h3 className="font-semibold text-lg">No orders yet</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              When customer purchases are made on the live RIOTOUS storefront, orders will be recorded and displayed here in real time.
+            </p>
+          </div>
+        )
       ) : (
         <div className="space-y-3">
-          {filtered.map((o) => {
+          {orders.map((o) => {
             const d = new Date(o.created_at);
             const dateStr = !isNaN(d.getTime())
               ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
@@ -689,72 +880,7 @@ function OrdersPage() {
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                           Order Line Items
                         </h3>
-                        <div className="space-y-2">
-                          {(o.items ?? []).map((i) => {
-                            const sides = Object.entries(i.design_preview_images ?? {}).filter(
-                              ([, url]) => typeof url === "string" && url.startsWith("data:image/"),
-                            );
-                            if (sides.length === 0 && i.design_preview) {
-                              sides.push(["Design", i.design_preview]);
-                            }
-
-                            return (
-                              <div key={i.id} className="rounded-lg border bg-card p-3 space-y-2">
-                                <div className="flex items-start gap-3">
-                                  {i.product_image ? (
-                                    <img
-                                      src={i.product_image}
-                                      alt={i.product_name}
-                                      className="h-14 w-12 rounded object-contain bg-muted border shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="h-14 w-12 rounded bg-muted flex items-center justify-center border shrink-0">
-                                      <Package className="h-5 w-5 text-muted-foreground/50" />
-                                    </div>
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <div className="font-semibold text-sm truncate">{i.product_name}</div>
-                                    <div className="text-xs text-muted-foreground flex flex-wrap gap-2 mt-0.5">
-                                      {i.selected_size && <span>Size: <strong>{i.selected_size}</strong></span>}
-                                      {i.selected_color && <span>Color: <strong>{i.selected_color}</strong></span>}
-                                      {i.design_submission_id && <span className="text-brand-red font-medium">Custom Artwork</span>}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Unit Price: {money(i.price, o.currency)} × {i.quantity}
-                                    </div>
-                                  </div>
-                                  <div className="text-right font-bold text-sm">
-                                    {money(i.subtotal, o.currency)}
-                                  </div>
-                                </div>
-
-                                {sides.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-2 pt-2 border-t">
-                                    {sides.map(([side, url]) => (
-                                      <a
-                                        key={side}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="relative block overflow-hidden rounded-md border bg-muted"
-                                        title={`View ${side} design`}
-                                      >
-                                        <img
-                                          src={url}
-                                          alt={`${side} design`}
-                                          className="h-16 w-16 object-contain p-1"
-                                        />
-                                        <span className="absolute left-1 top-1 rounded bg-background/90 px-1 py-0.5 text-[8px] font-semibold uppercase">
-                                          {side}
-                                        </span>
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <OrderLineItemsList order={o} isExpanded={expanded === o.id} />
                       </div>
 
                       {/* Financial Totals */}
@@ -826,6 +952,60 @@ function OrdersPage() {
               </div>
             );
           })}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t text-sm">
+              <div className="text-xs text-muted-foreground">
+                Showing {Math.min((page - 1) * limit + 1, totalCount)}–
+                {Math.min(page * limit, totalCount)} of {totalCount} order(s)
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1"
+                  disabled={page <= 1}
+                  onClick={() => setSearchKey("page", Math.max(1, page - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Previous
+                </Button>
+                <div className="text-xs font-medium px-2">
+                  Page {page} of {totalPages}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1"
+                  disabled={page >= totalPages}
+                  onClick={() => setSearchKey("page", Math.min(totalPages, page + 1))}
+                >
+                  Next <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>Per page:</span>
+                {[25, 50, 100].map((sz) => (
+                  <button
+                    key={sz}
+                    className={`px-2 py-1 rounded border text-xs ${
+                      limit === sz
+                        ? "bg-primary text-primary-foreground font-semibold border-primary"
+                        : "bg-background hover:bg-muted text-foreground"
+                    }`}
+                    onClick={() => {
+                      navigate({
+                        search: (prev) => ({ ...prev, limit: sz, page: 1 }),
+                        replace: true,
+                      });
+                    }}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -837,7 +1017,7 @@ function OrdersPage() {
         exportScope={
           selected.length > 0
             ? `${selected.length} selected order(s)`
-            : `${filtered.length} filtered order(s)`
+            : `${totalCount} order(s)`
         }
         exporting={amazonExporting}
         onClose={() => setAmazonModalOpen(false)}

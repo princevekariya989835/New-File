@@ -22,7 +22,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
     queryKey: ["products", "catalog", 50],
     queryFn: () => fetchProducts(50),
     enabled: open,
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 60 * 5,
   });
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
 

@@ -22,6 +22,7 @@ import {
   restoreOrderInventory,
   type InventoryTransactionRecord,
 } from "@/lib/inventory.service";
+import { resolveOrderItemImage } from "@/lib/orders.functions";
 
 export type { ProductInput, InventoryTransactionRecord };
 
@@ -750,14 +751,54 @@ export const adminSetVariantInventory = createServerFn({ method: "POST" })
     }
   });
 
-export const adminListOrders = createServerFn({ method: "GET" })
+export type AdminListOrdersInput = {
+  page?: number;
+  limit?: number;
+  q?: string;
+  status?: string;
+  paymentStatus?: string;
+  from?: string;
+  to?: string;
+};
+
+export type AdminListOrdersResult = {
+  orders: AdminOrder[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalRevenue: number;
+};
+
+export const adminListOrders = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .handler(async ({ context }): Promise<AdminOrder[]> => {
+  .inputValidator((d?: Partial<AdminListOrdersInput>) => ({
+    page: Math.max(1, Number(d?.page || 1)),
+    limit: Math.min(100, Math.max(1, Number(d?.limit || 25))),
+    q: typeof d?.q === "string" ? d.q.trim() : "",
+    status: typeof d?.status === "string" ? d.status.trim() : "",
+    paymentStatus: typeof d?.paymentStatus === "string" ? d.paymentStatus.trim() : "",
+    from: typeof d?.from === "string" ? d.from.trim() : "",
+    to: typeof d?.to === "string" ? d.to.trim() : "",
+  }))
+  .handler(async ({ data, context }): Promise<AdminListOrdersResult> => {
     try {
       await assertAdmin(context as any);
       await ensureDbSchema();
       const sql = getSql();
+
+      const page = data.page;
+      const limit = data.limit;
+      const offset = (page - 1) * limit;
+
+      const qFilter = data.q ? `%${data.q.toLowerCase()}%` : null;
+      const fromDate = data.from ? new Date(data.from).toISOString() : null;
+      const toDate = data.to ? new Date(new Date(data.to).getTime() + 86400000).toISOString() : null;
+
       let orders: any[] = [];
+      let totalCount = 0;
+      let totalRevenue = 0;
+
       try {
         orders = await sql`
           SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
@@ -766,44 +807,80 @@ export const adminListOrders = createServerFn({ method: "GET" })
             courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
             razorpay_order_id, razorpay_payment_id, paid_at
           FROM orders
+          WHERE (${data.status}::text = '' OR status = ${data.status})
+            AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
+            AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
+            AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+            AND (
+              ${qFilter}::text IS NULL OR
+              LOWER(order_number) LIKE ${qFilter} OR
+              LOWER(shipping_name) LIKE ${qFilter} OR
+              LOWER(shipping_email) LIKE ${qFilter} OR
+              LOWER(shipping_phone) LIKE ${qFilter} OR
+              LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
+            )
           ORDER BY created_at DESC
-          LIMIT 500
+          LIMIT ${limit}
+          OFFSET ${offset}
         `;
+
+        const aggregates = await sql`
+          SELECT
+            COUNT(*)::int as total_count,
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as net_revenue
+          FROM orders
+          WHERE (${data.status}::text = '' OR status = ${data.status})
+            AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
+            AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
+            AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+            AND (
+              ${qFilter}::text IS NULL OR
+              LOWER(order_number) LIKE ${qFilter} OR
+              LOWER(shipping_name) LIKE ${qFilter} OR
+              LOWER(shipping_email) LIKE ${qFilter} OR
+              LOWER(shipping_phone) LIKE ${qFilter} OR
+              LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
+            )
+        `;
+
+        if (aggregates && aggregates[0]) {
+          totalCount = Number(aggregates[0].total_count || 0);
+          totalRevenue = Number(aggregates[0].net_revenue || 0);
+        }
       } catch (orderErr: any) {
         console.warn("[Admin] Primary orders query warning, falling back to base select:", orderErr?.message);
         try {
-          orders = await sql`
-            SELECT * FROM orders ORDER BY created_at DESC LIMIT 500
-          `;
+          orders = await sql`SELECT * FROM orders ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+          totalCount = orders.length;
         } catch (fbErr) {
           console.error("[Admin] Critical orders query error:", fbErr);
-          return [];
+          return { orders: [], totalCount: 0, page: 1, limit, totalPages: 0, totalRevenue: 0 };
         }
       }
 
-      if (orders.length === 0) return [];
+      if (orders.length === 0) {
+        return { orders: [], totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) || 1, totalRevenue };
+      }
 
+      const orderIds = orders.map((o) => String(o.id));
+
+      // Fetch line items ONLY for current page orders. Exclude heavy base64 preview_data_url from initial list!
       let items: any[] = [];
       try {
         items = await sql`
           SELECT i.id, i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price,
             i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
-            d.preview_data_url as design_preview,
-            d.preview_images as design_preview_images,
             p.images as product_images_json
           FROM order_items i
-          LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
           LEFT JOIN products p ON i.product_id::text = p.id::text
-          WHERE i.order_id IN (
-            SELECT id FROM orders ORDER BY created_at DESC LIMIT 500
-          )
+          WHERE i.order_id::text = ANY(${orderIds}::text[])
         `;
       } catch (itemErr: any) {
         console.warn("[Admin] Extended order_items query warning, using direct query:", itemErr?.message);
         try {
           items = await sql`
             SELECT * FROM order_items
-            WHERE order_id IN (SELECT id FROM orders ORDER BY created_at DESC LIMIT 500)
+            WHERE order_id::text = ANY(${orderIds}::text[])
           `;
         } catch (itemFbErr) {
           console.warn("[Admin] Fallback order_items query failed:", itemFbErr);
@@ -815,39 +892,30 @@ export const adminListOrders = createServerFn({ method: "GET" })
       for (const item of items) {
         const oId = String(item.order_id);
         if (!itemsByOrderId.has(oId)) itemsByOrderId.set(oId, []);
-        const pImages = Array.isArray(item.product_images_json) ? item.product_images_json : [];
-        const fallbackImg = typeof pImages[0] === "string" ? pImages[0] : pImages[0]?.url || null;
 
-        let parsedPreviewImages: Record<string, string> | null = null;
-        if (item.design_preview_images) {
-          if (typeof item.design_preview_images === "object") {
-            parsedPreviewImages = item.design_preview_images;
-          } else if (typeof item.design_preview_images === "string") {
-            try {
-              parsedPreviewImages = JSON.parse(item.design_preview_images);
-            } catch {
-              parsedPreviewImages = null;
-            }
-          }
-        }
+        const resolvedImg = resolveOrderItemImage({
+          orderProductImage: item.product_image,
+          productImagesJson: item.product_images_json,
+          productId: item.product_id,
+        });
 
         itemsByOrderId.get(oId)!.push({
           id: String(item.id),
           product_id: item.product_id ? String(item.product_id) : null,
           product_name: (item.product_name as string) || "Item",
-          product_image: (item.product_image as string) || fallbackImg || null,
+          product_image: resolvedImg,
           quantity: Number(item.quantity || 1),
           price: Number(item.price || 0),
           selected_size: (item.selected_size as string) || null,
           selected_color: (item.selected_color as string) || null,
           subtotal: Number(item.subtotal || 0),
           design_submission_id: (item.design_submission_id as string) || null,
-          design_preview: (item.design_preview as string) || null,
-          design_preview_images: parsedPreviewImages,
+          design_preview: null, // loaded on demand when expanded
+          design_preview_images: null,
         });
       }
 
-      return orders.map((o: any) => ({
+      const mappedOrders: AdminOrder[] = orders.map((o: any) => ({
         id: String(o.id),
         order_number: o.order_number,
         created_at: new Date(o.created_at).toISOString(),
@@ -879,10 +947,153 @@ export const adminListOrders = createServerFn({ method: "GET" })
         paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
         items: itemsByOrderId.get(String(o.id)) || [],
       }));
+
+      return {
+        orders: mappedOrders,
+        totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit) || 1,
+        totalRevenue,
+      };
     } catch (err: any) {
       console.error("[Admin] adminListOrders error:", err);
       throw new Error(err?.message || "Failed to load orders from database");
     }
+  });
+
+export const adminGetOrderDesignPreview = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { orderId: string }) => ({ orderId: String(d.orderId) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    const previews = await sql`
+      SELECT i.id as item_id, i.design_submission_id,
+        d.preview_data_url as design_preview,
+        d.preview_images as design_preview_images
+      FROM order_items i
+      JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+      WHERE i.order_id::text = ${data.orderId}
+    `;
+
+    const result: Record<
+      string,
+      { designPreview: string | null; designPreviewImages: Record<string, string> | null }
+    > = {};
+
+    for (const r of previews as any[]) {
+      let parsedPreviewImages: Record<string, string> | null = null;
+      if (r.design_preview_images) {
+        if (typeof r.design_preview_images === "object") {
+          parsedPreviewImages = r.design_preview_images;
+        } else if (typeof r.design_preview_images === "string") {
+          try {
+            parsedPreviewImages = JSON.parse(r.design_preview_images);
+          } catch {
+            parsedPreviewImages = null;
+          }
+        }
+      }
+      result[String(r.item_id)] = {
+        designPreview: r.design_preview || null,
+        designPreviewImages: parsedPreviewImages,
+      };
+    }
+
+    return { orderId: data.orderId, previews: result };
+  });
+
+export const adminExportOrdersCsv = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (d?: { q?: string; status?: string; paymentStatus?: string; from?: string; to?: string }) => ({
+      q: d?.q ? String(d.q).trim() : "",
+      status: d?.status ? String(d.status).trim() : "",
+      paymentStatus: d?.paymentStatus ? String(d.paymentStatus).trim() : "",
+      from: d?.from ? String(d.from).trim() : "",
+      to: d?.to ? String(d.to).trim() : "",
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    const qFilter = data.q ? `%${data.q.toLowerCase()}%` : null;
+    const fromDate = data.from ? new Date(data.from).toISOString() : null;
+    const toDate = data.to ? new Date(new Date(data.to).getTime() + 86400000).toISOString() : null;
+
+    const rows = await sql`
+      SELECT order_number, created_at, shipping_name, shipping_email, shipping_phone,
+        status, payment_status, payment_method, razorpay_order_id, razorpay_payment_id,
+        total_amount, courier_name, tracking_number, shipping_address
+      FROM orders
+      WHERE (${data.status}::text = '' OR status = ${data.status})
+        AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
+        AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
+        AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+        AND (
+          ${qFilter}::text IS NULL OR
+          LOWER(order_number) LIKE ${qFilter} OR
+          LOWER(shipping_name) LIKE ${qFilter} OR
+          LOWER(shipping_email) LIKE ${qFilter} OR
+          LOWER(shipping_phone) LIKE ${qFilter} OR
+          LOWER(COALESCE(tracking_number, '')) LIKE ${qFilter}
+        )
+      ORDER BY created_at DESC
+      LIMIT 5000
+    `;
+
+    const head = [
+      "Order",
+      "Date",
+      "Customer",
+      "Email",
+      "Phone",
+      "Status",
+      "Payment",
+      "Method",
+      "Razorpay Order ID",
+      "Razorpay Payment ID",
+      "Total",
+      "Courier",
+      "Tracking",
+      "Address",
+    ];
+
+    const lines = (rows as any[]).map((o) => [
+      o.order_number,
+      new Date(o.created_at).toISOString(),
+      o.shipping_name,
+      o.shipping_email,
+      o.shipping_phone ?? "",
+      o.status,
+      o.payment_status,
+      o.payment_method,
+      o.razorpay_order_id ?? "",
+      o.razorpay_payment_id ?? "",
+      String(o.total_amount),
+      o.courier_name ?? "",
+      o.tracking_number ?? "",
+      (o.shipping_address || "").replace(/\n/g, " "),
+    ]);
+
+    const csv = [head, ...lines]
+      .map((r) =>
+        r
+          .map((c) => {
+            const s = String(c ?? "");
+            const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+            return `"${safe.replace(/"/g, '""')}"`;
+          })
+          .join(","),
+      )
+      .join("\n");
+
+    return { csv, rowCount: rows.length };
   });
 
 export type OrderPatchInput = {

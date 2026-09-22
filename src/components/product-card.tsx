@@ -74,6 +74,15 @@ export function ProductCard({
             className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
             loading={priority ? "eager" : "lazy"}
             {...(priority ? { fetchPriority: "high" } : {})}
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (
+                target.src !== window.location.origin + "/placeholder-tee.jpg" &&
+                !target.src.endsWith("/placeholder-tee.jpg")
+              ) {
+                target.src = "/placeholder-tee.jpg";
+              }
+            }}
           />
         )}
 

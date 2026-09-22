@@ -2228,6 +2228,7 @@ export async function ensureDbSchema() {
         `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
         `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
         `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
+        `UPDATE order_items i SET product_image = p.images->>0 FROM products p WHERE p.id::text = i.product_id::text AND (i.product_image IS NULL OR i.product_image = '') AND jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0`,
       ];
 
       // Execute schema statements in concurrent chunks

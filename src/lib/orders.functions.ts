@@ -15,6 +15,82 @@ import {
   getRazorpayKeyId,
 } from "@/lib/razorpay.server";
 import { syncOrderToZippyy } from "@/lib/zippyy";
+import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
+
+export function extractPrimaryImage(images: unknown): string | null {
+  if (!images) return null;
+  let arr: unknown[] = [];
+  if (Array.isArray(images)) {
+    arr = images;
+  } else if (typeof images === "string") {
+    const trimmed = images.trim();
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
+      return trimmed;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) arr = parsed;
+      else if (typeof parsed === "string") return parsed;
+    } catch {
+      return null;
+    }
+  }
+  if (arr.length === 0) return null;
+  const first = arr[0];
+  if (typeof first === "string" && first.trim()) return first.trim();
+  if (first && typeof first === "object" && "url" in first && typeof (first as any).url === "string") {
+    return (first as any).url.trim();
+  }
+  return null;
+}
+
+export function getFallbackProductImage(productId: string | null): string | null {
+  if (!productId) return null;
+  const cleanId = productId.toLowerCase().trim();
+  const fb = FALLBACK_PRODUCTS.find(
+    (p) => p.id.toLowerCase() === cleanId || p.slug.toLowerCase() === cleanId,
+  );
+  return fb?.images?.[0] || null;
+}
+
+export function resolveOrderItemImage(options: {
+  designPreview?: string | null;
+  orderProductImage?: string | null;
+  productImagesJson?: unknown;
+  productId?: string | null;
+}): string {
+  // Priority:
+  // 1. Custom design preview (if item has custom artwork preview)
+  if (
+    options.designPreview &&
+    typeof options.designPreview === "string" &&
+    options.designPreview.trim() &&
+    !options.designPreview.includes("[object Object]")
+  ) {
+    return options.designPreview.trim();
+  }
+  // 2. Stored order product image snapshot (historical snapshot)
+  if (
+    options.orderProductImage &&
+    typeof options.orderProductImage === "string" &&
+    options.orderProductImage.trim() &&
+    !options.orderProductImage.includes("[object Object]")
+  ) {
+    return options.orderProductImage.trim();
+  }
+  // 3. Product's current primary image from products table
+  const primaryFromProduct = extractPrimaryImage(options.productImagesJson);
+  if (primaryFromProduct) {
+    return primaryFromProduct;
+  }
+  // 3b. Fallback products definition
+  const fallbackFromCatalog = getFallbackProductImage(options.productId || null);
+  if (fallbackFromCatalog) {
+    return fallbackFromCatalog;
+  }
+  // 4. Clean placeholder
+  return "/placeholder-tee.jpg";
+}
 
 export type OrderLineItem = {
   title: string;
@@ -132,12 +208,17 @@ export const getMyOrders = createServerFn({ method: "GET" })
         const oId = String(item.order_id);
         if (!itemsByOrderId.has(oId)) itemsByOrderId.set(oId, []);
         const currency = "INR";
-        const pImages = Array.isArray(item.product_images_json) ? item.product_images_json : [];
-        const fallbackImg = typeof pImages[0] === "string" ? pImages[0] : pImages[0]?.url || null;
+        const finalImg = resolveOrderItemImage({
+          designPreview: item.preview_data_url,
+          orderProductImage: item.product_image,
+          productImagesJson: item.product_images_json,
+          productId: item.product_id,
+        });
+
         itemsByOrderId.get(oId)!.push({
           title: item.product_name,
           quantity: Number(item.quantity || 1),
-          imageUrl: item.preview_data_url || item.product_image || fallbackImg || null,
+          imageUrl: finalImg,
           size: item.selected_size || null,
           color: item.selected_color || null,
           designSubmissionId: item.design_submission_id || null,
@@ -220,17 +301,39 @@ export const placeOrder = createServerFn({ method: "POST" })
 
     const productIds = data.items.map((i) => i.productId).filter((v): v is string => !!v);
     const priceById = new Map<string, number>();
+    const imageById = new Map<string, string>();
     if (productIds.length) {
       const prods = await sql`
-        SELECT id, price FROM products WHERE id::text = ANY(${productIds}::text[])
+        SELECT id, price, images FROM products WHERE id::text = ANY(${productIds}::text[])
       `;
-      for (const p of prods as any[]) priceById.set(String(p.id), Number(p.price || 0));
+      for (const p of prods as any[]) {
+        const pId = String(p.id);
+        priceById.set(pId, Number(p.price || 0));
+        const primaryImg = extractPrimaryImage(p.images) || getFallbackProductImage(pId);
+        if (primaryImg) imageById.set(pId, primaryImg);
+      }
     }
 
     const CUSTOM_PRICE = 1499;
     const items = data.items.map((i) => {
       const price = i.productId ? (priceById.get(i.productId) ?? CUSTOM_PRICE) : CUSTOM_PRICE;
-      return { ...i, price, subtotal: price * i.quantity };
+      const productPrimaryImg =
+        (i.productId ? imageById.get(i.productId) : null) || getFallbackProductImage(i.productId);
+
+      let finalSnapshot = typeof i.productImage === "string" ? i.productImage.trim() : null;
+      if (!finalSnapshot || finalSnapshot.length < 5 || finalSnapshot.includes("[object Object]")) {
+        finalSnapshot = productPrimaryImg;
+      }
+      if (!finalSnapshot && !i.designSubmissionId) {
+        finalSnapshot = "/placeholder-tee.jpg";
+      }
+
+      return {
+        ...i,
+        price,
+        subtotal: price * i.quantity,
+        resolvedProductImage: finalSnapshot,
+      };
     });
 
     const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
@@ -345,7 +448,7 @@ export const placeOrder = createServerFn({ method: "POST" })
         INSERT INTO order_items (
           id, order_id, product_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
         ) VALUES (
-          ${itemId}, ${orderId}, ${i.productId}, ${i.designSubmissionId}, ${i.productName}, ${i.productImage},
+          ${itemId}, ${orderId}, ${i.productId}, ${i.designSubmissionId}, ${i.productName}, ${i.resolvedProductImage},
           ${i.quantity}, ${i.price}, ${i.selectedSize}, ${i.selectedColor}, ${i.subtotal}
         );
       `;
@@ -489,17 +592,39 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
 
     const productIds = data.items.map((i) => i.productId).filter((v): v is string => !!v);
     const priceById = new Map<string, number>();
+    const imageById = new Map<string, string>();
     if (productIds.length) {
       const prods = await sql`
-        SELECT id, price FROM products WHERE id::text = ANY(${productIds}::text[])
+        SELECT id, price, images FROM products WHERE id::text = ANY(${productIds}::text[])
       `;
-      for (const p of prods as any[]) priceById.set(String(p.id), Number(p.price || 0));
+      for (const p of prods as any[]) {
+        const pId = String(p.id);
+        priceById.set(pId, Number(p.price || 0));
+        const primaryImg = extractPrimaryImage(p.images) || getFallbackProductImage(pId);
+        if (primaryImg) imageById.set(pId, primaryImg);
+      }
     }
 
     const CUSTOM_PRICE = 1499;
     const items = data.items.map((i) => {
       const price = i.productId ? (priceById.get(i.productId) ?? CUSTOM_PRICE) : CUSTOM_PRICE;
-      return { ...i, price, subtotal: price * i.quantity };
+      const productPrimaryImg =
+        (i.productId ? imageById.get(i.productId) : null) || getFallbackProductImage(i.productId);
+
+      let finalSnapshot = typeof i.productImage === "string" ? i.productImage.trim() : null;
+      if (!finalSnapshot || finalSnapshot.length < 5 || finalSnapshot.includes("[object Object]")) {
+        finalSnapshot = productPrimaryImg;
+      }
+      if (!finalSnapshot && !i.designSubmissionId) {
+        finalSnapshot = "/placeholder-tee.jpg";
+      }
+
+      return {
+        ...i,
+        price,
+        subtotal: price * i.quantity,
+        resolvedProductImage: finalSnapshot,
+      };
     });
 
     const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
@@ -617,7 +742,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         INSERT INTO order_items (
           id, order_id, product_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
         ) VALUES (
-          ${itemId}, ${orderId}, ${i.productId}, ${i.designSubmissionId}, ${i.productName}, ${i.productImage},
+          ${itemId}, ${orderId}, ${i.productId}, ${i.designSubmissionId}, ${i.productName}, ${i.resolvedProductImage},
           ${i.quantity}, ${i.price}, ${i.selectedSize}, ${i.selectedColor}, ${i.subtotal}
         );
       `;

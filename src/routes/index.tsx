@@ -7,9 +7,9 @@ import { WebsiteHomepageContent } from "@/components/website-homepage-content";
 import { DEFAULT_WEBSITE_CONFIG } from "@/lib/website-config.types";
 
 const productsQuery = {
-  queryKey: ["products", "home"],
-  queryFn: () => fetchProducts(8),
-  staleTime: 1000 * 15,
+  queryKey: ["products", "catalog", 50],
+  queryFn: () => fetchProducts(50),
+  staleTime: 1000 * 60 * 5,
   gcTime: 1000 * 60 * 30,
 };
 

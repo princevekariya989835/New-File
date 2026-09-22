@@ -83,7 +83,10 @@ export function AdminShippingPage() {
 
   const { data: orders = [] } = useQuery({
     queryKey: ["admin-orders-for-shipping"],
-    queryFn: async () => listOrdersFn(),
+    queryFn: async () => {
+      const res: any = await listOrdersFn({ data: { limit: 100 } });
+      return Array.isArray(res) ? res : res?.orders || [];
+    },
   });
 
   // State

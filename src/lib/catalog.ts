@@ -63,7 +63,7 @@ export function parseVariantId(variantId: string) {
 }
 
 /** Maps a database row into the shape the storefront UI renders. */
-export function toCatalogProduct(row: ProductRow): CatalogProduct {
+export function toCatalogProduct(row: ProductRow, isListing = false): CatalogProduct {
   const currency = row.currency || "INR";
   const price = { amount: String(row.price), currencyCode: currency };
   const rows = row.product_variants ?? [];
@@ -82,6 +82,16 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
   const rawSizes = row.sizes?.length ? row.sizes : DEFAULT_SIZES;
   const sizes = rawSizes.filter(Boolean);
   const colors = row.colors?.length ? row.colors : [null];
+
+  // Optimize images: map base64 data URLs to binary streaming endpoint /api/public/product-image
+  const rawImages = row.images && row.images.length > 0 ? row.images : ["/placeholder-tee.jpg"];
+  const sourceImages = isListing ? [rawImages[0]] : rawImages;
+  const optimizedImages = sourceImages.map((img, idx) => {
+    if (typeof img === "string" && img.startsWith("data:image/")) {
+      return `/api/public/product-image?id=${encodeURIComponent(row.id)}&idx=${idx}`;
+    }
+    return img || "/placeholder-tee.jpg";
+  });
 
   const variants: CatalogVariant[] = [];
   for (const color of colors) {
@@ -110,7 +120,7 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
           ...(size ? [{ name: "Size", value: size }] : []),
           ...(color ? [{ name: "Color", value: color }] : []),
         ],
-        image: row.images?.[0] ? { url: row.images[0], altText: row.name } : null,
+        image: isListing ? null : (optimizedImages[0] ? { url: optimizedImages[0], altText: row.name } : null),
       });
     }
   }
@@ -139,7 +149,7 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
       id: row.id,
       productId: row.id,
       title: row.name,
-      description: row.description ?? "",
+      description: isListing ? "" : (row.description ?? ""),
       handle: row.slug,
       tags: row.tags ?? [],
       productType: row.category ?? "",
@@ -147,11 +157,9 @@ export function toCatalogProduct(row: ProductRow): CatalogProduct {
       available,
       priceRange: { minVariantPrice: price },
       images: {
-        edges: (row.images && row.images.length > 0 ? row.images : ["/placeholder-tee.jpg"]).map(
-          (url) => ({
-            node: { url, altText: row.name },
-          }),
-        ),
+        edges: optimizedImages.map((url) => ({
+          node: { url, altText: row.name },
+        })),
       },
       variants: { edges: variants.map((node) => ({ node })) },
       options,
@@ -285,8 +293,14 @@ export async function seedInitialProductsIfNeeded() {
 export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]> {
   const sql = getSql();
 
+  // Optimized query for shop listing: fetch only primary image (images->0) and omit heavy descriptions
   const products = await sql`
-    SELECT id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+    SELECT id, name, slug, price, currency,
+      CASE 
+        WHEN jsonb_typeof(images) = 'array' AND jsonb_array_length(images) > 0 THEN jsonb_build_array(images->0)
+        ELSE '[]'::jsonb 
+      END AS images,
+      category, sizes, colors, stock_quantity, is_active, tags
     FROM products
     WHERE is_active = true OR is_active IS NULL
     ORDER BY name ASC, id ASC
@@ -329,7 +343,7 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     id: String(p.id),
     name: p.name as string,
     slug: p.slug as string,
-    description: (p.description as string) || null,
+    description: null,
     price: Number(p.price || 0),
     currency: (p.currency as string) || "INR",
     images: Array.isArray(p.images)
@@ -354,13 +368,13 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     product_variants: variantsByProductId.get(String(p.id)) || [],
   }));
 
-  return rows.map(toCatalogProduct);
+  return rows.map((r) => toCatalogProduct(r, true));
 }
 
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { first?: number }) => ({ first: Number(d.first || 20) }))
+  .inputValidator((d: { first?: number }) => ({ first: Number(d.first || 50) }))
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
-    const first = data.first || 20;
+    const first = data.first || 50;
 
     // Check burst debounce cache first (2s TTL)
     const cached = _productsCache.get(first);
