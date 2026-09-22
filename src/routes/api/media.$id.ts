@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ensureDbSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 
 function extractMediaId(params: any, request: Request): string {
   if (params?.id) return String(params.id);
@@ -32,14 +32,7 @@ interface CachedMediaItem {
 
 const MAX_CACHED_MEDIA = 100;
 const _mediaCache = new Map<string, CachedMediaItem>();
-let _mediaSchemaEnsured = false;
 
-async function guardEnsureSchema() {
-  if (!_mediaSchemaEnsured) {
-    await ensureDbSchema();
-    _mediaSchemaEnsured = true;
-  }
-}
 
 function getCachedMedia(id: string): CachedMediaItem | undefined {
   const item = _mediaCache.get(id);
@@ -167,8 +160,6 @@ export const Route = createFileRoute("/api/media/$id")({
           let cached = getCachedMedia(id);
 
           if (!cached) {
-            // Guard ensureDbSchema: only runs if schema hasn't been checked yet
-            await guardEnsureSchema();
             const sql = getSql();
 
             const rows = await sql`

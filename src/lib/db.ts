@@ -1670,7 +1670,9 @@ export async function ensureDbSchema() {
           return;
         }
       } catch (checkErr) {
-        console.warn("[Neon DB] catalog check warning:", checkErr);
+        console.warn("[Neon DB] catalog check warning (skipping DDL on connection error):", checkErr);
+        _schemaInitialized = true;
+        return;
       }
 
       const schemaStatements = [
