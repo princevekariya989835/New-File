@@ -66,6 +66,20 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                 const order = orderRows[0];
 
                 if (order.payment_status !== "Paid") {
+                  const expectedPaise = Math.round(Number(order.total_amount || 0) * 100);
+                  const actualPaise = paymentEntity?.amount ? Number(paymentEntity.amount) : expectedPaise;
+                  if (actualPaise < expectedPaise) {
+                    console.error("[Razorpay Webhook] Captured amount is less than order total:", {
+                      expectedPaise,
+                      actualPaise,
+                      orderId: order.id,
+                    });
+                    return new Response(JSON.stringify({ error: "Payment amount mismatch" }), {
+                      status: 400,
+                      headers: { "Content-Type": "application/json" },
+                    });
+                  }
+
                   const orderItems = await sql`
                     SELECT * FROM order_items WHERE order_id::text = ${order.id}
                   `;

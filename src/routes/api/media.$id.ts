@@ -18,7 +18,7 @@ function extractMediaId(params: any, request: Request): string {
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-  "Access-Control-Allow-Headers": "Range, Content-Type, Accept, Authorization",
+  "Access-Control-Allow-Headers": "Range, Content-Type, Accept",
   "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges, Content-Type",
 };
 
@@ -279,6 +279,7 @@ export const Route = createFileRoute("/api/media/$id")({
             binaryBuffer.buffer.slice(binaryBuffer.byteOffset, binaryBuffer.byteOffset + totalSize),
           );
 
+          const isSvg = mimeType === "image/svg+xml";
           return new Response(fullSlice as unknown as BodyInit, {
             status: 200,
             headers: {
@@ -286,6 +287,13 @@ export const Route = createFileRoute("/api/media/$id")({
               "Content-Type": mimeType,
               "Content-Length": String(totalSize),
               "Accept-Ranges": "bytes",
+              "X-Content-Type-Options": "nosniff",
+              ...(isSvg
+                ? {
+                    "Content-Security-Policy":
+                      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+                  }
+                : {}),
               ETag: etag,
               "Cache-Control": "public, max-age=31536000, immutable",
               "Content-Disposition": `inline; filename="${encodeURIComponent(fileName)}"`,

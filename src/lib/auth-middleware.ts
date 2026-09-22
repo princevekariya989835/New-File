@@ -16,7 +16,8 @@ export const requireAuth = createMiddleware({ type: "function" })
       try {
         token = localStorage.getItem("riotous_session");
         if (token) {
-          document.cookie = `riotous_session=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`;
+          const isSecure = typeof location !== "undefined" && location.protocol === "https:";
+          document.cookie = `riotous_session=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax${isSecure ? "; Secure" : ""}`;
         }
       } catch {
         // ignore
@@ -198,34 +199,38 @@ export const requireAuth = createMiddleware({ type: "function" })
       );
     };
 
-    let isAdmin = isStaffRole(user.role) || isAdminEmail(user.email);
+    let isAdmin = false;
     try {
       const rows = await sql`
-        SELECT id, role, email, status, permissions FROM profiles WHERE id = ${user.id} OR email = ${user.email} LIMIT 1
+        SELECT id, role, email, status, permissions FROM profiles
+        WHERE id::text = ${user.id} AND LOWER(email) = LOWER(${user.email}) LIMIT 1
       `;
       if (rows.length > 0) {
         const dbRole = rows[0].role;
-        if (isStaffRole(dbRole)) {
-          isAdmin = true;
-          user.role = dbRole;
+        const dbStatus = String(rows[0].status || "Active").toLowerCase();
+        if (dbStatus !== "inactive" && dbStatus !== "suspended") {
+          if (isAdminEmail(rows[0].email)) {
+            isAdmin = true;
+            user.role = "Super Admin";
+          } else if (isStaffRole(dbRole)) {
+            isAdmin = true;
+            user.role = dbRole;
+          } else {
+            isAdmin = false;
+            user.role = "customer";
+          }
           user.status = rows[0].status || "Active";
           user.permissions = rows[0].permissions || {};
+        } else {
+          isAdmin = false;
+          user.status = rows[0].status;
         }
+      } else if (isAdminEmail(user.email)) {
+        isAdmin = true;
+        user.role = "Super Admin";
       }
     } catch {
-      // fallback to token role and email allowlist
-    }
-
-    if (isAdminEmail(user.email)) {
-      isAdmin = true;
-      if (user.role !== "Super Admin") {
-        user.role = "Super Admin";
-        try {
-          await sql`UPDATE profiles SET role = 'Super Admin' WHERE id = ${user.id} OR email = ${user.email}`;
-        } catch {
-          // ignore
-        }
-      }
+      isAdmin = isAdminEmail(user.email);
     }
 
     return next({

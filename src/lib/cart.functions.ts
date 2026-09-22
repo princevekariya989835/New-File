@@ -24,7 +24,21 @@ export const getMyCart = createServerFn({ method: "GET" })
 
 export const saveMyCart = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: { items: CartItem[] }) => ({ items: d.items ?? [] }))
+  .inputValidator((d: { items: CartItem[] }) => {
+    const rawItems = Array.isArray(d?.items) ? d.items : [];
+    const items = rawItems.slice(0, 50).map((i) => ({
+      productId: typeof i.productId === "string" ? i.productId.slice(0, 100) : null,
+      designSubmissionId:
+        typeof i.designSubmissionId === "string" ? i.designSubmissionId.slice(0, 100) : null,
+      productName: String(i.productName || "Item").slice(0, 200),
+      productImage: typeof i.productImage === "string" ? i.productImage.slice(0, 2000) : null,
+      quantity: Math.max(1, Math.min(99, Math.round(Number(i.quantity) || 1))),
+      selectedSize: typeof i.selectedSize === "string" ? i.selectedSize.slice(0, 40) : null,
+      selectedColor: typeof i.selectedColor === "string" ? i.selectedColor.slice(0, 40) : null,
+      price: Number.isFinite(i.price) ? Number(i.price) : 0,
+    }));
+    return { items };
+  })
   .handler(async ({ data, context }) => {
     try {
       const sql = getSql();

@@ -374,10 +374,11 @@ export const placeOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
+    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: str(d.shippingPhone, 30) || null,
+      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
       shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
@@ -693,10 +694,11 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
+    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: str(d.shippingPhone, 30) || null,
+      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
       shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
@@ -966,6 +968,25 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     }
 
     const order = orderRows[0];
+
+    // Reconcile order's razorpay_order_id against the incoming verification parameter
+    if (order.razorpay_order_id && order.razorpay_order_id !== data.razorpayOrderId) {
+      console.error("[Orders] Razorpay Order ID mismatch:", {
+        expected: order.razorpay_order_id,
+        received: data.razorpayOrderId,
+      });
+      throw new Error("Payment verification failed: Razorpay order ID mismatch.");
+    }
+
+    // IDOR check: verify that the user verifying the payment owns the order (or has matching email for guest checkout)
+    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+    if (
+      order.user_id &&
+      String(order.user_id) !== String(authCtx.userId) &&
+      (!userEmail || String(order.shipping_email || "").toLowerCase().trim() !== userEmail)
+    ) {
+      throw new Error("Unauthorized: You do not have permission to verify this order.");
+    }
 
     // Idempotency check: if order is already paid, return early
     if (order.payment_status === "Paid") {

@@ -161,8 +161,17 @@ export const Route = createFileRoute("/api/media/upload")({
             );
           }
 
-          const mediaId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
           const cleanBase64 = dataBase64.replace(/^data:[^;]+;base64,/, "");
+          if (mimeType === "image/svg+xml") {
+            const rawSvg = Buffer.from(cleanBase64, "base64").toString("utf-8");
+            if (/<script/i.test(rawSvg) || /on\w+\s*=/i.test(rawSvg) || /javascript:/i.test(rawSvg)) {
+              return new Response(
+                JSON.stringify({ error: "SVG contains unsafe scripts or executable attributes." }),
+                { status: 400, headers: { "Content-Type": "application/json" } },
+              );
+            }
+          }
+          const mediaId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
           const now = new Date().toISOString();
 
           await sql`

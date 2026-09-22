@@ -91,8 +91,15 @@ function AuthPage() {
 
   useEffect(() => {
     if (user && !authLoading) {
-      if (search?.redirect) {
-        navigate({ to: search.redirect as any });
+      const rawRedirect = search?.redirect;
+      const isSafeRedirect =
+        typeof rawRedirect === "string" &&
+        rawRedirect.startsWith("/") &&
+        !rawRedirect.startsWith("//") &&
+        !rawRedirect.includes("\\");
+
+      if (isSafeRedirect) {
+        navigate({ to: rawRedirect as any });
       } else if (hasAdminPanelAccess(user)) {
         navigate({ to: "/admin" });
       } else {

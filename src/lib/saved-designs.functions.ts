@@ -49,7 +49,30 @@ export const saveDesign = createServerFn({ method: "POST" })
       placement: string;
       canvases: Record<string, any> | null;
       preview_url?: string | null;
-    }) => d,
+    }) => {
+      const name = String(d?.name || "My Design").trim().slice(0, 100);
+      const color_name = String(d?.color_name || "Black").trim().slice(0, 50);
+      const placement = String(d?.placement || "front").trim().slice(0, 50);
+      let preview_url: string | null = null;
+      if (typeof d?.preview_url === "string") {
+        const p = d.preview_url.trim();
+        if (
+          p.startsWith("/") ||
+          p.startsWith("https://") ||
+          (p.startsWith("data:image/") && p.length <= 3_000_000)
+        ) {
+          preview_url = p;
+        }
+      }
+      return {
+        id: d?.id ? String(d.id).trim().slice(0, 100) : null,
+        name,
+        color_name,
+        placement,
+        canvases: d?.canvases && typeof d.canvases === "object" ? d.canvases : null,
+        preview_url,
+      };
+    },
   )
   .handler(async ({ data, context }): Promise<SavedDesign> => {
     await ensureDbSchema();

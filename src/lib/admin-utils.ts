@@ -129,12 +129,12 @@ export async function assertAdmin(
 
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
-  if (!userId) {
+  if (!userId || !userEmail) {
     if (isAdminEmail(userEmail)) return;
     throw new Error("Forbidden: Staff access only");
   }
   const rows = await sql`
-    SELECT role, email, status FROM profiles WHERE id = ${userId} LIMIT 1
+    SELECT role, email, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1
   `;
   if (rows.length === 0) {
     if (isAdminEmail(userEmail)) return;
@@ -152,7 +152,10 @@ export async function assertAdmin(
 
 export async function assertSuperAdmin(context: any) {
   const userEmail = context?.user?.email;
-  if (isAdminEmail(userEmail)) return;
+  if (!userEmail || !isAdminEmail(userEmail)) {
+    throw new Error("Forbidden: Super Admin access required");
+  }
+  await assertAdmin(context, "settings", "manage");
 
   const userRole = context?.user?.role;
   if (

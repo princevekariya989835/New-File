@@ -20,8 +20,6 @@ export type AdminResetSection =
   | "analytics"
   | "website";
 
-const ADMIN_RESET_PASSWORD = "Prince@955123";
-
 export const adminResetSectionData = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { section: AdminResetSection; password: string }) => ({
@@ -29,13 +27,41 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
     password: String(d.password ?? "").trim(),
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context as any);
+    const { assertSuperAdmin } = await import("@/lib/admin-utils");
+    await assertSuperAdmin(context as any);
+    const sql = getSql();
 
-    if (data.password !== ADMIN_RESET_PASSWORD) {
+    const envPass = process.env.ADMIN_RESET_PASSWORD || "Prince@955123";
+    let isAuthorized = false;
+
+    // Constant-time check against configured reset password
+    if (data.password.length === envPass.length) {
+      let diff = 0;
+      for (let i = 0; i < data.password.length; i++) {
+        diff |= data.password.charCodeAt(i) ^ envPass.charCodeAt(i);
+      }
+      if (diff === 0) isAuthorized = true;
+    }
+
+    // Also accept the logged-in Super Admin's profile password
+    const userId = (context as any)?.userId || (context as any)?.user?.id;
+    if (!isAuthorized && userId) {
+      const authRows = await sql`
+        SELECT password_hash FROM profiles WHERE id::text = ${userId} LIMIT 1
+      `;
+      if (authRows.length > 0) {
+        const { hashPassword } = await import("@/lib/auth");
+        const enteredHash = await hashPassword(data.password);
+        if (enteredHash === authRows[0].password_hash) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
       throw new Error("Invalid security password. Data erase operation rejected.");
     }
 
-    const sql = getSql();
     const sec = data.section;
 
     switch (sec) {

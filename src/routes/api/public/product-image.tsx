@@ -142,21 +142,51 @@ export const Route = createFileRoute("/api/public/product-image")({
             return new Response("Image not found", { status: 404 });
           }
 
-          // If the dataUrl is already an external or relative URL, redirect to it
-          if (
-            dataUrl.startsWith("http://") ||
-            dataUrl.startsWith("https://") ||
-            dataUrl.startsWith("/")
-          ) {
+          // If the dataUrl is a local relative asset path, redirect safely
+          if (dataUrl.startsWith("/") && !dataUrl.startsWith("//") && !dataUrl.includes("\\")) {
             return Response.redirect(dataUrl, 302);
           }
 
-          // If it is a base64 data URL: data:image/png;base64,....
+          // Allow trusted external image origins only
+          if (dataUrl.startsWith("http://") || dataUrl.startsWith("https://")) {
+            try {
+              const parsed = new URL(dataUrl);
+              const allowedHosts = [
+                "riotous.store",
+                "localhost",
+                "images.unsplash.com",
+                "res.cloudinary.com",
+              ];
+              if (
+                allowedHosts.includes(parsed.hostname) ||
+                parsed.hostname.endsWith(".workers.dev") ||
+                parsed.hostname.endsWith(".riotous.store")
+              ) {
+                return Response.redirect(dataUrl, 302);
+              }
+            } catch {
+              // invalid url
+            }
+            return new Response("Invalid external image URL", { status: 400 });
+          }
+
+          // If it is a base64 data URL: strictly require safe image MIME type
           const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
-            const contentType = match[1];
-            const base64Data = match[2];
+            const contentType = match[1].toLowerCase().trim();
+            const allowedImageMimes = [
+              "image/jpeg",
+              "image/jpg",
+              "image/png",
+              "image/webp",
+              "image/avif",
+              "image/gif",
+            ];
+            if (!allowedImageMimes.includes(contentType)) {
+              return new Response("Unsupported or unsafe image format", { status: 400 });
+            }
 
+            const base64Data = match[2];
             const binaryString = atob(base64Data);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
@@ -175,6 +205,7 @@ export const Route = createFileRoute("/api/public/product-image")({
                 headers: {
                   ETag: etag,
                   "Cache-Control": "public, max-age=31536000, immutable",
+                  "X-Content-Type-Options": "nosniff",
                 },
               });
             }
@@ -185,6 +216,7 @@ export const Route = createFileRoute("/api/public/product-image")({
                 "Content-Type": contentType,
                 "Cache-Control": "public, max-age=31536000, immutable",
                 "Content-Length": String(bytes.byteLength),
+                "X-Content-Type-Options": "nosniff",
                 ETag: etag,
               },
             });

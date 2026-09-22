@@ -728,6 +728,32 @@ export const uploadHeroMediaServerFn = createServerFn({ method: "POST" })
     const binaryBuffer = Buffer.from(cleanBase64, "base64");
     const actualSize = data.sizeBytes || binaryBuffer.length;
 
+    // Validate allowed MIME types
+    const allowedImageMimes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/avif",
+      "image/gif",
+      "image/svg+xml",
+    ];
+    const allowedVideoMimes = ["video/mp4", "video/webm", "video/ogg"];
+
+    if (data.mediaType === "image" && !allowedImageMimes.includes(data.mimeType)) {
+      throw new Error("Unsupported image format. Allowed: JPG, PNG, WebP, AVIF, GIF, SVG");
+    }
+    if (data.mediaType === "video" && !allowedVideoMimes.includes(data.mimeType)) {
+      throw new Error("Unsupported video format. Allowed: MP4, WebM, OGG");
+    }
+
+    if (data.mimeType === "image/svg+xml") {
+      const rawSvg = binaryBuffer.toString("utf-8");
+      if (/<script/i.test(rawSvg) || /on\w+\s*=/i.test(rawSvg) || /javascript:/i.test(rawSvg)) {
+        throw new Error("Unsafe SVG content rejected: script or event handlers detected.");
+      }
+    }
+
     // Validate size (Images: 25MB, Videos: 100MB)
     const maxImageSize = 25 * 1024 * 1024;
     const maxVideoSize = 100 * 1024 * 1024;

@@ -48,7 +48,23 @@ export const submitSupportRequest = createServerFn({ method: "POST" })
       reason?: string | null;
       details: string;
       contact_email?: string | null;
-    }) => d,
+    }) => {
+      const allowedTypes = ["return", "refund", "support"];
+      const reqType = allowedTypes.includes(String(d?.request_type).toLowerCase())
+        ? (String(d.request_type).toLowerCase() as "return" | "refund" | "support")
+        : "support";
+      const details = String(d?.details || "").trim().slice(0, 2000);
+      if (!details) {
+        throw new Error("Please provide details for your support request.");
+      }
+      return {
+        request_type: reqType,
+        order_name: d.order_name ? String(d.order_name).trim().slice(0, 100) : null,
+        reason: d.reason ? String(d.reason).trim().slice(0, 100) : null,
+        details,
+        contact_email: d.contact_email ? String(d.contact_email).trim().slice(0, 255) : null,
+      };
+    },
   )
   .handler(async ({ data, context }) => {
     await ensureDbSchema();

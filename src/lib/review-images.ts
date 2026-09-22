@@ -1,11 +1,20 @@
+export const MAX_REVIEW_IMAGES = 3;
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
-export const MAX_REVIEW_IMAGES = 5;
-
-export function reviewImageUrl(path: string) {
-  if (path.startsWith("data:") || /^https?:\/\//.test(path) || path.startsWith("/")) return path;
-  return `/api/public/review-image?path=${encodeURIComponent(path)}`;
+export function reviewImageUrl(path: string): string {
+  if (!path || typeof path !== "string") return "/products/zoro-black-1.jpg";
+  const trimmed = path.trim();
+  if (/^data:image\/(jpeg|jpg|png|webp|avif);base64,/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//") && !trimmed.includes("\\")) {
+    return trimmed;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `/api/public/review-image?path=${encodeURIComponent(trimmed)}`;
 }
 
 export function validateReviewImage(file: File) {

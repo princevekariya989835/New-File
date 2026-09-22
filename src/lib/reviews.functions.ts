@@ -114,15 +114,38 @@ function normalize(d: ReviewInput) {
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     throw new Error("Please choose a rating between 1 and 5 stars.");
   }
-  const title = d.title?.trim() ? d.title.trim().slice(0, 100) : null;
-  const review = d.review?.trim() ? d.review.trim().slice(0, 2000) : null;
-  const images = Array.from(new Set((d.images ?? []).filter(Boolean))).slice(0, 5);
+  const cleanStr = (val?: string | null, max = 2000) => {
+    if (!val || typeof val !== "string") return null;
+    const trimmed = val.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").slice(0, max);
+    return trimmed.length > 0 ? trimmed : null;
+  };
+  const title = cleanStr(d.title, 100);
+  const review = cleanStr(d.review, 2000);
+  const images = Array.from(new Set((d.images ?? []).filter(Boolean)))
+    .slice(0, 5)
+    .filter((img): img is string => {
+      if (typeof img !== "string") return false;
+      const s = img.trim();
+      return (
+        (/^https?:\/\//i.test(s) && !s.includes("<") && !s.includes(">")) ||
+        (s.startsWith("/") && !s.startsWith("//") && !s.includes("\\")) ||
+        /^data:image\/(jpeg|jpg|png|webp|avif);base64,[A-Za-z0-9+/=]+$/i.test(s)
+      );
+    });
   return { rating, title, review, images };
 }
 
 export const submitReview = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: ReviewInput) => d)
+  .inputValidator((d: ReviewInput) => {
+    if (!d?.productId || typeof d.productId !== "string") {
+      throw new Error("Missing or invalid product ID.");
+    }
+    return {
+      ...d,
+      productId: String(d.productId).trim().slice(0, 100),
+    };
+  })
   .handler(async ({ data, context }): Promise<MyReview> => {
     const patch = normalize(data);
     const sql = getSql();

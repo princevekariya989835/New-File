@@ -1,7 +1,61 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createHash } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { sendLoginOtp, sendForgotPasswordOtp, sendWelcomeEmail } from "@/lib/email";
+
+function getAuthSecret(): string {
+  return (
+    process.env.AUTH_SECRET ||
+    process.env.RAZORPAY_KEY_SECRET ||
+    "riotous_super_secure_auth_secret_2026_jwt"
+  );
+}
+
+function computeHmac(data: string): string {
+  try {
+    if (typeof process !== "undefined" && process.versions?.node) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const crypto = require("node:crypto");
+      return crypto.createHmac("sha256", getAuthSecret()).update(data).digest("hex");
+    }
+  } catch {
+    // client or edge fallback
+  }
+  return "";
+}
+
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+// In-memory sliding-window rate limiter for sensitive authentication operations
+type RateLimitRecord = { count: number; resetTime: number };
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+function checkRateLimit(
+  key: string,
+  maxAttempts: number,
+  windowMs: number,
+): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+    return { allowed: true };
+  }
+  if (record.count >= maxAttempts) {
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfterSeconds: retryAfter };
+  }
+  record.count++;
+  return { allowed: true };
+}
 
 export type StaffRole = "Super Admin" | "Admin" | "Manager" | "Staff";
 export type StaffStatus = "Active" | "Inactive" | "Suspended";
@@ -26,14 +80,22 @@ export type AuthSession = {
 // Cross-runtime SHA-256 password hashing with consistent salt
 export async function hashPassword(password: string): Promise<string> {
   try {
-    return createHash("sha256").update(password + "_riotous_salt_2026").digest("hex");
+    if (typeof process !== "undefined" && process.versions?.node) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const crypto = require("node:crypto");
+      return crypto.createHash("sha256").update(password + "_riotous_salt_2026").digest("hex");
+    }
   } catch {
-    // Fallback using global Web Crypto API if node:crypto is not available
+    // Fallback using global Web Crypto API
+  }
+  try {
     const encoder = new TextEncoder();
     const data = encoder.encode(password + "_riotous_salt_2026");
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return password;
   }
 }
 
@@ -92,7 +154,7 @@ function fromBase64(str: string): string {
   }
 }
 
-// Generate secure token containing user identity and 30-day expiration
+// Generate cryptographically signed token containing user identity and 30-day expiration
 export function signToken(
   userId: string,
   email: string,
@@ -108,13 +170,42 @@ export function signToken(
     fullName: fullName || null,
     exp: expiresAt,
   });
-  return toBase64(payload);
+  const b64 = toBase64(payload);
+  const signature = computeHmac(b64);
+  return `${b64}.${signature}`;
 }
 
 export function decodeToken(token: string): AuthUser | null {
   if (!token || typeof token !== "string") return null;
   try {
-    const raw = fromBase64(token.trim());
+    const trimmed = token.trim();
+    let b64 = trimmed;
+    let isSigned = false;
+
+    // Verify cryptographic signature if present
+    if (trimmed.includes(".")) {
+      const parts = trimmed.split(".");
+      if (parts.length === 2) {
+        const [payloadB64, sig] = parts;
+        // On server side where secrets exist, strictly verify HMAC
+        if (typeof window === "undefined") {
+          const expectedSig = computeHmac(payloadB64);
+          if (expectedSig && timingSafeEqualStr(sig, expectedSig)) {
+            b64 = payloadB64;
+            isSigned = true;
+          } else {
+            // Tampered or invalid signature - reject on server
+            return null;
+          }
+        } else {
+          // On client, extract payload for optimistic UI state
+          b64 = payloadB64;
+          isSigned = true;
+        }
+      }
+    }
+
+    const raw = fromBase64(b64);
 
     // JSON format
     if (raw.startsWith("{") && raw.endsWith("}")) {
@@ -122,26 +213,31 @@ export function decodeToken(token: string): AuthUser | null {
       if (!parsed.id || !parsed.email) return null;
       if (parsed.exp && Date.now() > Number(parsed.exp)) return null;
 
-      const role = isAdminEmail(parsed.email)
-        ? "Super Admin"
-        : (parsed.role as "admin" | "customer") || "customer";
+      // Unsigned tokens cannot claim elevated privileges
+      let role = parsed.role;
+      if (!isSigned) {
+        role = "customer";
+      } else if (isAdminEmail(parsed.email)) {
+        role = "Super Admin";
+      }
 
       return {
         id: String(parsed.id),
         email: String(parsed.email).toLowerCase().trim(),
         fullName: parsed.fullName ? String(parsed.fullName) : null,
-        role,
+        role: role || "customer",
         status: "Active",
       };
     }
 
     // Legacy colon-delimited format (id:email:role:expiresAt)
-    const [id, email, roleStr, expiresAtStr] = raw.split(":");
-    if (!id || !email || !roleStr || !expiresAtStr) return null;
+    const [id, email, , expiresAtStr] = raw.split(":");
+    if (!id || !email || !expiresAtStr) return null;
     const expiresAt = Number(expiresAtStr);
     if (Date.now() > expiresAt) return null;
 
-    const role = isAdminEmail(email) ? "Super Admin" : (roleStr as "admin" | "customer") || "customer";
+    // Legacy unsigned format is only ever granted customer role
+    const role = "customer";
 
     return {
       id,
@@ -192,6 +288,17 @@ export const registerServerFn = createServerFn({ method: "POST" })
       }
       if (data.password.length < 6) {
         return { ok: false, error: "Password must be at least 6 characters." };
+      }
+
+      // Prevent unauthorized public registration of administrative accounts
+      if (isAdminEmail(data.email)) {
+        return { ok: false, error: "Administrative accounts cannot be registered publicly." };
+      }
+
+      // Rate limit registration attempts: max 5 per 15 minutes per email
+      const rate = checkRateLimit(`register:${data.email}`, 5, 15 * 60 * 1000);
+      if (!rate.allowed) {
+        return { ok: false, error: `Too many registration attempts. Please wait ${rate.retryAfterSeconds} seconds.` };
       }
 
       // Query 1: Check if user already exists
@@ -327,20 +434,14 @@ export const loginServerFn = createServerFn({ method: "POST" })
       const passwordHash = await hashPassword(data.password);
 
       if (userRow.password_hash !== passwordHash) {
-        // If super admin email, allow updating password if needed
-        if (isAdminEmail(userRow.email) && data.password.length >= 6) {
-          dbQueries++;
-          await sql`UPDATE profiles SET password_hash = ${passwordHash}, role = 'Super Admin', status = 'Active', updated_at = NOW() WHERE LOWER(email) = LOWER(${data.email})`;
-        } else {
-          logAuthDebug({
-            route: "loginServerFn",
-            databaseQueries: dbQueries,
-            externalFetches: 0,
-            sessionChecks: 0,
-            durationMs: performance.now() - startTime,
-          });
-          return { ok: false, error: "Invalid email or password." };
-        }
+        logAuthDebug({
+          route: "loginServerFn",
+          databaseQueries: dbQueries,
+          externalFetches: 0,
+          sessionChecks: 0,
+          durationMs: performance.now() - startTime,
+        });
+        return { ok: false, error: "Invalid email or password." };
       }
 
       if (userRow.status === "Inactive" || userRow.status === "Suspended") {
@@ -492,6 +593,16 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
         return { ok: false, error: "Email address is required." };
       }
 
+      if (data.purpose === "signup" && isAdminEmail(data.email)) {
+        return { ok: false, error: "Administrative accounts cannot be registered." };
+      }
+
+      // Rate limit OTP requests: max 5 requests per 15 minutes per email
+      const rate = checkRateLimit(`otp_send:${data.email}`, 5, 15 * 60 * 1000);
+      if (!rate.allowed) {
+        return { ok: false, error: `Too many verification requests. Please wait ${rate.retryAfterSeconds} seconds before requesting a new code.` };
+      }
+
       // Query 1: Existence check
       dbQueries++;
       const existing = await sql`SELECT id FROM profiles WHERE LOWER(email) = LOWER(${data.email}) LIMIT 1`;
@@ -587,6 +698,16 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
       }
       if (data.password.length < 6) {
         return { ok: false, error: "Password must be at least 6 characters." };
+      }
+
+      if (isAdminEmail(data.email)) {
+        return { ok: false, error: "Administrative accounts cannot be registered publicly." };
+      }
+
+      // Rate limit OTP verification attempts: max 8 attempts per 15 minutes per email
+      const rate = checkRateLimit(`otp_verify:${data.email}`, 8, 15 * 60 * 1000);
+      if (!rate.allowed) {
+        return { ok: false, error: "Too many failed attempts. Please request a new verification code." };
       }
 
       // Query 1: Check OTP
@@ -706,6 +827,12 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       }
       if (data.newPassword.length < 6) {
         return { ok: false, error: "New password must be at least 6 characters." };
+      }
+
+      // Rate limit password reset OTP verification attempts: max 8 attempts per 15 minutes
+      const rate = checkRateLimit(`otp_reset:${data.email}`, 8, 15 * 60 * 1000);
+      if (!rate.allowed) {
+        return { ok: false, error: "Too many failed attempts. Please request a new verification code." };
       }
 
       // Query 1: Verify OTP
