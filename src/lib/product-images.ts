@@ -4,13 +4,20 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/g
 export interface CachedImage {
   bytes: Uint8Array;
   contentType: string;
+  etag: string;
 }
 
 const MAX_CACHED_IMAGES = 200;
 const _imageCache = new Map<string, CachedImage>();
 
 export function getCachedImage(key: string): CachedImage | undefined {
-  return _imageCache.get(key);
+  const item = _imageCache.get(key);
+  if (item) {
+    // Touch entry to preserve LRU ordering
+    _imageCache.delete(key);
+    _imageCache.set(key, item);
+  }
+  return item;
 }
 
 export function setCachedImage(key: string, img: CachedImage) {

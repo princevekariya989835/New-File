@@ -59,6 +59,12 @@ export function ProductCard({
     if (images.length <= 1) return;
     setActiveImgIdx((prev) => (prev < images.length - 1 ? prev + 1 : 0));
   };
+  const isApiImage = Boolean(currentImg?.url && currentImg.url.startsWith("/api/public/product-image"));
+  const srcSet = isApiImage && currentImg?.url
+    ? `${currentImg.url}&w=400 400w, ${currentImg.url}&w=800 800w`
+    : undefined;
+  const imageSizes = "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px";
+
   return (
     <Link
       to="/product/$handle"
@@ -71,6 +77,8 @@ export function ProductCard({
           <img
             key={currentImg.url}
             src={currentImg.url}
+            srcSet={srcSet}
+            sizes={imageSizes}
             alt={currentImg.altText ?? p.title}
             width={400}
             height={400}

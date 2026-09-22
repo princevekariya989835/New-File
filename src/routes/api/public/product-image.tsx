@@ -4,9 +4,64 @@ import { getCachedImage, setCachedImage, invalidateImageCache } from "@/lib/prod
 
 export { invalidateImageCache };
 
+function checkNoneMatch(request: Request, etag: string): boolean {
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (!ifNoneMatch) return false;
+  return ifNoneMatch === etag || ifNoneMatch === `W/${etag}` || ifNoneMatch.includes(etag);
+}
+
 export const Route = createFileRoute("/api/public/product-image")({
   server: {
     handlers: {
+      HEAD: async ({ request }) => {
+        try {
+          const url = new URL(request.url);
+          const productId = url.searchParams.get("id");
+          const idx = Math.max(0, parseInt(url.searchParams.get("idx") || "0", 10));
+          const designId = url.searchParams.get("designId");
+          const side = url.searchParams.get("side");
+          const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
+
+          const cacheKey = productId
+            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
+            : designId
+              ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
+              : null;
+
+          if (cacheKey) {
+            const cached = getCachedImage(cacheKey);
+            if (cached) {
+              if (checkNoneMatch(request, cached.etag)) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    ETag: cached.etag,
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                  },
+                });
+              }
+              return new Response(null, {
+                status: 200,
+                headers: {
+                  "Content-Type": cached.contentType,
+                  "Cache-Control": "public, max-age=31536000, immutable",
+                  "Content-Length": String(cached.bytes.byteLength),
+                  ETag: cached.etag,
+                },
+              });
+            }
+          }
+          return new Response(null, {
+            status: 200,
+            headers: {
+              "Cache-Control": "public, max-age=31536000, immutable",
+            },
+          });
+        } catch {
+          return new Response(null, { status: 500 });
+        }
+      },
+
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
@@ -15,22 +70,35 @@ export const Route = createFileRoute("/api/public/product-image")({
           const designId = url.searchParams.get("designId");
           const side = url.searchParams.get("side");
           const rawPath = url.searchParams.get("path");
+          const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
 
           const cacheKey = productId
-            ? `prod_${productId}_${idx}`
+            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
             : designId
-              ? `design_${designId}_${side || "default"}`
-              : null;
+              ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
+              : rawPath
+                ? `path_${encodeURIComponent(rawPath)}${widthParam ? `_w${widthParam}` : ""}`
+                : null;
 
           if (cacheKey) {
             const cached = getCachedImage(cacheKey);
             if (cached) {
+              if (checkNoneMatch(request, cached.etag)) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    ETag: cached.etag,
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                  },
+                });
+              }
               return new Response(cached.bytes as unknown as BodyInit, {
                 status: 200,
                 headers: {
                   "Content-Type": cached.contentType,
-                  "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+                  "Cache-Control": "public, max-age=31536000, immutable",
                   "Content-Length": String(cached.bytes.byteLength),
+                  ETag: cached.etag,
                 },
               });
             }
@@ -95,16 +163,29 @@ export const Route = createFileRoute("/api/public/product-image")({
               bytes[i] = binaryString.charCodeAt(i);
             }
 
+            const etag = `"${(cacheKey || "img").replace(/[^a-zA-Z0-9_-]/g, "_")}-${bytes.byteLength}"`;
+
             if (cacheKey) {
-              setCachedImage(cacheKey, { bytes, contentType });
+              setCachedImage(cacheKey, { bytes, contentType, etag });
+            }
+
+            if (checkNoneMatch(request, etag)) {
+              return new Response(null, {
+                status: 304,
+                headers: {
+                  ETag: etag,
+                  "Cache-Control": "public, max-age=31536000, immutable",
+                },
+              });
             }
 
             return new Response(bytes as unknown as BodyInit, {
               status: 200,
               headers: {
                 "Content-Type": contentType,
-                "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+                "Cache-Control": "public, max-age=31536000, immutable",
                 "Content-Length": String(bytes.byteLength),
+                ETag: etag,
               },
             });
           }
