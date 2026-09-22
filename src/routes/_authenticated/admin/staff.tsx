@@ -1212,7 +1212,7 @@ function AdminStaffPage() {
                   </p>
                 ) : (
                   <div className="border rounded-md divide-y divide-border text-xs max-h-56 overflow-y-auto">
-                    {staffDetailsQuery.data.recentActivity.map((act) => (
+                    {staffDetailsQuery.data.recentActivity.map((act: any) => (
                       <div key={act.id} className="p-2.5 space-y-1">
                         <div className="flex items-center justify-between font-medium">
                           <span>{act.action}</span>

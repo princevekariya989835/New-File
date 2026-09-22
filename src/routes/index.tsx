@@ -16,25 +16,26 @@ const productsQuery = {
 const websiteConfigQuery = {
   queryKey: ["website-config", "published"],
   queryFn: () => getPublicWebsiteConfig(),
-  staleTime: 1000 * 15,
+  staleTime: 1000 * 60 * 10,
   gcTime: 1000 * 60 * 30,
 };
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    // Fast prefetch for SSR/cached queries, capped at 600ms so mobile/cold DB never hangs
+    // Fast prefetch for SSR/cached queries, capped at 150ms so mobile/cold DB never hangs
     await Promise.race([
       Promise.allSettled([
         context.queryClient.ensureQueryData(websiteConfigQuery),
         context.queryClient.ensureQueryData(productsQuery),
       ]),
-      new Promise((resolve) => setTimeout(resolve, 600)),
+      new Promise((resolve) => setTimeout(resolve, 150)),
     ]);
   },
   pendingComponent: () => (
     <WebsiteHomepageContent
       config={DEFAULT_WEBSITE_CONFIG}
       products={[]}
+      isLoadingProducts={true}
       isPreview={false}
     />
   ),
@@ -84,11 +85,23 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const { data: rawProducts = [] } = useQuery(productsQuery);
+  const {
+    data: rawProducts,
+    isLoading: isProductsLoading,
+    isPending: isProductsPending,
+  } = useQuery(productsQuery);
   const { data: siteConfigData } = useQuery(websiteConfigQuery);
 
   const products = useMemo(() => (Array.isArray(rawProducts) ? rawProducts : []), [rawProducts]);
   const config = siteConfigData?.config ?? DEFAULT_WEBSITE_CONFIG;
+  const isLoadingProducts = isProductsLoading || isProductsPending || rawProducts === undefined;
 
-  return <WebsiteHomepageContent config={config} products={products} isPreview={false} />;
+  return (
+    <WebsiteHomepageContent
+      config={config}
+      products={products}
+      isLoadingProducts={isLoadingProducts}
+      isPreview={false}
+    />
+  );
 }

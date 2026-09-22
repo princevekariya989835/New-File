@@ -30,8 +30,12 @@ function HealthPage() {
   const checkFn = useServerFn(adminGetSystemHealth);
   const q = useQuery<SystemHealthReport>({
     queryKey: ["admin", "system-health"],
-    queryFn: () => checkFn(),
+    queryFn: async (): Promise<SystemHealthReport> => {
+      const res = await checkFn();
+      return res as SystemHealthReport;
+    },
     refetchInterval: 30000,
+    staleTime: 15000,
   });
 
   const report = q.data;

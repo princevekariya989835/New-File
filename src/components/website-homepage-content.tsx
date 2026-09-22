@@ -26,6 +26,7 @@ import {
 import { BrandName } from "@/components/brand-name";
 import { ProductCard } from "@/components/product-card";
 import { EmptyProducts } from "@/components/empty-products";
+import { ShopSkeleton } from "@/components/shop/shop-skeleton";
 import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
@@ -34,6 +35,7 @@ import { HeroOrbit } from "@/components/hero-orbit";
 interface WebsiteHomepageContentProps {
   config: WebsiteConfig;
   products: CatalogProduct[];
+  isLoadingProducts?: boolean;
   isPreview?: boolean;
 }
 
@@ -53,6 +55,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 export function WebsiteHomepageContent({
   config,
   products,
+  isLoadingProducts = false,
   isPreview = false,
 }: WebsiteHomepageContentProps) {
   const {
@@ -200,7 +203,9 @@ export function WebsiteHomepageContent({
                   </a>
                 </div>
 
-                {displayedProducts.length === 0 ? (
+                {isLoadingProducts ? (
+                  <ShopSkeleton count={featuredProducts.limit || 8} />
+                ) : displayedProducts.length === 0 ? (
                   <EmptyProducts />
                 ) : (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">

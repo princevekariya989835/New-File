@@ -9,7 +9,7 @@ export type ComponentHealth = {
   status: "healthy" | "warning" | "error";
   latencyMs: number;
   message: string;
-  details?: Record<string, unknown>;
+  details?: Record<string, any>;
 };
 
 export type SystemHealthReport = {

@@ -15,6 +15,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import * as XLSX from "xlsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

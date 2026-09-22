@@ -77,7 +77,10 @@ export const VALID_SHIPMENT_TRANSITIONS: Record<ShipmentStatus, ShipmentStatus[]
   Returned: [],
 };
 
+let _shipmentsSeeded = false;
+
 async function seedShipmentsIfEmpty() {
+  if (_shipmentsSeeded) return;
   const sql = getSql();
   const countRes = await sql`SELECT COUNT(*) as count FROM shipments`;
   const count = Number(countRes[0]?.count || 0);
@@ -149,6 +152,7 @@ async function seedShipmentsIfEmpty() {
       i++;
     }
   }
+  _shipmentsSeeded = true;
 }
 
 export const adminListShipments = createServerFn({ method: "GET" })
@@ -164,6 +168,7 @@ export const adminListShipments = createServerFn({ method: "GET" })
       FROM shipments s
       LEFT JOIN orders o ON s.order_id = o.id
       ORDER BY s.created_at DESC
+      LIMIT 150
     `;
 
     const orderIds = shipmentsRows.map((s: any) => s.order_id).filter(Boolean);

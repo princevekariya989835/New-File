@@ -70,10 +70,10 @@ export const Route = createFileRoute("/shop")({
     ],
   }),
   loader: async ({ context }) => {
-    // Fast non-blocking prefetch capped at 300ms so SSR never freezes on cold starts
+    // Fast non-blocking prefetch capped at 150ms so SSR never freezes on cold starts
     await Promise.race([
       context.queryClient.ensureQueryData(productsQuery),
-      new Promise((resolve) => setTimeout(resolve, 300)),
+      new Promise((resolve) => setTimeout(resolve, 150)),
     ]).catch(() => {});
   },
   pendingComponent: () => (

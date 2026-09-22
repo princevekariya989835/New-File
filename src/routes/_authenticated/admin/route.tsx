@@ -300,14 +300,14 @@ function AdminLayout() {
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
                   aria-label="Admin profile"
                 >
-                  {(user.fullName?.[0] || user.email?.[0] || "A").toUpperCase()}
+                  {((user as any).fullName?.[0] || user.email?.[0] || "A").toUpperCase()}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user.fullName || user.email.split("@")[0]}
+                      {(user as any).fullName || user.email.split("@")[0]}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                     <span className="inline-block mt-1 w-fit text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red">

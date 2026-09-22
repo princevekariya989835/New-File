@@ -29,6 +29,7 @@ export type { ProductInput, InventoryTransactionRecord };
 export type AdminProduct = {
   id: string;
   title: string;
+  name: string;
   handle: string;
   status: "ACTIVE" | "DRAFT";
   totalInventory: number;
@@ -150,6 +151,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
     return rows.map((p: any) => ({
       id: String(p.id),
       title: p.name,
+      name: p.name,
       handle: p.slug,
       status: p.is_active ? "ACTIVE" : "DRAFT",
       totalInventory: Number(p.stock_quantity ?? 0),

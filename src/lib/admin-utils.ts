@@ -112,14 +112,18 @@ export function hasStaffPermission(
   return false;
 }
 
-export async function assertAdmin(context: any) {
+export async function assertAdmin(
+  context: any,
+  module: StaffModule | string = "dashboard",
+  action: StaffAction | string = "view",
+) {
   if (context?.isAdmin) return;
   const userRole = context?.user?.role;
   const userEmail = context?.user?.email;
 
   if (isAdminEmail(userEmail)) return;
 
-  if (userRole && hasStaffPermission(userRole, null, "dashboard", "view")) {
+  if (userRole && hasStaffPermission(userRole, context?.user?.permissions, module, action)) {
     return;
   }
 
@@ -140,7 +144,7 @@ export async function assertAdmin(context: any) {
   if (r.status === "Inactive" || r.status === "Suspended") {
     throw new Error("Forbidden: Account is inactive or suspended");
   }
-  if (isAdminEmail(r.email) || hasStaffPermission(r.role, null, "dashboard", "view")) {
+  if (isAdminEmail(r.email) || hasStaffPermission(r.role, null, module, action)) {
     return;
   }
   throw new Error("Forbidden: Staff access only");

@@ -158,7 +158,7 @@ export const listStaff = createServerFn({ method: "POST" })
     let managers = 0;
     let staffMembers = 0;
 
-    const mappedItems: StaffItem[] = allStaffRows.map((r) => {
+    const mappedItems: StaffItem[] = allStaffRows.map((r: any) => {
       const isSuper = isAdminEmail(r.email) || (r.role && r.role.toLowerCase().includes("super"));
       const assignedRole: StaffRole = isSuper ? "Super Admin" : normalizeStaffRole(r.role);
       const assignedStatus: StaffStatus = normalizeStaffStatus(r.status);
@@ -301,7 +301,7 @@ export const getStaffDetails = createServerFn({ method: "POST" })
       LIMIT 20
     `;
 
-    const recentActivity = auditRows.map((a) => ({
+    const recentActivity = auditRows.map((a: any) => ({
       id: String(a.id),
       action: a.action,
       entityType: a.entity_type || a.module || "General",
@@ -349,7 +349,7 @@ export const searchUsersForStaff = createServerFn({ method: "POST" })
       WHERE lower(email) LIKE ${q} OR lower(full_name) LIKE ${q} OR lower(id) LIKE ${q}
       LIMIT 15
     `;
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       id: String(r.id),
       email: r.email,
       name: r.full_name || r.email.split("@")[0] || "User",
@@ -406,7 +406,8 @@ export const createStaff = createServerFn({ method: "POST" })
         ? data.permissions
         : getDefaultRolePermissions(data.role);
 
-    const creatorName = context.user.fullName || context.user.email || "Administrator";
+    const ctx = context as any;
+    const creatorName = ctx.user?.fullName || ctx.user?.email || "Administrator";
 
     // Check if user account already exists in profiles
     const existing =
@@ -718,7 +719,7 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
     if (targetRows.length === 0) throw new Error("Staff member not found.");
 
     const target = targetRows[0];
-    if (target.role === "Super Admin" && !isAdminEmail(context.user.email)) {
+    if (target.role === "Super Admin" && !isAdminEmail((context as any).user?.email)) {
       await assertSuperAdmin(context);
     }
 
@@ -779,7 +780,7 @@ export const listAuditActivity = createServerFn({ method: "POST" })
       LIMIT 500
     `;
 
-    let filtered = allRows.map((r) => ({
+    let filtered = allRows.map((r: any) => ({
       id: String(r.id),
       actorId: r.actor_id || null,
       actorEmail: r.actor_email || "System",
@@ -797,14 +798,14 @@ export const listAuditActivity = createServerFn({ method: "POST" })
 
     if (data.staffId) {
       filtered = filtered.filter(
-        (f) =>
+        (f: any) =>
           f.actorId === data.staffId || f.actorEmail.toLowerCase() === data.staffId?.toLowerCase(),
       );
     }
 
     if (data.module && data.module !== "all") {
       filtered = filtered.filter(
-        (f) =>
+        (f: any) =>
           f.module.toLowerCase() === data.module?.toLowerCase() ||
           f.entityType.toLowerCase() === data.module?.toLowerCase(),
       );
@@ -813,7 +814,7 @@ export const listAuditActivity = createServerFn({ method: "POST" })
     if (data.search) {
       const q = data.search.toLowerCase();
       filtered = filtered.filter(
-        (f) =>
+        (f: any) =>
           f.action.toLowerCase().includes(q) ||
           f.actorEmail.toLowerCase().includes(q) ||
           (f.targetName && f.targetName.toLowerCase().includes(q)) ||

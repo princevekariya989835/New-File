@@ -145,7 +145,7 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
     await assertPermission(context, "settings", "edit");
     const sql = getSql();
 
-    const actorName = context.user.fullName || context.user.email || "Admin";
+    const actorName = (context as any).user?.fullName || (context as any).user?.email || "Admin";
 
     // Validate email
     if (data.storeEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.storeEmail)) {
@@ -310,14 +310,14 @@ export const updateAccountProfile = createServerFn({ method: "POST" })
           phone = ${data.phone},
           avatar = ${data.avatar},
           updated_at = NOW()
-      WHERE id = ${context.userId}
+      WHERE id = ${(context as any).userId}
     `;
 
     await logAudit(
       context,
       "Account profile updated",
       "Staff",
-      context.userId,
+      (context as any).userId,
       { fullName: data.fullName },
       { module: "staff", targetName: data.fullName },
     );
@@ -349,7 +349,7 @@ export const changeAccountPassword = createServerFn({ method: "POST" })
     }
 
     const rows = await sql`
-      SELECT id, password_hash, email FROM profiles WHERE id = ${context.userId} LIMIT 1
+      SELECT id, password_hash, email FROM profiles WHERE id = ${(context as any).userId} LIMIT 1
     `;
     if (rows.length === 0) throw new Error("Account not found.");
 
@@ -362,14 +362,14 @@ export const changeAccountPassword = createServerFn({ method: "POST" })
     await sql`
       UPDATE profiles
       SET password_hash = ${newHash}, updated_at = NOW()
-      WHERE id = ${context.userId}
+      WHERE id = ${(context as any).userId}
     `;
 
     await logAudit(
       context,
       "Password changed by user",
       "Staff",
-      context.userId,
+      (context as any).userId,
       { email: rows[0].email },
       { module: "staff", targetName: "Account Password" },
     );
@@ -491,7 +491,7 @@ export const toggleMaintenanceMode = createServerFn({ method: "POST" })
       SET maintenance_mode = ${data.enabled},
           maintenance_message = COALESCE(${data.message || null}, maintenance_message),
           updated_at = NOW(),
-          updated_by = ${context.user.fullName || context.user.email || "Super Admin"}
+          updated_by = ${(context as any).user?.fullName || (context as any).user?.email || "Super Admin"}
       WHERE id = 'default'
     `;
 
