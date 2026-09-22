@@ -30,7 +30,6 @@ import { ShopSkeleton } from "@/components/shop/shop-skeleton";
 import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
-import { HeroOrbit } from "@/components/hero-orbit";
 
 interface WebsiteHomepageContentProps {
   config: WebsiteConfig;

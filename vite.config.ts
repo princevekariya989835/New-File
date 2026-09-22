@@ -58,6 +58,21 @@ export default defineConfig({
       "zod",
     ],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes("node_modules/recharts") ||
+            id.includes("node_modules/d3-") ||
+            id.includes("node_modules/victory-vendor")
+          ) {
+            return "vendor-recharts";
+          }
+        },
+      },
+    },
+  },
   plugins: [
     tailwindcss(),
     tsConfigPaths({ projects: ["./tsconfig.json"] }),

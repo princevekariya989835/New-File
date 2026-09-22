@@ -207,7 +207,9 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/_authenticated/admin/index.lazy').then((d) => d.Route),
+)
 const AuthenticatedAdminActivityRoute =
   AuthenticatedAdminActivityRouteImport.update({
     id: '/activity',
@@ -219,7 +221,9 @@ const AuthenticatedAdminAnalyticsRoute =
     id: '/analytics',
     path: '/analytics',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/analytics.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminCouponsRoute =
   AuthenticatedAdminCouponsRouteImport.update({
     id: '/coupons',
@@ -255,13 +259,17 @@ const AuthenticatedAdminMarketingRoute =
     id: '/marketing',
     path: '/marketing',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/marketing.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminOrdersRoute =
   AuthenticatedAdminOrdersRouteImport.update({
     id: '/orders',
     path: '/orders',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/orders.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminPaymentsRoute =
   AuthenticatedAdminPaymentsRouteImport.update({
     id: '/payments',
@@ -291,7 +299,9 @@ const AuthenticatedAdminSettingsRoute =
     id: '/settings',
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/settings.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminShippingRoute =
   AuthenticatedAdminShippingRouteImport.update({
     id: '/shipping',

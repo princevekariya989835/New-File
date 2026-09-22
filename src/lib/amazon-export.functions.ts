@@ -15,7 +15,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import * as XLSX from "xlsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -265,6 +264,7 @@ export const amazonParseTemplateHeaders = createServerFn({ method: "POST" })
       detectedFormat = "tsv";
     } else {
       // Excel (.xlsx / .xls)
+      const XLSX = await import("xlsx");
       const workbook = XLSX.read(buffer, { type: "buffer" });
       sheetName = workbook.SheetNames[0];
       if (!sheetName) throw new Error("No sheets found in uploaded workbook.");
@@ -576,6 +576,7 @@ export const amazonExportOrders = createServerFn({ method: "POST" })
       outputFileName += ".txt";
     } else {
       // xlsx / xls
+      const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
       const wsData = [template.headers, ...dataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);

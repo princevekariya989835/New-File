@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { CartDrawer } from "./cart-drawer";
 import { SearchDialog } from "./search-dialog";
-import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
 import { hasAdminPanelAccess } from "@/lib/auth";
@@ -65,7 +64,6 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
     }));
 
   const activeNav = config || !isLoading ? (navItems.length > 0 ? navItems : defaultNav) : [];
-  const activeAnnouncement = config?.announcement || (config as any)?.announcementBar;
 
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > 30);
