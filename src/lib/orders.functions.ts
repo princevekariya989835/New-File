@@ -24,22 +24,55 @@ export function extractPrimaryImage(images: unknown): string | null {
     arr = images;
   } else if (typeof images === "string") {
     const trimmed = images.trim();
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
+    if (
+      trimmed.startsWith("http://") ||
+      trimmed.startsWith("https://") ||
+      trimmed.startsWith("/") ||
+      trimmed.startsWith("data:image/")
+    ) {
       return trimmed;
     }
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) arr = parsed;
       else if (typeof parsed === "string") return parsed;
+      else if (parsed && typeof parsed === "object") {
+        const obj = parsed as any;
+        const u = obj.url || obj.src || obj.image || obj.secure_url;
+        if (typeof u === "string" && u.trim()) return u.trim();
+      }
     } catch {
+      if (
+        trimmed.length > 3 &&
+        (trimmed.endsWith(".jpg") ||
+          trimmed.endsWith(".jpeg") ||
+          trimmed.endsWith(".png") ||
+          trimmed.endsWith(".webp") ||
+          trimmed.endsWith(".avif"))
+      ) {
+        return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+      }
       return null;
     }
   }
   if (arr.length === 0) return null;
   const first = arr[0];
-  if (typeof first === "string" && first.trim()) return first.trim();
-  if (first && typeof first === "object" && "url" in first && typeof (first as any).url === "string") {
-    return (first as any).url.trim();
+  if (typeof first === "string" && first.trim()) {
+    const s = first.trim();
+    if (
+      s.startsWith("http://") ||
+      s.startsWith("https://") ||
+      s.startsWith("/") ||
+      s.startsWith("data:image/")
+    ) {
+      return s;
+    }
+    return `/${s}`;
+  }
+  if (first && typeof first === "object") {
+    const obj = first as any;
+    const url = obj.url || obj.src || obj.image || obj.secure_url;
+    if (typeof url === "string" && url.trim()) return url.trim();
   }
   return null;
 }
@@ -53,14 +86,56 @@ export function getFallbackProductImage(productId: string | null): string | null
   return fb?.images?.[0] || null;
 }
 
+export function getFallbackProductImageByName(name: string | null): string | null {
+  if (!name) return null;
+  const cleanName = name.toLowerCase().trim();
+  // 1. Exact or substring match
+  let fb = FALLBACK_PRODUCTS.find((p) => {
+    const pName = p.name.toLowerCase().trim();
+    return pName === cleanName || cleanName.includes(pName) || pName.includes(cleanName);
+  });
+  if (fb?.images?.[0]) return fb.images[0];
+
+  // 2. Score by matching distinctive words
+  const GENERIC = new Set(["tee", "shirt", "t-shirt", "graphic", "oversized", "tee-shirt", "cotton", "printed"]);
+  const words = cleanName
+    .split(/[\s\-_]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 3 && !GENERIC.has(w));
+
+  let bestProduct: (typeof FALLBACK_PRODUCTS)[0] | null = null;
+  let bestScore = 0;
+
+  for (const p of FALLBACK_PRODUCTS) {
+    const pLower = p.name.toLowerCase();
+    const pSlug = p.slug.toLowerCase();
+    let score = 0;
+    for (const w of words) {
+      if (pLower.includes(w) || pSlug.includes(w)) {
+        score++;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestProduct = p;
+    }
+  }
+
+  if (bestProduct?.images?.[0] && bestScore > 0) {
+    return bestProduct.images[0];
+  }
+
+  return null;
+}
+
 export function resolveOrderItemImage(options: {
   designPreview?: string | null;
   orderProductImage?: string | null;
   productImagesJson?: unknown;
   productId?: string | null;
+  productName?: string | null;
 }): string {
-  // Priority:
-  // 1. Custom design preview (if item has custom artwork preview)
+  // Priority 1: Custom design preview (if item has custom artwork preview)
   if (
     options.designPreview &&
     typeof options.designPreview === "string" &&
@@ -69,27 +144,49 @@ export function resolveOrderItemImage(options: {
   ) {
     return options.designPreview.trim();
   }
-  // 2. Stored order product image snapshot (historical snapshot)
+
+  // Priority 2: Stored order product image snapshot (historical snapshot)
+  // Must NOT be a broken placeholder, numeric corrupted count, or object string
   if (
     options.orderProductImage &&
-    typeof options.orderProductImage === "string" &&
-    options.orderProductImage.trim() &&
-    !options.orderProductImage.includes("[object Object]")
+    typeof options.orderProductImage === "string"
   ) {
-    return options.orderProductImage.trim();
+    const trimmed = options.orderProductImage.trim();
+    const isCorrupted =
+      trimmed.length < 4 ||
+      trimmed.includes("[object Object]") ||
+      trimmed.endsWith("/placeholder-tee.jpg") ||
+      trimmed === "placeholder-tee.jpg" ||
+      /^\d+$/.test(trimmed);
+
+    if (!isCorrupted) {
+      return trimmed;
+    }
   }
-  // 3. Product's current primary image from products table
+
+  // Priority 3: Product's current primary image from products table (via JOIN)
   const primaryFromProduct = extractPrimaryImage(options.productImagesJson);
   if (primaryFromProduct) {
+    if (primaryFromProduct.startsWith("data:image/") && options.productId) {
+      return `/api/public/product-image?id=${encodeURIComponent(options.productId)}&idx=0`;
+    }
     return primaryFromProduct;
   }
-  // 3b. Fallback products definition
+
+  // Priority 4: Fallback products definition by ID or slug
   const fallbackFromCatalog = getFallbackProductImage(options.productId || null);
   if (fallbackFromCatalog) {
     return fallbackFromCatalog;
   }
-  // 4. Clean placeholder
-  return "/placeholder-tee.jpg";
+
+  // Priority 5: Fallback products definition by product title/name
+  const fallbackByName = getFallbackProductImageByName(options.productName || null);
+  if (fallbackByName) {
+    return fallbackByName;
+  }
+
+  // Priority 6: Clean fallback image that exists
+  return "/products/zoro-black-1.jpg";
 }
 
 export type OrderLineItem = {
@@ -194,7 +291,7 @@ export const getMyOrders = createServerFn({ method: "GET" })
           i.design_submission_id, d.preview_data_url, p.images as product_images_json
         FROM order_items i
         LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
-        LEFT JOIN products p ON i.product_id::text = p.id::text
+        LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
         WHERE i.order_id IN (
           SELECT id FROM orders
           WHERE user_id::text = ${userId}
@@ -213,6 +310,7 @@ export const getMyOrders = createServerFn({ method: "GET" })
           orderProductImage: item.product_image,
           productImagesJson: item.product_images_json,
           productId: item.product_id,
+          productName: item.product_name,
         });
 
         itemsByOrderId.get(oId)!.push({
@@ -304,28 +402,57 @@ export const placeOrder = createServerFn({ method: "POST" })
     const imageById = new Map<string, string>();
     if (productIds.length) {
       const prods = await sql`
-        SELECT id, price, images FROM products WHERE id::text = ANY(${productIds}::text[])
+        SELECT id, slug, name, price, images FROM products
+        WHERE id::text = ANY(${productIds}::text[]) OR slug::text = ANY(${productIds}::text[])
       `;
       for (const p of prods as any[]) {
         const pId = String(p.id);
+        const pSlug = p.slug ? String(p.slug) : "";
+        const pName = p.name ? String(p.name).toLowerCase().trim() : "";
         priceById.set(pId, Number(p.price || 0));
-        const primaryImg = extractPrimaryImage(p.images) || getFallbackProductImage(pId);
-        if (primaryImg) imageById.set(pId, primaryImg);
+        if (pSlug) priceById.set(pSlug, Number(p.price || 0));
+
+        let primaryImg =
+          extractPrimaryImage(p.images) ||
+          getFallbackProductImage(pId) ||
+          (pSlug ? getFallbackProductImage(pSlug) : null);
+        if (primaryImg) {
+          if (primaryImg.startsWith("data:image/")) {
+            primaryImg = `/api/public/product-image?id=${encodeURIComponent(pId)}&idx=0`;
+          }
+          imageById.set(pId, primaryImg);
+          if (pSlug) imageById.set(pSlug, primaryImg);
+          if (pName) imageById.set(`name:${pName}`, primaryImg);
+        }
       }
     }
 
     const CUSTOM_PRICE = 1499;
     const items = data.items.map((i) => {
-      const price = i.productId ? (priceById.get(i.productId) ?? CUSTOM_PRICE) : CUSTOM_PRICE;
+      const price =
+        (i.productId ? priceById.get(i.productId) : null) ??
+        (i.productName ? priceById.get(i.productName) : null) ??
+        CUSTOM_PRICE;
+
       const productPrimaryImg =
-        (i.productId ? imageById.get(i.productId) : null) || getFallbackProductImage(i.productId);
+        (i.productId ? imageById.get(i.productId) : null) ||
+        (i.productName ? imageById.get(`name:${i.productName.toLowerCase().trim()}`) : null) ||
+        getFallbackProductImage(i.productId) ||
+        getFallbackProductImageByName(i.productName);
 
       let finalSnapshot = typeof i.productImage === "string" ? i.productImage.trim() : null;
-      if (!finalSnapshot || finalSnapshot.length < 5 || finalSnapshot.includes("[object Object]")) {
+      if (
+        !finalSnapshot ||
+        finalSnapshot.length < 5 ||
+        finalSnapshot.includes("[object Object]") ||
+        finalSnapshot.endsWith("/placeholder-tee.jpg") ||
+        finalSnapshot === "placeholder-tee.jpg" ||
+        /^\d+$/.test(finalSnapshot)
+      ) {
         finalSnapshot = productPrimaryImg;
       }
       if (!finalSnapshot && !i.designSubmissionId) {
-        finalSnapshot = "/placeholder-tee.jpg";
+        finalSnapshot = productPrimaryImg || "/products/zoro-black-1.jpg";
       }
 
       return {
@@ -595,28 +722,57 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const imageById = new Map<string, string>();
     if (productIds.length) {
       const prods = await sql`
-        SELECT id, price, images FROM products WHERE id::text = ANY(${productIds}::text[])
+        SELECT id, slug, name, price, images FROM products
+        WHERE id::text = ANY(${productIds}::text[]) OR slug::text = ANY(${productIds}::text[])
       `;
       for (const p of prods as any[]) {
         const pId = String(p.id);
+        const pSlug = p.slug ? String(p.slug) : "";
+        const pName = p.name ? String(p.name).toLowerCase().trim() : "";
         priceById.set(pId, Number(p.price || 0));
-        const primaryImg = extractPrimaryImage(p.images) || getFallbackProductImage(pId);
-        if (primaryImg) imageById.set(pId, primaryImg);
+        if (pSlug) priceById.set(pSlug, Number(p.price || 0));
+
+        let primaryImg =
+          extractPrimaryImage(p.images) ||
+          getFallbackProductImage(pId) ||
+          (pSlug ? getFallbackProductImage(pSlug) : null);
+        if (primaryImg) {
+          if (primaryImg.startsWith("data:image/")) {
+            primaryImg = `/api/public/product-image?id=${encodeURIComponent(pId)}&idx=0`;
+          }
+          imageById.set(pId, primaryImg);
+          if (pSlug) imageById.set(pSlug, primaryImg);
+          if (pName) imageById.set(`name:${pName}`, primaryImg);
+        }
       }
     }
 
     const CUSTOM_PRICE = 1499;
     const items = data.items.map((i) => {
-      const price = i.productId ? (priceById.get(i.productId) ?? CUSTOM_PRICE) : CUSTOM_PRICE;
+      const price =
+        (i.productId ? priceById.get(i.productId) : null) ??
+        (i.productName ? priceById.get(i.productName) : null) ??
+        CUSTOM_PRICE;
+
       const productPrimaryImg =
-        (i.productId ? imageById.get(i.productId) : null) || getFallbackProductImage(i.productId);
+        (i.productId ? imageById.get(i.productId) : null) ||
+        (i.productName ? imageById.get(`name:${i.productName.toLowerCase().trim()}`) : null) ||
+        getFallbackProductImage(i.productId) ||
+        getFallbackProductImageByName(i.productName);
 
       let finalSnapshot = typeof i.productImage === "string" ? i.productImage.trim() : null;
-      if (!finalSnapshot || finalSnapshot.length < 5 || finalSnapshot.includes("[object Object]")) {
+      if (
+        !finalSnapshot ||
+        finalSnapshot.length < 5 ||
+        finalSnapshot.includes("[object Object]") ||
+        finalSnapshot.endsWith("/placeholder-tee.jpg") ||
+        finalSnapshot === "placeholder-tee.jpg" ||
+        /^\d+$/.test(finalSnapshot)
+      ) {
         finalSnapshot = productPrimaryImg;
       }
       if (!finalSnapshot && !i.designSubmissionId) {
-        finalSnapshot = "/placeholder-tee.jpg";
+        finalSnapshot = productPrimaryImg || "/products/zoro-black-1.jpg";
       }
 
       return {

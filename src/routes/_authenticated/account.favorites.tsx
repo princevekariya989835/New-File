@@ -71,7 +71,9 @@ function FavoritesPage() {
                   )}
                 </div>
                 <div className="mt-4 flex items-start justify-between gap-4 px-1">
-                  <h3 className="truncate text-sm font-medium">{f.product_title}</h3>
+                  <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug flex-1 text-foreground" title={f.product_title}>
+                    {f.product_title}
+                  </h3>
                   {f.product_price != null && (
                     <p className="whitespace-nowrap text-sm font-semibold">
                       {formatPrice(String(f.product_price), f.product_currency ?? "INR")}

@@ -288,6 +288,12 @@ function OrdersPage() {
                                 li.designSubmissionId ? "object-contain p-1" : "object-cover"
                               }`}
                               loading="lazy"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                if (!target.src.endsWith("/products/zoro-black-1.jpg")) {
+                                  target.src = "/products/zoro-black-1.jpg";
+                                }
+                              }}
                             />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -509,6 +515,13 @@ function OrdersPage() {
                           src={item.imageUrl}
                           alt={item.title}
                           className="h-full w-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (!target.src.endsWith("/products/zoro-black-1.jpg")) {
+                              target.src = "/products/zoro-black-1.jpg";
+                            }
+                          }}
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground">

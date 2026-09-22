@@ -24,7 +24,7 @@ function TickerLine() {
       {TICKER_ITEMS.map((item) => (
         <span
           key={item}
-          className="mx-6 inline-flex items-center gap-6 font-display text-[11px] uppercase tracking-[0.35em] text-primary-foreground/70"
+          className="mx-6 inline-flex items-center gap-6 font-display text-xs uppercase tracking-[0.3em] text-primary-foreground/80"
         >
           {item}
           <span className="inline-block size-1.5 rounded-full bg-brand" />
@@ -63,23 +63,23 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
       aria-label="RIOTOUS Streetwear Editorial Hero"
       className="relative w-full overflow-hidden bg-background font-sans select-none border-b border-border/40"
     >
-      {/* Ghost background watermark, slowly drifting behind content */}
+      {/* Ghost background watermark, positioned cleanly above text overlap */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-6 sm:top-10 flex justify-center overflow-hidden select-none"
+        className="pointer-events-none absolute inset-x-0 top-0 sm:top-2 flex justify-center overflow-hidden select-none opacity-40 dark:opacity-30"
       >
-        <span className="anim-fade-in font-display text-[26vw] uppercase leading-none italic tracking-tighter text-foreground/[0.035] dark:text-foreground/[0.06]">
+        <span className="anim-fade-in font-display text-[22vw] uppercase leading-none italic tracking-tighter text-foreground/[0.025] dark:text-foreground/[0.04]">
           RIOT
         </span>
       </div>
 
-      <div className="relative z-10 mx-auto grid max-w-[1440px] items-center gap-12 px-6 pt-10 pb-24 lg:grid-cols-12 lg:px-14 lg:pt-16 lg:pb-32">
+      <div className="relative z-10 mx-auto grid max-w-[1400px] items-center gap-12 px-6 pt-10 pb-24 lg:grid-cols-12 md:px-10 lg:pt-16 lg:pb-32">
         {/* Left column: editorial copy & CTAs */}
         <div className="lg:col-span-7">
           {/* Eyebrow badge */}
           <div className="mask-line mb-6">
             <span
-              className="anim-mask-up inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-brand"
+              className="anim-mask-up inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.25em] text-brand"
               style={{ animationDelay: "0.2s" }}
             >
               <span className="anim-ticker-pulse inline-block size-2 rounded-full bg-brand" />
@@ -88,7 +88,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
           </div>
 
           {/* Bold Editorial Headline */}
-          <h1 className="font-display uppercase leading-[0.88] tracking-tight text-foreground text-[clamp(2.75rem,7.5vw,7.5rem)]">
+          <h1 className="font-display leading-[0.92] tracking-tight text-foreground text-[clamp(2.5rem,6.8vw,6.5rem)]">
             {lines.map((line, idx) => {
               const isLast = idx === lines.length - 1;
               return (
@@ -110,20 +110,20 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
 
           {/* Subtitle / Description */}
           <p
-            className="anim-fade-up mt-8 max-w-[46ch] text-base leading-relaxed text-muted-foreground sm:text-lg"
+            className="anim-fade-up mt-8 max-w-[46ch] text-sm sm:text-base leading-relaxed text-muted-foreground"
             style={{ animationDelay: "0.75s" }}
           >
             {description}
           </p>
 
-          {/* Action buttons */}
+          {/* Action buttons with aligned baselines and clear hierarchy */}
           <div
-            className="anim-fade-up mt-10 flex flex-wrap items-center gap-5"
+            className="anim-fade-up mt-10 flex flex-wrap items-center gap-4"
             style={{ animationDelay: "0.9s" }}
           >
             <Link
               to={primaryLink}
-              className="group relative inline-flex items-center gap-3 overflow-hidden bg-foreground px-9 py-4 text-[13px] font-bold uppercase tracking-[0.14em] text-primary-foreground transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-lg"
+              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden bg-foreground px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-lg min-h-[48px]"
             >
               <span className="relative z-10 transition-colors duration-300 group-hover:text-brand-foreground">
                 {primaryCta}
@@ -135,7 +135,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
 
             <Link
               to={secondaryLink}
-              className="text-[13px] font-semibold uppercase tracking-[0.14em] text-foreground underline decoration-brand decoration-2 underline-offset-4 transition-colors hover:text-brand"
+              className="inline-flex items-center justify-center border-2 border-foreground/30 hover:border-foreground bg-transparent hover:bg-foreground/5 px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground transition-all duration-200 active:scale-[0.98] min-h-[48px]"
             >
               {secondaryCta}
             </Link>
@@ -148,19 +148,19 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
           >
             <div>
               <p className="font-display text-2xl text-foreground">24/7</p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Global dispatch
               </p>
             </div>
             <div>
               <p className="font-display text-2xl text-foreground">50+</p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Artist collabs
               </p>
             </div>
             <div>
               <p className="font-display text-2xl text-foreground">4.9</p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                 Avg rating
               </p>
             </div>
@@ -206,7 +206,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                 className="anim-float bg-background/95 backdrop-blur-sm px-4 py-3 shadow-xl ring-1 ring-border/80"
                 style={{ "--float-rotate": "-3deg" } as CSSProperties}
               >
-                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Fabric
                 </p>
                 <p className="text-xs font-bold uppercase text-foreground">
@@ -229,7 +229,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   } as CSSProperties
                 }
               >
-                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] opacity-85">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-90">
                   The Anarchy Tee
                 </p>
                 <p className="font-display text-2xl leading-none">₹999</p>
@@ -241,7 +241,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
               className="anim-fade-in absolute -bottom-3 left-4 sm:left-6 z-20"
               style={{ animationDelay: "1.3s" }}
             >
-              <div className="flex items-center gap-2 rounded-full bg-neutral-950/90 text-white px-3.5 py-1.5 backdrop-blur-md border border-white/15 shadow-xl text-[10px] font-mono tracking-wider uppercase">
+              <div className="flex items-center gap-2 rounded-full bg-neutral-950/90 text-white px-3.5 py-1.5 backdrop-blur-md border border-white/15 shadow-xl text-xs font-mono tracking-wider uppercase">
                 <img
                   src="/assets/riotous-logo.png"
                   alt="RIOTOUS"
@@ -250,7 +250,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   className="h-3 w-auto object-contain brightness-0 invert"
                 />
                 <span className="text-neutral-500">|</span>
-                <span className="font-semibold text-white/90 text-[9px] tracking-[0.18em]">
+                <span className="font-semibold text-white/90 text-xs tracking-[0.15em]">
                   ARCHIVE ED.
                 </span>
               </div>

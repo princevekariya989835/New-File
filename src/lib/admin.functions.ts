@@ -937,7 +937,7 @@ export const adminListOrders = createServerFn({ method: "POST" })
             i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
             p.images as product_images_json
           FROM order_items i
-          LEFT JOIN products p ON i.product_id::text = p.id::text
+          LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
           WHERE i.order_id::text = ANY(${orderIds}::text[])
         `;
       } catch (itemErr: any) {
@@ -962,6 +962,7 @@ export const adminListOrders = createServerFn({ method: "POST" })
           orderProductImage: item.product_image,
           productImagesJson: item.product_images_json,
           productId: item.product_id,
+          productName: item.product_name,
         });
 
         itemsByOrderId.get(oId)!.push({

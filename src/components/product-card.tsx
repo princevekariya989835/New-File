@@ -133,12 +133,12 @@ export function ProductCard({
         )}
 
         {tag && (
-          <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest backdrop-blur">
+          <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold uppercase tracking-widest backdrop-blur">
             {tag}
           </span>
         )}
         {soldOut && (
-          <span className="absolute right-4 top-4 rounded-full bg-foreground px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-background">
+          <span className="absolute right-4 top-4 rounded-full bg-foreground px-3 py-1 text-xs font-semibold uppercase tracking-widest text-background">
             Sold out
           </span>
         )}
@@ -155,9 +155,14 @@ export function ProductCard({
         </button>
       </div>
       <div className="mt-4 flex items-start justify-between gap-4 px-1">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-medium">{p.title}</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">{p.productType || <BrandName />}</p>
+        <div className="min-w-0 flex-1">
+          <h3
+            className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-foreground"
+            title={p.title}
+          >
+            {p.title}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">{p.productType || <BrandName />}</p>
         </div>
         <p className="whitespace-nowrap text-sm font-semibold">
           {formatPrice(price.amount, price.currencyCode)}

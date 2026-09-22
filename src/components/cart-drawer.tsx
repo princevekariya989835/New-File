@@ -102,8 +102,8 @@ export function CartDrawer() {
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{item.productTitle}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 text-sm font-medium leading-snug">{item.productTitle}</p>
                             <p className="truncate text-xs text-muted-foreground">
                               {item.selectedOptions.map((o) => o.value).join(" · ")}
                             </p>

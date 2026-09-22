@@ -132,9 +132,9 @@ export function WebsiteHomepageContent({
                   </div>
                   <a
                     href="/shop"
-                    className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/70 hover:text-foreground"
+                    className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
                   >
-                    View all
+                    View All
                     <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </a>
                 </div>
@@ -159,7 +159,7 @@ export function WebsiteHomepageContent({
                           className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-500 group-hover:scale-105"
                         />
                       )}
-                      <span className="relative z-10 text-[10px] font-semibold uppercase tracking-widest text-white/80">
+                      <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-white/90">
                         {c.tag}
                       </span>
                       <div className="relative z-10">
@@ -196,9 +196,9 @@ export function WebsiteHomepageContent({
                   </div>
                   <a
                     href="/shop"
-                    className="group inline-flex items-center gap-1 text-sm font-medium text-foreground/70 hover:text-foreground"
+                    className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
                   >
-                    All products
+                    View All
                     <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </a>
                 </div>
@@ -321,7 +321,7 @@ export function WebsiteHomepageContent({
                             ? "“Best custom apparel studio in India. The design canvas makes ordering effortless.”"
                             : "“Heavyweight fabric, fast dispatch, and signature box packaging. Will order again.”"}
                       </p>
-                      <p className="mt-4 text-xs text-muted-foreground uppercase tracking-wider">
+                      <p className="mt-4 text-xs font-medium text-muted-foreground">
                         {i === 0
                           ? "Aryan S. · Verified Buyer"
                           : i === 1

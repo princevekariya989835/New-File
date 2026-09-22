@@ -283,11 +283,11 @@ const _mockOrderItems: any[] = [
   {
     id: "item_1001",
     order_id: "ord_1001",
-    product_id: "prod_1",
-    variant_id: "var_1_l_black",
+    product_id: "prod-acid-wash-tee",
+    variant_id: "var-awvt-blk-l",
     design_submission_id: null,
     product_name: "Acid Wash Oversized Tee",
-    product_image: "/placeholder-tee.jpg",
+    product_image: "/products/zoro-olive-1.jpg",
     quantity: 1,
     price: 1499,
     selected_size: "L",
@@ -298,11 +298,11 @@ const _mockOrderItems: any[] = [
   {
     id: "item_1002",
     order_id: "ord_1002",
-    product_id: "prod_2",
-    variant_id: "var_2_m_black",
+    product_id: "prod-cyberpunk-tee",
+    variant_id: "var-cpgt-blk-m",
     design_submission_id: null,
     product_name: "Cyberpunk Graphic Tee",
-    product_image: "/placeholder-tee.jpg",
+    product_image: "/products/zoro-black-1.jpg",
     quantity: 1,
     price: 1299,
     selected_size: "M",
@@ -313,11 +313,11 @@ const _mockOrderItems: any[] = [
   {
     id: "item_1003",
     order_id: "ord_1003",
-    product_id: "prod_3",
-    variant_id: "var_3_xl_white",
+    product_id: "prod-anime-heavyweight-tee",
+    variant_id: "var-aahw-mrn-xl",
     design_submission_id: null,
     product_name: "Heavyweight Boxy Tee",
-    product_image: "/placeholder-tee.jpg",
+    product_image: "/products/zenitsu-maroon-1.jpg",
     quantity: 1,
     price: 1799,
     selected_size: "XL",
@@ -328,11 +328,11 @@ const _mockOrderItems: any[] = [
   {
     id: "item_1004",
     order_id: "ord_1004",
-    product_id: "prod_4",
-    variant_id: "var_4_s_grey",
+    product_id: "prod-oversized-black-tee",
+    variant_id: "var-obts-blk-s",
     design_submission_id: null,
     product_name: "Distressed Street Tee",
-    product_image: "/placeholder-tee.jpg",
+    product_image: "/products/zoro-black-2.jpg",
     quantity: 1,
     price: 1399,
     selected_size: "S",
@@ -1014,19 +1014,63 @@ export function getSql() {
       // INSERT INTO order_items
       if (lower.startsWith("insert into order_items") || lower.includes("insert into order_items")) {
         const itemId = values[0] ? String(values[0]) : `item_${Date.now()}`;
+        const hasVariantId = lower.includes("variant_id");
+        const hasDesignSub = lower.includes("design_submission_id");
+
+        let order_id = values[1] ? String(values[1]) : "";
+        let product_id = values[2] ? String(values[2]) : null;
+        let variant_id: string | null = null;
+        let design_submission_id: string | null = null;
+        let product_name = "Item";
+        let product_image: string | null = null;
+        let quantity = 1;
+        let price = 0;
+        let selected_size: string | null = null;
+        let selected_color: string | null = null;
+        let subtotal = 0;
+
+        if (hasDesignSub && !hasVariantId) {
+          // Structure: id, order_id, product_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
+          design_submission_id = values[3] ? String(values[3]) : null;
+          product_name = values[4] ? String(values[4]) : "Item";
+          product_image = values[5] ? String(values[5]) : null;
+          quantity = Number(values[6] || 1);
+          price = Number(values[7] || 0);
+          selected_size = values[8] ? String(values[8]) : null;
+          selected_color = values[9] ? String(values[9]) : null;
+          subtotal = Number(values[10] || 0);
+        } else if (hasVariantId && hasDesignSub) {
+          // Structure: id, order_id, product_id, variant_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
+          variant_id = values[3] ? String(values[3]) : null;
+          design_submission_id = values[4] ? String(values[4]) : null;
+          product_name = values[5] ? String(values[5]) : "Item";
+          product_image = values[6] ? String(values[6]) : null;
+          quantity = Number(values[7] || 1);
+          price = Number(values[8] || 0);
+          selected_size = values[9] ? String(values[9]) : null;
+          selected_color = values[10] ? String(values[10]) : null;
+          subtotal = Number(values[11] || 0);
+        } else {
+          product_name = values[3] ? String(values[3]) : "Item";
+          product_image = values[4] ? String(values[4]) : null;
+          quantity = Number(values[5] || 1);
+          price = Number(values[6] || 0);
+          subtotal = Number(values[7] || 0);
+        }
+
         const newItem = {
           id: itemId,
-          order_id: values[1] ? String(values[1]) : "",
-          product_id: values[2] ? String(values[2]) : null,
-          variant_id: values[3] ? String(values[3]) : null,
-          design_submission_id: values[4] ? String(values[4]) : null,
-          product_name: values[5] ? String(values[5]) : "Item",
-          product_image: values[6] ? String(values[6]) : null,
-          quantity: Number(values[7] || 1),
-          price: Number(values[8] || 0),
-          selected_size: values[9] ? String(values[9]) : null,
-          selected_color: values[10] ? String(values[10]) : null,
-          subtotal: Number(values[11] || 0),
+          order_id,
+          product_id,
+          variant_id,
+          design_submission_id,
+          product_name,
+          product_image,
+          quantity,
+          price,
+          selected_size,
+          selected_color,
+          subtotal,
           created_at: new Date().toISOString(),
         };
         _mockOrderItems.push(newItem);
@@ -2153,7 +2197,10 @@ export async function ensureDbSchema() {
         `ALTER TABLE orders ALTER COLUMN shipping_pincode DROP NOT NULL`,
         `ALTER TABLE order_items ALTER COLUMN unit_price DROP NOT NULL`,
         `ALTER TABLE order_items ALTER COLUMN total_price DROP NOT NULL`,
-        `ALTER TABLE order_items ALTER COLUMN product_name DROP NOT NULL`,
+        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_image TEXT`,
+        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS design_submission_id TEXT`,
+        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_size TEXT`,
+        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_color TEXT`,
         `ALTER TABLE order_items ALTER COLUMN product_image TYPE TEXT`,
         `ALTER TABLE order_items ALTER COLUMN product_name TYPE TEXT`,
         `ALTER TABLE order_items ALTER COLUMN size TYPE TEXT`,
@@ -2230,7 +2277,12 @@ export async function ensureDbSchema() {
         `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
         `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
         `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
-        `UPDATE order_items i SET product_image = p.images->>0 FROM products p WHERE p.id::text = i.product_id::text AND (i.product_image IS NULL OR i.product_image = '') AND jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0`,
+        `UPDATE order_items i SET product_image = COALESCE(NULLIF(p.images->>0, ''), '/products/zoro-black-1.jpg') FROM products p WHERE (p.id::text = i.product_id::text OR p.slug::text = i.product_id::text OR LOWER(p.name) = LOWER(i.product_name)) AND (i.product_image IS NULL OR i.product_image = '' OR i.product_image = '/placeholder-tee.jpg' OR i.product_image ~ '^[0-9]+$')`,
+        `UPDATE order_items SET product_image = '/products/zoro-olive-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%acid%' OR product_id = 'prod_1' OR product_id = 'prod-acid-wash-tee')`,
+        `UPDATE order_items SET product_image = '/products/zoro-black-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%cyberpunk%' OR product_id = 'prod_2' OR product_id = 'prod-cyberpunk-tee')`,
+        `UPDATE order_items SET product_image = '/products/zenitsu-maroon-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%heavyweight%' OR LOWER(product_name) LIKE '%anime%' OR product_id = 'prod_3' OR product_id = 'prod-anime-heavyweight-tee')`,
+        `UPDATE order_items SET product_image = '/products/zoro-black-2.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%distressed%' OR LOWER(product_name) LIKE '%oversized%' OR product_id = 'prod_4' OR product_id = 'prod-oversized-black-tee')`,
+        `UPDATE order_items SET product_image = '/products/zoro-black-1.jpg' WHERE product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$'`,
       ];
 
       // Execute schema statements in concurrent chunks
