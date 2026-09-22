@@ -56,7 +56,7 @@
   --radius-4xl: calc(var(--radius) + 16px);
 
   --font-sans: "Inter", system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
-  --font-display: "Inter", system-ui, -apple-system, "SF Pro Display", sans-serif;
+  --font-display: "Archivo Black", sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -91,12 +91,19 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
   --color-brand-red: var(--brand-red);
 }
 
 :root {
   --radius: 0.875rem;
   --brand-red: #f00b11;
+  --brand: #f00b11;
+  --brand-foreground: #ffffff;
+  --brand-soft: oklch(0.95 0.03 27);
+  --font-display: "Archivo Black", sans-serif;
 
   /* Apple-inspired neutrals */
   --background: oklch(1 0 0);
@@ -170,6 +177,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.68 0.22 258);
+  --brand: #f00b11;
+  --brand-foreground: #ffffff;
+  --brand-soft: oklch(0.25 0.05 27);
 }
 
 @layer base {
@@ -263,7 +273,87 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
+  .animate-marquee,
+  .anim-marquee {
     animation: none !important;
   }
 }
+
+/* ── RIOTOUS streetwear hero animation system ── */
+
+@keyframes riot-mask-up {
+  from { transform: translateY(112%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes riot-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes riot-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes riot-image-settle {
+  from { opacity: 0; transform: scale(1.08) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes riot-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes riot-float {
+  0%, 100% { transform: translateY(0) rotate(var(--float-rotate, 0deg)); }
+  50% { transform: translateY(-14px) rotate(var(--float-rotate, 0deg)); }
+}
+
+@keyframes riot-sheen {
+  0% { transform: translateX(-130%) skewX(-18deg); }
+  55%, 100% { transform: translateX(230%) skewX(-18deg); }
+}
+
+@keyframes riot-ticker-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.6; }
+}
+
+@layer utilities {
+  .anim-mask-up {
+    display: block;
+    transform: translateY(112%);
+    animation: riot-mask-up 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-fade-up {
+    opacity: 0;
+    animation: riot-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-fade-in {
+    opacity: 0;
+    animation: riot-fade-in 1s ease-out forwards;
+  }
+  .anim-image-settle {
+    opacity: 0;
+    animation: riot-image-settle 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .anim-marquee {
+    animation: riot-marquee 24s linear infinite;
+  }
+  .anim-float {
+    animation: riot-float 6s ease-in-out infinite;
+  }
+  .anim-sheen {
+    animation: riot-sheen 4.5s ease-in-out infinite;
+  }
+  .anim-ticker-pulse {
+    animation: riot-ticker-pulse 1.6s ease-in-out infinite;
+  }
+  .mask-line {
+    display: block;
+    overflow: hidden;
+  }
+}
+
