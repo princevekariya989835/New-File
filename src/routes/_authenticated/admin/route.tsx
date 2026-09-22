@@ -7,13 +7,12 @@ import {
 } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { getAdminNotifications } from "@/lib/admin-dashboard.functions";
-import { AdminLayoutSkeleton } from "@/components/admin/admin-skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,8 +52,43 @@ import {
   Activity,
 } from "lucide-react";
 
+function AdminPendingShell() {
+  return (
+    <div className="min-h-screen pt-16 md:pt-20">
+      <div className="mx-auto flex max-w-[1600px]">
+        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] w-60 shrink-0 border-r bg-card/40 md:block p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <ShieldCheck className="h-4 w-4 text-brand-red" /> Admin
+          </div>
+          <nav className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
+            <div className="rounded-lg bg-brand-red text-white font-semibold px-3 py-2">Dashboard</div>
+            <div className="px-3 py-2">Orders</div>
+            <div className="px-3 py-2">Products</div>
+            <div className="px-3 py-2">Inventory</div>
+          </nav>
+        </aside>
+        <div className="min-w-0 flex-1">
+          <div className="sticky top-16 z-40 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur md:top-20">
+            <span className="text-sm font-semibold text-foreground">Store Management Console</span>
+            <div className="h-8 w-8 rounded-full bg-brand-red/80 text-xs font-bold text-white flex items-center justify-center">
+              A
+            </div>
+          </div>
+          <main className="px-4 py-6 md:px-6">
+            <div className="rounded-2xl border border-border/60 bg-card p-6">
+              <h1 className="text-2xl font-bold tracking-tight">Admin Console</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Connecting to management console…</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
+  pendingComponent: AdminPendingShell,
   head: () => ({
     meta: [
       { title: "Store Admin Dashboard | RIOTOUS Management Console" },
@@ -137,35 +171,12 @@ function AdminLayout() {
     navigate({ to: "/auth", replace: true });
   }
 
-  if (roleQ.isLoading && !isExplicitAdmin) {
-    return <AdminLayoutSkeleton />;
-  }
-  if (roleQ.isError && !isExplicitAdmin) {
-    return (
-      <div className="container py-32 text-center">
-        <h1 className="text-3xl font-bold">Could not verify access</h1>
-        <p className="mt-2 text-muted-foreground">
-          Your administrator access could not be checked. Please try again.
-        </p>
-        <Button className="mt-6" onClick={() => roleQ.refetch()}>
-          Try again
-        </Button>
-      </div>
-    );
-  }
-  if (roleQ.data === false && !isExplicitAdmin) {
-    return (
-      <div className="container py-32 text-center">
-        <h1 className="text-3xl font-bold">Access denied</h1>
-        <p className="mt-2 text-muted-foreground">
-          You must be an administrator to view this area.
-        </p>
-        <Button asChild className="mt-6">
-          <Link to="/">Back to store</Link>
-        </Button>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (roleQ.data === false && !isExplicitAdmin) {
+      toast.error("Access denied: administrator privileges required");
+      navigate({ to: "/", replace: true });
+    }
+  }, [roleQ.data, isExplicitAdmin, navigate]);
 
   const notifications = notifQ.data ?? [];
 
@@ -340,7 +351,34 @@ function AdminLayout() {
           </div>
 
           <main className="px-4 py-6 md:px-6">
-            <Outlet />
+            {roleQ.data === false && !isExplicitAdmin ? (
+              <div className="container py-32 text-center">
+                <h1 className="text-3xl font-bold">Access denied</h1>
+                <p className="mt-2 text-muted-foreground">
+                  You must be an administrator to view this area.
+                </p>
+                <Button asChild className="mt-6">
+                  <Link to="/">Back to store</Link>
+                </Button>
+              </div>
+            ) : roleQ.isError && !isExplicitAdmin ? (
+              <div className="container py-32 text-center">
+                <h1 className="text-3xl font-bold">Could not verify access</h1>
+                <p className="mt-2 text-muted-foreground">
+                  Your administrator access could not be checked. Please try again.
+                </p>
+                <Button className="mt-6" onClick={() => roleQ.refetch()}>
+                  Try again
+                </Button>
+              </div>
+            ) : roleQ.isLoading && !isExplicitAdmin ? (
+              <div className="rounded-2xl border border-border/60 bg-card p-8">
+                <h2 className="text-lg font-semibold text-foreground">Verifying administrator credentials…</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Securing administrative console.</p>
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </main>
         </div>
       </div>

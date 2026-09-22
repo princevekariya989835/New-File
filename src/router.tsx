@@ -6,10 +6,10 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 1000 * 15, // 15s query cache allows instant navigation while catching admin changes quickly
+        staleTime: 1000 * 60 * 5, // 5m default for mostly-static storefront data (instant admin sync handles invalidations)
         gcTime: 1000 * 60 * 30, // 30m garbage collection retention
-        refetchOnWindowFocus: true, // Auto-revalidates when user refocuses tab so all users see admin updates immediately
-        refetchOnMount: true, // Auto-revalidates when mounting if stale
+        refetchOnWindowFocus: false, // Prevents aggressive refetch storms on tab focus
+        refetchOnMount: true, // Revalidates on mount only if staleTime has elapsed
         retry: 1,
       },
     },

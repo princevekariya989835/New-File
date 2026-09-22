@@ -375,83 +375,77 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
 
     return rows.map((r) => toCatalogProduct(r, true));
   } catch (err) {
-    console.warn("[getPublishedProducts] Correlated query fallback:", err);
-    const products = await sql`
-      SELECT id, name, slug, price, currency,
-        CASE 
-          WHEN jsonb_typeof(images) = 'array' AND jsonb_array_length(images) > 0 THEN jsonb_build_array(images->0)
-          ELSE '[]'::jsonb 
-        END AS images,
-        category, sizes, colors, stock_quantity, is_active, tags, updated_at
-      FROM products
-      WHERE is_active = true OR is_active IS NULL
-      ORDER BY name ASC, id ASC
-      LIMIT ${first}
+    console.warn("[getPublishedProducts] Correlated query fallback using single JOIN:", err);
+    // Single query using LEFT JOIN to guarantee 1 roundtrip even in fallback
+    const rowsJoined = await sql`
+      SELECT 
+        p.id, p.name, p.slug, p.price, p.currency,
+        p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        v.id AS variant_id, v.size AS variant_size, v.color AS variant_color,
+        v.stock_quantity AS variant_stock_quantity, v.reserved_stock AS variant_reserved_stock,
+        v.low_stock_threshold AS variant_low_stock_threshold
+      FROM (
+        SELECT * FROM products
+        WHERE is_active = true OR is_active IS NULL
+        ORDER BY name ASC, id ASC
+        LIMIT ${first}
+      ) p
+      LEFT JOIN product_variants v ON v.product_id::text = p.id::text
+      ORDER BY p.name ASC, p.id ASC
     `;
 
-    if (!products || products.length === 0) {
+    if (!rowsJoined || rowsJoined.length === 0) {
       return [];
     }
 
-    const productIds = products.map((p: any) => String(p.id));
-    let variants: any[] = [];
-    if (productIds.length > 0) {
-      try {
-        variants = await sql`
-          SELECT id, product_id, size, color, stock_quantity, reserved_stock, low_stock_threshold
-          FROM product_variants
-          WHERE product_id::text = ANY(${productIds}::text[])
-        `;
-      } catch {
-        variants = [];
+    const productMap = new Map<string, ProductRow>();
+    for (const row of rowsJoined) {
+      const pId = String(row.id);
+      if (!productMap.has(pId)) {
+        productMap.set(pId, {
+          id: pId,
+          name: row.name as string,
+          slug: row.slug as string,
+          description: null,
+          price: Number(row.price || 0),
+          currency: (row.currency as string) || "INR",
+          images: Array.isArray(row.images)
+            ? row.images
+            : typeof row.images === "string"
+              ? JSON.parse(row.images)
+              : [],
+          category: (row.category as string) || null,
+          sizes: Array.isArray(row.sizes)
+            ? row.sizes
+            : typeof row.sizes === "string"
+              ? JSON.parse(row.sizes)
+              : [],
+          colors: Array.isArray(row.colors)
+            ? row.colors
+            : typeof row.colors === "string"
+              ? JSON.parse(row.colors)
+              : [],
+          stock_quantity: Number(row.stock_quantity || 0),
+          is_active: Boolean(row.is_active),
+          tags: Array.isArray(row.tags) ? row.tags : typeof row.tags === "string" ? JSON.parse(row.tags) : [],
+          updated_at: row.updated_at,
+          product_variants: [],
+        });
+      }
+
+      if (row.variant_id) {
+        productMap.get(pId)!.product_variants!.push({
+          id: String(row.variant_id),
+          size: (row.variant_size as string) || "",
+          color: (row.variant_color as string) || "",
+          stock_quantity: Number(row.variant_stock_quantity || 0),
+          reserved_stock: Number(row.variant_reserved_stock || 0),
+          low_stock_threshold: Number(row.variant_low_stock_threshold || 2),
+        });
       }
     }
 
-    const variantsByProductId = new Map<string, VariantRow[]>();
-    for (const v of variants) {
-      const pId = String(v.product_id);
-      if (!variantsByProductId.has(pId)) variantsByProductId.set(pId, []);
-      variantsByProductId.get(pId)!.push({
-        id: String(v.id),
-        size: (v.size as string) || "",
-        color: (v.color as string) || "",
-        stock_quantity: Number(v.stock_quantity || 0),
-        reserved_stock: Number(v.reserved_stock || 0),
-        low_stock_threshold: Number(v.low_stock_threshold || 2),
-      });
-    }
-
-    const rows: ProductRow[] = products.map((p: any) => ({
-      id: String(p.id),
-      name: p.name as string,
-      slug: p.slug as string,
-      description: null,
-      price: Number(p.price || 0),
-      currency: (p.currency as string) || "INR",
-      images: Array.isArray(p.images)
-        ? p.images
-        : typeof p.images === "string"
-          ? JSON.parse(p.images)
-          : [],
-      category: (p.category as string) || null,
-      sizes: Array.isArray(p.sizes)
-        ? p.sizes
-        : typeof p.sizes === "string"
-          ? JSON.parse(p.sizes)
-          : [],
-      colors: Array.isArray(p.colors)
-        ? p.colors
-        : typeof p.colors === "string"
-          ? JSON.parse(p.colors)
-          : [],
-      stock_quantity: Number(p.stock_quantity || 0),
-      is_active: Boolean(p.is_active),
-      tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
-      updated_at: p.updated_at,
-      product_variants: variantsByProductId.get(String(p.id)) || [],
-    }));
-
-    return rows.map((r) => toCatalogProduct(r, true));
+    return Array.from(productMap.values()).map((r) => toCatalogProduct(r, true));
   }
 }
 
