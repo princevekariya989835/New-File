@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/product-image")({
           if (cacheKey) {
             const cached = getCachedImage(cacheKey);
             if (cached) {
-              return new Response(cached.bytes, {
+              return new Response(cached.bytes as unknown as BodyInit, {
                 status: 200,
                 headers: {
                   "Content-Type": cached.contentType,
@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/public/product-image")({
               setCachedImage(cacheKey, { bytes, contentType });
             }
 
-            return new Response(bytes, {
+            return new Response(bytes as unknown as BodyInit, {
               status: 200,
               headers: {
                 "Content-Type": contentType,

@@ -22,6 +22,7 @@ export interface ProductRow {
   stock_quantity: number;
   is_active: boolean;
   tags: string[];
+  updated_at?: string;
   product_variants?: VariantRow[];
 }
 

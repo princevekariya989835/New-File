@@ -201,7 +201,6 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
 
-    const range = data?.dateRange || "Last 30 Days";
     const now = new Date();
     let startD = new Date();
     let endD = new Date(now);
@@ -236,7 +235,7 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
 
     // Default fallback mock analytics if DB query fails or is empty
     try {
-      const [ordersRows, itemsRows, profilesRows, returnsRows, reviewsRows, campaignsRows] = await Promise.all([
+      const [ordersRows, itemsRows, productsRows, profilesRows, returnsRows, reviewsRows, campaignsRows] = await Promise.all([
         sql`
           SELECT id, order_number, total_amount, discount_amount, status, payment_status, user_id, shipping_email, shipping_name, created_at
           FROM orders
@@ -246,6 +245,10 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
           SELECT oi.id, oi.order_id, oi.product_id, oi.product_name, oi.quantity, oi.price, oi.subtotal, oi.selected_size, oi.selected_color, oi.product_image
           FROM order_items oi
           JOIN orders o ON oi.order_id::text = o.id::text
+        `,
+        sql`
+          SELECT id, name, price, stock_quantity, reserved_stock, low_stock_threshold, category
+          FROM products
         `,
         sql`
           SELECT id, email, full_name, created_at
@@ -264,6 +267,11 @@ export const adminGetAnalytics = createServerFn({ method: "POST" })
           FROM campaigns
         `,
       ]);
+
+      const filteredReturns = returnsRows.filter((r: any) => {
+        const d = new Date(r.created_at);
+        return d >= startD && d <= endD;
+      });
 
       // Filter by date range for orders
       const filteredOrders = ordersRows.filter((o: any) => {
