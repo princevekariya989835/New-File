@@ -201,7 +201,11 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                         ) : (
                           <Link
                             to={target}
-                            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                            className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                            activeProps={{
+                              className:
+                                "text-foreground font-semibold after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-red after:rounded-full",
+                            }}
                           >
                             {l.label}
                           </Link>
@@ -317,7 +321,11 @@ function FooterCol({
           <li key={i}>
             <Link
               to={l.to}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              activeProps={{
+                className:
+                  "text-foreground font-semibold after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-red after:rounded-full",
+              }}
             >
               {l.label}
             </Link>
