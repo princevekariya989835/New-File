@@ -174,10 +174,7 @@ function ShopPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
-      <div className="mb-12 max-w-3xl">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-          {filterLbl}
-        </p>
+      <div className="mb-10 max-w-3xl">
         <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">
           {q.trim() ? `Search: "${q.trim()}"` : pageTitle}
         </h1>
@@ -192,7 +189,7 @@ function ShopPage() {
             <button
               type="button"
               onClick={() => handleQueryChange("")}
-              className="text-brand-red underline hover:opacity-80"
+              className="text-brand-red underline hover:opacity-80 cursor-pointer"
             >
               Clear filter
             </button>
@@ -201,61 +198,64 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="-mx-6 mb-8 border-b border-border bg-background/95 px-6 py-4 backdrop-blur-xl md:-mx-10 md:px-10 shadow-sm">
-          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-[240px] max-w-md">
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={q}
-                  onChange={(e) => handleQueryChange(e.target.value)}
-                  placeholder="Search products by keyword…"
-                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
-                />
-                {q && (
-                  <button
-                    type="button"
-                    onClick={() => handleQueryChange("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
-                {filtered.length} item{filtered.length !== 1 && "s"}
-              </p>
+        <div className="sticky top-16 md:top-20 z-30 mb-8 border-b border-border bg-background/95 py-4 backdrop-blur-xl shadow-xs transition-all">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+            {filterLbl}
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="relative w-full max-w-sm sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                placeholder="Search products by keyword…"
+                className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
+              />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => handleQueryChange("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {sizes.length > 0 && (
-                <Select value={size} onValueChange={setSize}>
-                  <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
-                    <SelectValue placeholder="Size" />
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">
+                {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+              </span>
+              <div className="flex items-center gap-2">
+                {sizes.length > 0 && (
+                  <Select value={size} onValueChange={setSize}>
+                    <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
+                      <SelectValue placeholder="Size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sizes</SelectItem>
+                      {sizes.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Select value={sort} onValueChange={setSort}>
+                  <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All sizes</SelectItem>
-                    {sizes.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="featured">Featured</SelectItem>
+                    <SelectItem value="title">A → Z</SelectItem>
+                    <SelectItem value="price-asc">Price: Low to High</SelectItem>
+                    <SelectItem value="price-desc">Price: High to Low</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-              <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="featured">Featured</SelectItem>
-                  <SelectItem value="title">A → Z</SelectItem>
-                  <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                  <SelectItem value="price-desc">Price: High to Low</SelectItem>
-                </SelectContent>
-              </Select>
+              </div>
             </div>
           </div>
         </div>

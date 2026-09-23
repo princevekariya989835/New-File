@@ -155,12 +155,12 @@ export function ProductCard({
         </button>
       </div>
       <div className="mt-3.5 flex flex-col px-1">
-        <h3
+        <h2
           className="line-clamp-2 min-h-[2.6rem] text-sm font-medium leading-snug text-foreground"
           title={p.title}
         >
           {p.title}
-        </h3>
+        </h2>
         <p className="mt-1 truncate text-xs text-muted-foreground">{p.productType || <BrandName />}</p>
         <p className="mt-1.5 whitespace-nowrap text-sm font-semibold text-foreground">
           {formatPrice(price.amount, price.currencyCode)}

@@ -106,7 +106,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
               <span className="text-muted-foreground font-semibold">{displaySubheading}</span>
             </h3>
             {tagline ? (
-              <p className="mt-3.5 max-w-md text-sm text-muted-foreground leading-relaxed">
+              <p className="mt-2.5 max-w-md text-sm text-muted-foreground leading-relaxed">
                 {tagline}
               </p>
             ) : null}
@@ -120,7 +120,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   setEmail("");
                 }
               }}
-              className="mt-6 flex w-full max-w-md items-center gap-2.5"
+              className="mt-3.5 flex w-full max-w-md items-center gap-2.5"
             >
               <input
                 type="email"
