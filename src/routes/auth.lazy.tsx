@@ -26,7 +26,7 @@ export function AuthPage() {
     verifyAndResetPassword,
   } = useAuth();
 
-  const [mode, setMode] = useState<AuthMode>(search?.mode === "signin" ? "signin" : "signup");
+  const [mode, setMode] = useState<AuthMode>(search?.mode === "signup" ? "signup" : "signin");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
