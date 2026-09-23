@@ -548,7 +548,7 @@ export function AdminStorefrontManagement() {
                 <Input
                   id="hero-badge"
                   value={editorConfig.hero.badge || ""}
-                  placeholder="NEW COLLECTION 2026"
+                  placeholder="New Collection 2026"
                   onChange={(e) =>
                     setEditorConfig({
                       ...editorConfig,
@@ -563,7 +563,7 @@ export function AdminStorefrontManagement() {
                 <Input
                   id="hero-heading"
                   value={editorConfig.hero.heading || ""}
-                  placeholder="WEAR YOUR ATTITUDE."
+                  placeholder="Wear Your Attitude."
                   onChange={(e) =>
                     setEditorConfig({
                       ...editorConfig,

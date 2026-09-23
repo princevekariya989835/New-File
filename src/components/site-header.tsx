@@ -316,7 +316,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/orders"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
                   >
                     <Package className="h-5 w-5 text-brand-red" />
                     My orders
@@ -324,7 +324,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/favorites"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
                   >
                     <Heart className="h-5 w-5 text-brand-red" />
                     Favorites
@@ -332,7 +332,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/reviews"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
                   >
                     <Star className="h-5 w-5 text-brand-red" />
                     My reviews
@@ -340,7 +340,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/returns"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
                   >
                     <RotateCcw className="h-5 w-5 text-brand-red" />
                     Returns & support
@@ -349,7 +349,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                     <Link
                       to="/admin"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
                     >
                       <ShieldCheck className="h-5 w-5 text-brand-red" />
                       Admin panel
@@ -370,7 +370,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                 <Link
                   to="/auth"
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full py-3.5 px-4 rounded-xl bg-brand-red text-white font-semibold shadow-lg hover:bg-brand-red/90 transition-colors text-lg"
+                  className="flex items-center justify-center gap-2 w-full py-3.5 px-4 rounded-xl bg-brand-red text-white font-semibold shadow-lg hover:bg-brand-red/90 transition-colors text-base"
                 >
                   <User className="h-5 w-5" />
                   Sign In / Register

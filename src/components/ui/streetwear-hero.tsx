@@ -39,7 +39,13 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
     return null;
   }
 
-  const eyebrow = hero?.badge || "New Season Drop — Live Now";
+  const rawEyebrow = hero?.badge || "New Season Drop — Live Now";
+  const eyebrow =
+    rawEyebrow === rawEyebrow.toUpperCase() && rawEyebrow.length > 10
+      ? rawEyebrow
+          .toLowerCase()
+          .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase())
+      : rawEyebrow;
   const rawHeading = hero?.heading?.trim() || "Wear the\nChaos.";
   const description =
     hero?.description ||
@@ -207,7 +213,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                 className="anim-float rounded-xl bg-background/95 backdrop-blur-md px-4 py-2.5 shadow-xl ring-1 ring-border/80"
                 style={{ "--float-rotate": "-3deg" } as CSSProperties}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Fabric
                 </p>
                 <p className="text-xs font-bold text-foreground">
@@ -230,10 +236,10 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   } as CSSProperties
                 }
               >
-                <p className="text-[11px] font-semibold tracking-[0.15em] opacity-80">
+                <p className="text-xs font-semibold tracking-[0.15em] opacity-80">
                   The Anarchy Tee
                 </p>
-                <p className="font-display text-lg leading-tight text-brand">₹999</p>
+                <p className="font-display text-xl leading-tight text-brand">₹999</p>
               </div>
             </div>
 
@@ -251,7 +257,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   className="h-3 w-auto object-contain brightness-0 invert"
                 />
                 <span className="opacity-40">|</span>
-                <span className="font-semibold text-white text-[11px] tracking-[0.15em]">
+                <span className="font-semibold text-white text-xs tracking-[0.15em]">
                   Archive Ed.
                 </span>
               </div>
