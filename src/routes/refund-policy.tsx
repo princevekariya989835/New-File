@@ -29,7 +29,7 @@ function RefundPolicyPage() {
         <p className="mt-2 text-sm text-muted-foreground">Last updated: September 1, 2026</p>
       </div>
 
-      <div className="prose prose-neutral max-w-none space-y-6 text-foreground/90">
+      <div className="prose prose-neutral max-w-none space-y-6 text-foreground">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">1. Return Window</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">

@@ -77,22 +77,41 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
     (config as any)?.general?.tagline ||
     "RIOTOUS creates heavyweight, DTF-printed streetwear made in India. Built for creators, artists, and culture shifters.";
 
+  // Normalize long all-caps headings to title case (Issue 5)
+  const rawHeading = footer?.heading || "Wear the print.";
+  const displayHeading =
+    rawHeading === rawHeading.toUpperCase() && rawHeading.length > 15
+      ? rawHeading
+          .toLowerCase()
+          .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase())
+      : rawHeading;
+
+  const rawSubheading = footer?.subheading || "Not the trend.";
+  const displaySubheading =
+    rawSubheading === rawSubheading.toUpperCase() && rawSubheading.length > 15
+      ? rawSubheading
+          .toLowerCase()
+          .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase())
+      : rawSubheading;
+
   return (
     <footer className="border-t border-border bg-background">
       <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-10">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
-            <h3 className="text-4xl font-semibold tracking-tight md:text-5xl">
-              {footer?.heading || "Wear the print."}
+            {/* Scaled footer heading - clearly subordinate to hero H1 (Issue 2) */}
+            <h3 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
+              {displayHeading}
               <br />
-              {footer?.subheading || "Not the trend."}
+              <span className="text-muted-foreground font-semibold">{displaySubheading}</span>
             </h3>
             {tagline ? (
-              <p className="mt-4 max-w-md text-sm text-muted-foreground leading-relaxed">
+              <p className="mt-3.5 max-w-md text-sm text-muted-foreground leading-relaxed">
                 {tagline}
               </p>
             ) : null}
 
+            {/* Prominent newsletter signup with unified pill button (Issue 2, 4) */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -101,7 +120,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   setEmail("");
                 }
               }}
-              className="mt-8 flex max-w-md items-center rounded-xl border border-border bg-secondary/50 p-1.5 transition-colors focus-within:border-foreground/40 shadow-xs"
+              className="mt-6 flex max-w-md items-center rounded-full border-2 border-border/80 bg-secondary/80 p-1.5 transition-all focus-within:border-foreground/60 focus-within:ring-2 focus-within:ring-foreground/10 shadow-sm"
             >
               <input
                 type="email"
@@ -110,12 +129,12 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email for exclusive drops"
                 suppressHydrationWarning
-                className="h-10 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
+                className="h-11 flex-1 bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground text-foreground"
               />
               <button
                 type="submit"
                 suppressHydrationWarning
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-foreground px-5 text-xs font-bold uppercase tracking-wider text-background transition-all hover:bg-brand hover:text-white active:scale-95 cursor-pointer shadow-xs"
+                className="inline-flex h-11 min-h-[44px] items-center justify-center rounded-full bg-foreground px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm"
               >
                 Join
               </button>
@@ -175,14 +194,14 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                             href={target}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                           >
                             {l.label}
                           </a>
                         ) : (
                           <Link
                             to={target}
-                            className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+                            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                           >
                             {l.label}
                           </Link>
@@ -298,7 +317,7 @@ function FooterCol({
           <li key={i}>
             <Link
               to={l.to}
-              className="text-sm text-foreground/80 transition-colors hover:text-foreground"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {l.label}
             </Link>

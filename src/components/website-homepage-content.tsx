@@ -98,18 +98,25 @@ function FeaturedProductsSection({
       key="sec-featured"
       className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
     >
-      <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-8 md:mb-10 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">
+          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
             {featuredProducts.title || "Featured."}
           </h2>
           {featuredProducts.subtitle && (
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               {featuredProducts.subtitle}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <a
+            href="/shop"
+            className="group inline-flex h-9 items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span>View All</span>
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </a>
           {count > 4 && (
             <div className="flex items-center gap-2">
               <button
@@ -117,7 +124,7 @@ function FeaturedProductsSection({
                 onClick={() => scroll("left")}
                 disabled={!canScrollLeft}
                 aria-label="Previous products"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -126,19 +133,12 @@ function FeaturedProductsSection({
                 onClick={() => scroll("right")}
                 disabled={!canScrollRight}
                 aria-label="Next products"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           )}
-          <a
-            href="/shop"
-            className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            View All
-            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </a>
         </div>
       </div>
 
@@ -298,7 +298,7 @@ export function WebsiteHomepageContent({
                           />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
-                        <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-white/90">
+                        <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-white">
                           {c.tag}
                         </span>
                         <div className="relative z-10">
@@ -332,22 +332,22 @@ export function WebsiteHomepageContent({
             if (!whyUs?.items || whyUs.items.length === 0) return null;
 
             return (
-              <section key="sec-whyus" className="bg-secondary py-24 md:py-32">
+              <section key="sec-whyus" className="bg-secondary py-16 md:py-20">
                 <div className="mx-auto max-w-[1400px] px-6 md:px-10">
-                  <div className="mb-16 max-w-3xl">
-                    <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
+                  <div className="mb-8 sm:mb-10 max-w-3xl">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                       {whyUs.badge || "Why RIOTOUS"}
                     </p>
-                    <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">
+                    <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
                       {whyUs.title || "Built for the ones who create."}
                     </h2>
                   </div>
-                  <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-y-10 gap-x-8 md:grid-cols-3">
                     {whyUs.items.map((f) => {
                       const IconComp = ICON_MAP[f.iconName] || Sparkles;
                       return (
                         <div key={f.id} className="group">
-                          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-background transition-colors group-hover:bg-brand-red group-hover:text-white">
+                          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-background transition-colors group-hover:bg-brand-red group-hover:text-white">
                             <IconComp className="h-5 w-5" />
                           </div>
                           <h3 className="text-lg font-semibold tracking-tight">{f.title}</h3>
@@ -367,29 +367,29 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-promo"
-                className="mx-auto max-w-[1400px] px-6 py-24 md:px-10 md:py-32"
+                className="mx-auto max-w-[1400px] px-6 py-20 md:px-10 md:py-24"
               >
                 <div className="relative overflow-hidden rounded-3xl bg-brand-red p-10 text-background md:p-20">
                   <div className="metallic-shine absolute inset-0 opacity-30" />
-                  <div className="relative max-w-2xl">
+                  <div className="relative max-w-2xl text-white">
                     {promoBanner.badge && (
-                      <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-background/60">
+                      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] opacity-80">
                         {promoBanner.badge}
                       </p>
                     )}
-                    <h2 className="text-4xl font-semibold tracking-tight md:text-6xl whitespace-pre-line">
+                    <h2 className="text-4xl font-bold tracking-tight md:text-5xl whitespace-pre-line">
                       {promoBanner.title}
                     </h2>
                     {promoBanner.description && (
-                      <p className="mt-6 max-w-lg text-background/70">{promoBanner.description}</p>
+                      <p className="mt-5 max-w-lg text-sm sm:text-base opacity-90 leading-relaxed">{promoBanner.description}</p>
                     )}
                     {promoBanner.buttonText && (
                       <a
                         href={promoBanner.buttonLink || "/design"}
-                        className="group mt-10 inline-flex items-center gap-2 rounded-full bg-background px-7 py-4 text-sm font-medium text-foreground transition-transform hover:scale-[1.02]"
+                        className="group mt-8 inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 rounded-full bg-background px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
                       >
-                        {promoBanner.buttonText}
-                        <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                        <span>{promoBanner.buttonText}</span>
+                        <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                       </a>
                     )}
                   </div>
@@ -404,13 +404,13 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-reviews"
-                className="mx-auto max-w-[1400px] px-6 pb-24 md:px-10 md:pb-32"
+                className="mx-auto max-w-[1400px] px-6 pb-20 md:px-10 md:pb-24"
               >
-                <div className="mb-12 max-w-2xl">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
+                <div className="mb-10 max-w-2xl">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                     {reviewsSection.badge || "Reviews"}
                   </p>
-                  <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
                     {reviewsSection.title || "Straight from the community."}
                   </h2>
                 </div>
@@ -424,7 +424,7 @@ export function WebsiteHomepageContent({
                           </span>
                         ))}
                       </div>
-                      <p className="mt-4 text-sm text-foreground/90 font-medium">
+                      <p className="mt-4 text-sm text-foreground font-medium">
                         {i === 0
                           ? "“The quality of the DTF print on the oversized tee exceeded my expectations. Vibrant and doesn't crack!”"
                           : i === 1

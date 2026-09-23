@@ -147,7 +147,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   href={n.to}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:bg-brand-red hover:text-white"
                 >
                   {n.label}
                 </a>
@@ -156,7 +156,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   key={n.to}
                   to={n.to}
                   activeOptions={{ exact: true }}
-                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white/90 transition-all duration-300 hover:bg-brand-red hover:text-white"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:bg-brand-red hover:text-white"
                   activeProps={{ className: "bg-brand-red text-white" }}
                 >
                   {scrolled && n.label === "Design Your Own" ? "Design" : n.label}
@@ -271,7 +271,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                 setMobileOpen(false);
                 setSearchOpen(true);
               }}
-              className="flex items-center gap-3 w-full border border-border/80 bg-white/5 rounded-xl px-4 py-3 text-left text-base font-medium text-white/80 hover:bg-white/10 transition-colors mb-2 cursor-pointer"
+              className="flex items-center gap-3 w-full border border-border/80 bg-white/5 rounded-xl px-4 py-3 text-left text-base font-medium text-white hover:bg-white/10 transition-colors mb-2 cursor-pointer"
             >
               <Search className="h-5 w-5 text-brand-red" />
               <span>Search products…</span>
@@ -310,13 +310,13 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                     </div>
                     <div className="overflow-hidden">
                       <p className="text-sm font-semibold truncate text-white">{user.email}</p>
-                      <p className="text-xs text-white/60">Signed in account</p>
+                      <p className="text-xs opacity-60">Signed in account</p>
                     </div>
                   </div>
                   <Link
                     to="/account/orders"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white/90 hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
                   >
                     <Package className="h-5 w-5 text-brand-red" />
                     My orders
@@ -324,7 +324,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/favorites"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white/90 hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
                   >
                     <Heart className="h-5 w-5 text-brand-red" />
                     Favorites
@@ -332,7 +332,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/reviews"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white/90 hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
                   >
                     <Star className="h-5 w-5 text-brand-red" />
                     My reviews
@@ -340,7 +340,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   <Link
                     to="/account/returns"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white/90 hover:bg-white/5"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
                   >
                     <RotateCcw className="h-5 w-5 text-brand-red" />
                     Returns & support
@@ -349,7 +349,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                     <Link
                       to="/admin"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white/90 hover:bg-white/5"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-lg font-medium text-white hover:bg-white/5"
                     >
                       <ShieldCheck className="h-5 w-5 text-brand-red" />
                       Admin panel

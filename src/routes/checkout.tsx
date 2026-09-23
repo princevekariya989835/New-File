@@ -634,7 +634,7 @@ function CheckoutPage() {
                     {["UPI", "Google Pay", "PhonePe", "Cards", "NetBanking"].map((badge) => (
                       <span
                         key={badge}
-                        className="rounded-md border border-border/80 bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-foreground/80"
+                        className="rounded-md border border-border/80 bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-foreground"
                       >
                         {badge}
                       </span>
