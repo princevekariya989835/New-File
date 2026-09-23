@@ -161,7 +161,7 @@ export function ProductCard({
         >
           {p.title}
         </h2>
-        <p className="mt-1 truncate text-xs text-muted-foreground">{p.productType || <BrandName />}</p>
+        <p className="mt-1 text-xs text-muted-foreground leading-normal line-clamp-2">{p.productType || <BrandName />}</p>
         <p className="mt-1.5 whitespace-nowrap text-sm font-semibold text-foreground">
           {formatPrice(price.amount, price.currencyCode)}
         </p>

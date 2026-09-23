@@ -203,59 +203,59 @@ function ShopPage() {
             {filterLbl}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="relative w-full max-w-sm sm:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => handleQueryChange(e.target.value)}
-                placeholder="Search products by keyword…"
-                className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
-              />
-              {q && (
-                <button
-                  type="button"
-                  onClick={() => handleQueryChange("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-              <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-[280px]">
+              <div className="relative w-full max-w-xs sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={q}
+                  onChange={(e) => handleQueryChange(e.target.value)}
+                  placeholder="Search products by keyword…"
+                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
+                />
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => handleQueryChange("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap shrink-0">
                 {filtered.length} item{filtered.length !== 1 ? "s" : ""}
               </span>
-              <div className="flex items-center gap-2">
-                {sizes.length > 0 && (
-                  <Select value={size} onValueChange={setSize}>
-                    <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
-                      <SelectValue placeholder="Size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All sizes</SelectItem>
-                      {sizes.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Select value={sort} onValueChange={setSort}>
-                  <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
-                    <SelectValue />
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {sizes.length > 0 && (
+                <Select value={size} onValueChange={setSize}>
+                  <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
+                    <SelectValue placeholder="Size" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="featured">Featured</SelectItem>
-                    <SelectItem value="title">A → Z</SelectItem>
-                    <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                    <SelectItem value="price-desc">Price: High to Low</SelectItem>
+                    <SelectItem value="all">All sizes</SelectItem>
+                    {sizes.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
+              )}
+              <Select value={sort} onValueChange={setSort}>
+                <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="featured">Featured</SelectItem>
+                  <SelectItem value="title">A → Z</SelectItem>
+                  <SelectItem value="price-asc">Price: Low to High</SelectItem>
+                  <SelectItem value="price-desc">Price: High to Low</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -276,7 +276,7 @@ function ShopPage() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-red px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="mt-6 btn-primary bg-brand-red text-white hover:bg-brand-red/90"
           >
             <RefreshCw className="h-4 w-4" />
             Try Again
@@ -296,7 +296,7 @@ function ShopPage() {
             <button
               type="button"
               onClick={() => handleQueryChange("")}
-              className="mt-6 inline-flex items-center rounded-full bg-brand-red px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              className="mt-6 btn-primary bg-brand-red text-white hover:bg-brand-red/90"
             >
               Clear Search & View All
             </button>

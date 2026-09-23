@@ -100,11 +100,11 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
             {/* Scaled footer heading - clearly subordinate to hero H1 (Issue 2) */}
-            <h3 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
+            <h2 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
               {displayHeading}
               <br />
               <span className="text-muted-foreground font-semibold">{displaySubheading}</span>
-            </h3>
+            </h2>
             {tagline ? (
               <p className="mt-2.5 max-w-md text-sm text-muted-foreground leading-relaxed">
                 {tagline}

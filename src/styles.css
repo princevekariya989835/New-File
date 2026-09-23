@@ -47,13 +47,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
 
   --font-sans: "Inter", system-ui, -apple-system, "SF Pro Display", "Segoe UI", sans-serif;
   --font-display: "Archivo Black", sans-serif;
@@ -109,7 +109,7 @@
 }
 
 :root {
-  --radius: 0.875rem;
+  --radius: 8px;
   --brand-red: #f00b11;
   --brand: #f00b11;
   --brand-foreground: #ffffff;
@@ -384,5 +384,85 @@
   .link-interactive:hover {
     color: var(--color-brand);
   }
+
+  /* Consolidated 3-Tier Button System (Issue 1) */
+  .btn-primary {
+    display: inline-flex;
+    height: 2.75rem;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--color-foreground);
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-primary-foreground);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn-primary:hover {
+    background-color: var(--color-brand);
+    color: var(--color-brand-foreground);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    height: 2.75rem;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background-color: color-mix(in oklch, var(--color-secondary) 80%, transparent);
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn-secondary:hover {
+    background-color: var(--color-secondary);
+    border-color: color-mix(in oklch, var(--color-foreground) 30%, transparent);
+  }
+  .btn-secondary:active {
+    transform: scale(0.97);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    height: 2.75rem;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn-ghost:hover {
+    color: var(--color-foreground);
+    background-color: color-mix(in oklch, var(--color-secondary) 70%, transparent);
+  }
+  .btn-ghost:active {
+    transform: scale(0.97);
+  }
 }
+
 

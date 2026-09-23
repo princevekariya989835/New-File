@@ -111,10 +111,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         </div>
 
         {/* Results / Popular suggestions area */}
-        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
+        <div className="max-h-[60vh] overflow-y-auto p-5 sm:p-6 space-y-5 sm:space-y-6">
           {trimmedQuery.length > 0 ? (
             <div>
-              <div className="flex items-center justify-between px-2 pb-2">
+              <div className="flex items-center justify-between px-1 pb-3">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Products ({filteredProducts.length})
                 </span>
@@ -122,7 +122,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   <button
                     type="button"
                     onClick={() => handleSearchAll()}
-                    className="text-xs font-medium text-brand-red hover:underline flex items-center gap-1"
+                    className="text-xs font-semibold text-brand-red hover:underline flex items-center gap-1"
                   >
                     View in shop <ArrowRight className="h-3 w-3" />
                   </button>
@@ -141,13 +141,13 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   <button
                     type="button"
                     onClick={() => handleSearchAll()}
-                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-red px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    className="mt-5 btn-primary bg-brand-red text-white hover:bg-brand-red/90"
                   >
                     Browse Full Collection <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <div className="grid gap-2">
+                <div className="grid gap-3 sm:gap-3.5">
                   {filteredProducts.map((p) => {
                     const img = p.node.images?.edges?.[0]?.node?.url;
                     const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
@@ -156,9 +156,9 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                         key={p.node.id}
                         type="button"
                         onClick={() => handleSelectProduct(p.node.handle)}
-                        className="group flex items-center gap-3.5 rounded-xl p-2.5 text-left transition-all hover:bg-secondary/70 focus:bg-secondary/70 focus:outline-none"
+                        className="group flex items-center gap-4 rounded-2xl p-3 sm:p-3.5 text-left transition-all hover:bg-secondary/70 focus:bg-secondary/70 focus:outline-none"
                       >
-                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted border border-border/50">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted border border-border/50">
                           {img ? (
                             <img
                               src={img}
@@ -172,10 +172,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate text-foreground group-hover:text-brand-red transition-colors">
+                          <p className="font-semibold text-sm line-clamp-2 leading-snug text-foreground group-hover:text-brand-red transition-colors">
                             {p.node.title}
                           </p>
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-1">
                             {p.node.description || "RIOTOUS Streetwear"}
                           </p>
                         </div>
@@ -189,13 +189,13 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
               )}
             </div>
           ) : (
-            <div className="space-y-4 py-2">
+            <div className="space-y-5 sm:space-y-6 py-1">
               <div>
-                <div className="flex items-center gap-1.5 px-2 pb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-brand-red" />
-                  Popular Searches
+                <div className="flex items-center gap-2 px-1 pt-1 pb-3 text-xs font-bold uppercase tracking-[0.2em] text-foreground">
+                  <Sparkles className="h-4 w-4 text-brand-red shrink-0" />
+                  <span>Popular Searches</span>
                 </div>
-                <div className="flex flex-wrap gap-2 px-2">
+                <div className="flex flex-wrap gap-2.5 px-1">
                   {POPULAR_SEARCHES.map((term) => (
                     <button
                       key={term}
@@ -204,7 +204,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                         setQuery(term);
                         handleSearchAll(term);
                       }}
-                      className="rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-xs font-medium text-foreground transition-all hover:border-brand-red hover:bg-brand-red/10 hover:text-brand-red"
+                      className="inline-flex h-8 items-center rounded-full border border-border bg-secondary/80 px-3.5 text-xs font-medium text-foreground transition-all hover:border-brand-red hover:bg-brand-red/10 hover:text-brand-red active:scale-95 cursor-pointer"
                     >
                       {term}
                     </button>
@@ -213,11 +213,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
               </div>
 
               {products.length > 0 && (
-                <div className="pt-2 border-t border-border">
-                  <span className="block px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="pt-4 border-t border-border">
+                  <span className="block px-1 pb-3 text-xs font-bold uppercase tracking-[0.2em] text-foreground">
                     Featured Drops
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {products.slice(0, 3).map((p) => {
                       const img = p.node.images?.edges?.[0]?.node?.url;
                       const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
@@ -226,9 +226,9 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                           key={p.node.id}
                           type="button"
                           onClick={() => handleSelectProduct(p.node.handle)}
-                          className="group flex flex-col rounded-xl border border-border/60 bg-card p-2 text-left transition-all hover:border-brand-red/40 hover:shadow-md focus:outline-none"
+                          className="group flex flex-col rounded-2xl border border-border/60 bg-card p-3 text-left transition-all hover:border-brand-red/40 hover:shadow-md focus:outline-none"
                         >
-                          <div className="aspect-square w-full overflow-hidden rounded-lg bg-muted mb-2">
+                          <div className="aspect-square w-full overflow-hidden rounded-lg bg-muted mb-2.5">
                             {img && (
                               <img
                                 src={img}
@@ -237,10 +237,10 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                               />
                             )}
                           </div>
-                          <p className="text-xs font-semibold truncate text-foreground">
+                          <p className="text-xs font-semibold line-clamp-2 leading-snug min-h-[2rem] text-foreground">
                             {p.node.title}
                           </p>
-                          <p className="text-xs font-bold text-brand-red mt-0.5">{money(price)}</p>
+                          <p className="text-xs font-bold text-brand-red mt-1">{money(price)}</p>
                         </button>
                       );
                     })}
@@ -252,16 +252,17 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
         </div>
 
         {/* Search Footer */}
-        <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border bg-muted/40 px-5 sm:px-6 py-3 text-xs text-muted-foreground">
           <span>
             Press <kbd className="font-mono font-semibold text-foreground">Enter</kbd> to search
           </span>
           <button
             type="button"
             onClick={() => handleSearchAll()}
-            className="font-medium text-brand-red hover:underline flex items-center gap-1"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-secondary/90 px-3.5 text-xs font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-95 cursor-pointer"
           >
-            Explore all items <ArrowRight className="h-3 w-3" />
+            <span>Explore all items</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </DialogContent>

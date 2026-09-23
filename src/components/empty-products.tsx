@@ -16,7 +16,7 @@ export function EmptyProducts({
       <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
         <span className="text-2xl">◇</span>
       </div>
-      <h3 className="text-2xl font-semibold tracking-tight">{title}</h3>
+      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
       <p className="mt-3 text-sm text-muted-foreground">{hint}</p>
     </div>
   );
