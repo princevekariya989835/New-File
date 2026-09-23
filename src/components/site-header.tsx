@@ -111,11 +111,11 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
           className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             scrolled
               ? "h-[50px] md:h-12 w-auto max-w-[96vw] md:max-w-5xl rounded-full bg-black/80 px-3 md:px-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 gap-2 md:gap-6"
-              : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-6 md:px-10 gap-4"
+              : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-3.5 sm:px-6 md:px-10 gap-2 sm:gap-4"
           }`}
         >
           <button
-            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden"
+            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
             onClick={() => setMobileOpen(true)}
             aria-label="Menu"
           >
@@ -131,7 +131,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               loading="eager"
               decoding="async"
               className={`shrink-0 object-contain transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                scrolled ? "w-[115px] h-auto md:w-auto md:h-7" : "w-[145px] h-auto md:w-auto md:h-9"
+                scrolled ? "w-[105px] sm:w-[115px] h-auto md:w-auto md:h-7" : "w-[115px] sm:w-[135px] md:w-auto md:h-9"
               }`}
               draggable={false}
             />
@@ -147,7 +147,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   href={n.to}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:bg-brand-red hover:text-white"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:text-brand-red"
                 >
                   {n.label}
                 </a>
@@ -156,8 +156,10 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   key={n.to}
                   to={n.to}
                   activeOptions={{ exact: true }}
-                  className="rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:bg-brand-red hover:text-white"
-                  activeProps={{ className: "bg-brand-red text-white" }}
+                  className="relative rounded-full px-3.5 py-1.5 text-sm font-medium text-white transition-all duration-300 hover:text-brand-red"
+                  activeProps={{
+                    className: "text-white font-semibold after:content-[''] after:absolute after:bottom-0 after:left-3.5 after:right-3.5 after:h-0.5 after:bg-brand-red after:rounded-full",
+                  }}
                 >
                   {scrolled && n.label === "Design Your Own" ? "Design" : n.label}
                 </Link>
@@ -298,6 +300,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   key={n.to}
                   to={n.to}
                   onClick={() => setMobileOpen(false)}
+                  activeProps={{ className: "text-brand-red font-bold" }}
                   className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
                 >
                   {n.label}
