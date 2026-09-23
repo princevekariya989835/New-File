@@ -141,7 +141,7 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
 
             <Link
               to={secondaryLink}
-              className="group inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 rounded-full border-2 border-foreground/30 hover:border-foreground bg-transparent hover:bg-foreground/5 px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+              className="group inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 rounded-full border-2 border-foreground/35 hover:border-foreground/60 bg-secondary/80 hover:bg-secondary px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground shadow-xs transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
             >
               <span>{secondaryCta}</span>
               <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 opacity-70 group-hover:opacity-100" />

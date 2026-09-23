@@ -91,7 +91,7 @@ function FavoritesPage() {
                     currency: f.product_currency,
                   })
                 }
-                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur hover:bg-background"
+                className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-md transition-all hover:bg-background hover:border-foreground/40 hover:scale-110 active:scale-95 cursor-pointer"
                 aria-label="Remove from favorites"
               >
                 <Heart className="h-4 w-4 fill-brand-red text-brand-red" />

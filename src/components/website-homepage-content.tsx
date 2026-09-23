@@ -170,7 +170,7 @@ function FeaturedProductsSection({
         <div
           ref={scrollContainerRef}
           onScroll={checkScroll}
-          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4 -mx-6 px-6 md:-mx-10 md:px-10"
+          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {displayedProducts.map((p) => (
@@ -388,7 +388,7 @@ export function WebsiteHomepageContent({
               >
                 <div className="relative overflow-hidden rounded-3xl bg-brand-red p-10 text-background md:p-20">
                   <div className="metallic-shine absolute inset-0 opacity-30" />
-                  <div className="relative max-w-2xl text-white">
+                  <div className="relative mx-auto flex flex-col items-center text-center max-w-2xl text-white">
                     {promoBanner.badge && (
                       <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] opacity-80">
                         {promoBanner.badge}
@@ -398,7 +398,7 @@ export function WebsiteHomepageContent({
                       {promoBanner.title}
                     </h2>
                     {promoBanner.description && (
-                      <p className="mt-5 max-w-lg text-sm sm:text-base opacity-90 leading-relaxed">{promoBanner.description}</p>
+                      <p className="mt-5 max-w-lg mx-auto text-sm sm:text-base opacity-90 leading-relaxed">{promoBanner.description}</p>
                     )}
                     {promoBanner.buttonText && (
                       <a

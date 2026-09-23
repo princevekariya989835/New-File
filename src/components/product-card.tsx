@@ -146,7 +146,7 @@ export function ProductCard({
           type="button"
           onClick={onLike}
           suppressHydrationWarning
-          className={`absolute ${soldOut ? "right-4 top-14" : "right-4 top-4"} flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur transition-all hover:bg-background hover:scale-110`}
+          className={`absolute ${soldOut ? "right-4 top-14" : "right-4 top-4"} z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-md transition-all hover:bg-background hover:border-foreground/40 hover:scale-110 active:scale-95 cursor-pointer`}
           aria-label={liked ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart

@@ -120,7 +120,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   setEmail("");
                 }
               }}
-              className="mt-6 flex max-w-md items-center rounded-full border-2 border-border/80 bg-secondary/80 p-1.5 transition-all focus-within:border-foreground/60 focus-within:ring-2 focus-within:ring-foreground/10 shadow-sm"
+              className="mt-6 flex w-full max-w-md items-center gap-2.5"
             >
               <input
                 type="email"
@@ -129,12 +129,12 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email for exclusive drops"
                 suppressHydrationWarning
-                className="h-11 flex-1 bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground text-foreground"
+                className="h-11 flex-1 rounded-full border border-border bg-secondary/80 px-4 text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
               />
               <button
                 type="submit"
                 suppressHydrationWarning
-                className="inline-flex h-11 min-h-[44px] items-center justify-center rounded-full bg-foreground px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm"
+                className="inline-flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full bg-foreground px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm"
               >
                 Join
               </button>
