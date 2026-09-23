@@ -305,7 +305,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
   },
   announcement: {
     enabled: false,
-    text: "🔥 FREE SHIPPING ON ALL ORDERS OVER ₹1499 · USE CODE RIOT10 FOR 10% OFF 🔥",
+    text: "🔥 Free shipping on all orders over ₹1499 · Use code RIOT10 for 10% off 🔥",
     link: "/shop",
     linkText: "Shop Drop",
     backgroundColor: "#e11d48",
@@ -313,7 +313,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
   },
   hero: {
     active: true,
-    badge: "PREMIUM DTF APPAREL · MADE IN INDIA",
+    badge: "Premium DTF Apparel · Made in India",
     heading: "We Don't Follow Trends.\nWe Print Them.",
     subheading: "Wear the print. Not the trend.",
     description:
@@ -353,7 +353,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "DTF Printed Tees",
       tag: "Signature",
       link: "/shop",
-      bgColor: "bg-brand-red",
+      imageUrl: "/products/zoro-black-1.jpg",
+      bgColor: "bg-neutral-900",
       enabled: true,
     },
     {
@@ -361,7 +362,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Custom Printing",
       tag: "Design your own",
       link: "/design",
-      bgColor: "bg-brand-red",
+      imageUrl: "/assets/hero-model.jpg",
+      bgColor: "bg-neutral-900",
       enabled: true,
     },
     {
@@ -369,7 +371,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Oversized",
       tag: "New silhouettes",
       link: "/shop",
-      bgColor: "bg-brand-red",
+      imageUrl: "/products/zoro-olive-1.jpg",
+      bgColor: "bg-neutral-900",
       enabled: true,
     },
     {
@@ -377,7 +380,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Best Sellers",
       tag: "Community favorites",
       link: "/shop",
-      bgColor: "bg-brand-red",
+      imageUrl: "/products/zenitsu-maroon-1.jpg",
+      bgColor: "bg-neutral-900",
       enabled: true,
     },
   ],

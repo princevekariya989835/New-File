@@ -46,7 +46,11 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
         : def.navigation,
     collections:
       Array.isArray(savedConfig.collections) && savedConfig.collections.length > 0
-        ? savedConfig.collections
+        ? savedConfig.collections.map((c: any, i: number) => ({
+            ...(def.collections[i] || {}),
+            ...c,
+            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/products/zoro-black-1.jpg",
+          }))
         : def.collections,
     featuredProducts: {
       ...def.featuredProducts,

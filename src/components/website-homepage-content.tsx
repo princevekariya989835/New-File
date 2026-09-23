@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Sparkles,
   Truck,
   RotateCcw,
@@ -51,6 +53,135 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   CheckCircle2,
   Zap,
 };
+
+function FeaturedProductsSection({
+  featuredProducts,
+  displayedProducts,
+  isLoadingProducts,
+}: {
+  featuredProducts: WebsiteConfig["featuredProducts"];
+  displayedProducts: CatalogProduct[];
+  isLoadingProducts: boolean;
+}) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 6);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 6);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const handleResize = () => checkScroll();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [checkScroll, displayedProducts]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const step = el.clientWidth * 0.75;
+    el.scrollBy({
+      left: direction === "left" ? -step : step,
+      behavior: "smooth",
+    });
+  };
+
+  const count = displayedProducts.length;
+
+  return (
+    <section
+      key="sec-featured"
+      className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
+    >
+      <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">
+            {featuredProducts.title || "Featured."}
+          </h2>
+          {featuredProducts.subtitle && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {featuredProducts.subtitle}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          {count > 4 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scroll("left")}
+                disabled={!canScrollLeft}
+                aria-label="Previous products"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scroll("right")}
+                disabled={!canScrollRight}
+                aria-label="Next products"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <a
+            href="/shop"
+            className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            View All
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </a>
+        </div>
+      </div>
+
+      {isLoadingProducts ? (
+        <ShopSkeleton count={featuredProducts.limit || 8} />
+      ) : count === 0 ? (
+        <EmptyProducts />
+      ) : count <= 4 ? (
+        <div
+          className={`grid gap-x-4 gap-y-10 md:gap-x-6 ${
+            count === 1
+              ? "grid-cols-1 max-w-sm"
+              : count === 2
+                ? "grid-cols-2 max-w-2xl"
+                : count === 3
+                  ? "grid-cols-2 md:grid-cols-3"
+                  : "grid-cols-2 md:grid-cols-4"
+          }`}
+        >
+          {displayedProducts.map((p) => (
+            <ProductCard key={p.node.id} product={p} priority={false} />
+          ))}
+        </div>
+      ) : (
+        <div
+          ref={scrollContainerRef}
+          onScroll={checkScroll}
+          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4 -mx-6 px-6 md:-mx-10 md:px-10"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {displayedProducts.map((p) => (
+            <div
+              key={p.node.id}
+              className="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-1rem)] lg:w-[calc(25%-1.125rem)] shrink-0 snap-start"
+            >
+              <ProductCard product={p} priority={false} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function WebsiteHomepageContent({
   config,
@@ -116,10 +247,17 @@ export function WebsiteHomepageContent({
             const enabledCollections = (collections || []).filter((c) => c.enabled !== false);
             if (enabledCollections.length === 0) return null;
 
+            const fallbackImgs = [
+              "/products/zoro-black-1.jpg",
+              "/assets/hero-model.jpg",
+              "/products/zoro-olive-1.jpg",
+              "/products/zenitsu-maroon-1.jpg",
+            ];
+
             return (
               <section
                 key="sec-collections"
-                className="mx-auto max-w-[1400px] px-6 py-24 md:px-10 md:py-32"
+                className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
               >
                 <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
                   <div>
@@ -139,37 +277,39 @@ export function WebsiteHomepageContent({
                   </a>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
-                  {enabledCollections.map((c) => (
-                    <a
-                      key={c.id}
-                      href={c.link || "/shop"}
-                      className={`group relative flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-2xl ${
-                        c.bgColor || "bg-brand-red"
-                      } p-5 text-white md:p-6 transition-transform hover:scale-[1.01]`}
-                    >
-                      {c.imageUrl && (
-                        <img
-                          src={c.imageUrl}
-                          alt={c.title}
-                          width={320}
-                          height={427}
-                          loading="lazy"
-                          decoding="async"
-                          className="absolute inset-0 h-full w-full object-cover opacity-60 transition-transform duration-500 group-hover:scale-105"
-                        />
-                      )}
-                      <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-white/90">
-                        {c.tag}
-                      </span>
-                      <div className="relative z-10">
-                        <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
-                          {c.title}
-                        </h3>
-                        <ArrowUpRight className="mt-2 h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
-                      </div>
-                    </a>
-                  ))}
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+                  {enabledCollections.map((c, idx) => {
+                    const imgUrl = c.imageUrl || fallbackImgs[idx % fallbackImgs.length];
+                    return (
+                      <a
+                        key={c.id}
+                        href={c.link || "/shop"}
+                        className="group relative flex aspect-[3/4] flex-col justify-between overflow-hidden rounded-2xl bg-neutral-900 p-5 text-white md:p-6 transition-transform hover:scale-[1.01]"
+                      >
+                        {imgUrl && (
+                          <img
+                            src={imgUrl}
+                            alt={c.title}
+                            width={360}
+                            height={480}
+                            loading="lazy"
+                            decoding="async"
+                            className="absolute inset-0 h-full w-full object-cover opacity-75 transition-transform duration-700 group-hover:scale-105"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
+                        <span className="relative z-10 text-xs font-semibold uppercase tracking-widest text-white/90">
+                          {c.tag}
+                        </span>
+                        <div className="relative z-10">
+                          <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
+                            {c.title}
+                          </h3>
+                          <ArrowUpRight className="mt-2 h-5 w-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               </section>
             );
@@ -179,42 +319,12 @@ export function WebsiteHomepageContent({
             if (!featuredProducts?.enabled) return null;
 
             return (
-              <section
+              <FeaturedProductsSection
                 key="sec-featured"
-                className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
-              >
-                <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">
-                      {featuredProducts.title || "Featured."}
-                    </h2>
-                    {featuredProducts.subtitle && (
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {featuredProducts.subtitle}
-                      </p>
-                    )}
-                  </div>
-                  <a
-                    href="/shop"
-                    className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    View All
-                    <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </a>
-                </div>
-
-                {isLoadingProducts ? (
-                  <ShopSkeleton count={featuredProducts.limit || 8} />
-                ) : displayedProducts.length === 0 ? (
-                  <EmptyProducts />
-                ) : (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">
-                    {displayedProducts.map((p) => (
-                      <ProductCard key={p.node.id} product={p} priority={false} />
-                    ))}
-                  </div>
-                )}
-              </section>
+                featuredProducts={featuredProducts}
+                displayedProducts={displayedProducts}
+                isLoadingProducts={isLoadingProducts}
+              />
             );
           }
 

@@ -101,7 +101,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   setEmail("");
                 }
               }}
-              className="mt-8 flex max-w-md items-center gap-2 border-b border-foreground pb-2"
+              className="mt-8 flex max-w-md items-center rounded-xl border border-border bg-secondary/50 p-1.5 transition-colors focus-within:border-foreground/40 shadow-xs"
             >
               <input
                 type="email"
@@ -110,33 +110,33 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email for exclusive drops"
                 suppressHydrationWarning
-                className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+                className="h-10 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
               />
               <button
                 type="submit"
                 suppressHydrationWarning
-                className="text-sm font-medium uppercase tracking-wider text-foreground/70 transition-colors hover:text-accent cursor-pointer"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-foreground px-5 text-xs font-bold uppercase tracking-wider text-background transition-all hover:bg-brand hover:text-white active:scale-95 cursor-pointer shadow-xs"
               >
                 Join
               </button>
             </form>
             {subscribed && (
-              <p className="mt-3 text-xs text-accent">Thanks — you're on the drop list.</p>
+              <p className="mt-3 text-xs text-brand">Thanks — you're on the drop list.</p>
             )}
 
             {(footer?.contactEmail ||
               footer?.contactPhone ||
               config?.settings?.storeEmail ||
               (config as any)?.general?.contactEmail) && (
-              <div className="mt-6 flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
                 {(footer?.contactEmail ||
                   config?.settings?.storeEmail ||
                   (config as any)?.general?.contactEmail) && (
                   <a
                     href={`mailto:${footer?.contactEmail || config?.settings?.storeEmail || (config as any)?.general?.contactEmail}`}
-                    className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+                    className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
                   >
-                    <Mail className="h-3.5 w-3.5" />
+                    <Mail className="h-4 w-4" />
                     {footer?.contactEmail ||
                       config?.settings?.storeEmail ||
                       (config as any)?.general?.contactEmail}
@@ -147,9 +147,9 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   (config as any)?.general?.contactPhone) && (
                   <a
                     href={`tel:${footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone}`}
-                    className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+                    className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
                   >
-                    <Phone className="h-3.5 w-3.5" />
+                    <Phone className="h-4 w-4" />
                     {footer?.contactPhone ||
                       config?.settings?.storePhone ||
                       (config as any)?.general?.contactPhone}
@@ -230,7 +230,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
             {footer?.copyrightText || `© 2026 RIOTOUS. Made in India.`}
           </div>
           {socialList.length > 0 ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {socialList.map((s) => (
                 <a
                   key={s.id}
@@ -238,20 +238,20 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={s.label || s.platform}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-accent"
+                  className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
                 >
                   {getSocialIcon(s.platform)}
                 </a>
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <a
                 href="https://www.instagram.com/riotous_store"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-accent"
+                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Instagram className="h-4 w-4" />
               </a>
@@ -260,7 +260,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-accent"
+                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Youtube className="h-4 w-4" />
               </a>
@@ -269,7 +269,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-accent"
+                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Facebook className="h-4 w-4" />
               </a>

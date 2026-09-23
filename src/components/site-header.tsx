@@ -179,10 +179,11 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white transition-opacity duration-200 hover:opacity-90"
+                    className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
                     aria-label="Account"
+                    title={user.email}
                   >
-                    {initials}
+                    <User className="h-5 w-5" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">

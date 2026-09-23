@@ -363,5 +363,23 @@
     display: block;
     overflow: hidden;
   }
+
+  /* Issue 10: Standardized 5-tier text color system */
+  .text-content-primary {
+    color: var(--color-foreground);
+  }
+  .text-content-secondary {
+    color: color-mix(in oklch, var(--color-foreground) 82%, transparent);
+  }
+  .text-content-muted {
+    color: var(--color-muted-foreground);
+  }
+  .link-interactive {
+    color: var(--color-foreground);
+    transition: color 0.2s ease;
+  }
+  .link-interactive:hover {
+    color: var(--color-brand);
+  }
 }
 

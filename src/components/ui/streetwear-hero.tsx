@@ -77,9 +77,10 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
         {/* Left column: editorial copy & CTAs */}
         <div className="lg:col-span-7">
           {/* Eyebrow badge */}
+          {/* Eyebrow badge */}
           <div className="mask-line mb-6">
             <span
-              className="anim-mask-up inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.25em] text-brand"
+              className="anim-mask-up inline-flex items-center gap-2.5 text-xs font-semibold tracking-[0.2em] text-brand"
               style={{ animationDelay: "0.2s" }}
             >
               <span className="anim-ticker-pulse inline-block size-2 rounded-full bg-brand" />
@@ -87,8 +88,8 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
             </span>
           </div>
 
-          {/* Bold Editorial Headline */}
-          <h1 className="font-display leading-[0.92] tracking-tight text-foreground text-[clamp(2.5rem,6.8vw,6.5rem)]">
+          {/* Bold Editorial Headline - Issue 5: Increased line-height for clear line separation */}
+          <h1 className="font-display leading-[1.06] sm:leading-[1.02] tracking-tight text-foreground text-[clamp(2.5rem,6.8vw,6.5rem)]">
             {lines.map((line, idx) => {
               const isLast = idx === lines.length - 1;
               return (
@@ -116,14 +117,14 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
             {description}
           </p>
 
-          {/* Action buttons with aligned baselines and clear hierarchy */}
+          {/* Action buttons with aligned baselines, equal height & consistent typography (Issues 11, 12) */}
           <div
             className="anim-fade-up mt-10 flex flex-wrap items-center gap-4"
             style={{ animationDelay: "0.9s" }}
           >
             <Link
               to={primaryLink}
-              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden bg-foreground px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-lg min-h-[48px]"
+              className="group relative inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 overflow-hidden bg-foreground px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-lg transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0"
             >
               <span className="relative z-10 transition-colors duration-300 group-hover:text-brand-foreground">
                 {primaryCta}
@@ -135,9 +136,10 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
 
             <Link
               to={secondaryLink}
-              className="inline-flex items-center justify-center border-2 border-foreground/30 hover:border-foreground bg-transparent hover:bg-foreground/5 px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground transition-all duration-200 active:scale-[0.98] min-h-[48px]"
+              className="group inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 border-2 border-foreground/30 hover:border-foreground bg-transparent hover:bg-foreground/5 px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
             >
-              {secondaryCta}
+              <span>{secondaryCta}</span>
+              <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 opacity-70 group-hover:opacity-100" />
             </Link>
           </div>
 
@@ -197,16 +199,16 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
               />
             </div>
 
-            {/* Floating fabric tag */}
+            {/* Floating fabric tag - Issue 14: Unified label design system */}
             <div
               className="anim-fade-in absolute -left-4 sm:-left-6 top-10 sm:top-14 z-20 pointer-events-none"
               style={{ animationDelay: "1.2s" }}
             >
               <div
-                className="anim-float bg-background/95 backdrop-blur-sm px-4 py-3 shadow-xl ring-1 ring-border/80"
+                className="anim-float rounded-xl bg-background/95 backdrop-blur-md px-4 py-2.5 shadow-xl ring-1 ring-border/80"
                 style={{ "--float-rotate": "-3deg" } as CSSProperties}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   Fabric
                 </p>
                 <p className="text-xs font-bold uppercase text-foreground">
@@ -215,13 +217,13 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
               </div>
             </div>
 
-            {/* Floating price / product tag */}
+            {/* Floating price / product tag - Issue 14: Unified label design system */}
             <div
               className="anim-fade-in absolute -right-3 sm:-right-4 bottom-14 sm:bottom-16 z-20 pointer-events-none"
               style={{ animationDelay: "1.4s" }}
             >
               <div
-                className="anim-float bg-brand px-5 py-3 text-brand-foreground shadow-lg"
+                className="anim-float rounded-xl bg-neutral-950/95 backdrop-blur-md px-4 py-2.5 text-white shadow-xl ring-1 ring-white/15"
                 style={
                   {
                     "--float-rotate": "2deg",
@@ -229,19 +231,19 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   } as CSSProperties
                 }
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-90">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
                   The Anarchy Tee
                 </p>
-                <p className="font-display text-2xl leading-none">₹999</p>
+                <p className="font-display text-lg leading-tight text-brand">₹999</p>
               </div>
             </div>
 
-            {/* Official RIOTOUS Studio Brand Stamp */}
+            {/* Official RIOTOUS Studio Brand Stamp - Issue 14: Unified label design system */}
             <div
               className="anim-fade-in absolute -bottom-3 left-4 sm:left-6 z-20"
               style={{ animationDelay: "1.3s" }}
             >
-              <div className="flex items-center gap-2 rounded-full bg-neutral-950/90 text-white px-3.5 py-1.5 backdrop-blur-md border border-white/15 shadow-xl text-xs font-mono tracking-wider uppercase">
+              <div className="flex items-center gap-2 rounded-xl bg-neutral-950/95 text-white px-4 py-2 backdrop-blur-md ring-1 ring-white/15 shadow-xl text-xs font-sans tracking-wider uppercase">
                 <img
                   src="/assets/riotous-logo.png"
                   alt="RIOTOUS"
@@ -250,8 +252,8 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
                   className="h-3 w-auto object-contain brightness-0 invert"
                 />
                 <span className="text-neutral-500">|</span>
-                <span className="font-semibold text-white/90 text-xs tracking-[0.15em]">
-                  ARCHIVE ED.
+                <span className="font-semibold text-white/90 text-[11px] tracking-[0.15em]">
+                  Archive Ed.
                 </span>
               </div>
             </div>
