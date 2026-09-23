@@ -312,9 +312,9 @@ export function AuthPage() {
             {/* SIGN IN SUB-STATE */}
             {mode === "signin" && (
               <>
-                <h2>
+                <h1>
                   Sign In to RI<span className="text-brand-red">O</span>T<span className="text-brand-red">O</span>US
-                </h2>
+                </h1>
                 <p className="subtitle">Enter your email and password to access your account</p>
 
                 <form onSubmit={handleSignIn}>

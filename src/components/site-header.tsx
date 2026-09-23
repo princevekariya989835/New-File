@@ -241,7 +241,11 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               <Link
                 to="/auth"
                 className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white"
+                activeProps={{
+                  className: "bg-brand-red text-white ring-2 ring-brand-red/40 shadow-[0_0_12px_rgba(240,11,17,0.5)]",
+                }}
                 aria-label="Sign in"
+                title="Sign in"
               >
                 <User className="h-5 w-5" />
               </Link>
@@ -371,6 +375,9 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
                   to="/auth"
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center justify-center gap-2 w-full py-3.5 px-4 rounded-xl bg-brand-red text-white font-semibold shadow-lg hover:bg-brand-red/90 transition-colors text-base"
+                  activeProps={{
+                    className: "ring-2 ring-white/70 bg-brand-red text-white font-bold",
+                  }}
                 >
                   <User className="h-5 w-5" />
                   Sign In / Register
