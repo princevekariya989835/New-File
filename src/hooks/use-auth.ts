@@ -30,6 +30,11 @@ function notifyAuthListeners(user: UserWithMeta, loading: boolean) {
   });
 }
 
+function getSessionCookieAttributes(maxAge: number): string {
+  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
+  return `path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
+}
+
 /**
  * Deduplicated user session retriever and background verifier.
  * Ensures that even if 50+ components mount simultaneously, only 1 request
@@ -46,11 +51,6 @@ async function getOrVerifyUser(): Promise<UserWithMeta> {
     notifyAuthListeners(null, false);
     return null;
   }
-
-function getSessionCookieAttributes(maxAge: number): string {
-  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
-  return `path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
-}
 
   // Keep cookie synchronized with localStorage session token
   document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;

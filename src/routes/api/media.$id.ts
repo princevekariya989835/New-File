@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getSql } from "@/lib/db";
+import { ensureDbSchema, getSql } from "@/lib/db";
 
 function extractMediaId(params: any, request: Request): string {
   if (params?.id) return String(params.id);
@@ -100,7 +100,7 @@ export const Route = createFileRoute("/api/media/$id")({
         }
 
         try {
-          await guardEnsureSchema();
+          await ensureDbSchema();
           const sql = getSql();
 
           const rows = await sql`

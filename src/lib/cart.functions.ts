@@ -26,16 +26,22 @@ export const saveMyCart = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { items: CartItem[] }) => {
     const rawItems = Array.isArray(d?.items) ? d.items : [];
-    const items = rawItems.slice(0, 50).map((i) => ({
+    const items: CartItem[] = rawItems.slice(0, 50).map((i) => ({
+      variantId: String(i.variantId || "").slice(0, 100),
       productId: typeof i.productId === "string" ? i.productId.slice(0, 100) : null,
+      productHandle: String(i.productHandle || "").slice(0, 100),
+      productTitle: String(i.productTitle || "").slice(0, 200),
+      variantTitle: String(i.variantTitle || "").slice(0, 200),
+      imageUrl: typeof i.imageUrl === "string" ? i.imageUrl.slice(0, 2000) : null,
+      price: {
+        amount: String(i.price?.amount || "0"),
+        currencyCode: String(i.price?.currencyCode || "INR"),
+      },
+      quantity: Math.max(1, Math.min(99, Math.round(Number(i.quantity) || 1))),
+      selectedOptions: Array.isArray(i.selectedOptions) ? i.selectedOptions.slice(0, 10) : [],
+      attributes: Array.isArray(i.attributes) ? i.attributes.slice(0, 10) : [],
       designSubmissionId:
         typeof i.designSubmissionId === "string" ? i.designSubmissionId.slice(0, 100) : null,
-      productName: String(i.productName || "Item").slice(0, 200),
-      productImage: typeof i.productImage === "string" ? i.productImage.slice(0, 2000) : null,
-      quantity: Math.max(1, Math.min(99, Math.round(Number(i.quantity) || 1))),
-      selectedSize: typeof i.selectedSize === "string" ? i.selectedSize.slice(0, 40) : null,
-      selectedColor: typeof i.selectedColor === "string" ? i.selectedColor.slice(0, 40) : null,
-      price: Number.isFinite(i.price) ? Number(i.price) : 0,
     }));
     return { items };
   })
