@@ -272,10 +272,10 @@ export function AuthPage() {
         {/* HERO: Shown on the RIGHT when in Login mode                   */}
         {/* ------------------------------------------------------------- */}
         <div className="hero login">
-          <span className="brand-tagline">RIOTOUS STREETWEAR</span>
+          <span className="brand-tagline">WEAR YOUR CHAOS</span>
           <h2>New Here?</h2>
           <p>
-            Create your account to unlock live custom t-shirt design tools, track orders, and grab exclusive drops.
+            Join the movement. Create custom t-shirt creations, track your orders, and grab exclusive drops.
           </p>
           <button
             type="button"
@@ -290,7 +290,7 @@ export function AuthPage() {
         {/* HERO: Shown on the LEFT when in Register mode                 */}
         {/* ------------------------------------------------------------- */}
         <div className="hero register">
-          <span className="brand-tagline">MEMBER ACCESS</span>
+          <span className="brand-tagline">MORE THAN CLOTHING</span>
           <h2>Welcome Back!</h2>
           <p>
             Already an insider? Sign in to load your saved design fits, active coupons, and speedy checkout.

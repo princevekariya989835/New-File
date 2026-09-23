@@ -533,19 +533,24 @@
   left: 8px;
   bottom: 8px;
   width: calc(50% - 8px);
-  background: url("/assets/auth-banner.jpg") center/cover no-repeat;
+  background: url("/assets/auth-hero-chaos.jpg") center top / cover no-repeat;
   border-radius: 20px;
   translate: 100% 0;
   transition: transform 0.65s cubic-bezier(0.65, 0, 0.35, 1), translate 0.65s cubic-bezier(0.65, 0, 0.35, 1);
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
 .login-10 .card-bg-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(145deg, rgba(0, 0, 0, 0.82) 0%, rgba(20, 10, 12, 0.75) 50%, rgba(240, 11, 17, 0.45) 100%);
-  backdrop-filter: blur(1px);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 2, 5, 0.72) 0%,
+    rgba(25, 4, 8, 0.45) 42%,
+    rgba(10, 2, 4, 0.88) 100%
+  );
+  backdrop-filter: blur(0.5px);
 }
 
 .login-10 .card.register .card-bg {
