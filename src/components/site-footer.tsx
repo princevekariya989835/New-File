@@ -96,9 +96,9 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
 
   return (
     <footer className="border-t border-border bg-background">
-      <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-10">
-        <div className="grid gap-12 md:grid-cols-12">
-          <div className="md:col-span-5">
+      <div className="mx-auto max-w-[1400px] px-6 py-12 md:px-10 md:py-16">
+        <div className="grid gap-8 lg:gap-10 md:grid-cols-12 items-start">
+          <div className="md:col-span-6 lg:col-span-6">
             {/* Scaled footer heading - clearly subordinate to hero H1 (Issue 2) */}
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
               {displayHeading}
@@ -147,7 +147,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
               footer?.contactPhone ||
               config?.settings?.storeEmail ||
               (config as any)?.general?.contactEmail) && (
-              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
                 {(footer?.contactEmail ||
                   config?.settings?.storeEmail ||
                   (config as any)?.general?.contactEmail) && (
@@ -180,11 +180,11 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
 
           {columns.length > 0 ? (
             columns.map((sec) => (
-              <div key={sec.id} className="md:col-span-2">
-                <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <div key={sec.id} className="col-span-6 sm:col-span-4 md:col-span-2">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   {sec.title}
                 </p>
-                <ul className="space-y-3">
+                <ul className="space-y-2.5">
                   {(sec.links || []).map((l: any, idx: number) => {
                     const target = l.url || l.to || "/";
                     return (
@@ -201,6 +201,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                         ) : (
                           <Link
                             to={target}
+                            activeOptions={{ exact: true }}
                             className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                             activeProps={{
                               className:
@@ -321,6 +322,7 @@ function FooterCol({
           <li key={i}>
             <Link
               to={l.to}
+              activeOptions={{ exact: true }}
               className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               activeProps={{
                 className:

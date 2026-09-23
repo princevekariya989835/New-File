@@ -11,6 +11,7 @@ import {
   FolderOpen,
   X,
   MessageCircle,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore } from "@/stores/cart-store";
@@ -614,11 +615,9 @@ function DesignPage() {
 
           {/* FRONT · COLOR Status Indicator - Improved visibility, contrast & typography (Issue 4, 6) */}
           <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-10 pointer-events-none">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/95 px-3.5 py-1.5 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-md">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/95 px-3.5 py-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-md">
               <span className="inline-block h-2 w-2 rounded-full bg-brand-red animate-pulse" />
-              <span>{placement}</span>
-              <span className="text-muted-foreground/50">•</span>
-              <span>{color.name}</span>
+              <span>{placement} · {color.name}</span>
             </span>
           </div>
         </div>
@@ -628,21 +627,37 @@ function DesignPage() {
           {/* Color */}
           <Panel title="Color">
             <div className="flex gap-3">
-              {COLORS.map((c) => (
-                <button
-                  key={c.name}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`relative h-11 w-11 rounded-full border-2 transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-brand-red focus-visible:outline-offset-2 ${
-                    color.name === c.name ? "border-foreground shadow-sm" : "border-border"
-                  }`}
-                  style={{
-                    backgroundColor: c.hex,
-                  }}
-                  title={c.name}
-                  aria-label={`Select ${c.name} color`}
-                />
-              ))}
+              {COLORS.map((c) => {
+                const isSelected = color.name === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all focus-visible:outline-2 focus-visible:outline-brand-red focus-visible:outline-offset-2 ${
+                      isSelected
+                        ? "ring-2 ring-brand-red ring-offset-2 ring-offset-background scale-105 shadow-md"
+                        : "border-2 border-border/80 opacity-80 hover:opacity-100 hover:scale-105"
+                    }`}
+                    style={{
+                      backgroundColor: c.hex,
+                    }}
+                    title={c.name}
+                    aria-label={`Select ${c.name} color`}
+                    aria-pressed={isSelected}
+                  >
+                    {isSelected && (
+                      <Check
+                        className={`h-4 w-4 stroke-[2.5] ${
+                          c.name === "White" || c.name === "Off-White"
+                            ? "text-black"
+                            : "text-white"
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </Panel>
 
@@ -665,14 +680,14 @@ function DesignPage() {
               ))}
             </div>
 
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
               Each side keeps its own artwork — switch back anytime.
             </p>
           </Panel>
 
           {/* Upload */}
           <Panel title="Artwork">
-            <label className="btn-secondary flex cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-border bg-background/60 py-3.5 px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:border-foreground hover:bg-secondary">
+            <label className="btn-secondary flex cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-border bg-background/60 py-3 px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:border-foreground hover:bg-secondary">
               <Upload className="h-4 w-4 text-muted-foreground" />
               <span>Upload PNG / SVG / JPG</span>
               <input
@@ -685,7 +700,7 @@ function DesignPage() {
             </label>
           </Panel>
 
-          {/* Text with explicit label (Issue 7) */}
+          {/* Text with explicit label matching input height and radius (Issue 7) */}
           <Panel title="Add text">
             <div className="flex gap-2">
               <input
@@ -700,16 +715,16 @@ function DesignPage() {
                 }}
                 placeholder="Your line"
                 maxLength={40}
-                className="flex-1 rounded-full border border-border bg-background px-4 py-2.5 text-sm outline-none transition-colors focus:border-foreground"
+                className="h-11 flex-1 rounded-full border border-border bg-background px-4 text-sm outline-none transition-colors focus:border-foreground"
               />
 
               <button
                 type="button"
                 onClick={addText}
                 disabled={!ready || !textValue.trim()}
-                aria-label="Add Text to design"
+                aria-label="Add text to design"
                 title="Add Text"
-                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-foreground bg-foreground px-4 text-xs sm:text-sm font-semibold text-background transition-all hover:bg-brand-red hover:border-brand-red hover:text-white disabled:opacity-40 disabled:pointer-events-none active:scale-95 focus-visible:outline-2 focus-visible:outline-brand-red focus-visible:outline-offset-2"
+                className="btn-secondary inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-foreground bg-foreground px-4 sm:px-5 text-xs sm:text-sm font-semibold text-background transition-all hover:bg-brand-red hover:border-brand-red hover:text-white disabled:opacity-40 disabled:pointer-events-none active:scale-95 focus-visible:outline-2 focus-visible:outline-brand-red focus-visible:outline-offset-2"
               >
                 <TypeIcon className="h-4 w-4" />
                 <span>Add Text</span>
@@ -719,35 +734,35 @@ function DesignPage() {
 
           {/* Canvas Editing Actions with clear grouping container (Issue 8) */}
           <Panel title="Editing">
-            <div className="flex gap-2 rounded-2xl border border-border/60 bg-muted/20 p-2 sm:p-2.5">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 rounded-2xl border border-border/60 bg-muted/20 p-2 sm:p-2.5">
               <button
                 type="button"
                 onClick={deleteSelected}
-                className="btn-ghost flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border/70 bg-background/80 py-2.5 px-3 text-xs font-semibold text-muted-foreground transition-all hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive active:scale-95"
+                className="btn-ghost inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-border/80 bg-background/80 px-3 text-xs sm:text-sm font-semibold text-muted-foreground transition-all hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive active:scale-95"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete selected</span>
+                <span className="truncate">Delete selected</span>
               </button>
 
               <button
                 type="button"
                 onClick={clearAll}
-                className="btn-ghost flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border/70 bg-background/80 py-2.5 px-3 text-xs font-semibold text-muted-foreground transition-all hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive active:scale-95"
+                className="btn-ghost inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-border/80 bg-background/80 px-3 text-xs sm:text-sm font-semibold text-muted-foreground transition-all hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive active:scale-95"
               >
                 <Eraser className="h-3.5 w-3.5" />
-                <span>Remove artwork</span>
+                <span className="truncate">Remove artwork</span>
               </button>
             </div>
           </Panel>
 
-          {/* Save / My designs (Issue 5: Save design is secondary/outlined) */}
+          {/* Save / My designs (Issue 5: Save design is GHOST/OUTLINE variant) */}
           <Panel title="Your designs">
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={openSave}
                 disabled={!ready}
-                className="btn-secondary flex flex-1 items-center justify-center gap-2 rounded-full border border-border bg-background/80 py-2.5 px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:bg-secondary hover:border-foreground disabled:opacity-40 active:scale-95"
+                className="btn-ghost flex flex-1 items-center justify-center gap-2 rounded-full border border-border/80 bg-transparent py-2.5 px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:bg-secondary hover:border-foreground disabled:opacity-40 active:scale-95"
               >
                 <Save className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Save design</span>
@@ -777,21 +792,21 @@ function DesignPage() {
                 type="button"
                 onClick={updateActiveDesign}
                 disabled={saving}
-                className="mt-2 w-full rounded-full border border-border bg-background/80 py-2.5 px-4 text-xs sm:text-sm font-semibold text-foreground hover:border-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+                className="btn-ghost mt-2 w-full rounded-full border border-border/80 bg-transparent py-2.5 px-4 text-xs sm:text-sm font-semibold text-foreground hover:border-foreground hover:bg-secondary transition-colors disabled:opacity-50"
               >
                 Update saved design
               </button>
             )}
 
             {!user && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
                 Sign in to save your designs and come back to them later.
               </p>
             )}
           </Panel>
 
-          {/* Price + Primary Add to Bag CTA (Issue 1, 5, 6) */}
-          <div className="rounded-3xl bg-secondary p-6">
+          {/* Price + Primary Add to Bag CTA (Issue 1, 5, 10) */}
+          <div className="rounded-3xl border-2 border-border/80 bg-secondary/90 p-5 sm:p-6 shadow-md transition-all lg:sticky lg:bottom-6 lg:z-10 backdrop-blur-xs">
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Estimated
@@ -818,7 +833,7 @@ function DesignPage() {
               )}
             </button>
 
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-xs sm:text-sm leading-relaxed text-muted-foreground">
               Your design will be printed on a premium DTF tee and ship in 5–7 days. Final proof
               reviewed before print.
             </p>
@@ -837,6 +852,10 @@ function DesignPage() {
       <aside
         aria-label="Design assistance"
         className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40"
+        style={{
+          bottom: "max(1.25rem, env(safe-area-inset-bottom, 1.25rem))",
+          right: "max(1rem, env(safe-area-inset-right, 1rem))",
+        }}
       >
         <a
           href="https://wa.me/919099866791?text=Hi%20RIOTOUS%20team%2C%20I%20need%20help%20with%20my%20custom%20design"
@@ -885,7 +904,7 @@ function DesignPage() {
               type="button"
               onClick={saveDesign}
               disabled={saving || !designName.trim()}
-              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="btn-primary mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brand-red text-sm font-semibold uppercase tracking-wider text-white transition-opacity hover:opacity-95 disabled:opacity-50"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -955,7 +974,7 @@ function DesignPage() {
                     <button
                       type="button"
                       onClick={() => loadDesign(d)}
-                      className="rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background transition-opacity hover:opacity-90"
+                      className="btn-secondary rounded-full border border-border bg-background px-4 py-2 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:bg-secondary hover:border-foreground"
                     >
                       Open
                     </button>
@@ -964,7 +983,7 @@ function DesignPage() {
                       type="button"
                       onClick={() => deleteDesign(d.id)}
                       aria-label={`Delete ${d.name}`}
-                      className="rounded-full border border-border p-2 hover:border-foreground"
+                      className="btn-ghost rounded-full border border-border p-2 text-muted-foreground hover:border-destructive hover:bg-destructive/10 hover:text-destructive transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
