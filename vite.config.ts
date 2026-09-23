@@ -55,7 +55,6 @@ export default defineConfig({
       "clsx",
       "tailwind-merge",
       "class-variance-authority",
-      "zod",
     ],
   },
   build: {
