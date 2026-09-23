@@ -1,17 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { hasAdminPanelAccess } from "@/lib/auth";
-import { toast } from "sonner";
-import {
-  Loader2,
-  Eye,
-  EyeOff,
-  ArrowLeft,
-  Shirt,
-  Truck,
-  Gift,
-} from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string; mode?: string } => ({
