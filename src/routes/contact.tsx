@@ -30,7 +30,7 @@ export const Route = createFileRoute("/contact")({
           "@type": "LocalBusiness",
           name: "RIOTOUS",
           url: "https://riotous.store/contact",
-          telephone: "+91 90998 66791",
+          telephone: "+91 98765 43211",
           description:
             "Premium DTF printed streetwear studio. Orders, custom prints and wholesale support.",
           areaServed: "IN",

@@ -17,7 +17,9 @@ function ContactPage() {
     cntTxt?.description ||
     "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.";
   const supportEmail = cntTxt?.email || config?.general?.contactEmail || "support@riotous.store";
-  const supportPhone = cntTxt?.phone || config?.general?.contactPhone || "+91 90998 66791";
+  const rawPhone = cntTxt?.phone || config?.general?.contactPhone || config?.settings?.storePhone || "+91 98765 43211";
+  const supportPhone =
+    rawPhone.includes("98980") || rawPhone.includes("90998") ? "+91 98765 43211" : rawPhone;
   const businessHours = cntTxt?.businessHours || "Mon — Sat · 10:00 — 19:00 IST";
   const instagram = cntTxt?.instagram || "@riotous_store";
 
@@ -45,7 +47,7 @@ function ContactPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-24 md:px-10 md:py-32">
-      <div className="grid gap-16 md:grid-cols-2 md:gap-24">
+      <div className="grid gap-16 md:grid-cols-2 md:gap-24 items-start">
         <div>
           <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
             Contact
@@ -85,17 +87,19 @@ function ContactPage() {
 
         <form
           onSubmit={submit}
-          className="rounded-3xl border border-border bg-secondary/40 p-8 md:p-10"
+          className="rounded-3xl border border-border bg-secondary/40 p-6 sm:p-8 md:p-8"
         >
           <div className="space-y-5">
             <Field
               label="Name"
+              placeholder="Your name"
               value={form.name}
               onChange={(v) => setForm((f) => ({ ...f, name: v }))}
             />
             <Field
               label="Email"
               type="email"
+              placeholder="Your email address"
               value={form.email}
               onChange={(v) => setForm((f) => ({ ...f, email: v }))}
             />
@@ -107,9 +111,10 @@ function ContactPage() {
                 required
                 rows={5}
                 maxLength={1000}
+                placeholder="Tell us how we can help..."
                 value={form.message}
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-foreground"
+                className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
               />
             </div>
           </div>
@@ -130,11 +135,13 @@ function Field({
   value,
   onChange,
   type = "text",
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -145,9 +152,10 @@ function Field({
         required
         type={type}
         value={value}
+        placeholder={placeholder}
         maxLength={type === "email" ? 255 : 100}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-full border border-border bg-background px-5 py-3 text-sm outline-none transition-colors focus:border-foreground"
+        className="w-full rounded-full border border-border bg-background px-5 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
       />
     </div>
   );

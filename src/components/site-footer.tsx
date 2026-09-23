@@ -21,7 +21,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
   const config = customConfig || publishedConfig;
   const footer = config?.footer as any;
 
-  if (isLoading && !customConfig) {
+  if (isLoading && !config) {
     return <footer className="border-t border-border bg-background py-20" />;
   }
 
@@ -99,11 +99,16 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
       <div className="mx-auto max-w-[1400px] px-6 py-12 md:px-10 md:py-16">
         <div className="grid gap-8 lg:gap-10 md:grid-cols-12 items-start">
           <div className="md:col-span-6 lg:col-span-6">
-            {/* Scaled footer heading - clearly subordinate to hero H1 (Issue 2) */}
+            {/* Scaled footer heading with comfortable vertical separation (Issue 3) */}
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
-              {displayHeading}
-              <br />
-              <span className="text-muted-foreground font-semibold">{displaySubheading}</span>
+              {displayHeading.split("\n").map((line: string, i: number) => (
+                <span key={i} className={i > 0 ? "block mt-1.5 sm:mt-2" : "block"}>
+                  {line}
+                </span>
+              ))}
+              <span className="block mt-1.5 sm:mt-2 text-muted-foreground font-semibold">
+                {displaySubheading}
+              </span>
             </h2>
             {tagline ? (
               <p className="mt-2.5 max-w-md text-sm text-muted-foreground leading-relaxed">
@@ -145,6 +150,8 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
 
             {(footer?.contactEmail ||
               footer?.contactPhone ||
+              config?.settings?.storePhone ||
+              (config as any)?.general?.contactPhone ||
               config?.settings?.storeEmail ||
               (config as any)?.general?.contactEmail) && (
               <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
@@ -165,13 +172,16 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   config?.settings?.storePhone ||
                   (config as any)?.general?.contactPhone) && (
                   <a
-                    href={`tel:${footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone}`}
+                    href={`tel:${(footer?.contactPhone === "+91 98980 00000" || footer?.contactPhone === "+91 90998 66791" ? "+91 98765 43211" : footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone || "+91 98765 43211").replace(/\s+/g, "")}`}
                     className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
                   >
                     <Phone className="h-4 w-4" />
-                    {footer?.contactPhone ||
-                      config?.settings?.storePhone ||
-                      (config as any)?.general?.contactPhone}
+                    {footer?.contactPhone === "+91 98980 00000" || footer?.contactPhone === "+91 90998 66791"
+                      ? "+91 98765 43211"
+                      : footer?.contactPhone ||
+                        config?.settings?.storePhone ||
+                        (config as any)?.general?.contactPhone ||
+                        "+91 98765 43211"}
                   </a>
                 )}
               </div>
