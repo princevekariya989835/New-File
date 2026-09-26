@@ -17,16 +17,16 @@ export const Route = createFileRoute("/terms")({
 
 function TermsPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-16 md:px-10">
-      <div className="mb-8">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 md:px-10 py-12 md:py-16">
+      <div className="mb-6 sm:mb-8">
         <Link
           to="/"
           className="text-xs uppercase tracking-widest text-muted-foreground hover:underline"
         >
           ← Back to store
         </Link>
-        <h1 className="mt-4 text-4xl font-black tracking-tight">Terms of Service</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Last updated: September 1, 2026</p>
+        <h1 className="mt-3 sm:mt-4 text-2xl sm:text-4xl font-black tracking-tight break-words">Terms of Service</h1>
+        <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">Last updated: September 1, 2026</p>
       </div>
 
       <div className="prose prose-neutral max-w-none space-y-6 text-foreground">

@@ -6,21 +6,21 @@ export const Route = createLazyFileRoute("/about")({ component: AboutPage });
 
 function AboutPage() {
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-24 md:px-10 md:py-32">
+    <div className="mx-auto max-w-[1200px] px-4 sm:px-6 md:px-10 py-16 sm:py-24 md:py-32">
       {/* Hero Section: Brand Header, Punchy Intro, Immediate Primary CTA, & Lifestyle Photo */}
-      <div className="grid gap-12 lg:grid-cols-12 lg:gap-16 items-center">
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-16 items-center">
         <div className="lg:col-span-7">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+          <p className="mb-3 sm:mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
             The story
           </p>
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl md:text-7xl break-words">
             Loud prints.
             <br />
             Quiet luxury.
           </h1>
 
           {/* Short, powerful introductory brand statement (~66 words) */}
-          <p className="mt-6 max-w-[65ch] w-full text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="mt-4 sm:mt-6 max-w-[65ch] w-full text-sm sm:text-base leading-relaxed text-muted-foreground md:text-lg">
             <BrandName /> was born out of a relentless obsession with authenticity and modern street
             culture. In a market saturated with fast fashion knockoffs, hollow graphics, and flimsy
             fabrics, we set out to build something unapologetic: a homegrown Indian streetwear label
@@ -29,7 +29,7 @@ function AboutPage() {
           </p>
 
           {/* Primary Action immediately following hero statement */}
-          <div className="mt-8 flex flex-wrap items-center gap-4">
+          <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-4">
             <Link
               to="/shop"
               className="btn-primary group inline-flex items-center gap-2.5 rounded-full px-7 py-3.5 text-sm font-semibold tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-md"
@@ -50,14 +50,14 @@ function AboutPage() {
               height={1000}
               loading="lazy"
               decoding="async"
-              className="h-[380px] sm:h-[460px] lg:h-[500px] w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
+              className="h-[320px] sm:h-[460px] lg:h-[500px] w-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent pointer-events-none" />
-            <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 lg:p-7">
-              <span className="inline-flex items-center rounded-full bg-brand-red px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
+            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-7">
+              <span className="inline-flex items-center rounded-full bg-brand-red px-3 py-0.5 sm:px-3.5 sm:py-1 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-md">
                 Studio Drop • 240 GSM
               </span>
-              <p className="mt-2.5 text-base sm:text-lg font-semibold text-white leading-snug drop-shadow-sm">
+              <p className="mt-2 text-sm sm:text-lg font-semibold text-white leading-snug drop-shadow-sm">
                 Heavyweight combed cotton. Precision DTF prints.
               </p>
             </div>
@@ -66,16 +66,16 @@ function AboutPage() {
       </div>
 
       {/* The Craft Narrative - Deep Dive into Manufacturing & Ethics */}
-      <div className="mt-24 border-t border-border/40 pt-16 md:mt-32 md:pt-20">
+      <div className="mt-16 sm:mt-24 border-t border-border/40 pt-12 sm:pt-16 md:mt-32 md:pt-20">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
             The Craft
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
+          <h2 className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-semibold tracking-tight md:text-5xl">
             Obsessive engineering. Honest luxury.
           </h2>
         </div>
-        <div className="mt-8 grid gap-8 md:grid-cols-2 md:gap-12 text-base leading-relaxed text-muted-foreground md:text-lg">
+        <div className="mt-6 sm:mt-8 grid gap-6 sm:gap-8 md:grid-cols-2 md:gap-12 text-sm sm:text-base leading-relaxed text-muted-foreground md:text-lg">
           <p className="max-w-[65ch] w-full">
             Every single piece in our collection begins with custom-developed, 100% heavyweight combed
             cotton engineered for the perfect relaxed, oversized drape. We power our graphics with
@@ -93,8 +93,8 @@ function AboutPage() {
         </div>
       </div>
 
-      {/* Cohesive Brand Pillars (Balanced vertical & horizontal grid rhythm) */}
-      <div className="mt-24 grid gap-x-12 gap-y-10 md:grid-cols-2 md:gap-x-16 md:gap-y-12 md:mt-32">
+      {/* Cohesive Brand Pillars */}
+      <div className="mt-16 sm:mt-24 grid gap-x-8 sm:gap-x-12 gap-y-8 sm:gap-y-10 md:grid-cols-2 md:gap-x-16 md:gap-y-12 md:mt-32">
         <Section
           title="Mission"
           body="Put premium, expressive apparel in the hands of a new generation of creators. Every print is a statement — and every stitch is engineered to outlast the moment."

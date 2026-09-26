@@ -446,23 +446,23 @@ function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-[1200px] px-6 pb-24 pt-28 md:px-10 md:pt-36">
-      <div className="mb-10">
+    <main className="mx-auto max-w-[1200px] px-4 sm:px-6 md:px-10 pb-20 sm:pb-24 pt-24 sm:pt-28 md:pt-36">
+      <div className="mb-6 sm:mb-10">
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
           Step 1 of 1 · Review &amp; place order
         </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">Checkout</h1>
+        <h1 className="mt-1.5 sm:mt-2 text-2xl sm:text-4xl md:text-5xl font-semibold tracking-tight">Checkout</h1>
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_420px]">
+      <div className="grid gap-6 sm:gap-10 lg:grid-cols-[1fr_420px]">
         {/* LEFT — items + info */}
-        <div className="space-y-8">
-          <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
-            <h2 className="mb-6 text-lg font-semibold">Your items</h2>
+        <div className="space-y-6 sm:space-y-8">
+          <section className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-8">
+            <h2 className="mb-4 sm:mb-6 text-base sm:text-lg font-semibold">Your items</h2>
             <ul className="divide-y divide-border">
               {displayItems.map((item) => (
-                <li key={item.variantId} className="flex gap-4 py-5 first:pt-0 last:pb-0">
-                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-secondary">
+                <li key={item.variantId} className="flex gap-3 sm:gap-4 py-4 sm:py-5 first:pt-0 last:pb-0">
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex-shrink-0 overflow-hidden rounded-xl sm:rounded-2xl bg-secondary">
                     {item.imageUrl && (
                       <img
                         src={item.imageUrl}
@@ -473,14 +473,14 @@ function CheckoutPage() {
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col justify-between">
                     <div>
-                      <p className="truncate text-sm font-medium">{item.productTitle}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="truncate text-xs sm:text-sm font-medium">{item.productTitle}</p>
+                      <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted-foreground">
                         {item.selectedOptions.map((o) => o.value).join(" · ")}
                       </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground">Qty {item.quantity}</p>
                   </div>
-                  <div className="text-right text-sm font-semibold">
+                  <div className="text-right text-xs sm:text-sm font-semibold">
                     {formatPrice(
                       parseFloat(item.price.amount) * item.quantity,
                       item.price.currencyCode,
@@ -491,7 +491,7 @@ function CheckoutPage() {
             </ul>
           </section>
 
-          <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
+          <section className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-8">
             <div className="mb-4 flex items-center gap-3">
               <Truck className="h-5 w-5" />
               <h2 className="text-lg font-semibold">Shipping &amp; address</h2>
@@ -583,13 +583,13 @@ function CheckoutPage() {
             </p>
           </section>
 
-          <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
+          <section className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-8">
             <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3">
                 <CreditCard className="h-5 w-5 text-brand-red" />
-                <h2 className="text-lg font-semibold">Payment Method</h2>
+                <h2 className="text-base sm:text-lg font-semibold">Payment Method</h2>
               </div>
-              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+              <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-emerald-400">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 256-Bit SSL Encrypted
               </span>
@@ -599,7 +599,7 @@ function CheckoutPage() {
               {/* Online Payment Option */}
               <div
                 onClick={() => setPaymentMethod("ONLINE")}
-                className={`relative flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition-all ${
+                className={`relative flex cursor-pointer items-start gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border p-3.5 sm:p-4 transition-all ${
                   paymentMethod === "ONLINE"
                     ? "border-brand-red/80 bg-brand-red/5 ring-1 ring-brand-red/50 shadow-sm"
                     : "border-border/80 bg-background/50 hover:border-border hover:bg-background"
@@ -622,7 +622,7 @@ function CheckoutPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold">Online Payment</span>
-                      <span className="rounded-full bg-brand-red/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-red">
+                      <span className="rounded-full bg-brand-red/20 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-brand-red">
                         Instant · Recommended
                       </span>
                     </div>
@@ -630,11 +630,11 @@ function CheckoutPage() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking &amp; Wallets via Razorpay
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <div className="mt-3 flex flex-wrap gap-1 sm:gap-1.5">
                     {["UPI", "Google Pay", "PhonePe", "Cards", "NetBanking"].map((badge) => (
                       <span
                         key={badge}
-                        className="rounded-md border border-border/80 bg-secondary/40 px-2 py-0.5 text-[10px] font-medium text-foreground"
+                        className="rounded-md border border-border/80 bg-secondary/40 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-foreground"
                       >
                         {badge}
                       </span>
@@ -646,7 +646,7 @@ function CheckoutPage() {
               {/* Cash on Delivery Option */}
               <div
                 onClick={() => setPaymentMethod("COD")}
-                className={`relative flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition-all ${
+                className={`relative flex cursor-pointer items-start gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border p-3.5 sm:p-4 transition-all ${
                   paymentMethod === "COD"
                     ? "border-brand-red/80 bg-brand-red/5 ring-1 ring-brand-red/50 shadow-sm"
                     : "border-border/80 bg-background/50 hover:border-border hover:bg-background"
@@ -677,17 +677,17 @@ function CheckoutPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5" />
-              Your payment information is handled securely via Razorpay's PCI-DSS compliant infrastructure.
+            <div className="mt-5 sm:mt-6 flex items-center gap-2 text-[11px] sm:text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              <span>Your payment information is handled securely via Razorpay's PCI-DSS compliant infrastructure.</span>
             </div>
           </section>
         </div>
 
         {/* RIGHT — summary */}
         <aside className="lg:sticky lg:top-28 lg:self-start">
-          <div className="rounded-3xl border border-border bg-card p-6 md:p-8">
-            <h2 className="mb-6 text-lg font-semibold">Order summary</h2>
+          <div className="rounded-2xl sm:rounded-3xl border border-border bg-card p-4 sm:p-6 md:p-8">
+            <h2 className="mb-4 sm:mb-6 text-base sm:text-lg font-semibold">Order summary</h2>
 
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
@@ -805,24 +805,25 @@ function CheckoutPage() {
               onClick={proceed}
               size="lg"
               disabled={isLoading || isSyncing || placing}
-              className="mt-6 h-12 w-full rounded-full text-sm font-semibold shadow-lg shadow-brand-red/20 transition-all hover:scale-[1.01]"
+              className="mt-6 h-12 w-full rounded-full text-xs sm:text-sm font-semibold shadow-lg shadow-brand-red/20 transition-all hover:scale-[1.01] cursor-pointer"
             >
               {isLoading || isSyncing || placing ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>{placingText || (paymentMethod === "ONLINE" ? "Opening Razorpay..." : "Placing Order...")}</span>
+                  <span className="truncate">{placingText || (paymentMethod === "ONLINE" ? "Opening Razorpay..." : "Placing Order...")}</span>
                 </div>
               ) : (
                 <>
                   {paymentMethod === "ONLINE" ? (
-                    <span className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 fill-current" />
-                      Pay {formatPrice(total, currency)} with Razorpay
+                    <span className="flex items-center justify-center gap-1.5 sm:gap-2 truncate">
+                      <Zap className="h-4 w-4 fill-current shrink-0" />
+                      <span>Pay {formatPrice(total, currency)}</span>
+                      <span className="hidden xs:inline">with Razorpay</span>
                     </span>
                   ) : (
-                    <span className="flex items-center gap-2">
-                      Place Order (COD)
-                      <ArrowUpRight className="h-4 w-4" />
+                    <span className="flex items-center justify-center gap-1.5 sm:gap-2 truncate">
+                      <span>Place COD Order ({formatPrice(total, currency)})</span>
+                      <ArrowUpRight className="h-4 w-4 shrink-0" />
                     </span>
                   )}
                 </>

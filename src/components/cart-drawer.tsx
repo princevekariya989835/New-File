@@ -56,12 +56,12 @@ export function CartDrawer() {
       <SheetTrigger asChild>
         <button
           suppressHydrationWarning
-          className="relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
+          className="relative flex h-8 w-8 xs:h-9 xs:w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
           aria-label={`Cart, ${totalItems} items`}
         >
-          <ShoppingBag className="h-5 w-5" />
+          <ShoppingBag className="h-4 w-4 xs:h-5 xs:w-5" />
           {totalItems > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 xs:h-5 xs:min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[9px] xs:text-[10px] font-semibold text-accent-foreground">
               {totalItems}
             </span>
           )}

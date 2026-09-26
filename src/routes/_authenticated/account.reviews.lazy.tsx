@@ -23,9 +23,9 @@ function MyReviewsPage() {
   });
 
   return (
-    <div className="container max-w-3xl py-12 md:py-20">
-      <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">My reviews</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 md:px-10 py-10 md:py-20">
+      <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">My reviews</h1>
+      <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
         Reviews are published once our team approves them.
       </p>
 
@@ -105,7 +105,7 @@ function MyReviewsPage() {
                     </p>
                   )}
                   {r.images.length > 0 && (
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {r.images.map((p) => (
                         <img
                           key={p}

@@ -110,16 +110,16 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
         <div
           className={`pointer-events-auto flex items-center justify-between border-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             scrolled
-              ? "h-[50px] md:h-12 w-auto max-w-[96vw] md:max-w-5xl rounded-full bg-black/80 px-3 md:px-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 gap-2 md:gap-6"
-              : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-3.5 sm:px-6 md:px-10 gap-2 sm:gap-4"
+              ? "h-[50px] md:h-12 w-auto max-w-[96vw] md:max-w-5xl rounded-full bg-black/80 px-2.5 xs:px-3 md:px-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 gap-1.5 xs:gap-2 md:gap-6"
+              : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-3 sm:px-6 md:px-10 gap-1.5 sm:gap-4"
           }`}
         >
           <button
-            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
+            className="flex h-8 w-8 xs:h-9 xs:w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
             onClick={() => setMobileOpen(true)}
             aria-label="Menu"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-4 w-4 xs:h-5 xs:w-5" />
           </button>
 
           <Link to="/" className="flex shrink-0 items-center" aria-label="RIOTOUS home">
@@ -131,7 +131,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               loading="eager"
               decoding="async"
               className={`shrink-0 object-contain transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                scrolled ? "w-[105px] sm:w-[115px] h-auto md:w-auto md:h-7" : "w-[115px] sm:w-[135px] md:w-auto md:h-9"
+                scrolled ? "w-[88px] xs:w-[100px] sm:w-[115px] h-auto md:w-auto md:h-7" : "w-[98px] xs:w-[115px] sm:w-[135px] md:w-auto md:h-9"
               }`}
               draggable={false}
             />
@@ -167,25 +167,25 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
             )}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1 transition-all duration-300">
+          <div className="flex shrink-0 items-center gap-0.5 xs:gap-1 transition-all duration-300">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
+              className="flex h-8 w-8 xs:h-9 xs:w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
               aria-label="Search collection"
               title="Search products (Cmd+K)"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4 xs:h-5 xs:w-5" />
             </button>
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
+                    className="flex h-8 w-8 xs:h-9 xs:w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white cursor-pointer"
                     aria-label="Account"
                     title={user.email}
                   >
-                    <User className="h-5 w-5" />
+                    <User className="h-4 w-4 xs:h-5 xs:w-5" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -242,14 +242,14 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
             ) : (
               <Link
                 to="/auth"
-                className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white"
+                className="flex h-8 w-8 xs:h-9 xs:w-9 md:h-10 md:w-10 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white"
                 activeProps={{
                   className: "bg-brand-red text-white ring-2 ring-brand-red/40 shadow-[0_0_12px_rgba(240,11,17,0.5)]",
                 }}
                 aria-label="Sign in"
                 title="Sign in"
               >
-                <User className="h-5 w-5" />
+                <User className="h-4 w-4 xs:h-5 xs:w-5" />
               </Link>
             )}
             <CartDrawer />
@@ -260,7 +260,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       {/* Mobile nav */}
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] bg-background md:hidden animate-in fade-in duration-200">
-          <div className="flex h-16 items-center justify-between px-6">
+          <div className="flex h-16 items-center justify-between px-4 sm:px-6">
             <BrandName className="text-xl font-black tracking-[0.2em]" />
             <button
               onClick={() => setMobileOpen(false)}
@@ -270,7 +270,7 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <nav className="flex flex-col gap-1 px-6 pt-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+          <nav className="flex flex-col gap-1 px-4 sm:px-6 pt-3 overflow-y-auto max-h-[calc(100vh-70px)]">
             <button
               type="button"
               onClick={() => {

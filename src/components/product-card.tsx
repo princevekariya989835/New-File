@@ -72,7 +72,7 @@ export function ProductCard({
       className="group block"
       style={{ contentVisibility: "auto", containIntrinsicSize: "0 420px" }}
     >
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl sm:rounded-2xl bg-secondary/60 flex items-center justify-center p-2 sm:p-4">
         {currentImg && (
           <img
             key={currentImg.url}
@@ -105,26 +105,26 @@ export function ProductCard({
               type="button"
               onClick={onPrevImage}
               aria-label="Previous image"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
+              className="absolute left-1.5 sm:left-2.5 top-1/2 -translate-y-1/2 z-10 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
             >
-              <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
+              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.5]" />
             </button>
             <button
               type="button"
               onClick={onNextImage}
               aria-label="Next image"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
+              className="absolute right-1.5 sm:right-2.5 top-1/2 -translate-y-1/2 z-10 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-md shadow-md border border-border/30 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-115 active:scale-95"
             >
-              <ChevronRight className="h-4 w-4 stroke-[2.5]" />
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.5]" />
             </button>
 
             {/* Indicator Dots */}
-            <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 backdrop-blur-md shadow-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="absolute bottom-2 sm:bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-background/70 px-1.5 sm:px-2 py-0.5 backdrop-blur-md shadow-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               {images.slice(0, 6).map((_, i) => (
                 <span
                   key={i}
                   className={`h-1 rounded-full transition-all duration-200 ${
-                    activeImgIdx === i ? "w-3 bg-brand-red" : "w-1 bg-foreground/30"
+                    activeImgIdx === i ? "w-2.5 sm:w-3 bg-brand-red" : "w-1 bg-foreground/30"
                   }`}
                 />
               ))}
@@ -133,12 +133,12 @@ export function ProductCard({
         )}
 
         {tag && (
-          <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold uppercase tracking-widest backdrop-blur">
+          <span className="absolute left-2 top-2 sm:left-4 sm:top-4 rounded-full bg-background/90 px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-widest backdrop-blur">
             {tag}
           </span>
         )}
         {soldOut && (
-          <span className="absolute right-4 top-4 rounded-full bg-foreground px-3 py-1 text-xs font-semibold uppercase tracking-widest text-background">
+          <span className="absolute right-2 top-2 sm:right-4 sm:top-4 rounded-full bg-foreground px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-widest text-background">
             Sold out
           </span>
         )}
@@ -146,23 +146,23 @@ export function ProductCard({
           type="button"
           onClick={onLike}
           suppressHydrationWarning
-          className={`absolute ${soldOut ? "right-4 top-14" : "right-4 top-4"} z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-md transition-all hover:bg-background hover:border-foreground/40 hover:scale-110 active:scale-95 cursor-pointer`}
+          className={`absolute ${soldOut ? "right-2 top-7 sm:right-4 sm:top-14" : "right-2 top-2 sm:right-4 sm:top-4"} z-10 flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-md transition-all hover:bg-background hover:border-foreground/40 hover:scale-110 active:scale-95 cursor-pointer`}
           aria-label={liked ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
-            className={`h-4 w-4 transition-colors ${liked ? "fill-brand-red text-brand-red" : "text-foreground"}`}
+            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors ${liked ? "fill-brand-red text-brand-red" : "text-foreground"}`}
           />
         </button>
       </div>
-      <div className="mt-3.5 flex flex-col px-1">
+      <div className="mt-2.5 sm:mt-3.5 flex flex-col px-0.5 sm:px-1 min-w-0">
         <h2
-          className="line-clamp-2 min-h-[2.6rem] text-sm font-medium leading-snug text-foreground"
+          className="line-clamp-2 min-h-[2rem] sm:min-h-[2.6rem] text-xs sm:text-sm font-medium leading-snug text-foreground break-words"
           title={p.title}
         >
           {p.title}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground leading-normal line-clamp-2">{p.productType || <BrandName />}</p>
-        <p className="mt-1.5 whitespace-nowrap text-sm font-semibold text-foreground">
+        <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-muted-foreground leading-normal line-clamp-1 truncate">{p.productType || <BrandName />}</p>
+        <p className="mt-1 sm:mt-1.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-foreground">
           {formatPrice(price.amount, price.currencyCode)}
         </p>
       </div>

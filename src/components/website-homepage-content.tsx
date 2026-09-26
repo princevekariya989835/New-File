@@ -96,33 +96,33 @@ function FeaturedProductsSection({
   return (
     <section
       key="sec-featured"
-      className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
+      className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 md:px-10 py-12 md:py-24"
     >
-      {/* Standardized 3-tier section header: label, heading + controls, description (Issue 3, 5) */}
-      <div className="mb-8 md:mb-10">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+      {/* Standardized 3-tier section header: label, heading + controls, description */}
+      <div className="mb-6 md:mb-10">
+        <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
           Curated Drops
         </p>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-3xl font-bold tracking-tight md:text-5xl leading-none">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight leading-none">
             {featuredProducts.title || "Featured."}
           </h2>
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <a
               href="/shop"
-              className="group inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
+              className="group inline-flex h-8 sm:h-9 min-h-[32px] sm:min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-3 sm:px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
             >
               <span>View All</span>
               <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </a>
             {count > 4 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 <button
                   type="button"
                   onClick={() => scroll("left")}
                   disabled={!canScrollLeft}
                   aria-label="Previous products"
-                  className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 min-h-[32px] sm:min-h-[36px] min-w-[32px] sm:min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -131,7 +131,7 @@ function FeaturedProductsSection({
                   onClick={() => scroll("right")}
                   disabled={!canScrollRight}
                   aria-label="Next products"
-                  className="flex h-9 w-9 min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 min-h-[32px] sm:min-h-[36px] min-w-[32px] sm:min-w-[36px] items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -140,7 +140,7 @@ function FeaturedProductsSection({
           </div>
         </div>
         {featuredProducts.subtitle && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
             {featuredProducts.subtitle}
           </p>
         )}
@@ -152,7 +152,7 @@ function FeaturedProductsSection({
         <EmptyProducts />
       ) : count <= 4 ? (
         <div
-          className={`grid gap-x-4 gap-y-10 md:gap-x-6 ${
+          className={`grid gap-3 sm:gap-4 md:gap-6 ${
             count === 1
               ? "grid-cols-1 max-w-sm"
               : count === 2
@@ -170,13 +170,13 @@ function FeaturedProductsSection({
         <div
           ref={scrollContainerRef}
           onScroll={checkScroll}
-          className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4"
+          className="flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-4"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {displayedProducts.map((p) => (
             <div
               key={p.node.id}
-              className="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-1rem)] lg:w-[calc(25%-1.125rem)] shrink-0 snap-start"
+              className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-1rem)] lg:w-[calc(25%-1.125rem)] shrink-0 snap-start"
             >
               <ProductCard product={p} priority={false} />
             </div>
@@ -261,38 +261,38 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-collections"
-                className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
+                className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 md:px-10 py-12 md:py-24"
               >
-                {/* Standardized 3-tier section header: label, heading + View All, description (Issue 2, 3) */}
-                <div className="mb-8 md:mb-10">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                {/* Standardized 3-tier section header: label, heading + View All, description */}
+                <div className="mb-6 md:mb-10">
+                  <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                     Collections
                   </p>
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h2 className="text-3xl font-bold tracking-tight md:text-5xl leading-none">
+                  <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight leading-none">
                       Shop the drop.
                     </h2>
                     <a
                       href="/shop"
-                      className="group inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
+                      className="group inline-flex h-8 sm:h-9 min-h-[32px] sm:min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-3 sm:px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
                     >
                       <span>View All</span>
                       <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     </a>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
                     Signature silhouettes and limited-run graphic capsules.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 md:gap-6">
                   {enabledCollections.map((c, idx) => {
                     const imgUrl = c.imageUrl || fallbackImgs[idx % fallbackImgs.length];
                     return (
                       <a
                         key={c.id}
                         href={c.link || "/shop"}
-                        className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl bg-neutral-900 p-5 text-white md:p-6 transition-transform hover:scale-[1.01]"
+                        className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-xl sm:rounded-2xl bg-neutral-900 p-3 sm:p-5 md:p-6 text-white transition-transform hover:scale-[1.01]"
                       >
                         {imgUrl && (
                           <img
@@ -307,16 +307,16 @@ export function WebsiteHomepageContent({
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                         
-                        {/* Grouped sub-label & title at bottom with small cohesive gap (Issue 7) and sentence/title case (Issue 4) */}
-                        <div className="relative z-10 flex flex-col items-start gap-1">
-                          <span className="text-xs font-semibold tracking-wide text-white/80">
+                        {/* Grouped sub-label & title at bottom */}
+                        <div className="relative z-10 flex flex-col items-start gap-0.5 sm:gap-1">
+                          <span className="text-[10px] sm:text-xs font-semibold tracking-wide text-white/80">
                             {c.tag}
                           </span>
-                          <div className="flex w-full items-center justify-between gap-2">
-                            <h3 className="text-base font-semibold tracking-tight md:text-xl">
+                          <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">
+                            <h3 className="text-xs sm:text-base font-semibold tracking-tight md:text-xl line-clamp-1">
                               {c.title}
                             </h3>
-                            <ArrowUpRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                            <ArrowUpRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                           </div>
                         </div>
                       </a>
@@ -344,31 +344,30 @@ export function WebsiteHomepageContent({
             if (!whyUs?.items || whyUs.items.length === 0) return null;
 
             return (
-              <section key="sec-whyus" className="bg-secondary py-16 md:py-20">
-                <div className="mx-auto max-w-[1400px] px-6 md:px-10">
-                  {/* Standardized 3-tier section header: label, heading, description (Issue 3) */}
-                  <div className="mb-8 sm:mb-10 max-w-3xl">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+              <section key="sec-whyus" className="bg-secondary py-12 md:py-20">
+                <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10">
+                  {/* Standardized 3-tier section header: label, heading, description */}
+                  <div className="mb-6 sm:mb-10 max-w-3xl">
+                    <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                       {whyUs.badge || "Why RIOTOUS"}
                     </p>
-                    <h2 className="text-3xl font-bold tracking-tight md:text-5xl leading-none">
+                    <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight leading-none">
                       {whyUs.title || "Built for the ones who create."}
                     </h2>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
                       Heavyweight cotton and high-density DTF prints engineered for creators.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 gap-y-10 gap-x-8 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-y-6 sm:gap-y-10 gap-x-6 sm:gap-x-8 md:grid-cols-3">
                     {whyUs.items.map((f) => {
                       const IconComp = ICON_MAP[f.iconName] || Sparkles;
                       return (
                         <div key={f.id} className="group">
-                          {/* Tight icon-to-heading gap (Issue 6) */}
-                          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-background transition-colors group-hover:bg-brand-red group-hover:text-white">
-                            <IconComp className="h-5 w-5" />
+                          <div className="mb-2 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-background transition-colors group-hover:bg-brand-red group-hover:text-white">
+                            <IconComp className="h-4 w-4 sm:h-5 sm:w-5" />
                           </div>
-                          <h3 className="text-base font-semibold tracking-tight leading-snug">{f.title}</h3>
-                          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{f.description}</p>
+                          <h3 className="text-sm sm:text-base font-semibold tracking-tight leading-snug">{f.title}</h3>
+                          <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.description}</p>
                         </div>
                       );
                     })}
@@ -384,26 +383,26 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-promo"
-                className="mx-auto max-w-[1400px] px-6 py-20 md:px-10 md:py-24"
+                className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-12 md:py-24"
               >
-                <div className="relative overflow-hidden rounded-3xl bg-brand-red p-10 text-background md:p-20">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-brand-red p-6 sm:p-10 md:p-20 text-background">
                   <div className="metallic-shine absolute inset-0 opacity-30" />
                   <div className="relative mx-auto flex flex-col items-center text-center max-w-2xl text-white">
                     {promoBanner.badge && (
-                      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] opacity-80">
+                      <p className="mb-2 sm:mb-4 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.25em] opacity-80">
                         {promoBanner.badge}
                       </p>
                     )}
-                    <h2 className="text-4xl font-bold tracking-tight md:text-5xl whitespace-pre-line">
+                    <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight whitespace-pre-line">
                       {promoBanner.title}
                     </h2>
                     {promoBanner.description && (
-                      <p className="mt-5 max-w-lg mx-auto text-sm sm:text-base opacity-90 leading-relaxed">{promoBanner.description}</p>
+                      <p className="mt-3 sm:mt-5 max-w-lg mx-auto text-xs sm:text-base opacity-90 leading-relaxed">{promoBanner.description}</p>
                     )}
                     {promoBanner.buttonText && (
                       <a
                         href={promoBanner.buttonLink || "/design"}
-                        className="group mt-8 inline-flex h-12 min-h-[48px] items-center justify-center gap-2.5 rounded-full bg-background px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
+                        className="group mt-6 sm:mt-8 inline-flex h-11 sm:h-12 min-h-[44px] sm:min-h-[48px] w-full xs:w-auto items-center justify-center gap-2.5 rounded-full bg-background px-6 sm:px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
                       >
                         <span>{promoBanner.buttonText}</span>
                         <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -421,38 +420,38 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-reviews"
-                className="mx-auto max-w-[1400px] px-6 pb-20 md:px-10 md:pb-24"
+                className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 pb-16 md:pb-24"
               >
-                {/* Standardized 3-tier section header: label, heading, description (Issue 3) */}
-                <div className="mb-8 md:mb-10 max-w-2xl">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                {/* Standardized 3-tier section header: label, heading, description */}
+                <div className="mb-6 md:mb-10 max-w-2xl">
+                  <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                     {reviewsSection.badge || "Reviews"}
                   </p>
-                  <h2 className="text-3xl font-bold tracking-tight md:text-4xl leading-none">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-none">
                     {reviewsSection.title || "Straight from the community."}
                   </h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
                     Unfiltered reviews from verified creators wearing RIOTOUS across India.
                   </p>
                 </div>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="rounded-2xl border border-border bg-background p-8">
+                    <div key={i} className="rounded-xl sm:rounded-2xl border border-border bg-background p-4 sm:p-6 md:p-8">
                       <div className="flex gap-1 text-amber-500">
                         {Array.from({ length: 5 }).map((_, s) => (
-                          <span key={s} className="text-base">
+                          <span key={s} className="text-sm sm:text-base">
                             ★
                           </span>
                         ))}
                       </div>
-                      <p className="mt-4 text-sm text-foreground font-medium">
+                      <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-foreground font-medium leading-relaxed">
                         {i === 0
                           ? "“The quality of the DTF print on the oversized tee exceeded my expectations. Vibrant and doesn't crack!”"
                           : i === 1
                             ? "“Best custom apparel studio in India. The design canvas makes ordering effortless.”"
                             : "“Heavyweight fabric, fast dispatch, and signature box packaging. Will order again.”"}
                       </p>
-                      <p className="mt-4 text-xs font-medium text-muted-foreground">
+                      <p className="mt-3 sm:mt-4 text-[11px] sm:text-xs font-medium text-muted-foreground">
                         {i === 0
                           ? "Aryan S. · Verified Buyer"
                           : i === 1

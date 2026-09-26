@@ -378,7 +378,7 @@ function OrdersPage() {
       {/* Order Details Modal Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         {selectedOrder && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8 rounded-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl">
             <DialogHeader className="border-b border-border pb-4 text-left">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -436,7 +436,7 @@ function OrdersPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-xs">
                   {STATUS_STEPS.map((step, idx) => {
                     const currentIndex = getStatusStepIndex(selectedOrder.fulfillmentStatus);
                     const isCompleted = currentIndex >= idx;
@@ -445,16 +445,16 @@ function OrdersPage() {
                     return (
                       <div key={step} className="flex flex-col items-center">
                         <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                          className={`flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                             isCompleted
                               ? "bg-foreground text-background shadow-sm"
                               : "bg-secondary text-muted-foreground"
                           }`}
                         >
-                          {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                          {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : idx + 1}
                         </div>
                         <span
-                          className={`mt-1.5 text-[11px] font-medium leading-tight ${
+                          className={`mt-1.5 text-[9px] xs:text-[10px] sm:text-[11px] font-medium leading-tight ${
                             isCurrent ? "font-bold text-foreground" : "text-muted-foreground"
                           }`}
                         >

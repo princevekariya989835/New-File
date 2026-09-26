@@ -46,18 +46,18 @@ function ContactPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-24 md:px-10 md:py-32">
-      <div className="grid gap-16 md:grid-cols-2 md:gap-24 items-start">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-16 sm:py-24 md:py-32">
+      <div className="grid gap-8 sm:gap-16 md:grid-cols-2 md:gap-24 items-start">
         <div>
-          <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
+          <p className="mb-3 sm:mb-6 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
             Contact
           </p>
-          <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">{pageTitle}</h1>
-          <p className="mt-6 max-w-md text-muted-foreground leading-relaxed">
+          <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight md:text-7xl break-words">{pageTitle}</h1>
+          <p className="mt-3 sm:mt-6 max-w-md text-xs sm:text-base text-muted-foreground leading-relaxed">
             {description}
           </p>
 
-          <div className="mt-12 space-y-6">
+          <div className="mt-8 sm:mt-12 space-y-4 sm:space-y-6">
             <a href={`mailto:${supportEmail}`} className="block hover:opacity-80 transition-opacity">
               <ContactRow icon={Mail} label="Support" value={supportEmail} />
             </a>
@@ -77,17 +77,17 @@ function ContactPage() {
             </a>
           </div>
 
-          <div className="mt-12 border-t border-border pt-8">
+          <div className="mt-8 sm:mt-12 border-t border-border pt-6 sm:pt-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Studio hours
             </p>
-            <p className="mt-3 text-sm">{businessHours}</p>
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm">{businessHours}</p>
           </div>
         </div>
 
         <form
           onSubmit={submit}
-          className="rounded-3xl border border-border bg-secondary/40 p-6 sm:p-8 md:p-8"
+          className="rounded-2xl sm:rounded-3xl border border-border bg-secondary/40 p-4 sm:p-6 md:p-8"
         >
           <div className="space-y-5">
             <Field

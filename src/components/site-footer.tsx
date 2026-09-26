@@ -96,27 +96,27 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
 
   return (
     <footer className="border-t border-border bg-background">
-      <div className="mx-auto max-w-[1400px] px-6 py-12 md:px-10 md:py-16">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-10 md:py-16">
         <div className="grid gap-8 lg:gap-10 md:grid-cols-12 items-start">
           <div className="md:col-span-6 lg:col-span-6">
-            {/* Scaled footer heading with comfortable vertical separation (Issue 3) */}
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
+            {/* Scaled footer heading */}
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
               {displayHeading.split("\n").map((line: string, i: number) => (
-                <span key={i} className={i > 0 ? "block mt-1.5 sm:mt-2" : "block"}>
+                <span key={i} className={i > 0 ? "block mt-1 sm:mt-2" : "block"}>
                   {line}
                 </span>
               ))}
-              <span className="block mt-1.5 sm:mt-2 text-muted-foreground font-semibold">
+              <span className="block mt-1 sm:mt-2 text-muted-foreground font-semibold">
                 {displaySubheading}
               </span>
             </h2>
             {tagline ? (
-              <p className="mt-2.5 max-w-md text-sm text-muted-foreground leading-relaxed">
+              <p className="mt-2 sm:mt-2.5 max-w-md text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 {tagline}
               </p>
             ) : null}
 
-            {/* Prominent newsletter signup with unified pill button (Issue 2, 4) */}
+            {/* Newsletter signup */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -125,7 +125,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   setEmail("");
                 }
               }}
-              className="mt-3.5 flex w-full max-w-md items-center gap-2.5"
+              className="mt-3.5 flex flex-col xs:flex-row w-full max-w-md items-stretch xs:items-center gap-2 sm:gap-2.5"
             >
               <input
                 type="email"
@@ -134,18 +134,18 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email for exclusive drops"
                 suppressHydrationWarning
-                className="h-11 flex-1 rounded-full border border-border bg-secondary/80 px-4 text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
+                className="h-11 flex-1 rounded-full border border-border bg-secondary/80 px-4 text-xs sm:text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
               />
               <button
                 type="submit"
                 suppressHydrationWarning
-                className="inline-flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full bg-foreground px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm"
+                className="inline-flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full bg-foreground px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm text-center"
               >
                 Join
               </button>
             </form>
             {subscribed && (
-              <p className="mt-3 text-xs text-brand">Thanks — you're on the drop list.</p>
+              <p className="mt-2.5 text-xs text-brand">Thanks — you're on the drop list.</p>
             )}
 
             {(footer?.contactEmail ||
@@ -259,12 +259,12 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           )}
         </div>
 
-        <div className="mt-16 flex flex-col items-start justify-between gap-6 border-t border-border pt-8 md:flex-row md:items-center">
+        <div className="mt-12 sm:mt-16 flex flex-col items-center sm:items-start md:flex-row md:items-center justify-between gap-4 sm:gap-6 border-t border-border pt-6 sm:pt-8 text-center sm:text-left">
           <div className="text-xs text-muted-foreground" suppressHydrationWarning>
             {footer?.copyrightText || `© 2026 RIOTOUS. Made in India.`}
           </div>
           {socialList.length > 0 ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               {socialList.map((s) => (
                 <a
                   key={s.id}
@@ -272,20 +272,20 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={s.label || s.platform}
-                  className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
+                  className="flex h-10 w-10 sm:h-11 sm:w-11 min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
                 >
                   {getSocialIcon(s.platform)}
                 </a>
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <a
                 href="https://www.instagram.com/riotous_store"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Instagram className="h-4 w-4" />
               </a>
@@ -294,7 +294,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube"
-                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Youtube className="h-4 w-4" />
               </a>
@@ -303,7 +303,7 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook"
-                className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
+                className="flex h-10 w-10 sm:h-11 sm:w-11 min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
                 <Facebook className="h-4 w-4" />
               </a>
@@ -323,11 +323,11 @@ function FooterCol({
   links: Array<{ to: string; label: string }>;
 }) {
   return (
-    <div className="md:col-span-2">
-      <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+    <div className="col-span-6 sm:col-span-4 md:col-span-2">
+      <p className="mb-3 sm:mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
         {title}
       </p>
-      <ul className="space-y-3">
+      <ul className="space-y-2 sm:space-y-3">
         {links.map((l, i) => (
           <li key={i}>
             <Link

@@ -11,17 +11,17 @@ function FavoritesPage() {
   const list = Array.isArray(favorites) ? favorites : [];
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
-      <div className="mb-10 flex items-end justify-between gap-4">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-12 md:py-24">
+      <div className="mb-8 sm:mb-10 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Account
           </p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight md:text-5xl">Favorites</h1>
+          <h1 className="mt-1.5 sm:mt-2 text-2xl sm:text-4xl font-black tracking-tight md:text-5xl">Favorites</h1>
         </div>
         <Link
           to="/account/orders"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           Orders →
         </Link>
@@ -32,15 +32,15 @@ function FavoritesPage() {
       )}
 
       {!loading && list.length === 0 && (
-        <div className="rounded-2xl border border-border bg-secondary/40 py-20 text-center">
+        <div className="rounded-2xl border border-border bg-secondary/40 py-16 sm:py-20 text-center px-4">
           <Heart className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-4 text-lg font-semibold">No favorites yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-4 text-base sm:text-lg font-semibold">No favorites yet</p>
+          <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
             Tap the heart on any product to save it here.
           </p>
           <Link
             to="/shop"
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-xs sm:text-sm font-medium text-background hover:opacity-90"
           >
             Browse shop <ArrowRight className="h-4 w-4" />
           </Link>
@@ -48,11 +48,11 @@ function FavoritesPage() {
       )}
 
       {!loading && list.length > 0 && (
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
           {list.map((f) => (
             <div key={f.id} className="group relative">
               <Link to="/product/$handle" params={{ handle: f.product_handle }} className="block">
-                <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-secondary/60 flex items-center justify-center p-4">
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl sm:rounded-2xl bg-secondary/60 flex items-center justify-center p-2 sm:p-4">
                   {f.product_image && (
                     <img
                       src={f.product_image}

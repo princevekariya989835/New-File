@@ -173,18 +173,18 @@ function ShopPage() {
   }, [products, sort, size, q]);
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
-      <div className="mb-10 max-w-3xl">
-        <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-10 md:py-24">
+      <div className="mb-8 md:mb-10 max-w-3xl">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl font-semibold tracking-tight break-words">
           {q.trim() ? `Search: "${q.trim()}"` : pageTitle}
         </h1>
         {pageDesc && !q.trim() && (
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
             {pageDesc}
           </p>
         )}
         {q.trim() && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
             Showing results for "{q.trim()}".{" "}
             <button
               type="button"
@@ -198,20 +198,20 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="sticky top-16 md:top-20 z-30 mb-8 border-b border-border bg-background/95 py-4 backdrop-blur-xl shadow-xs transition-all">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+        <div className="sticky top-16 md:top-20 z-30 mb-8 border-b border-border bg-background/95 py-3 sm:py-4 backdrop-blur-xl shadow-xs transition-all">
+          <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
             {filterLbl}
           </p>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-[280px]">
-              <div className="relative w-full max-w-xs sm:max-w-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2.5 sm:gap-4 w-full sm:flex-1 sm:min-w-0">
+              <div className="relative flex-1 min-w-0 sm:max-w-xs md:max-w-sm">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={q}
                   onChange={(e) => handleQueryChange(e.target.value)}
-                  placeholder="Search products by keyword…"
-                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
+                  placeholder="Search products…"
+                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-xs sm:text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
                 />
                 {q && (
                   <button
@@ -229,10 +229,10 @@ function ShopPage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
               {sizes.length > 0 && (
                 <Select value={size} onValueChange={setSize}>
-                  <SelectTrigger className="h-10 w-[130px] rounded-full border-border">
+                  <SelectTrigger className="h-10 flex-1 sm:w-[130px] rounded-full border-border text-xs sm:text-sm">
                     <SelectValue placeholder="Size" />
                   </SelectTrigger>
                   <SelectContent>
@@ -246,7 +246,7 @@ function ShopPage() {
                 </Select>
               )}
               <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger className="h-10 w-[160px] rounded-full border-border">
+                <SelectTrigger className="h-10 flex-1 sm:w-[160px] rounded-full border-border text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +305,7 @@ function ShopPage() {
           <EmptyProducts />
         )
       ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
           {filtered.map((p, idx) => (
             <ProductCard key={p.node.id} product={p} priority={idx < 4} />
           ))}

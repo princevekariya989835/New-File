@@ -2523,9 +2523,9 @@ export function AdminStorefrontManagement() {
             </div>
 
             {/* Container simulator */}
-            <div className="flex justify-center bg-zinc-950/20 p-4 rounded-2xl overflow-hidden min-h-[600px]">
+            <div className="flex justify-center bg-zinc-950/20 p-2 sm:p-4 rounded-2xl overflow-hidden min-h-[600px] max-w-full">
               <div
-                className={`transition-all duration-300 overflow-x-hidden rounded-xl border border-border bg-background shadow-2xl ${
+                className={`transition-all duration-300 overflow-x-hidden rounded-xl border border-border bg-background shadow-2xl max-w-full ${
                   previewViewport === "mobile"
                     ? "w-[380px]"
                     : previewViewport === "tablet"

@@ -1297,8 +1297,8 @@ function AdminCouponsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="border border-border rounded-xl overflow-hidden max-h-60 overflow-y-auto">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-border rounded-xl max-h-60 overflow-auto">
+                    <table className="w-full text-left text-xs min-w-[480px]">
                       <thead className="bg-secondary/50 border-b border-border text-muted-foreground font-semibold">
                         <tr>
                           <th className="p-2.5">Order #</th>

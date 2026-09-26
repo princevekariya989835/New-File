@@ -861,8 +861,8 @@ export function AdminShippingPage() {
               <h4 className="text-sm font-semibold text-gray-900">
                 Order Items ({selectedShipment.orderItems.length})
               </h4>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-gray-200 rounded-lg overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[320px]">
                   <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
                     <tr>
                       <th className="p-3">Product</th>

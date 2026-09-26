@@ -730,7 +730,7 @@ function OrdersPage() {
               <div key={o.id} className="rounded-xl border bg-card overflow-hidden shadow-xs">
                 <div className="p-4 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       <input
                         type="checkbox"
                         aria-label={`Select ${o.order_number}`}

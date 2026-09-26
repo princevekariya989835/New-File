@@ -59,14 +59,14 @@ function ReturnsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1100px] px-6 py-16 md:px-10 md:py-24">
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 md:px-10 py-8 sm:py-12 md:py-20">
+      <div className="mb-8 sm:mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Account
           </p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight md:text-5xl">Returns & Support</h1>
-          <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+          <h1 className="mt-2 text-2xl sm:text-4xl md:text-5xl font-black tracking-tight break-words">Returns & Support</h1>
+          <p className="mt-2 sm:mt-3 max-w-xl text-xs sm:text-sm text-muted-foreground">
             Returns are open for {RETURN_WINDOW_DAYS} days from the order date. After that window,
             our team can still help — raise a support request below.
           </p>

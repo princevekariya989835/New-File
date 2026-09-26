@@ -561,25 +561,25 @@ function DesignPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 pt-4 pb-16 md:px-10 md:pt-6 md:pb-20">
-      {/* Intro Header - Reduced excessive vertical whitespace (Issue 2) */}
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 pt-4 pb-16 md:pt-6 md:pb-20">
+      {/* Intro Header */}
       <div className="mb-6 max-w-3xl md:mb-8">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+        <p className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
           Design Studio
         </p>
 
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
           Design Your Own.
         </h1>
 
-        <p className="mt-3 max-w-lg text-sm text-muted-foreground md:text-base leading-relaxed">
+        <p className="mt-2 sm:mt-3 max-w-lg text-xs sm:text-sm text-muted-foreground md:text-base leading-relaxed">
           Pick a color, upload your artwork, add text — see it live on the tee.
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_380px] lg:gap-14 items-start">
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-[1fr_380px] lg:gap-14 items-start">
         {/* Preview */}
-        <div className="relative flex min-h-[500px] sm:min-h-[560px] items-center justify-center overflow-hidden rounded-3xl bg-secondary p-6 sm:p-8">
+        <div className="relative flex min-h-[360px] xs:min-h-[420px] sm:min-h-[560px] items-center justify-center overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary p-3 xs:p-4 sm:p-8">
           <div className="relative">
             {/* Shirt photo */}
             <img
@@ -587,7 +587,7 @@ function DesignPage() {
               alt={`${color.name} tee ${placement === "Back" ? "back" : "front"}`}
               width={440}
               height={520}
-              className="block h-[420px] w-[350px] sm:h-[520px] sm:w-[440px] object-contain drop-shadow-2xl"
+              className="block w-[260px] xs:w-[320px] sm:w-[440px] max-w-full h-auto max-h-[340px] xs:max-h-[420px] sm:max-h-[520px] object-contain drop-shadow-2xl"
               draggable={false}
             />
 
@@ -598,8 +598,8 @@ function DesignPage() {
                 left: placement === "Sleeve" ? "8%" : "50%",
                 top: placement === "Back" ? "24%" : "28%",
                 transform: placement === "Sleeve" ? "translate(0, 0)" : "translate(-50%, 0)",
-                width: placement === "Sleeve" ? 110 : 220,
-                height: placement === "Sleeve" ? 140 : 270,
+                width: placement === "Sleeve" ? "25%" : "50%",
+                height: placement === "Sleeve" ? "27%" : "52%",
               }}
             >
               <canvas
@@ -613,9 +613,9 @@ function DesignPage() {
             </div>
           </div>
 
-          {/* FRONT · COLOR Status Indicator - Improved visibility, contrast & typography (Issue 4, 6) */}
-          <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 z-10 pointer-events-none">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/95 px-3.5 py-1.5 text-xs sm:text-sm font-semibold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-md">
+          {/* FRONT · COLOR Status Indicator */}
+          <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 z-10 pointer-events-none">
+            <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-border/80 bg-background/95 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-md">
               <span className="inline-block h-2 w-2 rounded-full bg-brand-red animate-pulse" />
               <span>{placement} · {color.name}</span>
             </span>

@@ -311,20 +311,20 @@ function ProductPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
-      <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-6 sm:py-10 md:py-16">
+      <div className="grid gap-6 md:grid-cols-2 md:gap-16 md:items-start">
         {/* Gallery */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4">
           <button
             onClick={() => router.history.back()}
-            className="flex h-10 w-10 items-center justify-center self-start rounded-full hover:bg-secondary transition-colors"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center self-start rounded-full hover:bg-secondary transition-colors cursor-pointer"
             aria-label="Go back"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           <div
-            className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
+            className="group relative aspect-[4/5] w-full overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary select-none shadow-sm"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -357,21 +357,21 @@ function ProductPage() {
                   type="button"
                   onClick={handlePrevImage}
                   aria-label="Previous product image"
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                 >
-                  <ChevronLeft className="h-6 w-6 stroke-[2.5]" />
+                  <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
                 </button>
                 <button
                   type="button"
                   onClick={handleNextImage}
                   aria-label="Next product image"
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute right-2.5 sm:right-3.5 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 sm:opacity-90 sm:hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
                 >
-                  <ChevronRight className="h-6 w-6 stroke-[2.5]" />
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
                 </button>
 
                 {/* Floating Pagination Dots */}
-                <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-background/75 px-3 py-1.5 backdrop-blur-md shadow-xs border border-border/30">
+                <div className="absolute bottom-2.5 sm:bottom-3.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-background/75 px-2.5 sm:px-3 py-1 sm:py-1.5 backdrop-blur-md shadow-xs border border-border/30">
                   {images.map((_, i) => (
                     <button
                       key={i}
@@ -381,10 +381,10 @@ function ProductPage() {
                         setActiveImage(i);
                       }}
                       aria-label={`Go to image ${i + 1} of ${images.length}`}
-                      className={`h-2 rounded-full transition-all duration-300 ${
+                      className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
                         activeImage === i
-                          ? "w-6 bg-brand-red"
-                          : "w-2 bg-foreground/30 hover:bg-foreground/60"
+                          ? "w-5 sm:w-6 bg-brand-red"
+                          : "w-1.5 sm:w-2 bg-foreground/30 hover:bg-foreground/60"
                       }`}
                     />
                   ))}
@@ -393,13 +393,13 @@ function ProductPage() {
             )}
           </div>
           {images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-none">
               {images.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveImage(i)}
                   aria-label={`Show image ${i + 1} of ${images.length}`}
-                  className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors ${
+                  className={`h-14 w-14 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-lg sm:rounded-xl border-2 transition-colors ${
                     activeImage === i ? "border-foreground" : "border-transparent"
                   }`}
                 >
@@ -423,8 +423,8 @@ function ProductPage() {
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
             {p.productType || <BrandName />}
           </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">{p.title}</h1>
-          <p className="mt-4 text-2xl font-semibold">
+          <h1 className="mt-1.5 sm:mt-2 text-2xl sm:text-4xl md:text-5xl font-semibold tracking-tight break-words">{p.title}</h1>
+          <p className="mt-2.5 sm:mt-4 text-xl sm:text-2xl font-semibold">
             {formatPrice(
               currentVariant?.price.amount ?? p.priceRange.minVariantPrice.amount,
               currentVariant?.price.currencyCode ?? p.priceRange.minVariantPrice.currencyCode,
@@ -432,19 +432,19 @@ function ProductPage() {
           </p>
 
           {/* Options & Size Selection */}
-          <div className="mt-8 space-y-6">
+          <div className="mt-6 sm:mt-8 space-y-5 sm:space-y-6">
             {p.options.map((opt) => {
               const isSize = opt.name.toLowerCase() === "size";
 
               return (
-                <div key={opt.name} className="space-y-3">
+                <div key={opt.name} className="space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold tracking-wide">
+                      <span className="text-xs sm:text-sm font-semibold tracking-wide">
                         {isSize ? selectSizeLabel : opt.name}:
                       </span>
                       <span
-                        className={`text-sm font-bold ${
+                        className={`text-xs sm:text-sm font-bold ${
                           isSize && sizeError && !selected[opt.name]
                             ? "text-destructive"
                             : "text-foreground"
@@ -459,7 +459,7 @@ function ProductPage() {
                         <DialogTrigger asChild>
                           <button
                             type="button"
-                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer"
                           >
                             <Ruler className="h-3.5 w-3.5" /> {sizeGuideLabel}
                           </button>
@@ -474,8 +474,8 @@ function ProductPage() {
                             All measurements are in inches. Designed for a boxy streetwear drape
                             with dropped shoulders.
                           </p>
-                          <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                            <table className="w-full text-left text-xs">
+                          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+                            <table className="w-full text-left text-xs min-w-[280px]">
                               <thead className="bg-secondary text-foreground font-semibold">
                                 <tr>
                                   <th className="p-2.5">Size</th>
@@ -614,7 +614,7 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex h-12 sm:h-14 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
               {isLoading && !isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -637,7 +637,7 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-medium hover:bg-secondary disabled:opacity-50 transition-all cursor-pointer disabled:cursor-not-allowed"
+              className="flex h-12 sm:h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-semibold hover:bg-secondary disabled:opacity-50 transition-all cursor-pointer disabled:cursor-not-allowed"
             >
               {isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
