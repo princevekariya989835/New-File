@@ -9,6 +9,8 @@ import {
   InventoryError,
 } from "@/lib/inventory.service";
 import { validateAndCalculateCoupon } from "@/lib/coupons.functions";
+import { calculateBuy2Get1Discount } from "@/lib/promotions";
+import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
 import {
   createRazorpayOrder,
   verifyRazorpayPaymentSignature,
@@ -466,8 +468,26 @@ export const placeOrder = createServerFn({ method: "POST" })
 
     const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
 
+    // Calculate Buy 2 Get 1 Free promotion discount on verified server items
+    let b2g1Discount = 0;
+    try {
+      const publicCfg = await getPublicWebsiteConfig();
+      const b2g1Res = calculateBuy2Get1Discount(
+        items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          price: i.price,
+          quantity: i.quantity,
+        })),
+        publicCfg?.config?.buy2get1Offer,
+      );
+      b2g1Discount = b2g1Res.discountAmount;
+    } catch (b2g1Err) {
+      console.warn("[Orders] B2G1 calculation warning in placeOrder:", b2g1Err);
+    }
+
     // Validate and calculate coupon discount if code was provided
-    let discountAmount = 0;
+    let couponDiscount = 0;
     let appliedCoupon: any = null;
     let eligibleAmount = itemsTotal;
 
@@ -482,7 +502,7 @@ export const placeOrder = createServerFn({ method: "POST" })
           price: i.price,
           productName: i.productName,
         })),
-        subtotal: itemsTotal,
+        subtotal: Math.max(0, itemsTotal - b2g1Discount),
         customerEmail: data.shippingEmail,
         customerId: String(authCtx.userId),
       });
@@ -491,14 +511,24 @@ export const placeOrder = createServerFn({ method: "POST" })
         throw new Error(couponRes.error || "Invalid coupon code.");
       }
 
-      discountAmount = couponRes.discountAmount;
+      couponDiscount = couponRes.discountAmount;
       appliedCoupon = couponRes.coupon;
       eligibleAmount = couponRes.eligibleSubtotal;
     }
 
-    const finalSubtotal = Math.max(0, itemsTotal - discountAmount);
+    const totalDiscount = b2g1Discount + couponDiscount;
+    const finalSubtotal = Math.max(0, itemsTotal - totalDiscount);
     const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
     const total = finalSubtotal + shipping;
+
+    let discountCode = null;
+    if (b2g1Discount > 0 && appliedCoupon) {
+      discountCode = `BUY2GET1+${appliedCoupon.code}`;
+    } else if (b2g1Discount > 0) {
+      discountCode = "BUY2GET1";
+    } else if (appliedCoupon) {
+      discountCode = appliedCoupon.code;
+    }
 
     const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
     const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
@@ -550,8 +580,8 @@ export const placeOrder = createServerFn({ method: "POST" })
         shipping_charge, tax_amount, total_amount, currency, status, payment_status,
         payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
-        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount}, ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
-        ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null}, ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal},
+        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${totalDiscount}, ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
+        ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)}, ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal},
         ${shipping}, 0, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
         ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
@@ -787,8 +817,26 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
 
     const itemsTotal = items.reduce((s, i) => s + i.subtotal, 0);
 
+    // Calculate Buy 2 Get 1 Free promotion discount on verified server items
+    let b2g1Discount = 0;
+    try {
+      const publicCfg = await getPublicWebsiteConfig();
+      const b2g1Res = calculateBuy2Get1Discount(
+        items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          price: i.price,
+          quantity: i.quantity,
+        })),
+        publicCfg?.config?.buy2get1Offer,
+      );
+      b2g1Discount = b2g1Res.discountAmount;
+    } catch (b2g1Err) {
+      console.warn("[Orders] B2G1 calculation warning in createOnlineOrder:", b2g1Err);
+    }
+
     // Validate and calculate coupon discount if code was provided
-    let discountAmount = 0;
+    let couponDiscount = 0;
     let appliedCoupon: any = null;
     let eligibleAmount = itemsTotal;
 
@@ -801,7 +849,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
           price: i.price,
           productName: i.productName,
         })),
-        subtotal: itemsTotal,
+        subtotal: Math.max(0, itemsTotal - b2g1Discount),
         customerEmail: data.shippingEmail,
         customerId: String(authCtx.userId),
       });
@@ -810,15 +858,25 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         throw new Error(couponRes.error || "Invalid coupon code.");
       }
 
-      discountAmount = couponRes.discountAmount;
+      couponDiscount = couponRes.discountAmount;
       appliedCoupon = couponRes.coupon;
       eligibleAmount = couponRes.eligibleSubtotal;
     }
 
-    const finalSubtotal = Math.max(0, itemsTotal - discountAmount);
+    const totalDiscount = b2g1Discount + couponDiscount;
+    const finalSubtotal = Math.max(0, itemsTotal - totalDiscount);
     const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
     const total = finalSubtotal + shipping;
     const amountInPaise = Math.round(total * 100);
+
+    let discountCode = null;
+    if (b2g1Discount > 0 && appliedCoupon) {
+      discountCode = `BUY2GET1+${appliedCoupon.code}`;
+    } else if (b2g1Discount > 0) {
+      discountCode = "BUY2GET1";
+    } else if (appliedCoupon) {
+      discountCode = appliedCoupon.code;
+    }
 
     const orderId = `ord_${Date.now().toString(36)}_${Math.floor(100000 + Math.random() * 900000)}`;
     const orderNumber = `RIO-${Date.now().toString(36).toUpperCase()}`;
@@ -852,9 +910,9 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
           payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
           shipping_email, shipping_phone, shipping_address
         ) VALUES (
-          ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
-          ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
-          ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
+          ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${totalDiscount},
+          ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
+          ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)},
           ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
           'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
           ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}

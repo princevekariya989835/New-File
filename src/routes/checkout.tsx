@@ -13,6 +13,7 @@ import {
   X,
   Banknote,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCartStore } from "@/stores/cart-store";
@@ -26,6 +27,8 @@ import {
 import { validateCouponCode } from "@/lib/coupons.functions";
 import { getShippingEstimate } from "@/lib/shipping.functions";
 import { useAuth } from "@/hooks/use-auth";
+import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
+import { calculateBuy2Get1Discount } from "@/lib/promotions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,6 +98,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const { items, isLoading, isSyncing, clearCart } = useCartStore();
   const { user } = useAuth();
+  const { config } = usePublishedWebsiteConfig();
   const placeOrderFn = useServerFn(placeOrder);
   const createOnlineOrderFn = useServerFn(createOnlineOrder);
   const verifyPaymentFn = useServerFn(verifyOnlineOrderPayment);
@@ -156,8 +160,11 @@ function CheckoutPage() {
     0,
   );
 
-  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  const finalSubtotal = Math.max(0, subtotal - discountAmount);
+  const b2g1 = calculateBuy2Get1Discount(displayItems, config?.buy2get1Offer);
+  const b2g1Discount = b2g1.discountAmount;
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const totalDiscount = b2g1Discount + couponDiscount;
+  const finalSubtotal = Math.max(0, subtotal - totalDiscount);
   const baseShipping = shippingQuote?.cheapestRate ?? 79;
   const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : baseShipping;
   const total = finalSubtotal + shipping;
@@ -218,7 +225,7 @@ function CheckoutPage() {
       const res = await validateCouponFn({
         data: {
           code: clean,
-          subtotal,
+          subtotal: Math.max(0, subtotal - b2g1Discount),
           items: displayItems.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,
@@ -460,34 +467,59 @@ function CheckoutPage() {
           <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
             <h2 className="mb-6 text-lg font-semibold">Your items</h2>
             <ul className="divide-y divide-border">
-              {displayItems.map((item) => (
-                <li key={item.variantId} className="flex gap-4 py-5 first:pt-0 last:pb-0">
-                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-secondary">
-                    {item.imageUrl && (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.productTitle}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col justify-between">
-                    <div>
-                      <p className="truncate text-sm font-medium">{item.productTitle}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.selectedOptions.map((o) => o.value).join(" · ")}
-                      </p>
+              {displayItems.map((item) => {
+                const freeCount =
+                  b2g1.freeCountByVariantId[item.variantId] ||
+                  (item.productId ? b2g1.freeCountByProductId[item.productId] : 0) ||
+                  0;
+
+                return (
+                  <li key={item.variantId} className="flex gap-4 py-5 first:pt-0 last:pb-0">
+                    <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-secondary">
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.productTitle}
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+                      {freeCount > 0 && (
+                        <span className="absolute bottom-1.5 left-1.5 rounded bg-brand-red px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow-sm">
+                          FREE
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
-                  </div>
-                  <div className="text-right text-sm font-semibold">
-                    {formatPrice(
-                      parseFloat(item.price.amount) * item.quantity,
-                      item.price.currencyCode,
-                    )}
-                  </div>
-                </li>
-              ))}
+                    <div className="flex min-w-0 flex-1 flex-col justify-between">
+                      <div>
+                        <p className="truncate text-sm font-medium">{item.productTitle}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.selectedOptions.map((o) => o.value).join(" · ")}
+                        </p>
+                        {freeCount > 0 && (
+                          <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-500">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            {freeCount === item.quantity ? "BUY 2 GET 1 FREE item" : `${freeCount} of ${item.quantity} FREE`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Qty {item.quantity}</p>
+                    </div>
+                    <div className="text-right text-sm">
+                      {freeCount > 0 && (
+                        <span className="block text-[11px] font-bold text-emerald-500 uppercase tracking-wider">
+                          FREE
+                        </span>
+                      )}
+                      <span className="font-semibold">
+                        {formatPrice(
+                          parseFloat(item.price.amount) * item.quantity,
+                          item.price.currencyCode,
+                        )}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
 
@@ -697,13 +729,22 @@ function CheckoutPage() {
                 </dt>
                 <dd>{formatPrice(subtotal, currency)}</dd>
               </div>
+              {b2g1Discount > 0 && (
+                <div className="flex justify-between text-emerald-500 font-medium">
+                  <dt className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>BUY 2 GET 1 FREE</span>
+                  </dt>
+                  <dd>-{formatPrice(b2g1Discount, currency)}</dd>
+                </div>
+              )}
               {appliedCoupon && (
                 <div className="flex justify-between text-emerald-400 font-medium">
                   <dt className="flex items-center gap-1.5">
                     <Tag className="h-3.5 w-3.5" />
                     <span>Coupon ({appliedCoupon.code})</span>
                   </dt>
-                  <dd>-{formatPrice(discountAmount, currency)}</dd>
+                  <dd>-{formatPrice(couponDiscount, currency)}</dd>
                 </div>
               )}
               <div className="flex justify-between">

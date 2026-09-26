@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import "../styles.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { MobileBottomOfferBar } from "@/components/home/mobile-bottom-offer-bar";
 import { useCartSync } from "@/hooks/use-cart-sync";
 import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
@@ -197,6 +198,10 @@ function AppShell() {
   useCatalogSync(queryClient);
   const location = useLocation();
   const isAuthPage = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
+  const isAdminPage = location.pathname.startsWith("/admin");
+  const isCheckoutPage = location.pathname === "/checkout";
+  const isDesignPage = location.pathname === "/design" || location.pathname.startsWith("/design/");
+  const showMobileOfferBar = !isAuthPage && !isAdminPage && !isCheckoutPage && !isDesignPage;
 
   return (
     <div className="flex min-h-screen flex-col relative w-full max-w-full overflow-x-hidden md:overflow-x-visible">
@@ -205,6 +210,7 @@ function AppShell() {
         <Outlet />
       </main>
       {!isAuthPage && <SiteFooter />}
+      {showMobileOfferBar && <MobileBottomOfferBar />}
       <Toaster position="top-center" />
     </div>
   );

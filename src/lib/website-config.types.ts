@@ -69,6 +69,18 @@ export interface WebsiteWhyUsItem {
   description: string;
 }
 
+export interface WebsiteBuy2Get1OfferConfig {
+  enabled: boolean;
+  title: string;
+  supportingText: string;
+  appliesTo: "all" | "categories" | "products";
+  categoryNames?: string[];
+  productIds?: string[];
+  maxFreeItemsPerOrder?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface WebsitePromoBannerConfig {
   enabled: boolean;
   badge: string;
@@ -238,6 +250,7 @@ export interface WebsiteConfig {
   shopContent?: WebsiteShopContent;
   productContent?: WebsiteProductContent;
   contactContent?: WebsiteContactContent;
+  buy2get1Offer?: WebsiteBuy2Get1OfferConfig;
 }
 
 export interface WebsiteVersion {
@@ -556,5 +569,14 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     instagram: "@riotous_store",
     wholesaleText:
       "Looking for custom runs, band merch, or wholesale orders? Let's talk.",
+  },
+  buy2get1Offer: {
+    enabled: true,
+    title: "BUY 2 GET 1 FREE",
+    supportingText: "Add 3 eligible T-shirts to unlock your free item",
+    appliesTo: "all",
+    categoryNames: ["t-shirt", "tees", "oversized", "hoodie", "polo", "apparel"],
+    productIds: [],
+    maxFreeItemsPerOrder: 1,
   },
 };

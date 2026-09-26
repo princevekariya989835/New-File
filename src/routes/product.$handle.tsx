@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Ruler,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,6 +31,7 @@ import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { ProductHighlights } from "@/components/product/product-highlights";
 import { ProductSpecifications } from "@/components/product/product-specifications";
 import { ProductDescriptionAccordion } from "@/components/product/product-description-accordion";
+import { isItemEligibleForB2G1 } from "@/lib/promotions";
 
 const productQuery = (handle: string) => ({
   queryKey: ["product", handle],
@@ -433,6 +435,22 @@ function ProductPage() {
               currentVariant?.price.currencyCode ?? p.priceRange.minVariantPrice.currencyCode,
             )}
           </p>
+
+          {/* Mobile-only B2G1 Promotional Nudge */}
+          {isItemEligibleForB2G1(
+            { productId: p.productId, productTitle: p.title, category: p.productType },
+            config?.buy2get1Offer,
+          ) && (
+            <div className="mt-3 block md:hidden">
+              <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-red/10 border border-brand-red/20 px-2.5 py-1 text-xs text-brand-red">
+                <Sparkles className="h-3 w-3 shrink-0" />
+                <span className="font-bold tracking-wider uppercase text-[11px]">BUY 2 GET 1 FREE</span>
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  · Add 3 to unlock
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Options & Size Selection */}
           <div className="mt-8 space-y-6">

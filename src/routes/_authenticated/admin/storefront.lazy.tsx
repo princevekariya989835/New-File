@@ -279,6 +279,9 @@ export function AdminStorefrontManagement() {
         next.general = defaults.general;
         next.settings = defaults.settings;
         break;
+      case "promotions":
+        next.buy2get1Offer = defaults.buy2get1Offer;
+        break;
       default:
         break;
     }
@@ -485,6 +488,10 @@ export function AdminStorefrontManagement() {
             <TabsTrigger value="global" className="rounded-lg text-xs font-medium gap-1.5">
               <Settings className="h-3.5 w-3.5" />
               Global Settings
+            </TabsTrigger>
+            <TabsTrigger value="promotions" className="rounded-lg text-xs font-medium gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-brand-red" />
+              B2G1 Offer
             </TabsTrigger>
             <TabsTrigger
               value="preview"
@@ -2475,6 +2482,305 @@ export function AdminStorefrontManagement() {
                   />
                 </div>
               )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* 11. BUY 2 GET 1 FREE PROMOTION TAB */}
+        <TabsContent value="promotions" className="space-y-6">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold">BUY 2 GET 1 FREE Offer Settings</h3>
+                  <span className="rounded-full bg-brand-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-red">
+                    Mobile Animated Popup &amp; Real Discount
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Controls the live promotional offer, mobile bottom animated bar, product eligibility, and cart discounts.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleResetSection("promotions")}
+                className="text-xs"
+              >
+                <RefreshCw className="mr-1.5 h-3 w-3" />
+                Reset to Default
+              </Button>
+            </div>
+
+            {/* Offer Toggle */}
+            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="b2g1-active" className="text-sm font-semibold cursor-pointer">
+                  Enable BUY 2 GET 1 FREE Offer
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, mobile visitors see the bottom animated offer bar and qualifying orders automatically receive 1 free item for every 3 eligible items in cart.
+                </p>
+              </div>
+              <Switch
+                id="b2g1-active"
+                checked={editorConfig.buy2get1Offer?.enabled !== false}
+                onCheckedChange={(checked) =>
+                  setEditorConfig({
+                    ...editorConfig,
+                    buy2get1Offer: {
+                      ...(editorConfig.buy2get1Offer || {}),
+                      enabled: checked,
+                    },
+                  })
+                }
+              />
+            </div>
+
+            {/* Copy / Messaging */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-title">Promotion Title</Label>
+                <Input
+                  id="b2g1-title"
+                  value={editorConfig.buy2get1Offer?.title || "BUY 2 GET 1 FREE"}
+                  placeholder="BUY 2 GET 1 FREE"
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        title: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Main headline displayed in the mobile bottom bar and in cart summary.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-supporting">Default Supporting Text</Label>
+                <Input
+                  id="b2g1-supporting"
+                  value={editorConfig.buy2get1Offer?.supportingText || "Add 3 eligible T-shirts to unlock your free item"}
+                  placeholder="Add 3 eligible T-shirts to unlock your free item"
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        supportingText: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Default text shown before user adds items. Dynamically updates with cart progress (e.g. &ldquo;Add 1 more to unlock&rdquo;).
+                </p>
+              </div>
+            </div>
+
+            {/* Eligibility Settings */}
+            <div className="rounded-xl border border-border bg-secondary/20 p-5 space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Product Eligibility Rules
+              </h4>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className={`flex flex-col gap-1.5 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  (!editorConfig.buy2get1Offer?.appliesTo || editorConfig.buy2get1Offer?.appliesTo === "all")
+                    ? "border-brand-red bg-brand-red/5 ring-1 ring-brand-red/30"
+                    : "border-border bg-card hover:border-border/80"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="b2g1-applies-to"
+                      checked={!editorConfig.buy2get1Offer?.appliesTo || editorConfig.buy2get1Offer?.appliesTo === "all"}
+                      onChange={() =>
+                        setEditorConfig({
+                          ...editorConfig,
+                          buy2get1Offer: {
+                            ...(editorConfig.buy2get1Offer || {}),
+                            appliesTo: "all",
+                          },
+                        })
+                      }
+                      className="text-brand-red focus:ring-brand-red"
+                    />
+                    <span className="text-xs font-bold">All Apparel &amp; T-Shirts</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground leading-snug">
+                    Applies automatically to all T-shirts, hoodies, and streetwear apparel.
+                  </span>
+                </label>
+
+                <label className={`flex flex-col gap-1.5 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  editorConfig.buy2get1Offer?.appliesTo === "categories"
+                    ? "border-brand-red bg-brand-red/5 ring-1 ring-brand-red/30"
+                    : "border-border bg-card hover:border-border/80"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="b2g1-applies-to"
+                      checked={editorConfig.buy2get1Offer?.appliesTo === "categories"}
+                      onChange={() =>
+                        setEditorConfig({
+                          ...editorConfig,
+                          buy2get1Offer: {
+                            ...(editorConfig.buy2get1Offer || {}),
+                            appliesTo: "categories",
+                          },
+                        })
+                      }
+                      className="text-brand-red focus:ring-brand-red"
+                    />
+                    <span className="text-xs font-bold">Specific Categories</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground leading-snug">
+                    Restricts offer only to specific category names or collection tags.
+                  </span>
+                </label>
+
+                <label className={`flex flex-col gap-1.5 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                  editorConfig.buy2get1Offer?.appliesTo === "products"
+                    ? "border-brand-red bg-brand-red/5 ring-1 ring-brand-red/30"
+                    : "border-border bg-card hover:border-border/80"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="b2g1-applies-to"
+                      checked={editorConfig.buy2get1Offer?.appliesTo === "products"}
+                      onChange={() =>
+                        setEditorConfig({
+                          ...editorConfig,
+                          buy2get1Offer: {
+                            ...(editorConfig.buy2get1Offer || {}),
+                            appliesTo: "products",
+                          },
+                        })
+                      }
+                      className="text-brand-red focus:ring-brand-red"
+                    />
+                    <span className="text-xs font-bold">Specific Products</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground leading-snug">
+                    Restricts offer only to handpicked product IDs.
+                  </span>
+                </label>
+              </div>
+
+              {editorConfig.buy2get1Offer?.appliesTo === "categories" && (
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="b2g1-categories">Eligible Categories (comma-separated)</Label>
+                  <Input
+                    id="b2g1-categories"
+                    value={(editorConfig.buy2get1Offer?.categoryNames || []).join(", ")}
+                    placeholder="e.g. oversized-tees, anime-streetwear, graphic-tees"
+                    onChange={(e) =>
+                      setEditorConfig({
+                        ...editorConfig,
+                        buy2get1Offer: {
+                          ...(editorConfig.buy2get1Offer || {}),
+                          categoryNames: e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        },
+                      })
+                    }
+                  />
+                </div>
+              )}
+
+              {editorConfig.buy2get1Offer?.appliesTo === "products" && (
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="b2g1-product-ids">Eligible Product IDs (comma-separated)</Label>
+                  <Input
+                    id="b2g1-product-ids"
+                    value={(editorConfig.buy2get1Offer?.productIds || []).join(", ")}
+                    placeholder="e.g. prod_zoro_black, prod_thunder_breath"
+                    onChange={(e) =>
+                      setEditorConfig({
+                        ...editorConfig,
+                        buy2get1Offer: {
+                          ...(editorConfig.buy2get1Offer || {}),
+                          productIds: e.target.value
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        },
+                      })
+                    }
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Limits & Dates */}
+            <div className="grid gap-6 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-max-free">Max Free Items / Order</Label>
+                <Input
+                  id="b2g1-max-free"
+                  type="number"
+                  min="0"
+                  value={editorConfig.buy2get1Offer?.maxFreeItemsPerOrder ?? 0}
+                  placeholder="0 (Unlimited)"
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        maxFreeItemsPerOrder: Math.max(0, parseInt(e.target.value) || 0),
+                      },
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Enter 0 for unlimited multiples (3 items = 1 free, 6 items = 2 free), or 1 to cap at 1 free item per order.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-start">Start Date (Optional)</Label>
+                <Input
+                  id="b2g1-start"
+                  type="datetime-local"
+                  value={editorConfig.buy2get1Offer?.startDate ? editorConfig.buy2get1Offer.startDate.slice(0, 16) : ""}
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        startDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-end">End Date (Optional)</Label>
+                <Input
+                  id="b2g1-end"
+                  type="datetime-local"
+                  value={editorConfig.buy2get1Offer?.endDate ? editorConfig.buy2get1Offer.endDate.slice(0, 16) : ""}
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        endDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                      },
+                    })
+                  }
+                />
+              </div>
             </div>
           </div>
         </TabsContent>

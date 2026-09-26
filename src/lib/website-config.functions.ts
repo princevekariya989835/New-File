@@ -110,6 +110,16 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
       ...def.contactContent!,
       ...(savedConfig.contactContent || {}),
     },
+    buy2get1Offer: {
+      ...def.buy2get1Offer!,
+      ...(savedConfig.buy2get1Offer || {}),
+      categoryNames: Array.isArray(savedConfig.buy2get1Offer?.categoryNames)
+        ? savedConfig.buy2get1Offer.categoryNames
+        : def.buy2get1Offer?.categoryNames,
+      productIds: Array.isArray(savedConfig.buy2get1Offer?.productIds)
+        ? savedConfig.buy2get1Offer.productIds
+        : def.buy2get1Offer?.productIds,
+    },
   };
 }
 
