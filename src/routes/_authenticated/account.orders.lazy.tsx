@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { CancelOrderModal } from "@/components/orders/cancel-order-modal";
 
 export const Route = createLazyFileRoute("/_authenticated/account/orders")({ component: OrdersPage });
 
@@ -53,6 +54,7 @@ function OrdersPage() {
 
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<CustomerOrder | null>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["my-orders"],
@@ -67,6 +69,7 @@ function OrdersPage() {
       toast.success("Order has been cancelled and items returned to stock");
       qc.invalidateQueries({ queryKey: ["my-orders"] });
       setCancellingId(null);
+      setOrderToCancel(null);
       if (selectedOrder?.id === orderId) {
         setSelectedOrder((prev) =>
           prev
@@ -85,15 +88,14 @@ function OrdersPage() {
     },
   });
 
-  const handleCancel = (order: CustomerOrder) => {
-    if (
-      confirm(
-        `Are you sure you want to cancel order ${order.name}? This cannot be undone and will restore the reserved stock.`,
-      )
-    ) {
-      setCancellingId(order.id);
-      cancelMut.mutate(order.id);
-    }
+  const handleOpenCancelModal = (order: CustomerOrder) => {
+    setOrderToCancel(order);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!orderToCancel || cancelMut.isPending) return;
+    setCancellingId(orderToCancel.id);
+    cancelMut.mutate(orderToCancel.id);
   };
 
   const orders = Array.isArray(data) ? data : [];
@@ -354,7 +356,7 @@ function OrdersPage() {
                         size="sm"
                         className="rounded-full text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
                         disabled={cancelMut.isPending && cancellingId === o.id}
-                        onClick={() => handleCancel(o)}
+                        onClick={() => handleOpenCancelModal(o)}
                       >
                         {cancelMut.isPending && cancellingId === o.id ? (
                           <>
@@ -622,7 +624,7 @@ function OrdersPage() {
                     size="sm"
                     className="text-xs text-destructive hover:bg-destructive/10"
                     disabled={cancelMut.isPending && cancellingId === selectedOrder.id}
-                    onClick={() => handleCancel(selectedOrder)}
+                    onClick={() => handleOpenCancelModal(selectedOrder)}
                   >
                     {cancelMut.isPending && cancellingId === selectedOrder.id ? (
                       <>
@@ -648,6 +650,17 @@ function OrdersPage() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Custom Order Cancellation Confirmation Modal */}
+      <CancelOrderModal
+        order={orderToCancel}
+        isOpen={!!orderToCancel}
+        isCancelling={cancelMut.isPending}
+        onClose={() => {
+          if (!cancelMut.isPending) setOrderToCancel(null);
+        }}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 }
