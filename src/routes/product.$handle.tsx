@@ -27,6 +27,9 @@ import { toast } from "sonner";
 import { BrandName } from "@/components/brand-name";
 import { ProductReviews } from "@/components/reviews/product-reviews";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
+import { ProductHighlights } from "@/components/product/product-highlights";
+import { ProductSpecifications } from "@/components/product/product-specifications";
+import { ProductDescriptionAccordion } from "@/components/product/product-description-accordion";
 
 const productQuery = (handle: string) => ({
   queryKey: ["product", handle],
@@ -673,6 +676,15 @@ function ProductPage() {
           </div>
         </div>
       </div>
+
+      {/* Key Highlights (Dynamic per product) */}
+      <ProductHighlights highlights={p.highlights} productTitle={p.title} />
+
+      {/* Product Specifications (Dynamic per product) */}
+      <ProductSpecifications specifications={p.specifications} />
+
+      {/* Product Description Accordion [Manufacture, Care and Fit] */}
+      <ProductDescriptionAccordion description={p.description} detailsHtml={p.detailsHtml} />
 
       <ProductReviews productId={p.productId} productTitle={p.title} />
 

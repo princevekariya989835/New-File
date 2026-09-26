@@ -14,13 +14,25 @@ import {
   Trash2,
   Loader2,
   Link as LinkIcon,
+  Sparkles,
 } from "lucide-react";
+import {
+  KeyHighlightsEditor,
+  ProductSpecificationsEditor,
+  ProductDescriptionEditor,
+  type ProductHighlightItem,
+  type ProductSpecificationItem,
+} from "./product-details-editor";
+
+export { KeyHighlightsEditor, ProductSpecificationsEditor, ProductDescriptionEditor };
+export type { ProductHighlightItem, ProductSpecificationItem };
 
 export const ARCHIVED_TAG = "__archived";
 
 export type ProductFormValues = {
   title: string;
   description: string;
+  detailsHtml?: string;
   price: string;
   category: string;
   images: string[];
@@ -30,6 +42,8 @@ export type ProductFormValues = {
   tags: string[];
   stock: string;
   isActive: boolean;
+  highlights?: ProductHighlightItem[];
+  specifications?: ProductSpecificationItem[];
 };
 
 export function StatCard({ label, value }: { label: string; value: number }) {
@@ -354,6 +368,7 @@ export function ImageManager({
 const EMPTY_FORM: ProductFormValues = {
   title: "",
   description: "",
+  detailsHtml: "",
   price: "",
   category: "Oversized Tees",
   images: [],
@@ -362,6 +377,8 @@ const EMPTY_FORM: ProductFormValues = {
   tags: ["Featured"],
   stock: "25",
   isActive: true,
+  highlights: [],
+  specifications: [],
 };
 
 export function ProductForm({
@@ -377,7 +394,12 @@ export function ProductForm({
   onSubmit: (values: ProductFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState<ProductFormValues>(initial ?? EMPTY_FORM);
+  const [values, setValues] = useState<ProductFormValues>(() => ({
+    ...(initial ?? EMPTY_FORM),
+    highlights: initial?.highlights ?? [],
+    specifications: initial?.specifications ?? [],
+    detailsHtml: initial?.detailsHtml ?? "",
+  }));
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
     if (initial?.sizeStock) return initial.sizeStock;
     const initialSizes = initial?.sizes || ["S", "M", "L", "XL", "XXL"];
@@ -432,7 +454,7 @@ export function ProductForm({
 
   return (
     <form
-      className="space-y-4 rounded-lg border bg-card p-4 shadow-xs"
+      className="space-y-6 rounded-2xl border border-border/80 bg-card p-5 md:p-6 shadow-sm animate-in fade-in-50 duration-200"
       onSubmit={async (e) => {
         e.preventDefault();
         if (!values.title.trim()) {
@@ -454,6 +476,10 @@ export function ProductForm({
           await onSubmit({
             ...values,
             title: values.title.trim(),
+            description: values.description.trim(),
+            detailsHtml: values.detailsHtml?.trim() || "",
+            highlights: values.highlights ?? [],
+            specifications: values.specifications ?? [],
             sizeStock,
           });
         } catch (err) {
@@ -463,57 +489,146 @@ export function ProductForm({
         }
       }}
     >
-      <h3 className="font-semibold text-lg">{heading}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
         <div>
-          <Label>Product name *</Label>
-          <Input value={values.title} onChange={(e) => set("title", e.target.value)} required />
+          <h3 className="font-bold text-xl tracking-tight">{heading}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure product catalog data, media, sizes, technical specifications, and highlights.
+          </p>
         </div>
-        <div>
-          <Label>Price (INR) *</Label>
-          <Input
-            type="number"
-            min={0}
-            step="1"
-            value={values.price}
-            onChange={(e) => set("price", e.target.value)}
-            required
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={busy} className="bg-foreground text-background hover:bg-foreground/90 font-medium">
+            {busy ? "Saving…" : submitLabel}
+          </Button>
+        </div>
+      </div>
+
+      {/* 1. BASIC PRODUCT INFORMATION */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            1
+          </span>
+          Basic Product Information
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs font-semibold">Product Name *</Label>
+            <Input
+              value={values.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="e.g. Oversized Graphic Streetwear Tee"
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Price (INR) *</Label>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={values.price}
+              onChange={(e) => set("price", e.target.value)}
+              placeholder="999"
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Category</Label>
+            <Input
+              value={values.category}
+              onChange={(e) => set("category", e.target.value)}
+              placeholder="e.g. Oversized Tees, Hoodies, Graphic Tees"
+              className="mt-1"
+            />
+          </div>
+          <div className="flex items-center pt-6">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
+              <input
+                type="checkbox"
+                checked={values.isActive}
+                onChange={(e) => set("isActive", e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-foreground"
+              />
+              <span>Active (visible on storefront)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. PRODUCT IMAGES */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            2
+          </span>
+          Product Photos & Media
+        </h4>
+        <ImageManager images={values.images} onChange={(v) => set("images", v)} />
+      </div>
+
+      {/* 3. VARIANTS / SIZES */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            3
+          </span>
+          Variants & Options
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <ChipInput
+              label="Available sizes"
+              values={values.sizes}
+              onChange={handleSizesChange}
+              placeholder="S, M, L, XL, XXL…"
+              suggestions={["S", "M", "L", "XL", "XXL"]}
+            />
+          </div>
+
+          <ChipInput
+            label="Colors"
+            values={values.colors}
+            onChange={(v) => set("colors", v)}
+            placeholder="Black, Maroon…"
+            suggestions={["Black", "White", "Maroon", "Olive Green"]}
+          />
+          <ChipInput
+            label="Tags & Search Keywords"
+            values={values.tags}
+            onChange={(v) => set("tags", v)}
+            placeholder="anime, streetwear, dtf, bestseller…"
           />
         </div>
-        <div className="sm:col-span-2">
-          <Label>Description</Label>
-          <Textarea
-            value={values.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label>Category</Label>
-          <Input value={values.category} onChange={(e) => set("category", e.target.value)} />
-        </div>
-        <div>
-          <Label>Total stock quantity</Label>
+      </div>
+
+      {/* 4. INVENTORY */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            4
+          </span>
+          Inventory & Stock Allocation
+        </h4>
+        <div className="max-w-xs">
+          <Label className="text-xs font-semibold">Total Stock Quantity</Label>
           <Input
             type="number"
             min={0}
             value={values.stock}
             onChange={(e) => handleTotalStockChange(e.target.value)}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <ChipInput
-            label="Available sizes"
-            values={values.sizes}
-            onChange={handleSizesChange}
-            placeholder="S, M, L, XL, XXL…"
-            suggestions={["S", "M", "L", "XL", "XXL"]}
+            className="mt-1"
           />
         </div>
 
         {/* Per-size stock breakdown */}
         {values.sizes.length > 0 && (
-          <div className="sm:col-span-2 rounded-lg border bg-muted/20 p-3 space-y-2">
+          <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
             <Label className="text-xs font-semibold uppercase text-muted-foreground">
               Stock Breakdown per Size (Total: {values.stock})
             </Label>
@@ -533,40 +648,54 @@ export function ProductForm({
             </div>
           </div>
         )}
-
-        <ChipInput
-          label="Colors"
-          values={values.colors}
-          onChange={(v) => set("colors", v)}
-          placeholder="Black, Maroon…"
-          suggestions={["Black", "White", "Maroon", "Olive Green"]}
-        />
-        <ChipInput
-          label="Tags"
-          values={values.tags}
-          onChange={(v) => set("tags", v)}
-          placeholder="anime, dtf…"
-        />
-        <div className="flex items-end">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={values.isActive}
-              onChange={(e) => set("isActive", e.target.checked)}
-            />
-            Active (visible on the storefront)
-          </label>
-        </div>
-        <div className="sm:col-span-2">
-          <ImageManager images={values.images} onChange={(v) => set("images", v)} />
-        </div>
       </div>
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : submitLabel}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+
+      {/* 5. PRODUCT DETAILS (DEDICATED SECTION) */}
+      <div className="space-y-5 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 sm:p-6">
+        <div className="flex items-center gap-2 border-b border-primary/20 pb-3">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-red text-white text-xs font-bold">
+            ★
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-foreground tracking-tight">PRODUCT DETAILS SYSTEM</h3>
+            <p className="text-xs text-muted-foreground">
+              Dynamic per-product highlights, flexible technical specifications, and rich accordion description.
+            </p>
+          </div>
+        </div>
+
+        {/* Key Highlights Editor */}
+        <KeyHighlightsEditor
+          highlights={values.highlights ?? []}
+          onChange={(next) => set("highlights", next)}
+        />
+
+        {/* Product Specifications Editor */}
+        <ProductSpecificationsEditor
+          specifications={values.specifications ?? []}
+          onChange={(next) => set("specifications", next)}
+        />
+
+        {/* Product Description & Details */}
+        <ProductDescriptionEditor
+          description={values.description}
+          detailsHtml={values.detailsHtml}
+          onChangeDescription={(next) => set("description", next)}
+          onChangeDetailsHtml={(next) => set("detailsHtml", next)}
+        />
+      </div>
+
+      {/* 6. BOTTOM ACTIONS */}
+      <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={busy}
+          className="bg-foreground text-background hover:bg-foreground/90 px-6 font-semibold"
+        >
+          {busy ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>

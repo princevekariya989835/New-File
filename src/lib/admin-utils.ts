@@ -221,9 +221,27 @@ export function slugify(value: string) {
 
 export const ARCHIVED_TAG = "__archived";
 
+export type ProductHighlightInput = {
+  id?: string;
+  imageUrl: string;
+  title?: string | null;
+  description?: string | null;
+  displayOrder?: number;
+  isActive?: boolean;
+};
+
+export type ProductSpecificationInput = {
+  id?: string;
+  label: string;
+  value: string;
+  displayOrder?: number;
+  isActive?: boolean;
+};
+
 export type ProductInput = {
   title: string;
   description?: string;
+  detailsHtml?: string | null;
   price: string | number;
   sizes?: string[];
   colors?: string[];
@@ -233,6 +251,8 @@ export type ProductInput = {
   sizeStock?: Record<string, number>;
   images?: string[];
   isActive?: boolean;
+  highlights?: ProductHighlightInput[];
+  specifications?: ProductSpecificationInput[];
 };
 
 function cleanList(list?: string[]) {
@@ -291,9 +311,35 @@ export function normalizeProductInput(d: ProductInput) {
     .map((img) => String(img || "").trim())
     .filter((img) => img.length > 0);
 
+  // Sanitize and validate highlights
+  const rawHighlights = Array.isArray(d.highlights) ? d.highlights : [];
+  const highlights = rawHighlights
+    .filter((h) => h && typeof h === "object" && typeof h.imageUrl === "string" && h.imageUrl.trim().length > 0)
+    .map((h, idx) => ({
+      id: h.id ? String(h.id) : `hl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      imageUrl: String(h.imageUrl).trim(),
+      title: h.title ? String(h.title).trim() : null,
+      description: h.description ? String(h.description).trim() : null,
+      displayOrder: typeof h.displayOrder === "number" && Number.isFinite(h.displayOrder) ? h.displayOrder : idx + 1,
+      isActive: h.isActive !== false,
+    }));
+
+  // Sanitize and validate specifications
+  const rawSpecs = Array.isArray(d.specifications) ? d.specifications : [];
+  const specifications = rawSpecs
+    .filter((s) => s && typeof s === "object" && String(s.label ?? "").trim().length > 0)
+    .map((s, idx) => ({
+      id: s.id ? String(s.id) : `sp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      label: String(s.label).trim(),
+      value: String(s.value ?? "").trim(),
+      displayOrder: typeof s.displayOrder === "number" && Number.isFinite(s.displayOrder) ? s.displayOrder : idx + 1,
+      isActive: s.isActive !== false,
+    }));
+
   return {
     name: title,
     description: d.description?.trim() ? d.description.trim() : null,
+    details_html: d.detailsHtml?.trim() ? d.detailsHtml.trim() : null,
     price,
     images: images.length > 0 ? images : ["/placeholder-tee.jpg"],
     sizes,
@@ -303,6 +349,8 @@ export function normalizeProductInput(d: ProductInput) {
     stock_quantity: totalStock,
     sizeStock,
     is_active: d.isActive !== false,
+    highlights,
+    specifications,
   };
 }
 

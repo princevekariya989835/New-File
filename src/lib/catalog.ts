@@ -27,11 +27,33 @@ export interface CatalogVariant {
   image?: CatalogImage | null;
 }
 
+export interface ProductHighlight {
+  id: string;
+  productId: string;
+  imageUrl: string;
+  title: string | null;
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface ProductSpecification {
+  id: string;
+  productId: string;
+  label: string;
+  value: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
 export interface CatalogProductNode {
   id: string;
   productId: string;
   title: string;
   description: string;
+  detailsHtml?: string | null;
+  highlights?: ProductHighlight[];
+  specifications?: ProductSpecification[];
   handle: string;
   tags: string[];
   productType: string;
@@ -145,12 +167,42 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     ...(row.colors?.length ? [{ name: "Color", values: row.colors }] : []),
   ];
 
+  const rawHighlights = isListing ? [] : (row.highlights ?? []);
+  const highlights: ProductHighlight[] = rawHighlights.map((h, idx) => {
+    let imgUrl = h.image_url;
+    if (typeof imgUrl === "string" && imgUrl.startsWith("data:image/")) {
+      imgUrl = `/api/public/product-image?id=${encodeURIComponent(row.id)}&type=highlight&idx=${idx}&v=${vHash}`;
+    }
+    return {
+      id: String(h.id),
+      productId: String(h.product_id || row.id),
+      imageUrl: imgUrl || "/placeholder-tee.jpg",
+      title: h.title ?? null,
+      description: h.description ?? null,
+      displayOrder: Number(h.display_order ?? 0),
+      isActive: h.is_active !== false,
+    };
+  });
+
+  const rawSpecs = isListing ? [] : (row.specifications ?? []);
+  const specifications: ProductSpecification[] = rawSpecs.map((s) => ({
+    id: String(s.id),
+    productId: String(s.product_id || row.id),
+    label: String(s.label),
+    value: String(s.value),
+    displayOrder: Number(s.display_order ?? 0),
+    isActive: s.is_active !== false,
+  }));
+
   return {
     node: {
       id: row.id,
       productId: row.id,
       title: row.name,
       description: isListing ? "" : (row.description ?? ""),
+      detailsHtml: isListing ? null : (row.details_html ?? null),
+      highlights: isListing ? undefined : highlights,
+      specifications: isListing ? undefined : specifications,
       handle: row.slug,
       tags: row.tags ?? [],
       productType: row.category ?? "",
@@ -507,29 +559,87 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     try {
       const sql = getSql();
 
-      // Read directly from database - single query with correlated variants
-      const products = await sql`
-        SELECT 
-          p.id, p.name, p.slug, p.description, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-          COALESCE(
-            (
-              SELECT jsonb_agg(jsonb_build_object(
-                'id', v.id,
-                'size', v.size,
-                'color', v.color,
-                'stock_quantity', v.stock_quantity,
-                'reserved_stock', v.reserved_stock,
-                'low_stock_threshold', v.low_stock_threshold
-              ))
-              FROM product_variants v
-              WHERE v.product_id::text = p.id::text
-            ),
-            '[]'::jsonb
-          ) AS product_variants
-        FROM products p
-        WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
-        LIMIT 1
-      `;
+      // Read directly from database - single query with correlated variants, highlights, specifications
+      let products: any[] = [];
+      try {
+        products = await sql`
+          SELECT 
+            p.id, p.name, p.slug, p.description, p.details_html, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', v.id,
+                  'size', v.size,
+                  'color', v.color,
+                  'stock_quantity', v.stock_quantity,
+                  'reserved_stock', v.reserved_stock,
+                  'low_stock_threshold', v.low_stock_threshold
+                ))
+                FROM product_variants v
+                WHERE v.product_id::text = p.id::text
+              ),
+              '[]'::jsonb
+            ) AS product_variants,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', h.id,
+                  'product_id', h.product_id,
+                  'image_url', h.image_url,
+                  'title', h.title,
+                  'description', h.description,
+                  'display_order', h.display_order,
+                  'is_active', h.is_active
+                ) ORDER BY h.display_order ASC, h.created_at ASC)
+                FROM product_highlights h
+                WHERE h.product_id::text = p.id::text AND (h.is_active = true OR h.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS highlights,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', s.id,
+                  'product_id', s.product_id,
+                  'label', s.label,
+                  'value', s.value,
+                  'display_order', s.display_order,
+                  'is_active', s.is_active
+                ) ORDER BY s.display_order ASC, s.created_at ASC)
+                FROM product_specifications s
+                WHERE s.product_id::text = p.id::text AND (s.is_active = true OR s.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS specifications
+          FROM products p
+          WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          LIMIT 1
+        `;
+      } catch (queryErr) {
+        // Fallback query if new columns or tables are resolving
+        products = await sql`
+          SELECT 
+            p.id, p.name, p.slug, p.description, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', v.id,
+                  'size', v.size,
+                  'color', v.color,
+                  'stock_quantity', v.stock_quantity,
+                  'reserved_stock', v.reserved_stock,
+                  'low_stock_threshold', v.low_stock_threshold
+                ))
+                FROM product_variants v
+                WHERE v.product_id::text = p.id::text
+              ),
+              '[]'::jsonb
+            ) AS product_variants
+          FROM products p
+          WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          LIMIT 1
+        `;
+      }
 
       if (!products || products.length === 0) {
         _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
@@ -550,11 +660,39 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
           ? JSON.parse(p.product_variants)
           : [];
 
+      const highlightRows: ProductHighlightRow[] = Array.isArray(p.highlights)
+        ? p.highlights.map((h: any) => ({
+            id: String(h.id),
+            product_id: String(h.product_id || p.id),
+            image_url: String(h.image_url),
+            title: h.title ?? null,
+            description: h.description ?? null,
+            display_order: Number(h.display_order ?? 0),
+            is_active: h.is_active !== false,
+          }))
+        : typeof p.highlights === "string"
+          ? JSON.parse(p.highlights)
+          : [];
+
+      const specRows: ProductSpecificationRow[] = Array.isArray(p.specifications)
+        ? p.specifications.map((s: any) => ({
+            id: String(s.id),
+            product_id: String(s.product_id || p.id),
+            label: String(s.label),
+            value: String(s.value),
+            display_order: Number(s.display_order ?? 0),
+            is_active: s.is_active !== false,
+          }))
+        : typeof p.specifications === "string"
+          ? JSON.parse(p.specifications)
+          : [];
+
       const row: ProductRow = {
         id: String(p.id),
         name: p.name as string,
         slug: p.slug as string,
         description: (p.description as string) || null,
+        details_html: (p.details_html as string) || null,
         price: Number(p.price || 0),
         currency: (p.currency as string) || "INR",
         images: Array.isArray(p.images)
@@ -578,6 +716,8 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
         updated_at: p.updated_at,
         product_variants: variantRows,
+        highlights: highlightRows,
+        specifications: specRows,
       };
 
       const result = toCatalogProduct(row).node;

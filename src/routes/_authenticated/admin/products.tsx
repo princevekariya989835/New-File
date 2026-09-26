@@ -159,6 +159,22 @@ function ProductsPage() {
           initial={{
             title: editing.title,
             description: editing.description ?? "",
+            detailsHtml: editing.detailsHtml ?? "",
+            highlights: (editing.highlights ?? []).map((h) => ({
+              id: h.id,
+              imageUrl: h.imageUrl,
+              title: h.title ?? "",
+              description: h.description ?? "",
+              displayOrder: h.displayOrder,
+              isActive: h.isActive !== false,
+            })),
+            specifications: (editing.specifications ?? []).map((s) => ({
+              id: s.id,
+              label: s.label,
+              value: s.value,
+              displayOrder: s.displayOrder,
+              isActive: s.isActive !== false,
+            })),
             price: editing.price,
             category: editing.category ?? "",
             images: editing.images,

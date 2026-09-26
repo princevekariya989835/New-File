@@ -23,8 +23,9 @@ import {
   type InventoryTransactionRecord,
 } from "@/lib/inventory.service";
 import { resolveOrderItemImage } from "@/lib/orders.functions";
+import type { ProductHighlight, ProductSpecification } from "@/lib/catalog";
 
-export type { ProductInput, InventoryTransactionRecord };
+export type { ProductInput, InventoryTransactionRecord, ProductHighlight, ProductSpecification };
 
 export type AdminProduct = {
   id: string;
@@ -37,6 +38,9 @@ export type AdminProduct = {
   images: string[];
   price: string;
   description: string | null;
+  detailsHtml?: string | null;
+  highlights?: ProductHighlight[];
+  specifications?: ProductSpecification[];
   sizes: string[];
   colors: string[];
   tags: string[];
@@ -129,7 +133,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
     try {
       rows = await sql`
         SELECT 
-          p.id, p.name, p.slug, p.description, p.price, p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
+          p.id, p.name, p.slug, p.description, p.details_html, p.price, p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
           COALESCE(
             (
               SELECT jsonb_agg(jsonb_build_object(
@@ -140,7 +144,36 @@ export const adminListProducts = createServerFn({ method: "GET" })
               WHERE v.product_id::text = p.id::text
             ),
             '[]'::jsonb
-          ) AS variants
+          ) AS variants,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', h.id,
+                'imageUrl', h.image_url,
+                'title', h.title,
+                'description', h.description,
+                'displayOrder', h.display_order,
+                'isActive', h.is_active
+              ) ORDER BY h.display_order ASC, h.created_at ASC)
+              FROM product_highlights h
+              WHERE h.product_id::text = p.id::text
+            ),
+            '[]'::jsonb
+          ) AS highlights,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', s.id,
+                'label', s.label,
+                'value', s.value,
+                'displayOrder', s.display_order,
+                'isActive', s.is_active
+              ) ORDER BY s.display_order ASC, s.created_at ASC)
+              FROM product_specifications s
+              WHERE s.product_id::text = p.id::text
+            ),
+            '[]'::jsonb
+          ) AS specifications
         FROM products p
         ORDER BY p.updated_at DESC
       `;
@@ -194,6 +227,29 @@ export const adminListProducts = createServerFn({ method: "GET" })
         return img;
       });
 
+      const highlights = Array.isArray(p.highlights)
+        ? p.highlights.map((h: any) => ({
+            id: String(h.id),
+            productId: String(p.id),
+            imageUrl: String(h.imageUrl || h.image_url || ""),
+            title: h.title ?? null,
+            description: h.description ?? null,
+            displayOrder: Number(h.displayOrder ?? h.display_order ?? 0),
+            isActive: h.isActive !== false && h.is_active !== false,
+          }))
+        : [];
+
+      const specifications = Array.isArray(p.specifications)
+        ? p.specifications.map((s: any) => ({
+            id: String(s.id),
+            productId: String(p.id),
+            label: String(s.label || ""),
+            value: String(s.value || ""),
+            displayOrder: Number(s.displayOrder ?? s.display_order ?? 0),
+            isActive: s.isActive !== false && s.is_active !== false,
+          }))
+        : [];
+
       return {
         id: String(p.id),
         title: p.name,
@@ -205,6 +261,9 @@ export const adminListProducts = createServerFn({ method: "GET" })
         images: optimizedImgs,
         price: String(p.price),
         description: p.description ?? null,
+        detailsHtml: p.details_html ?? null,
+        highlights,
+        specifications,
         sizes: Array.isArray(p.sizes) ? p.sizes : [],
         colors: Array.isArray(p.colors) ? p.colors : [],
         tags: Array.isArray(p.tags) ? p.tags : [],
@@ -518,6 +577,40 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       values.sizeStock,
     );
 
+    // Save highlights if provided
+    if (Array.isArray(values.highlights) && values.highlights.length > 0) {
+      for (const h of values.highlights) {
+        try {
+          await sql`
+            INSERT INTO product_highlights (
+              id, product_id, image_url, title, description, display_order, is_active
+            ) VALUES (
+              ${h.id}, ${productId}, ${h.imageUrl}, ${h.title}, ${h.description}, ${h.displayOrder}, ${h.isActive}
+            )
+          `;
+        } catch (hErr) {
+          console.warn("[adminCreateProduct] highlight insert warning:", hErr);
+        }
+      }
+    }
+
+    // Save specifications if provided
+    if (Array.isArray(values.specifications) && values.specifications.length > 0) {
+      for (const s of values.specifications) {
+        try {
+          await sql`
+            INSERT INTO product_specifications (
+              id, product_id, label, value, display_order, is_active
+            ) VALUES (
+              ${s.id}, ${productId}, ${s.label}, ${s.value}, ${s.displayOrder}, ${s.isActive}
+            )
+          `;
+        } catch (sErr) {
+          console.warn("[adminCreateProduct] spec insert warning:", sErr);
+        }
+      }
+    }
+
     try {
       const sql = getSql();
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
@@ -557,6 +650,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
         UPDATE products SET
           name = ${values.name},
           description = ${values.description},
+          details_html = ${values.details_html},
           price = ${values.price},
           base_price = ${values.price},
           images = ${JSON.stringify(values.images)}::jsonb,
@@ -572,7 +666,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       `;
     } catch (updateErr: any) {
       const msg = String(updateErr?.message || "").toLowerCase();
-      if (msg.includes("base_price") && msg.includes("does not exist")) {
+      try {
         updatedRows = await sql`
           UPDATE products SET
             name = ${values.name},
@@ -589,7 +683,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
           RETURNING id, name, slug, price, stock_quantity, is_active
         `;
-      } else {
+      } catch (fallbackErr: any) {
         logServerSyncEvent("DATABASE_ERROR", {
           operation: "adminUpdateProduct",
           productId: data.productId,
@@ -621,6 +715,42 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       values.sizeStock,
     );
 
+    // Sync highlights
+    if (Array.isArray(values.highlights)) {
+      try {
+        await sql`DELETE FROM product_highlights WHERE product_id::text = ${canonicalId}`;
+        for (const h of values.highlights) {
+          await sql`
+            INSERT INTO product_highlights (
+              id, product_id, image_url, title, description, display_order, is_active
+            ) VALUES (
+              ${h.id}, ${canonicalId}, ${h.imageUrl}, ${h.title}, ${h.description}, ${h.displayOrder}, ${h.isActive}
+            )
+          `;
+        }
+      } catch (hErr) {
+        console.warn("[adminUpdateProduct] highlight sync warning:", hErr);
+      }
+    }
+
+    // Sync specifications
+    if (Array.isArray(values.specifications)) {
+      try {
+        await sql`DELETE FROM product_specifications WHERE product_id::text = ${canonicalId}`;
+        for (const s of values.specifications) {
+          await sql`
+            INSERT INTO product_specifications (
+              id, product_id, label, value, display_order, is_active
+            ) VALUES (
+              ${s.id}, ${canonicalId}, ${s.label}, ${s.value}, ${s.displayOrder}, ${s.isActive}
+            )
+          `;
+        }
+      } catch (sErr) {
+        console.warn("[adminUpdateProduct] spec sync warning:", sErr);
+      }
+    }
+
     try {
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
     } catch {
@@ -641,6 +771,60 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     });
 
     return { ok: true, product: updatedRows[0] };
+  });
+
+export const adminGetProductDetails = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { productId: string }) => ({ productId: String(d.productId) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    let highlights: any[] = [];
+    let specifications: any[] = [];
+
+    try {
+      highlights = await sql`
+        SELECT id, product_id, image_url, title, description, display_order, is_active
+        FROM product_highlights
+        WHERE product_id::text = ${data.productId}
+        ORDER BY display_order ASC, created_at ASC
+      `;
+    } catch (err) {
+      console.warn("[adminGetProductDetails] highlights query warning:", err);
+    }
+
+    try {
+      specifications = await sql`
+        SELECT id, product_id, label, value, display_order, is_active
+        FROM product_specifications
+        WHERE product_id::text = ${data.productId}
+        ORDER BY display_order ASC, created_at ASC
+      `;
+    } catch (err) {
+      console.warn("[adminGetProductDetails] specifications query warning:", err);
+    }
+
+    return {
+      highlights: (highlights || []).map((h: any) => ({
+        id: String(h.id),
+        productId: String(h.product_id),
+        imageUrl: String(h.image_url),
+        title: h.title ?? null,
+        description: h.description ?? null,
+        displayOrder: Number(h.display_order ?? 0),
+        isActive: h.is_active !== false,
+      })),
+      specifications: (specifications || []).map((s: any) => ({
+        id: String(s.id),
+        productId: String(s.product_id),
+        label: String(s.label),
+        value: String(s.value),
+        displayOrder: Number(s.display_order ?? 0),
+        isActive: s.is_active !== false,
+      })),
+    };
   });
 
 export type AdminVariant = {

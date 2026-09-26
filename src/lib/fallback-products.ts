@@ -8,11 +8,35 @@ export interface VariantRow {
   low_stock_threshold: number;
 }
 
+export interface ProductHighlightRow {
+  id: string;
+  product_id?: string;
+  image_url: string;
+  title?: string | null;
+  description?: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProductSpecificationRow {
+  id: string;
+  product_id?: string;
+  label: string;
+  value: string;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ProductRow {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  details_html?: string | null;
   price: number;
   currency: string;
   images: string[];
@@ -24,6 +48,8 @@ export interface ProductRow {
   tags: string[];
   updated_at?: string;
   product_variants?: VariantRow[];
+  highlights?: ProductHighlightRow[];
+  specifications?: ProductSpecificationRow[];
 }
 
 export const FALLBACK_PRODUCTS: ProductRow[] = [

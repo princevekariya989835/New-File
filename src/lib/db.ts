@@ -346,6 +346,8 @@ const _mockReturns: any[] = [];
 const _mockReviews: any[] = [];
 const _mockDesignSubmissions: any[] = [];
 const _mockInventoryTransactions: any[] = [];
+let _mockProductHighlights: any[] = [];
+let _mockProductSpecifications: any[] = [];
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -356,6 +358,8 @@ export function removeMockProduct(productIdOrSlug: string): boolean {
   if (idx !== -1) {
     const [removed] = _mockProducts.splice(idx, 1);
     _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
+    _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
+    _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
     return true;
   }
   return false;
@@ -441,7 +445,19 @@ export function getSql() {
           );
           if (!p) return [];
           if (lower.includes("is_active = true") && p.is_active === false) return [];
-          return [p];
+          const prodVariants = _mockVariants.filter((v) => String(v.product_id) === String(p.id));
+          const prodHighlights = _mockProductHighlights
+            .filter((h) => String(h.product_id) === String(p.id) && h.is_active !== false)
+            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+          const prodSpecs = _mockProductSpecifications
+            .filter((s) => String(s.product_id) === String(p.id) && s.is_active !== false)
+            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+          return [{
+            ...p,
+            product_variants: prodVariants,
+            highlights: prodHighlights,
+            specifications: prodSpecs,
+          }];
         }
         // Active products query
         if (lower.includes("where is_active = true") || lower.includes("is_active is null")) {
@@ -549,6 +565,8 @@ export function getSql() {
         if (idx >= 0) {
           const removed = _mockProducts.splice(idx, 1)[0];
           _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
+          _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
+          _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
           return [{ id: removed.id }];
         }
         return [{ id: values[0] || "deleted" }];
@@ -605,6 +623,104 @@ export function getSql() {
       if (lower.startsWith("delete from product_variants") || lower.includes("delete from product_variants")) {
         const pid = String(values[0] ?? "");
         _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== pid && String(v.id) !== pid);
+        return [];
+      }
+
+      // SELECT from product_highlights
+      if (lower.includes("from product_highlights")) {
+        const pid = String(values[0] ?? "");
+        let res = _mockProductHighlights;
+        if (pid) {
+          res = res.filter((h) => String(h.product_id) === pid);
+        }
+        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
+          res = res.filter((h) => h.is_active !== false);
+        }
+        return res
+          .slice()
+          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+      }
+
+      // INSERT INTO product_highlights
+      if (lower.startsWith("insert into product_highlights") || lower.includes("insert into product_highlights")) {
+        const id = values[0] ? String(values[0]) : `hl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const product_id = values[1] ? String(values[1]) : "";
+        const image_url = values[2] ? String(values[2]) : "";
+        const title = values[3] !== undefined && values[3] !== null ? String(values[3]) : null;
+        const description = values[4] !== undefined && values[4] !== null ? String(values[4]) : null;
+        const display_order = Number(values[5] || 0);
+        const is_active = values[6] !== false;
+        const item = {
+          id,
+          product_id,
+          image_url,
+          title,
+          description,
+          display_order,
+          is_active,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const existIdx = _mockProductHighlights.findIndex((h) => h.id === id);
+        if (existIdx >= 0) _mockProductHighlights[existIdx] = item;
+        else _mockProductHighlights.push(item);
+        return [{ id }];
+      }
+
+      // DELETE FROM product_highlights
+      if (lower.startsWith("delete from product_highlights") || lower.includes("delete from product_highlights")) {
+        const target = String(values[0] ?? "");
+        _mockProductHighlights = _mockProductHighlights.filter(
+          (h) => String(h.product_id) !== target && String(h.id) !== target,
+        );
+        return [];
+      }
+
+      // SELECT from product_specifications
+      if (lower.includes("from product_specifications")) {
+        const pid = String(values[0] ?? "");
+        let res = _mockProductSpecifications;
+        if (pid) {
+          res = res.filter((s) => String(s.product_id) === pid);
+        }
+        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
+          res = res.filter((s) => s.is_active !== false);
+        }
+        return res
+          .slice()
+          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+      }
+
+      // INSERT INTO product_specifications
+      if (lower.startsWith("insert into product_specifications") || lower.includes("insert into product_specifications")) {
+        const id = values[0] ? String(values[0]) : `sp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const product_id = values[1] ? String(values[1]) : "";
+        const label = values[2] ? String(values[2]) : "";
+        const value = values[3] ? String(values[3]) : "";
+        const display_order = Number(values[4] || 0);
+        const is_active = values[5] !== false;
+        const item = {
+          id,
+          product_id,
+          label,
+          value,
+          display_order,
+          is_active,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const existIdx = _mockProductSpecifications.findIndex((s) => s.id === id);
+        if (existIdx >= 0) _mockProductSpecifications[existIdx] = item;
+        else _mockProductSpecifications.push(item);
+        return [{ id }];
+      }
+
+      // DELETE FROM product_specifications
+      if (lower.startsWith("delete from product_specifications") || lower.includes("delete from product_specifications")) {
+        const target = String(values[0] ?? "");
+        _mockProductSpecifications = _mockProductSpecifications.filter(
+          (s) => String(s.product_id) !== target && String(s.id) !== target,
+        );
         return [];
       }
 
@@ -1342,7 +1458,9 @@ export async function ensureDbSchema() {
             to_regclass('public.coupons') IS NOT NULL AS has_coupons,
             to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage,
             to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates,
-            to_regclass('public.email_logs') IS NOT NULL AS has_email_logs
+            to_regclass('public.email_logs') IS NOT NULL AS has_email_logs,
+            to_regclass('public.product_highlights') IS NOT NULL AS has_product_highlights,
+            to_regclass('public.product_specifications') IS NOT NULL AS has_product_specifications
         `;
         const row = check?.[0];
         if (row && (row.has_products || row.has_profiles || row.has_orders || row.has_website || row.has_settings)) {
@@ -1701,6 +1819,43 @@ export async function ensureDbSchema() {
             );
           }
 
+          if (!row.has_product_highlights) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS product_highlights (
+                id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                image_url TEXT NOT NULL,
+                title TEXT,
+                description TEXT,
+                display_order INTEGER NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_prod_highlights_prod_id ON product_highlights (product_id, is_active, display_order ASC)`,
+            );
+          }
+
+          if (!row.has_product_specifications) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS product_specifications (
+                id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                label TEXT NOT NULL,
+                value TEXT NOT NULL,
+                display_order INTEGER NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_prod_specs_prod_id ON product_specifications (product_id, is_active, display_order ASC)`,
+            );
+          }
+
+          missingStatements.push(
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
+          );
+
           if (missingStatements.length > 0) {
             for (const stmt of missingStatements) {
               try {
@@ -1772,6 +1927,27 @@ export async function ensureDbSchema() {
           stock_quantity INTEGER NOT NULL DEFAULT 0,
           reserved_stock INTEGER NOT NULL DEFAULT 0,
           low_stock_threshold INTEGER NOT NULL DEFAULT 2,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS product_highlights (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          image_url TEXT NOT NULL,
+          title TEXT,
+          description TEXT,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS product_specifications (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          label TEXT NOT NULL,
+          value TEXT NOT NULL,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          is_active BOOLEAN NOT NULL DEFAULT true,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
@@ -2112,6 +2288,9 @@ export async function ensureDbSchema() {
         `CREATE INDEX IF NOT EXISTS idx_products_category ON products (category)`,
         `CREATE INDEX IF NOT EXISTS idx_products_active_name ON products (is_active, name ASC)`,
         `CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants (product_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_prod_highlights_prod_id ON product_highlights (product_id, is_active, display_order ASC)`,
+        `CREATE INDEX IF NOT EXISTS idx_prod_specs_prod_id ON product_specifications (product_id, is_active, display_order ASC)`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
         `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
         `CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_product ON inventory_transactions (product_id)`,
