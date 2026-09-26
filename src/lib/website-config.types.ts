@@ -72,6 +72,7 @@ export interface WebsiteWhyUsItem {
 export interface WebsiteBuy2Get1OfferConfig {
   enabled: boolean;
   title: string;
+  subtitle?: string;
   supportingText: string;
   appliesTo: "all" | "categories" | "products";
   categoryNames?: string[];
@@ -573,6 +574,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
   buy2get1Offer: {
     enabled: true,
     title: "BUY 2 GET 1 FREE",
+    subtitle: "OVERSIZED PRINTED T-SHIRTS",
     supportingText: "Add 3 eligible T-shirts to unlock your free item",
     appliesTo: "all",
     categoryNames: ["t-shirt", "tees", "oversized", "hoodie", "polo", "apparel"],

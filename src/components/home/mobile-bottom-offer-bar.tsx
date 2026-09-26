@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { X, Sparkles, ShoppingBag, ArrowRight } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Lock, LockOpen, ChevronUp } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { calculateBuy2Get1Discount } from "@/lib/promotions";
@@ -28,26 +28,18 @@ export function MobileBottomOfferBar() {
     }
   }, []);
 
-  const handleDismiss = (e: React.MouseEvent) => {
+  const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    setDismissed(true);
+    const next = !dismissed;
+    setDismissed(next);
     try {
       if (typeof window !== "undefined") {
-        sessionStorage.setItem(DISMISS_KEY, "true");
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleReopen = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setDismissed(false);
-    try {
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem(DISMISS_KEY);
+        if (next) {
+          sessionStorage.setItem(DISMISS_KEY, "true");
+        } else {
+          sessionStorage.removeItem(DISMISS_KEY);
+        }
       }
     } catch {
       // ignore
@@ -71,28 +63,57 @@ export function MobileBottomOfferBar() {
     offerConfig,
   );
 
-  const { eligibleUnitsCount, freeUnitsCount, progressCount, supportingText } = calculation;
+  const { eligibleUnitsCount, freeUnitsCount, progressCount } = calculation;
   const isUnlocked = freeUnitsCount > 0;
 
-  // Minimized floating pill (mobile only)
+  // Dynamic supporting text matching reference format
+  const categoryLabel = offerConfig?.subtitle || "OVERSIZED PRINTED T-SHIRTS";
+  let dynamicSubtitle = offerConfig?.supportingText || `Add 3 ${categoryLabel.toLowerCase()} to unlock this offer`;
+  if (eligibleUnitsCount === 1) {
+    dynamicSubtitle = `Add 2 more ${categoryLabel.toLowerCase()} to unlock this offer`;
+  } else if (eligibleUnitsCount === 2) {
+    dynamicSubtitle = `Add 1 more ${categoryLabel.toLowerCase()} to unlock your FREE item`;
+  } else if (eligibleUnitsCount >= 3) {
+    dynamicSubtitle = "Offer unlocked! 1 item is FREE";
+  }
+
+  // Circular progress calculations for the left lock icon ring
+  // Circumference = 2 * PI * 17 = 106.81
+  const radius = 17;
+  const circumference = 2 * Math.PI * radius;
+  const progressRatio = isUnlocked ? 1 : Math.min(1, Math.max(0, progressCount / 3));
+  const strokeOffset = circumference - progressRatio * circumference;
+
+  // Angle for indicator dot (0 is 12 o'clock = -90 deg)
+  const angleDeg = -90 + progressRatio * 360;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const dotX = 22 + radius * Math.cos(angleRad);
+  const dotY = 22 + radius * Math.sin(angleRad);
+
+  // Minimized collapsed tab matching the reference pill theme
   if (dismissed) {
     return (
       <div
-        className="block md:hidden fixed bottom-4 right-3 z-40 transition-all duration-300 animate-in fade-in zoom-in-95"
+        className="block md:hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-40 pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-bottom-3"
         style={{
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         <button
-          onClick={handleReopen}
+          onClick={handleToggle}
           type="button"
-          aria-label="View BUY 2 GET 1 FREE offer"
-          className="group flex items-center gap-1.5 rounded-full border border-brand-red/40 bg-neutral-950/90 px-3 py-1.5 text-xs font-semibold text-white shadow-xl backdrop-blur-md transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-1 ring-white/10"
+          aria-label="Expand BUY 2 GET 1 FREE offer"
+          className="group flex items-center gap-2 rounded-full border border-[#344186] bg-gradient-to-b from-[#1c245c] to-[#151c4a] px-3.5 py-1.5 text-xs font-bold text-white shadow-[0_8px_25px_rgba(0,0,0,0.6)] backdrop-blur-md transition-transform hover:scale-105 active:scale-95 cursor-pointer ring-1 ring-white/10"
         >
-          <span className="flex size-2 rounded-full bg-brand-red animate-ping" />
-          <span className="text-[11px] font-bold tracking-wide">
-            {isUnlocked ? "FREE ITEM UNLOCKED" : "B2G1 FREE"}
+          <div className="flex size-5 items-center justify-center rounded-full bg-[#c5d0ed] text-[#182363]">
+            <ChevronUp className="size-3.5 stroke-[2.5]" />
+          </div>
+          <span className="text-[11px] font-black uppercase tracking-wider text-white">
+            {offerConfig?.title || "BUY 2 GET 1 FREE"}
           </span>
+          {isUnlocked && (
+            <span className="flex size-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
         </button>
       </div>
     );
@@ -107,79 +128,127 @@ export function MobileBottomOfferBar() {
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.15rem)",
       }}
     >
-      <div
-        onClick={() => navigate({ to: "/shop" })}
-        className="pointer-events-auto group relative flex items-center justify-between gap-2.5 overflow-hidden rounded-2xl border border-white/15 bg-neutral-950/95 px-3 py-2.5 sm:px-3.5 sm:py-2.5 text-white shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-white/25 active:scale-[0.99] cursor-pointer"
-        style={{
-          boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 15px -3px rgba(240, 11, 17, 0.2)",
-        }}
-      >
-        {/* Subtle top edge metallic shine */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+      <div className="relative pointer-events-auto">
+        {/* 1. TOP STACKED CARD LAYER (Pale lavender/periwinkle tab peeking out behind main pill) */}
+        <div
+          className="absolute -top-2 inset-x-8 sm:inset-x-10 h-5 rounded-t-[18px] sm:rounded-t-2xl bg-[#c2ceec] border-t border-x border-[#b3c1e6] shadow-xs pointer-events-none opacity-90"
+          aria-hidden="true"
+        />
 
-        {/* Left: Circular icon with brand red badge */}
-        <div className="relative flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-full bg-brand-red/20 text-brand-red border border-brand-red/30 shadow-xs">
-          <Sparkles className="size-4 animate-pulse" />
-          {isUnlocked && (
-            <span className="absolute -top-0.5 -right-0.5 flex size-2.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-neutral-950" />
-          )}
-        </div>
+        {/* 2. TOP CENTER CHEVRON TOGGLE BUTTON (Pale lavender circle with dark navy chevron) */}
+        <button
+          onClick={handleToggle}
+          type="button"
+          aria-label="Minimize promotional offer"
+          className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 flex size-6 items-center justify-center rounded-full bg-[#c5d0ed] border border-white/60 text-[#182363] shadow-md active:scale-90 hover:bg-[#d8e0f5] transition-all cursor-pointer"
+        >
+          <ChevronUp className="size-3.5 stroke-[2.8]" />
+        </button>
 
-        {/* Middle: Promotion Copy & Dynamic Progress */}
-        <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-white truncate">
-              {offerConfig?.title || "BUY 2 GET 1 FREE"}
-            </span>
+        {/* 3. MAIN PILL CARD (Symmetrical rounded-full capsule in royal navy) */}
+        <div
+          onClick={() => navigate({ to: "/shop" })}
+          className="relative flex items-center gap-3 overflow-hidden rounded-full border border-[#35458a] bg-gradient-to-b from-[#182363] to-[#131b4d] px-3.5 py-2.5 sm:px-4 sm:py-3 text-white shadow-[0_12px_36px_rgba(0,0,0,0.65)] backdrop-blur-xl transition-all duration-300 hover:border-[#4357ab] active:scale-[0.99] cursor-pointer"
+        >
+          {/* Subtle top edge metallic shine */}
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-            {/* 3 Progress Dots Indicator */}
+          {/* Left: Circular Lock Icon with Progress Ring */}
+          <div className="relative size-10 sm:size-11 shrink-0 flex items-center justify-center">
+            {/* SVG Circular Progress Track */}
+            <svg
+              className="absolute inset-0 size-full -rotate-90"
+              viewBox="0 0 44 44"
+              aria-hidden="true"
+            >
+              {/* Inactive background track */}
+              <circle
+                cx="22"
+                cy="22"
+                r={radius}
+                className="stroke-[#2d3a7e]"
+                strokeWidth="2.5"
+                fill="none"
+              />
+              {/* Active progress stroke */}
+              <circle
+                cx="22"
+                cy="22"
+                r={radius}
+                className={isUnlocked ? "stroke-emerald-400" : "stroke-white"}
+                strokeWidth="2.5"
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeOffset}
+                strokeLinecap="round"
+                style={{
+                  transition: "stroke-dashoffset 0.4s ease-out, stroke 0.3s ease",
+                }}
+              />
+              {/* Progress Indicator Dot on Ring */}
+              <circle
+                cx={dotX}
+                cy={dotY}
+                r="2.2"
+                fill="#ffffff"
+                className="drop-shadow-[0_0_3px_rgba(255,255,255,0.9)]"
+              />
+            </svg>
+
+            {/* Inner Dark Circle with Lock Icon */}
+            <div className="flex size-7 sm:size-8 items-center justify-center rounded-full bg-[#162058] border border-[#2b377b] text-white shadow-inner">
+              {isUnlocked ? (
+                <LockOpen className="size-3.5 sm:size-4 text-emerald-400 animate-pulse" />
+              ) : (
+                <Lock className="size-3.5 sm:size-4 text-white" />
+              )}
+            </div>
+          </div>
+
+          {/* Middle: Promotion Copy & Bottom Progress Dots */}
+          <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
+            {/* Headline with Pipe separator */}
+            <div className="flex items-center gap-1.5 min-w-0 overflow-hidden leading-snug">
+              <span className="font-black text-[11px] sm:text-[12.5px] uppercase tracking-wide text-white truncate">
+                {offerConfig?.title || "BUY 2 GET 1 FREE"}
+              </span>
+              <span className="text-white/40 font-bold text-xs shrink-0">|</span>
+              <span className="font-black text-[10.5px] sm:text-[12px] uppercase tracking-wide text-white/95 truncate">
+                {categoryLabel}
+              </span>
+            </div>
+
+            {/* Supporting Subtitle */}
+            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] font-medium text-[#9faee3] leading-tight">
+              {dynamicSubtitle}
+            </p>
+
+            {/* Bottom Progress Dashes/Dots (— • • matching reference) */}
             <div
-              className="flex items-center gap-1 shrink-0"
+              className="mt-1 flex items-center justify-center gap-1.5 shrink-0"
               aria-label={`Offer progress: ${progressCount} of 3 items eligible`}
             >
-              {[1, 2, 3].map((dotIndex) => {
-                const filled = progressCount >= dotIndex;
+              {[0, 1, 2].map((idx) => {
+                const isCompleted = progressCount > idx;
+                const isCurrentTarget = progressCount === idx;
+
                 return (
                   <span
-                    key={dotIndex}
-                    className={`inline-block size-1.5 rounded-full transition-all duration-300 ${
-                      filled
+                    key={idx}
+                    className={`h-[3px] rounded-full transition-all duration-300 ${
+                      isCompleted
                         ? isUnlocked
-                          ? "bg-emerald-400 ring-1 ring-emerald-400/50"
-                          : "bg-brand-red ring-1 ring-brand-red/50 scale-110"
-                        : "bg-white/25"
+                          ? "w-3.5 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]"
+                          : "w-3.5 bg-white"
+                        : isCurrentTarget
+                          ? "w-3.5 bg-white"
+                          : "size-[3px] bg-white/40"
                     }`}
                   />
                 );
               })}
             </div>
           </div>
-
-          {/* Dynamic supporting text */}
-          <p className="mt-0.5 truncate text-[10.5px] sm:text-[11px] font-medium text-white/80">
-            {supportingText}
-          </p>
-        </div>
-
-        {/* Right: Action & Close Button */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Link
-            to="/shop"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Browse eligible T-shirts for offer"
-            className="flex size-7 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/25 transition-colors text-white/90"
-          >
-            <ArrowRight className="size-3.5" />
-          </Link>
-
-          <button
-            onClick={handleDismiss}
-            type="button"
-            aria-label="Dismiss BUY 2 GET 1 FREE offer"
-            className="flex size-7 items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 active:bg-white/15 transition-colors cursor-pointer"
-          >
-            <X className="size-3.5" />
-          </button>
         </div>
       </div>
     </div>

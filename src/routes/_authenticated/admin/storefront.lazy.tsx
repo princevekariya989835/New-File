@@ -2538,7 +2538,7 @@ export function AdminStorefrontManagement() {
             </div>
 
             {/* Copy / Messaging */}
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="b2g1-title">Promotion Title</Label>
                 <Input
@@ -2556,7 +2556,28 @@ export function AdminStorefrontManagement() {
                   }
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Main headline displayed in the mobile bottom bar and in cart summary.
+                  Main headline prefix (e.g. &ldquo;BUY 3 @1199&rdquo; or &ldquo;BUY 2 GET 1 FREE&rdquo;).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="b2g1-subtitle">Offer Category Tag</Label>
+                <Input
+                  id="b2g1-subtitle"
+                  value={editorConfig.buy2get1Offer?.subtitle || "OVERSIZED PRINTED T-SHIRTS"}
+                  placeholder="OVERSIZED PRINTED T-SHIRTS"
+                  onChange={(e) =>
+                    setEditorConfig({
+                      ...editorConfig,
+                      buy2get1Offer: {
+                        ...(editorConfig.buy2get1Offer || {}),
+                        subtitle: e.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Headline suffix after pipe &ldquo;|&rdquo; (e.g. &ldquo;OVERSIZED PRINTED T-SHIRTS&rdquo;).
                 </p>
               </div>
 
@@ -2564,8 +2585,8 @@ export function AdminStorefrontManagement() {
                 <Label htmlFor="b2g1-supporting">Default Supporting Text</Label>
                 <Input
                   id="b2g1-supporting"
-                  value={editorConfig.buy2get1Offer?.supportingText || "Add 3 eligible T-shirts to unlock your free item"}
-                  placeholder="Add 3 eligible T-shirts to unlock your free item"
+                  value={editorConfig.buy2get1Offer?.supportingText || "Add 3 Oversized Printed T-Shirts to unlock this offer"}
+                  placeholder="Add 3 Oversized Printed T-Shirts to unlock this offer"
                   onChange={(e) =>
                     setEditorConfig({
                       ...editorConfig,
@@ -2577,7 +2598,7 @@ export function AdminStorefrontManagement() {
                   }
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Default text shown before user adds items. Dynamically updates with cart progress (e.g. &ldquo;Add 1 more to unlock&rdquo;).
+                  Default text shown before user adds items. Dynamically updates with cart progress.
                 </p>
               </div>
             </div>
