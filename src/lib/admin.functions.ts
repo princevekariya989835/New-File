@@ -361,6 +361,12 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
 
     await sql`DELETE FROM product_variants WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM product_images WHERE product_id::text = ${data.productId}`;
+    try {
+      await sql`DELETE FROM product_highlights WHERE product_id::text = ${data.productId}`;
+      await sql`DELETE FROM product_specifications WHERE product_id::text = ${data.productId}`;
+    } catch {
+      /* non-fatal if table not yet present */
+    }
     await sql`DELETE FROM favorites WHERE product_handle::text = ${data.productId} OR product_handle::text IN (SELECT slug FROM products WHERE id::text = ${data.productId})`;
     await sql`DELETE FROM reviews WHERE product_id::text = ${data.productId}`;
     await sql`DELETE FROM inventory_transactions WHERE product_id::text = ${data.productId}`;
@@ -506,16 +512,16 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            id, name, slug, description, details_html, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
           ) VALUES (
-            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, ${values.price}, 'INR',
+            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, 'INR',
             ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
           );
         `;
       } catch (colErr: any) {
         const msg = String(colErr?.message || "").toLowerCase();
-        if (msg.includes("base_price") && msg.includes("does not exist")) {
+        if (msg.includes("details_html") || msg.includes("base_price")) {
           await sql`
             INSERT INTO products (
               id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags

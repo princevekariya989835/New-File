@@ -431,7 +431,7 @@ export function getSql() {
       }
 
       // SELECT from products
-      if (lower.includes("from products")) {
+      if (lower.includes("from products") && !lower.includes("delete from")) {
         if (lower.includes("select 1")) {
           return _mockProducts.length > 0 ? [{ 1: 1 }] : [];
         }
@@ -468,31 +468,37 @@ export function getSql() {
 
       // INSERT INTO products
       if (lower.startsWith("insert into products") || lower.includes("insert into products")) {
+        const hasDetails = lower.includes("details_html");
         const id = values[0] ? String(values[0]) : `prod_${Date.now().toString(36)}`;
         const name = values[1] ? String(values[1]) : "Product";
         const slug = values[2] ? String(values[2]) : id;
         const description = values[3] ? String(values[3]) : null;
-        const price = Number(values[4] || 0);
+        const details_html = hasDetails && values[4] !== undefined ? (values[4] ? String(values[4]) : null) : null;
+        const price = Number(hasDetails ? (values[5] || 0) : (values[4] || 0));
+        const imgVal = hasDetails ? values[8] : values[7];
         let images: string[] = [];
         try {
-          images = typeof values[7] === "string" ? JSON.parse(values[7]) : (values[7] || []);
+          images = typeof imgVal === "string" ? JSON.parse(imgVal) : (imgVal || []);
         } catch {
           images = ["/placeholder-tee.jpg"];
         }
-        const category = values[8] ? String(values[8]) : "Oversized Tees";
+        const category = hasDetails ? (values[9] ? String(values[9]) : "Oversized Tees") : (values[8] ? String(values[8]) : "Oversized Tees");
+        const sizeVal = hasDetails ? values[10] : values[9];
         let sizes: string[] = [];
         try {
-          sizes = typeof values[9] === "string" ? JSON.parse(values[9]) : (values[9] || ["S", "M", "L", "XL", "XXL"]);
+          sizes = typeof sizeVal === "string" ? JSON.parse(sizeVal) : (sizeVal || ["S", "M", "L", "XL", "XXL"]);
         } catch { /* ignored */ }
+        const colorVal = hasDetails ? values[11] : values[10];
         let colors: string[] = [];
         try {
-          colors = typeof values[10] === "string" ? JSON.parse(values[10]) : (values[10] || ["Black"]);
+          colors = typeof colorVal === "string" ? JSON.parse(colorVal) : (colorVal || ["Black"]);
         } catch { /* ignored */ }
-        const stock_quantity = Number(values[11] || 0);
-        const is_active = values[12] !== false;
+        const stock_quantity = Number((hasDetails ? values[12] : values[11]) || 0);
+        const is_active = (hasDetails ? values[13] : values[12]) !== false;
+        const tagVal = hasDetails ? values[14] : values[13];
         let tags: string[] = [];
         try {
-          tags = typeof values[13] === "string" ? JSON.parse(values[13]) : (values[13] || []);
+          tags = typeof tagVal === "string" ? JSON.parse(tagVal) : (tagVal || []);
         } catch { /* ignored */ }
 
         const newProd = {
@@ -500,6 +506,7 @@ export function getSql() {
           name,
           slug,
           description,
+          details_html,
           price,
           base_price: price,
           currency: "INR",
@@ -528,27 +535,49 @@ export function getSql() {
         const idVal = String(values[values.length - 1] ?? values[0] ?? "");
         const prod = _mockProducts.find((p) => p.id === idVal || p.slug === idVal);
         if (prod) {
-          if (lower.includes("is_active =")) {
+          if (lower.includes("is_active =") && !lower.includes("name =")) {
             prod.is_active = values[0] !== false;
           } else {
+            const hasDetails = lower.includes("details_html");
             if (values[0]) prod.name = String(values[0]);
             if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
-            if (values[2] !== undefined) prod.price = Number(values[2]);
-            if (values[3] !== undefined) prod.base_price = Number(values[3]);
-            if (values[4]) {
-              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
-            }
-            if (values[5]) prod.category = String(values[5]);
-            if (values[6]) {
-              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
-            }
-            if (values[7]) {
-              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
-            }
-            if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
-            if (values[9] !== undefined) prod.is_active = values[9] !== false;
-            if (values[10]) {
-              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
+            if (hasDetails) {
+              if (values[2] !== undefined) prod.details_html = values[2] ? String(values[2]) : null;
+              if (values[3] !== undefined) prod.price = Number(values[3]);
+              if (values[4] !== undefined) prod.base_price = Number(values[4]);
+              if (values[5]) {
+                try { prod.images = typeof values[5] === "string" ? JSON.parse(values[5]) : values[5]; } catch { /* ignored */ }
+              }
+              if (values[6]) prod.category = String(values[6]);
+              if (values[7]) {
+                try { prod.sizes = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
+              }
+              if (values[8]) {
+                try { prod.colors = typeof values[8] === "string" ? JSON.parse(values[8]) : values[8]; } catch { /* ignored */ }
+              }
+              if (values[9] !== undefined) prod.stock_quantity = Number(values[9]);
+              if (values[10] !== undefined) prod.is_active = values[10] !== false;
+              if (values[11]) {
+                try { prod.tags = typeof values[11] === "string" ? JSON.parse(values[11]) : values[11]; } catch { /* ignored */ }
+              }
+            } else {
+              if (values[2] !== undefined) prod.price = Number(values[2]);
+              if (values[3] !== undefined) prod.base_price = Number(values[3]);
+              if (values[4]) {
+                try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
+              }
+              if (values[5]) prod.category = String(values[5]);
+              if (values[6]) {
+                try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
+              }
+              if (values[7]) {
+                try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
+              }
+              if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
+              if (values[9] !== undefined) prod.is_active = values[9] !== false;
+              if (values[10]) {
+                try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
+              }
             }
           }
           prod.updated_at = new Date().toISOString();
@@ -573,7 +602,7 @@ export function getSql() {
       }
 
       // SELECT from product_variants
-      if (lower.includes("from product_variants")) {
+      if (lower.includes("from product_variants") && !lower.includes("delete from")) {
         if (lower.includes("product_id::text = any")) {
           const ids = Array.isArray(values[0]) ? values[0].map(String) : [String(values[0])];
           return _mockVariants.filter((v) => ids.includes(String(v.product_id)));
@@ -626,8 +655,17 @@ export function getSql() {
         return [];
       }
 
+      // DELETE FROM product_highlights
+      if (lower.startsWith("delete from product_highlights") || lower.includes("delete from product_highlights")) {
+        const target = String(values[0] ?? "");
+        _mockProductHighlights = _mockProductHighlights.filter(
+          (h) => String(h.product_id) !== target && String(h.id) !== target,
+        );
+        return [];
+      }
+
       // SELECT from product_highlights
-      if (lower.includes("from product_highlights")) {
+      if (lower.includes("from product_highlights") && !lower.includes("delete from")) {
         const pid = String(values[0] ?? "");
         let res = _mockProductHighlights;
         if (pid) {
@@ -667,17 +705,17 @@ export function getSql() {
         return [{ id }];
       }
 
-      // DELETE FROM product_highlights
-      if (lower.startsWith("delete from product_highlights") || lower.includes("delete from product_highlights")) {
+      // DELETE FROM product_specifications
+      if (lower.startsWith("delete from product_specifications") || lower.includes("delete from product_specifications")) {
         const target = String(values[0] ?? "");
-        _mockProductHighlights = _mockProductHighlights.filter(
-          (h) => String(h.product_id) !== target && String(h.id) !== target,
+        _mockProductSpecifications = _mockProductSpecifications.filter(
+          (s) => String(s.product_id) !== target && String(s.id) !== target,
         );
         return [];
       }
 
       // SELECT from product_specifications
-      if (lower.includes("from product_specifications")) {
+      if (lower.includes("from product_specifications") && !lower.includes("delete from")) {
         const pid = String(values[0] ?? "");
         let res = _mockProductSpecifications;
         if (pid) {
@@ -713,15 +751,6 @@ export function getSql() {
         if (existIdx >= 0) _mockProductSpecifications[existIdx] = item;
         else _mockProductSpecifications.push(item);
         return [{ id }];
-      }
-
-      // DELETE FROM product_specifications
-      if (lower.startsWith("delete from product_specifications") || lower.includes("delete from product_specifications")) {
-        const target = String(values[0] ?? "");
-        _mockProductSpecifications = _mockProductSpecifications.filter(
-          (s) => String(s.product_id) !== target && String(s.id) !== target,
-        );
-        return [];
       }
 
       // SELECT from coupons
