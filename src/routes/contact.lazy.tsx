@@ -46,24 +46,26 @@ function ContactPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-24 md:px-10 md:py-32">
-      <div className="grid gap-16 md:grid-cols-2 md:gap-24 items-start">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-10 py-12 sm:py-16 md:py-24">
+      <div className="grid gap-12 lg:gap-16 md:grid-cols-2 md:gap-16 items-start">
+        {/* Left Column: Contact Methods & Studio Hours (Issue 4: Tighter, Cohesive Grouping) */}
         <div>
-          <p className="mb-6 text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
+          <p className="mb-4 sm:mb-6 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
             Contact
           </p>
-          <h1 className="text-5xl font-semibold tracking-tight md:text-7xl">{pageTitle}</h1>
-          <p className="mt-6 max-w-md text-muted-foreground leading-relaxed">
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl">{pageTitle}</h1>
+          <p className="mt-4 sm:mt-6 max-w-md text-sm sm:text-base text-muted-foreground leading-relaxed">
             {description}
           </p>
 
-          <div className="mt-12 space-y-6">
-            <a href={`mailto:${supportEmail}`} className="block hover:opacity-80 transition-opacity">
+          {/* Contact Methods - Tightened vertical spacing to strengthen grouping */}
+          <div className="mt-8 sm:mt-10 space-y-3.5 sm:space-y-4">
+            <a href={`mailto:${supportEmail}`} className="block hover:opacity-85 transition-opacity">
               <ContactRow icon={Mail} label="Support" value={supportEmail} />
             </a>
             <a
               href={`tel:${supportPhone.replace(/\s+/g, "")}`}
-              className="block hover:opacity-80 transition-opacity"
+              className="block hover:opacity-85 transition-opacity"
             >
               <ContactRow icon={Phone} label="Helpline" value={supportPhone} />
             </a>
@@ -71,60 +73,73 @@ function ContactPage() {
               href="https://www.instagram.com/riotous_store"
               target="_blank"
               rel="noreferrer"
-              className="block hover:opacity-80 transition-opacity"
+              className="block hover:opacity-85 transition-opacity"
             >
               <ContactRow icon={Instagram} label="Instagram" value={instagram} />
             </a>
           </div>
 
-          <div className="mt-12 border-t border-border pt-8">
+          {/* Studio Hours - Naturally connected without excessive gap */}
+          <div className="mt-8 sm:mt-10 border-t border-border/60 pt-6 sm:pt-7">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Studio hours
             </p>
-            <p className="mt-3 text-sm">{businessHours}</p>
+            <p className="mt-2 text-sm text-foreground/90 font-medium">{businessHours}</p>
           </div>
         </div>
 
-        <form
-          onSubmit={submit}
-          className="rounded-3xl border border-border bg-secondary/40 p-6 sm:p-8 md:p-8"
-        >
-          <div className="space-y-5">
-            <Field
-              label="Name"
-              placeholder="Your name"
-              value={form.name}
-              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-            />
-            <Field
-              label="Email"
-              type="email"
-              placeholder="Your email address"
-              value={form.email}
-              onChange={(v) => setForm((f) => ({ ...f, email: v }))}
-            />
-            <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Message
-              </label>
-              <textarea
-                required
-                rows={5}
-                maxLength={1000}
-                placeholder="Tell us how we can help..."
-                value={form.message}
-                onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            className="mt-6 h-12 w-full rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90"
+        {/* Right Column: Contact Form with Intentional 8px Stacked-Card Effect (Issue 1) */}
+        <div className="relative mr-2 mb-2 sm:mr-2.5 sm:mb-2.5">
+          {/* Intentional stacked back card (8px horizontal & 8px vertical offset, matching border radius) */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 translate-x-2 translate-y-2 rounded-3xl bg-black border border-neutral-800 shadow-md pointer-events-none"
+          />
+
+          {/* Main Foreground Form Card */}
+          <form
+            onSubmit={submit}
+            className="relative rounded-3xl border border-border bg-card p-6 sm:p-8 md:p-10 shadow-sm"
           >
-            Send message
-          </button>
-        </form>
+            <div className="space-y-5">
+              <Field
+                label="Name"
+                placeholder="Your name"
+                value={form.name}
+                onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              />
+              <Field
+                label="Email"
+                type="email"
+                placeholder="Your email address"
+                value={form.email}
+                onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+              />
+              <div>
+                <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Message
+                </label>
+                <textarea
+                  required
+                  rows={5}
+                  maxLength={1000}
+                  placeholder="Tell us how we can help..."
+                  value={form.message}
+                  onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
+                  className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground"
+                />
+              </div>
+            </div>
+
+            {/* Unified Primary CTA Button (Issues 2 & 3: Pill-shaped, consistent uppercase tracking, matches JOIN button) */}
+            <button
+              type="submit"
+              className="btn-primary mt-6 flex h-12 min-h-[48px] w-full items-center justify-center rounded-full bg-foreground px-8 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-sm transition-all duration-200 hover:bg-brand hover:text-brand-foreground hover:scale-[1.01] active:scale-[0.98] cursor-pointer"
+            >
+              Send Message
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -171,15 +186,17 @@ function ContactRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary">
-        <Icon className="h-5 w-5" />
+    <div className="flex items-center gap-3.5 sm:gap-4 group">
+      <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-secondary text-foreground group-hover:bg-brand group-hover:text-white transition-colors duration-200 shrink-0">
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
       </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {label}
         </p>
-        <p className="text-sm">{value}</p>
+        <p className="text-sm font-medium text-foreground truncate group-hover:text-brand transition-colors duration-200">
+          {value}
+        </p>
       </div>
     </div>
   );
