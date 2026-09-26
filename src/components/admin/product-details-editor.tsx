@@ -23,7 +23,16 @@ import {
   Check,
   X,
   Info,
+  Tag,
+  Ruler,
+  CheckCircle2,
+  Shirt,
+  Factory,
+  Percent,
+  Gift,
 } from "lucide-react";
+import type { ProductOfferInput } from "@/lib/admin-utils";
+import type { GarmentMeasurement, ManufacturingInfo } from "@/lib/fallback-products";
 
 export type ProductHighlightItem = {
   id?: string;
@@ -786,3 +795,789 @@ export function ProductDescriptionEditor({
     </div>
   );
 }
+
+// ==========================================
+// 4. PRODUCT OFFERS EDITOR
+// ==========================================
+
+export function ProductOffersEditor({
+  offers = [],
+  onChange,
+}: {
+  offers: ProductOfferInput[];
+  onChange: (items: ProductOfferInput[]) => void;
+}) {
+  const addOffer = (preset?: Partial<ProductOfferInput>) => {
+    const nextOrder =
+      offers.length > 0 ? Math.max(...offers.map((o) => Number(o.displayOrder) || 0)) + 1 : 1;
+    onChange([
+      ...offers,
+      {
+        id: `off_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        title: preset?.title || "Special Offer",
+        description: preset?.description || "",
+        discountType: preset?.discountType || "percentage",
+        discountValue: preset?.discountValue != null ? preset.discountValue : 10,
+        promoCode: preset?.promoCode || "",
+        minimumQuantity: preset?.minimumQuantity != null ? preset.minimumQuantity : 1,
+        termsAndConditions: preset?.termsAndConditions || "",
+        displayOrder: nextOrder,
+        isActive: true,
+      },
+    ]);
+  };
+
+  const updateOffer = (index: number, patch: Partial<ProductOfferInput>) => {
+    const next = [...offers];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  };
+
+  const removeOffer = (index: number) => {
+    onChange(offers.filter((_, i) => i !== index));
+  };
+
+  const moveOffer = (index: number, direction: "up" | "down") => {
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (target < 0 || target >= offers.length) return;
+    const next = [...offers];
+    const temp = next[index];
+    next[index] = next[target];
+    next[target] = temp;
+    next.forEach((item, idx) => {
+      item.displayOrder = idx + 1;
+    });
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Tag className="h-4 w-4 text-brand-red" />
+            <h4 className="font-bold text-base tracking-tight">Save Extra With These Offers</h4>
+            <Badge variant="secondary" className="text-xs">
+              {offers.length} offer{offers.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure promotional bundles and coupons displayed on this product's page.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => addOffer()}
+            className="gap-1.5 bg-foreground text-background hover:bg-foreground/90 font-medium"
+          >
+            <Plus className="h-4 w-4" /> Add Offer
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick Presets */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-[11px] font-semibold text-muted-foreground mr-1">Quick Presets:</span>
+        <button
+          type="button"
+          onClick={() =>
+            addOffer({
+              title: "BUY 2 GET 1 FREE",
+              description: "Add any 3 items to your bag and get 1 free automatically at checkout.",
+              discountType: "buy_x_get_y",
+              discountValue: 1,
+              minimumQuantity: 3,
+              termsAndConditions:
+                "Buy 2 items and get 1 free. Lowest priced eligible item will be free automatically.",
+            })
+          }
+          className="rounded-md border bg-secondary/60 hover:bg-secondary px-2 py-0.5 text-xs text-foreground transition-colors"
+        >
+          + Buy 2 Get 1 Free
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            addOffer({
+              title: "BUY 3 GET 20% OFF",
+              description: "Get 20% off when you buy 3 or more streetwear pieces.",
+              discountType: "percentage",
+              discountValue: 20,
+              promoCode: "RIOTOUS20",
+              minimumQuantity: 3,
+              termsAndConditions: "Use code RIOTOUS20 on 3 or more apparel items.",
+            })
+          }
+          className="rounded-md border bg-secondary/60 hover:bg-secondary px-2 py-0.5 text-xs text-foreground transition-colors"
+        >
+          + 20% Off (Code RIOTOUS20)
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            addOffer({
+              title: "FLAT ₹200 OFF",
+              description: "Flat ₹200 discount on your order.",
+              discountType: "fixed_amount",
+              discountValue: 200,
+              promoCode: "SAVE200",
+              minimumQuantity: 1,
+              termsAndConditions: "Flat ₹200 off on checkout with coupon SAVE200.",
+            })
+          }
+          className="rounded-md border bg-secondary/60 hover:bg-secondary px-2 py-0.5 text-xs text-foreground transition-colors"
+        >
+          + Flat ₹200 Off
+        </button>
+      </div>
+
+      {offers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 p-6 text-center bg-muted/10">
+          <p className="text-xs text-muted-foreground">No offers configured for this product yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {offers.map((offer, index) => (
+            <div
+              key={offer.id || `offer-${index}`}
+              className="rounded-xl border border-border/80 bg-background/60 p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-xs font-bold">
+                    {index + 1}
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    {offer.title || "Untitled Offer"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveOffer(index, "up")}
+                    className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === offers.length - 1}
+                    onClick={() => moveOffer(index, "down")}
+                    className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeOffer(index)}
+                    className="h-7 w-7 flex items-center justify-center rounded-md text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="sm:col-span-2">
+                  <Label className="text-[11px] font-semibold">Offer Title *</Label>
+                  <Input
+                    value={offer.title}
+                    onChange={(e) => updateOffer(index, { title: e.target.value })}
+                    placeholder="e.g. BUY 2 GET 1 FREE"
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">Discount Type</Label>
+                  <select
+                    value={offer.discountType || "percentage"}
+                    onChange={(e) =>
+                      updateOffer(index, {
+                        discountType: e.target.value as ProductOfferInput["discountType"],
+                      })
+                    }
+                    className="h-8 w-full mt-1 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed_amount">Fixed Amount (₹)</option>
+                    <option value="buy_x_get_y">Buy X Get Y Free</option>
+                    <option value="flat_price">Flat Price (₹)</option>
+                    <option value="coupon">Coupon Code Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">Discount Value</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={offer.discountValue ?? 0}
+                    onChange={(e) =>
+                      updateOffer(index, { discountValue: parseFloat(e.target.value) || 0 })
+                    }
+                    placeholder="e.g. 20 (for 20%) or 1 (for 1 free)"
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">Promo Code (Optional)</Label>
+                  <Input
+                    value={offer.promoCode ?? ""}
+                    onChange={(e) => updateOffer(index, { promoCode: e.target.value.toUpperCase() })}
+                    placeholder="e.g. RIOTOUS20"
+                    className="h-8 mt-1 font-mono text-xs uppercase"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">Min Quantity</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={offer.minimumQuantity ?? 1}
+                    onChange={(e) =>
+                      updateOffer(index, { minimumQuantity: parseInt(e.target.value, 10) || 1 })
+                    }
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Label className="text-[11px] font-semibold">Description</Label>
+                  <Input
+                    value={offer.description ?? ""}
+                    onChange={(e) => updateOffer(index, { description: e.target.value })}
+                    placeholder="Short description displayed on card"
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <Label className="text-[11px] font-semibold">Terms & Conditions (Optional)</Label>
+                  <Textarea
+                    value={offer.termsAndConditions ?? ""}
+                    onChange={(e) => updateOffer(index, { termsAndConditions: e.target.value })}
+                    placeholder="Specific terms, eligibility, exclusions shown in the T&C modal..."
+                    rows={2}
+                    className="mt-1 text-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-4 flex items-center justify-between pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs">
+                    <input
+                      type="checkbox"
+                      checked={offer.isActive !== false}
+                      onChange={(e) => updateOffer(index, { isActive: e.target.checked })}
+                      className="rounded border-border accent-foreground"
+                    />
+                    <span>Active on Product Page</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 5. PRODUCT MEASUREMENTS EDITOR
+// ==========================================
+
+export function ProductMeasurementsEditor({
+  measurements = [],
+  onChange,
+}: {
+  measurements: GarmentMeasurement[];
+  onChange: (items: GarmentMeasurement[]) => void;
+}) {
+  const addRow = (customSize?: string) => {
+    onChange([
+      ...measurements,
+      {
+        size: customSize || "M",
+        chest: 42,
+        shoulder: 19.5,
+        length: 29,
+        sleeve: 9,
+        toFitChest: 38,
+      },
+    ]);
+  };
+
+  const updateRow = (index: number, patch: Partial<GarmentMeasurement>) => {
+    const next = [...measurements];
+    next[index] = { ...next[index], ...patch };
+    onChange(next);
+  };
+
+  const removeRow = (index: number) => {
+    onChange(measurements.filter((_, i) => i !== index));
+  };
+
+  const fillStandardPresets = () => {
+    onChange([
+      { size: "S", chest: 40, shoulder: 18.5, length: 28, sleeve: 8.5, toFitChest: 36 },
+      { size: "M", chest: 42, shoulder: 19.5, length: 29, sleeve: 9, toFitChest: 38 },
+      { size: "L", chest: 44, shoulder: 20.5, length: 30, sleeve: 9.5, toFitChest: 40 },
+      { size: "XL", chest: 46, shoulder: 21.5, length: 31, sleeve: 10, toFitChest: 42 },
+      { size: "XXL", chest: 48, shoulder: 22.5, length: 32, sleeve: 10.5, toFitChest: 44 },
+    ]);
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Ruler className="h-4 w-4 text-brand-red" />
+            <h4 className="font-bold text-base tracking-tight">Garment Size Measurements</h4>
+            <Badge variant="secondary" className="text-xs">
+              {measurements.length} size{measurements.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure product-specific flat garment dimensions in inches (Chest, Shoulder, Length, Sleeve).
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={fillStandardPresets}
+            className="text-xs"
+          >
+            Fill S–XXL Presets
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => addRow()}
+            className="gap-1.5 bg-foreground text-background hover:bg-foreground/90 font-medium"
+          >
+            <Plus className="h-4 w-4" /> Add Size Row
+          </Button>
+        </div>
+      </div>
+
+      {measurements.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/80 p-6 text-center bg-muted/10">
+          <p className="text-xs text-muted-foreground mb-3">
+            No product-specific measurements defined. Click "Fill S–XXL Presets" to add standard sizes instantly.
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={fillStandardPresets}>
+            Fill Standard Presets
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border/80">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-secondary/70 font-semibold text-foreground border-b border-border">
+              <tr>
+                <th className="p-2.5">Size</th>
+                <th className="p-2.5">Chest (in)</th>
+                <th className="p-2.5">Shoulder (in)</th>
+                <th className="p-2.5">Length (in)</th>
+                <th className="p-2.5">Sleeve (in)</th>
+                <th className="p-2.5">To Fit Chest (in)</th>
+                <th className="p-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {measurements.map((row, idx) => (
+                <tr key={idx} className="hover:bg-secondary/20">
+                  <td className="p-2">
+                    <Input
+                      value={row.size}
+                      onChange={(e) => updateRow(idx, { size: e.target.value.toUpperCase() })}
+                      className="h-8 w-16 text-xs font-bold"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={row.chest}
+                      onChange={(e) => updateRow(idx, { chest: e.target.value })}
+                      className="h-8 w-20 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={row.shoulder}
+                      onChange={(e) => updateRow(idx, { shoulder: e.target.value })}
+                      className="h-8 w-20 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={row.length}
+                      onChange={(e) => updateRow(idx, { length: e.target.value })}
+                      className="h-8 w-20 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={row.sleeve}
+                      onChange={(e) => updateRow(idx, { sleeve: e.target.value })}
+                      className="h-8 w-20 text-xs"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <Input
+                      value={row.toFitChest ?? ""}
+                      onChange={(e) => updateRow(idx, { toFitChest: e.target.value })}
+                      placeholder="e.g. 38"
+                      className="h-8 w-20 text-xs"
+                    />
+                  </td>
+                  <td className="p-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(idx)}
+                      className="p-1.5 rounded text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 6. PRODUCT FEATURES EDITOR
+// ==========================================
+
+export function ProductFeaturesEditor({
+  features = [],
+  onChange,
+}: {
+  features: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const add = (text: string) => {
+    const clean = text.trim();
+    if (!clean) return;
+    onChange([...features, clean]);
+    setDraft("");
+  };
+
+  const remove = (idx: number) => {
+    onChange(features.filter((_, i) => i !== idx));
+  };
+
+  const move = (idx: number, dir: "up" | "down") => {
+    const target = dir === "up" ? idx - 1 : idx + 1;
+    if (target < 0 || target >= features.length) return;
+    const next = [...features];
+    const temp = next[idx];
+    next[idx] = next[target];
+    next[target] = temp;
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-brand-red" />
+            <h4 className="font-bold text-base tracking-tight">Key Features</h4>
+            <Badge variant="secondary" className="text-xs">
+              {features.length} feature{features.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Key product bullet points rendered in the product details section.
+          </p>
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(draft);
+            }
+          }}
+          placeholder="e.g. 100% Super Combed Cotton, 240 GSM Heavyweight Dense Fabric..."
+          className="h-9 text-xs"
+        />
+        <Button type="button" size="sm" onClick={() => add(draft)} className="shrink-0 gap-1">
+          <Plus className="h-4 w-4" /> Add
+        </Button>
+      </div>
+
+      {/* Presets */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-[11px] font-semibold text-muted-foreground mr-1">Suggestions:</span>
+        {[
+          "100% Super Combed Cotton",
+          "240 GSM Heavyweight Dense Fabric",
+          "Drop-shoulder boxy streetwear silhouette",
+          "Biowashed & Silicon Softened for luxury hand-feel",
+          "High-density crack-resistant screen print",
+          "Reinforced collar ribbing to prevent neck sagging",
+        ].map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => add(preset)}
+            className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary"
+          >
+            + {preset}
+          </button>
+        ))}
+      </div>
+
+      {/* Features List */}
+      {features.length > 0 && (
+        <div className="space-y-1.5">
+          {features.map((feat, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 p-2.5 text-xs"
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-red" />
+                <span className="font-medium text-foreground">{feat}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={idx === 0}
+                  onClick={() => move(idx, "up")}
+                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-secondary disabled:opacity-30"
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  disabled={idx === features.length - 1}
+                  onClick={() => move(idx, "down")}
+                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-secondary disabled:opacity-30"
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="h-6 w-6 flex items-center justify-center rounded text-destructive hover:bg-destructive/10"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 7. PRODUCT CARE EDITOR
+// ==========================================
+
+export function ProductCareEditor({
+  careInstructions = [],
+  onChange,
+}: {
+  careInstructions: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const add = (text: string) => {
+    const clean = text.trim();
+    if (!clean) return;
+    onChange([...careInstructions, clean]);
+    setDraft("");
+  };
+
+  const remove = (idx: number) => {
+    onChange(careInstructions.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Shirt className="h-4 w-4 text-brand-red" />
+            <h4 className="font-bold text-base tracking-tight">Care Instructions</h4>
+            <Badge variant="secondary" className="text-xs">
+              {careInstructions.length} instruction{careInstructions.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Washing, ironing, and garment maintenance recommendations.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(draft);
+            }
+          }}
+          placeholder="e.g. Machine wash cold (30°C) with like colors..."
+          className="h-9 text-xs"
+        />
+        <Button type="button" size="sm" onClick={() => add(draft)} className="shrink-0 gap-1">
+          <Plus className="h-4 w-4" /> Add
+        </Button>
+      </div>
+
+      {/* Quick suggestions */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-[11px] font-semibold text-muted-foreground mr-1">Common Care:</span>
+        {[
+          "Machine wash cold (30°C) with like colors",
+          "Wash inside out to protect print vibrancy",
+          "Do not bleach or dry clean",
+          "Tumble dry low or line dry in shade",
+          "Warm iron inside-out (do not iron on print)",
+        ].map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => add(preset)}
+            className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary"
+          >
+            + {preset}
+          </button>
+        ))}
+      </div>
+
+      {careInstructions.length > 0 && (
+        <div className="space-y-1.5">
+          {careInstructions.map((instruction, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 p-2.5 text-xs"
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-red" />
+                <span className="text-muted-foreground">{instruction}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="h-6 w-6 flex items-center justify-center rounded text-destructive hover:bg-destructive/10"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 8. PRODUCT MANUFACTURING INFO EDITOR
+// ==========================================
+
+export function ProductManufacturingEditor({
+  manufacturingInfo,
+  onChange,
+}: {
+  manufacturingInfo?: ManufacturingInfo;
+  onChange: (info: ManufacturingInfo) => void;
+}) {
+  const info = manufacturingInfo || {
+    country_of_origin: "India",
+    manufacturer: "",
+    marketed_by: "",
+    customer_care: "",
+  };
+
+  const update = (patch: Partial<ManufacturingInfo>) => {
+    onChange({ ...info, ...patch });
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Factory className="h-4 w-4 text-brand-red" />
+            <h4 className="font-bold text-base tracking-tight">Manufacturing & Compliance</h4>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Country of origin, manufacturing entity, and customer care details. Blank fields are automatically hidden on storefront.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        <div>
+          <Label className="text-[11px] font-semibold">Country of Origin</Label>
+          <Input
+            value={info.country_of_origin ?? "India"}
+            onChange={(e) => update({ country_of_origin: e.target.value })}
+            placeholder="India"
+            className="h-8 mt-1 text-xs"
+          />
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-semibold">Customer Care Contact</Label>
+          <Input
+            value={info.customer_care ?? ""}
+            onChange={(e) => update({ customer_care: e.target.value })}
+            placeholder="care@riotous.in | +91 98765 43210"
+            className="h-8 mt-1 text-xs"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <Label className="text-[11px] font-semibold">Manufacturer Details</Label>
+          <Input
+            value={info.manufacturer ?? ""}
+            onChange={(e) => update({ manufacturer: e.target.value })}
+            placeholder="e.g. RIOTOUS Apparel Co. Pvt Ltd, Tirupur, Tamil Nadu - 641602"
+            className="h-8 mt-1 text-xs"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <Label className="text-[11px] font-semibold">Marketed / Distributed By</Label>
+          <Input
+            value={info.marketed_by ?? ""}
+            onChange={(e) => update({ marketed_by: e.target.value })}
+            placeholder="e.g. RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015"
+            className="h-8 mt-1 text-xs"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+

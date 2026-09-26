@@ -20,11 +20,27 @@ import {
   KeyHighlightsEditor,
   ProductSpecificationsEditor,
   ProductDescriptionEditor,
+  ProductOffersEditor,
+  ProductMeasurementsEditor,
+  ProductFeaturesEditor,
+  ProductCareEditor,
+  ProductManufacturingEditor,
   type ProductHighlightItem,
   type ProductSpecificationItem,
 } from "./product-details-editor";
+import type { ProductOfferInput } from "@/lib/admin-utils";
+import type { GarmentMeasurement, ManufacturingInfo } from "@/lib/fallback-products";
 
-export { KeyHighlightsEditor, ProductSpecificationsEditor, ProductDescriptionEditor };
+export {
+  KeyHighlightsEditor,
+  ProductSpecificationsEditor,
+  ProductDescriptionEditor,
+  ProductOffersEditor,
+  ProductMeasurementsEditor,
+  ProductFeaturesEditor,
+  ProductCareEditor,
+  ProductManufacturingEditor,
+};
 export type { ProductHighlightItem, ProductSpecificationItem };
 
 export const ARCHIVED_TAG = "__archived";
@@ -34,6 +50,8 @@ export type ProductFormValues = {
   description: string;
   detailsHtml?: string;
   price: string;
+  mrp?: string;
+  isTaxInclusive?: boolean;
   category: string;
   images: string[];
   colors: string[];
@@ -44,6 +62,11 @@ export type ProductFormValues = {
   isActive: boolean;
   highlights?: ProductHighlightItem[];
   specifications?: ProductSpecificationItem[];
+  offers?: ProductOfferInput[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: ManufacturingInfo;
+  sizeMeasurements?: GarmentMeasurement[];
 };
 
 export function StatCard({ label, value }: { label: string; value: number }) {
@@ -370,6 +393,8 @@ const EMPTY_FORM: ProductFormValues = {
   description: "",
   detailsHtml: "",
   price: "",
+  mrp: "",
+  isTaxInclusive: true,
   category: "Oversized Tees",
   images: [],
   colors: ["Black"],
@@ -379,6 +404,11 @@ const EMPTY_FORM: ProductFormValues = {
   isActive: true,
   highlights: [],
   specifications: [],
+  offers: [],
+  features: [],
+  careInstructions: [],
+  manufacturingInfo: { country_of_origin: "India", manufacturer: "", marketed_by: "", customer_care: "" },
+  sizeMeasurements: [],
 };
 
 export function ProductForm({
@@ -396,8 +426,20 @@ export function ProductForm({
 }) {
   const [values, setValues] = useState<ProductFormValues>(() => ({
     ...(initial ?? EMPTY_FORM),
+    mrp: initial?.mrp ?? "",
+    isTaxInclusive: initial?.isTaxInclusive !== false,
     highlights: initial?.highlights ?? [],
     specifications: initial?.specifications ?? [],
+    offers: initial?.offers ?? [],
+    features: initial?.features ?? [],
+    careInstructions: initial?.careInstructions ?? [],
+    manufacturingInfo: initial?.manufacturingInfo ?? {
+      country_of_origin: "India",
+      manufacturer: "",
+      marketed_by: "",
+      customer_care: "",
+    },
+    sizeMeasurements: initial?.sizeMeasurements ?? [],
     detailsHtml: initial?.detailsHtml ?? "",
   }));
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
@@ -452,6 +494,14 @@ export function ProductForm({
     setSizeStock(next);
   };
 
+  // Pricing calculations
+  const sellingPriceNum = Number(values.price) || 0;
+  const mrpNum = values.mrp ? Number(values.mrp) : 0;
+  const hasMrp = mrpNum > 0;
+  const isPriceHigherThanMrp = hasMrp && sellingPriceNum > mrpNum;
+  const discountAmt = hasMrp && sellingPriceNum <= mrpNum ? mrpNum - sellingPriceNum : 0;
+  const discountPct = hasMrp && mrpNum > 0 ? Math.round((discountAmt / mrpNum) * 100) : 0;
+
   return (
     <form
       className="space-y-6 rounded-2xl border border-border/80 bg-card p-5 md:p-6 shadow-sm animate-in fade-in-50 duration-200"
@@ -466,6 +516,17 @@ export function ProductForm({
           toast.error("Price is required and must be a number ≥ 0");
           return;
         }
+        if (values.mrp && values.mrp.trim()) {
+          const mrp = Number(values.mrp);
+          if (!Number.isFinite(mrp) || mrp < 0) {
+            toast.error("MRP must be a valid positive number");
+            return;
+          }
+          if (price > mrp) {
+            toast.error(`Selling price (₹${price}) cannot exceed MRP (₹${mrp})`);
+            return;
+          }
+        }
         const stock = Number(values.stock);
         if (!Number.isFinite(stock) || stock < 0) {
           toast.error("Stock must be a number ≥ 0");
@@ -478,8 +539,15 @@ export function ProductForm({
             title: values.title.trim(),
             description: values.description.trim(),
             detailsHtml: values.detailsHtml?.trim() || "",
+            mrp: values.mrp ? values.mrp.trim() : undefined,
+            isTaxInclusive: values.isTaxInclusive !== false,
             highlights: values.highlights ?? [],
             specifications: values.specifications ?? [],
+            offers: values.offers ?? [],
+            features: values.features ?? [],
+            careInstructions: values.careInstructions ?? [],
+            manufacturingInfo: values.manufacturingInfo,
+            sizeMeasurements: values.sizeMeasurements ?? [],
             sizeStock,
           });
         } catch (err) {
@@ -493,7 +561,7 @@ export function ProductForm({
         <div>
           <h3 className="font-bold text-xl tracking-tight">{heading}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Configure product catalog data, media, sizes, technical specifications, and highlights.
+            Configure product catalog data, media, pricing, offers, technical specifications, and size measurements.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -526,19 +594,6 @@ export function ProductForm({
             />
           </div>
           <div>
-            <Label className="text-xs font-semibold">Price (INR) *</Label>
-            <Input
-              type="number"
-              min={0}
-              step="1"
-              value={values.price}
-              onChange={(e) => set("price", e.target.value)}
-              placeholder="999"
-              className="mt-1"
-              required
-            />
-          </div>
-          <div>
             <Label className="text-xs font-semibold">Category</Label>
             <Input
               value={values.category}
@@ -547,7 +602,7 @@ export function ProductForm({
               className="mt-1"
             />
           </div>
-          <div className="flex items-center pt-6">
+          <div className="flex items-center pt-2 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
               <input
                 type="checkbox"
@@ -561,22 +616,114 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* 2. PRODUCT IMAGES */}
+      {/* 2. PRICING & MRP SYSTEM */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
             2
+          </span>
+          Pricing & MRP System
+        </h4>
+
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div>
+            <Label className="text-xs font-semibold">Selling / Offer Price (INR) *</Label>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={values.price}
+              onChange={(e) => set("price", e.target.value)}
+              placeholder="e.g. 1199"
+              className="mt-1"
+              required
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Final selling price charged to customer
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Original MRP (INR)</Label>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={values.mrp ?? ""}
+              onChange={(e) => set("mrp", e.target.value)}
+              placeholder="e.g. 1999"
+              className={`mt-1 ${isPriceHigherThanMrp ? "border-destructive ring-1 ring-destructive" : ""}`}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Struck-through price on product page
+            </p>
+          </div>
+
+          {/* Auto-calculated Discount Card */}
+          <div className="rounded-xl border border-border/80 bg-secondary/30 p-3.5 flex flex-col justify-center">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Auto-Calculated Discount
+            </span>
+            {isPriceHigherThanMrp ? (
+              <span className="text-xs font-bold text-destructive mt-1">
+                ⚠️ Selling Price exceeds MRP!
+              </span>
+            ) : hasMrp && discountAmt > 0 ? (
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-base font-extrabold text-emerald-500">
+                  {discountPct}% OFF
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  (Save ₹{discountAmt})
+                </span>
+              </div>
+            ) : hasMrp && discountAmt === 0 ? (
+              <span className="text-xs font-medium text-muted-foreground mt-1">
+                Selling price equals MRP (0% discount)
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground mt-1">
+                Enter MRP to auto-calculate discount
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/50">
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none font-medium">
+            <input
+              type="checkbox"
+              checked={values.isTaxInclusive !== false}
+              onChange={(e) => set("isTaxInclusive", e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-foreground"
+            />
+            <span>Inclusive of all Taxes (displays "Inclusive of all Taxes" on product page)</span>
+          </label>
+        </div>
+      </div>
+
+      {/* 3. OFFERS */}
+      <ProductOffersEditor
+        offers={values.offers ?? []}
+        onChange={(next) => set("offers", next)}
+      />
+
+      {/* 4. PRODUCT IMAGES */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            4
           </span>
           Product Photos & Media
         </h4>
         <ImageManager images={values.images} onChange={(v) => set("images", v)} />
       </div>
 
-      {/* 3. VARIANTS / SIZES */}
+      {/* 5. VARIANTS / SIZES */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-            3
+            5
           </span>
           Variants & Options
         </h4>
@@ -607,11 +754,11 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* 4. INVENTORY */}
+      {/* 6. INVENTORY */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-            4
+            6
           </span>
           Inventory & Stock Allocation
         </h4>
@@ -650,42 +797,51 @@ export function ProductForm({
         )}
       </div>
 
-      {/* 5. PRODUCT DETAILS (DEDICATED SECTION) */}
-      <div className="space-y-5 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 sm:p-6">
-        <div className="flex items-center gap-2 border-b border-primary/20 pb-3">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-red text-white text-xs font-bold">
-            ★
-          </div>
-          <div>
-            <h3 className="font-bold text-lg text-foreground tracking-tight">PRODUCT DETAILS SYSTEM</h3>
-            <p className="text-xs text-muted-foreground">
-              Dynamic per-product highlights, flexible technical specifications, and rich accordion description.
-            </p>
-          </div>
-        </div>
+      {/* 7. SIZE MEASUREMENTS */}
+      <ProductMeasurementsEditor
+        measurements={values.sizeMeasurements ?? []}
+        onChange={(next) => set("sizeMeasurements", next)}
+      />
 
-        {/* Key Highlights Editor */}
-        <KeyHighlightsEditor
-          highlights={values.highlights ?? []}
-          onChange={(next) => set("highlights", next)}
-        />
+      {/* 8. KEY HIGHLIGHTS */}
+      <KeyHighlightsEditor
+        highlights={values.highlights ?? []}
+        onChange={(next) => set("highlights", next)}
+      />
 
-        {/* Product Specifications Editor */}
-        <ProductSpecificationsEditor
-          specifications={values.specifications ?? []}
-          onChange={(next) => set("specifications", next)}
-        />
+      {/* 9. PRODUCT SPECIFICATIONS */}
+      <ProductSpecificationsEditor
+        specifications={values.specifications ?? []}
+        onChange={(next) => set("specifications", next)}
+      />
 
-        {/* Product Description & Details */}
-        <ProductDescriptionEditor
-          description={values.description}
-          detailsHtml={values.detailsHtml}
-          onChangeDescription={(next) => set("description", next)}
-          onChangeDetailsHtml={(next) => set("detailsHtml", next)}
-        />
-      </div>
+      {/* 10. PRODUCT DESCRIPTION */}
+      <ProductDescriptionEditor
+        description={values.description}
+        detailsHtml={values.detailsHtml}
+        onChangeDescription={(next) => set("description", next)}
+        onChangeDetailsHtml={(next) => set("detailsHtml", next)}
+      />
 
-      {/* 6. BOTTOM ACTIONS */}
+      {/* 11. KEY FEATURES */}
+      <ProductFeaturesEditor
+        features={values.features ?? []}
+        onChange={(next) => set("features", next)}
+      />
+
+      {/* 12. CARE INSTRUCTIONS */}
+      <ProductCareEditor
+        careInstructions={values.careInstructions ?? []}
+        onChange={(next) => set("careInstructions", next)}
+      />
+
+      {/* 13. MANUFACTURING INFORMATION */}
+      <ProductManufacturingEditor
+        manufacturingInfo={values.manufacturingInfo}
+        onChange={(next) => set("manufacturingInfo", next)}
+      />
+
+      {/* 14. BOTTOM ACTIONS */}
       <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
         <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel

@@ -5,9 +5,23 @@ import {
   FALLBACK_PRODUCTS,
   type ProductRow,
   type VariantRow,
+  type ProductHighlightRow,
+  type ProductSpecificationRow,
+  type ProductOfferRow,
+  type GarmentMeasurement,
+  type ManufacturingInfo,
 } from "./fallback-products";
 
-export { FALLBACK_PRODUCTS, type ProductRow, type VariantRow };
+export {
+  FALLBACK_PRODUCTS,
+  type ProductRow,
+  type VariantRow,
+  type ProductHighlightRow,
+  type ProductSpecificationRow,
+  type ProductOfferRow,
+  type GarmentMeasurement,
+  type ManufacturingInfo,
+};
 
 export interface CatalogImage {
   url: string;
@@ -46,6 +60,24 @@ export interface ProductSpecification {
   isActive: boolean;
 }
 
+export interface ProductOffer {
+  id: string;
+  productId: string;
+  title: string;
+  description: string | null;
+  discountType: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
+  discountValue: number;
+  promoCode: string | null;
+  minimumQuantity: number;
+  maximumQuantity?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  termsAndConditions: string | null;
+  computedLowPrice?: number;
+}
+
 export interface CatalogProductNode {
   id: string;
   productId: string;
@@ -54,6 +86,15 @@ export interface CatalogProductNode {
   detailsHtml?: string | null;
   highlights?: ProductHighlight[];
   specifications?: ProductSpecification[];
+  offers?: ProductOffer[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: ManufacturingInfo | null;
+  sizeMeasurements?: GarmentMeasurement[];
+  mrp?: number | null;
+  discountAmount?: number | null;
+  discountPercentage?: number | null;
+  isTaxInclusive?: boolean;
   handle: string;
   tags: string[];
   productType: string;
@@ -194,6 +235,54 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     isActive: s.is_active !== false,
   }));
 
+  const sellingPrice = Number(row.price || 0);
+  const mrp = Number(row.mrp || row.compare_at_price || 0) || null;
+  const discountAmount = mrp && mrp > sellingPrice ? mrp - sellingPrice : null;
+  const discountPercentage = mrp && mrp > sellingPrice ? Math.round((discountAmount! / mrp) * 100) : null;
+  const isTaxInclusive = row.is_tax_inclusive !== false;
+
+  const rawOffers = isListing ? [] : (row.offers ?? []);
+  const offers: ProductOffer[] = rawOffers
+    .filter((o) => o.is_active !== false)
+    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+    .map((o) => {
+      let computedLowPrice: number | undefined = undefined;
+      if (o.discount_type === "percentage" && o.discount_value > 0) {
+        computedLowPrice = Math.max(0, Math.round(sellingPrice * (1 - o.discount_value / 100)));
+      } else if (o.discount_type === "fixed_amount" && o.discount_value > 0) {
+        computedLowPrice = Math.max(0, sellingPrice - o.discount_value);
+      } else if (o.discount_type === "buy_x_get_y" && o.minimum_quantity > 1) {
+        const freeItems = Math.max(1, o.discount_value || 1);
+        const paidItems = Math.max(1, o.minimum_quantity - freeItems);
+        computedLowPrice = Math.round((sellingPrice * paidItems) / o.minimum_quantity);
+      } else if (o.discount_type === "flat_price" && o.discount_value > 0) {
+        computedLowPrice = o.discount_value;
+      }
+
+      return {
+        id: String(o.id),
+        productId: String(o.product_id || row.id),
+        title: String(o.title),
+        description: o.description ?? null,
+        discountType: o.discount_type,
+        discountValue: Number(o.discount_value || 0),
+        promoCode: o.promo_code ?? null,
+        minimumQuantity: Number(o.minimum_quantity || 1),
+        maximumQuantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+        startDate: o.start_date ?? null,
+        endDate: o.end_date ?? null,
+        isActive: o.is_active !== false,
+        displayOrder: Number(o.display_order ?? 0),
+        termsAndConditions: o.terms_and_conditions ?? null,
+        computedLowPrice,
+      };
+    });
+
+  const features = isListing ? undefined : (Array.isArray(row.features) ? row.features.filter(Boolean) : []);
+  const careInstructions = isListing ? undefined : (Array.isArray(row.care_instructions) ? row.care_instructions.filter(Boolean) : []);
+  const manufacturingInfo = isListing ? undefined : (row.manufacturing_info || null);
+  const sizeMeasurements = isListing ? undefined : (Array.isArray(row.size_measurements) ? row.size_measurements : []);
+
   return {
     node: {
       id: row.id,
@@ -203,6 +292,15 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       detailsHtml: isListing ? null : (row.details_html ?? null),
       highlights: isListing ? undefined : highlights,
       specifications: isListing ? undefined : specifications,
+      offers: isListing ? undefined : offers,
+      features,
+      careInstructions,
+      manufacturingInfo,
+      sizeMeasurements,
+      mrp,
+      discountAmount,
+      discountPercentage,
+      isTaxInclusive,
       handle: row.slug,
       tags: row.tags ?? [],
       productType: row.category ?? "",
@@ -559,12 +657,14 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     try {
       const sql = getSql();
 
-      // Read directly from database - single query with correlated variants, highlights, specifications
+      // Read directly from database - single query with correlated variants, highlights, specifications, offers
       let products: any[] = [];
       try {
         products = await sql`
           SELECT 
-            p.id, p.name, p.slug, p.description, p.details_html, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
+            p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
+            p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(
@@ -610,7 +710,30 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
                 WHERE s.product_id::text = p.id::text AND (s.is_active = true OR s.is_active IS NULL)
               ),
               '[]'::jsonb
-            ) AS specifications
+            ) AS specifications,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', o.id,
+                  'product_id', o.product_id,
+                  'title', o.title,
+                  'description', o.description,
+                  'discount_type', o.discount_type,
+                  'discount_value', o.discount_value,
+                  'promo_code', o.promo_code,
+                  'minimum_quantity', o.minimum_quantity,
+                  'maximum_quantity', o.maximum_quantity,
+                  'start_date', o.start_date,
+                  'end_date', o.end_date,
+                  'display_order', o.display_order,
+                  'is_active', o.is_active,
+                  'terms_and_conditions', o.terms_and_conditions
+                ) ORDER BY o.display_order ASC, o.created_at ASC)
+                FROM product_offers o
+                WHERE o.product_id::text = p.id::text AND (o.is_active = true OR o.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS offers
           FROM products p
           WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
           LIMIT 1
@@ -687,6 +810,27 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
           ? JSON.parse(p.specifications)
           : [];
 
+      const offerRows: ProductOfferRow[] = Array.isArray(p.offers)
+        ? p.offers.map((o: any) => ({
+            id: String(o.id),
+            product_id: String(o.product_id || p.id),
+            title: String(o.title),
+            description: o.description ?? null,
+            discount_type: o.discount_type,
+            discount_value: Number(o.discount_value || 0),
+            promo_code: o.promo_code ?? null,
+            minimum_quantity: Number(o.minimum_quantity || 1),
+            maximum_quantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+            start_date: o.start_date ?? null,
+            end_date: o.end_date ?? null,
+            is_active: o.is_active !== false,
+            display_order: Number(o.display_order ?? 0),
+            terms_and_conditions: o.terms_and_conditions ?? null,
+          }))
+        : typeof p.offers === "string"
+          ? JSON.parse(p.offers)
+          : [];
+
       const row: ProductRow = {
         id: String(p.id),
         name: p.name as string,
@@ -694,6 +838,9 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         description: (p.description as string) || null,
         details_html: (p.details_html as string) || null,
         price: Number(p.price || 0),
+        mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
+        compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : null,
+        is_tax_inclusive: p.is_tax_inclusive !== false,
         currency: (p.currency as string) || "INR",
         images: Array.isArray(p.images)
           ? p.images
@@ -718,6 +865,11 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
         product_variants: variantRows,
         highlights: highlightRows,
         specifications: specRows,
+        offers: offerRows,
+        features: Array.isArray(p.features) ? p.features : typeof p.features === "string" ? JSON.parse(p.features) : [],
+        care_instructions: Array.isArray(p.care_instructions) ? p.care_instructions : typeof p.care_instructions === "string" ? JSON.parse(p.care_instructions) : [],
+        manufacturing_info: p.manufacturing_info ? (typeof p.manufacturing_info === "string" ? JSON.parse(p.manufacturing_info) : p.manufacturing_info) : null,
+        size_measurements: Array.isArray(p.size_measurements) ? p.size_measurements : typeof p.size_measurements === "string" ? JSON.parse(p.size_measurements) : [],
       };
 
       const result = toCatalogProduct(row).node;

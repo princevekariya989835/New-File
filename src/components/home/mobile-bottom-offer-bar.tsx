@@ -235,15 +235,14 @@ export function MobileBottomOfferBar() {
                 return (
                   <span
                     key={idx}
-                    className={`h-[3px] rounded-full transition-all duration-300 ${
-                      isCompleted
+                    className={`h-[3px] rounded-full transition-all duration-300 ${isCompleted
                         ? isUnlocked
                           ? "w-3.5 bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]"
                           : "w-3.5 bg-white"
                         : isCurrentTarget
                           ? "w-3.5 bg-white"
                           : "size-[3px] bg-white/40"
-                    }`}
+                      }`}
                   />
                 );
               })}

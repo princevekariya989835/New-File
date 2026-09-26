@@ -176,6 +176,13 @@ function ProductsPage() {
               isActive: s.isActive !== false,
             })),
             price: editing.price,
+            mrp: editing.mrp != null ? String(editing.mrp) : "",
+            isTaxInclusive: editing.isTaxInclusive !== false,
+            offers: editing.offers ?? [],
+            features: editing.features ?? [],
+            careInstructions: editing.careInstructions ?? [],
+            manufacturingInfo: editing.manufacturingInfo,
+            sizeMeasurements: editing.sizeMeasurements ?? [],
             category: editing.category ?? "",
             images: editing.images,
             colors: editing.colors,
@@ -288,9 +295,19 @@ function ProductsPage() {
                 )}
                 <div className="min-w-0">
                   <div className="truncate font-medium">{p.title}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {money(p.price)}
-                    {p.category ? ` · ${p.category}` : ""} · Stock: {p.totalInventory}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{money(p.price)}</span>
+                    {p.mrp && p.mrp > p.price && (
+                      <>
+                        <span className="line-through text-muted-foreground/75">
+                          MRP: {money(p.mrp)}
+                        </span>
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">
+                          {Math.round(((p.mrp - p.price) / p.mrp) * 100)}% OFF
+                        </span>
+                      </>
+                    )}
+                    <span>{p.category ? ` · ${p.category}` : ""} · Stock: {p.totalInventory}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {p.sizes.map((s) => (

@@ -31,6 +31,8 @@ import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { ProductHighlights } from "@/components/product/product-highlights";
 import { ProductSpecifications } from "@/components/product/product-specifications";
 import { ProductDescriptionAccordion } from "@/components/product/product-description-accordion";
+import { ProductOffersSection } from "@/components/product/product-offers-section";
+import { ProductSizeGuideModal } from "@/components/product/product-size-guide-modal";
 import { isItemEligibleForB2G1 } from "@/lib/promotions";
 
 const productQuery = (handle: string) => ({
@@ -151,6 +153,7 @@ function ProductPage() {
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
 
   const currentVariant = useMemo(() => {
     const hasUnselectedOption = p.options.some((o) => !selected[o.name]);
@@ -429,12 +432,62 @@ function ProductPage() {
             {p.productType || <BrandName />}
           </p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">{p.title}</h1>
-          <p className="mt-4 text-2xl font-semibold">
-            {formatPrice(
+          {/* Upgraded Pricing Block (Selling Price, Struck-through MRP, Discount Badge, Tax info) */}
+          {(() => {
+            const sellingPrice = Number(
               currentVariant?.price.amount ?? p.priceRange.minVariantPrice.amount,
-              currentVariant?.price.currencyCode ?? p.priceRange.minVariantPrice.currencyCode,
-            )}
-          </p>
+            );
+            const currency =
+              currentVariant?.price.currencyCode ??
+              p.priceRange.minVariantPrice.currencyCode ??
+              "INR";
+            const mrp = p.mrp && p.mrp > sellingPrice ? p.mrp : null;
+            const discountAmount = mrp ? mrp - sellingPrice : null;
+            const discountPercentage = mrp ? Math.round((discountAmount! / mrp) * 100) : null;
+
+            return (
+              <>
+                <div className="mt-4 flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-baseline gap-3">
+                    <span className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
+                      {formatPrice(sellingPrice, currency)}
+                    </span>
+
+                    {mrp && (
+                      <span className="text-base font-medium text-muted-foreground line-through md:text-lg">
+                        MRP: {formatPrice(mrp, currency)}
+                      </span>
+                    )}
+
+                    {discountPercentage && discountPercentage > 0 && (
+                      <div className="inline-flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-0.5 text-xs md:text-sm font-extrabold text-emerald-500 tracking-wide">
+                          {discountPercentage}% OFF
+                        </span>
+                        {discountAmount && (
+                          <span className="text-xs md:text-sm font-bold text-emerald-500">
+                            (Save {formatPrice(discountAmount, currency)})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {p.isTaxInclusive !== false ? "Inclusive of all Taxes" : "+ Taxes calculated at checkout"}
+                  </p>
+                </div>
+
+                {/* SAVE EXTRA WITH THESE OFFERS */}
+                <ProductOffersSection
+                  offers={p.offers}
+                  sellingPrice={sellingPrice}
+                  currency={currency}
+                  productTitle={p.title}
+                />
+              </>
+            );
+          })()}
 
           {/* Mobile-only B2G1 Promotional Nudge */}
           {isItemEligibleForB2G1(
@@ -476,75 +529,13 @@ function ProductPage() {
                     </div>
 
                     {isSize && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button
-                            type="button"
-                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
-                          >
-                            <Ruler className="h-3.5 w-3.5" /> {sizeGuideLabel}
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="text-lg font-bold">
-                              {sizeGuideTitle}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <p className="text-xs text-muted-foreground">
-                            All measurements are in inches. Designed for a boxy streetwear drape
-                            with dropped shoulders.
-                          </p>
-                          <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-secondary text-foreground font-semibold">
-                                <tr>
-                                  <th className="p-2.5">Size</th>
-                                  <th className="p-2.5">Chest (in)</th>
-                                  <th className="p-2.5">Length (in)</th>
-                                  <th className="p-2.5">Shoulder (in)</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-border">
-                                <tr>
-                                  <td className="p-2.5 font-bold">S</td>
-                                  <td className="p-2.5">42"</td>
-                                  <td className="p-2.5">28"</td>
-                                  <td className="p-2.5">20.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">M</td>
-                                  <td className="p-2.5">44"</td>
-                                  <td className="p-2.5">29"</td>
-                                  <td className="p-2.5">21.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">L</td>
-                                  <td className="p-2.5">46"</td>
-                                  <td className="p-2.5">30"</td>
-                                  <td className="p-2.5">22.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">XL</td>
-                                  <td className="p-2.5">48"</td>
-                                  <td className="p-2.5">31"</td>
-                                  <td className="p-2.5">23.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">XXL</td>
-                                  <td className="p-2.5">50"</td>
-                                  <td className="p-2.5">32"</td>
-                                  <td className="p-2.5">24.5"</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                          <p className="mt-3 text-[11px] text-muted-foreground">
-                            Tip: For a classic regular fit, size down one size. For the intended
-                            boxy oversized streetwear look, choose your regular size.
-                          </p>
-                        </DialogContent>
-                      </Dialog>
+                      <button
+                        type="button"
+                        onClick={() => setIsSizeGuideOpen(true)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer py-1"
+                      >
+                        <Ruler className="h-3.5 w-3.5" /> {sizeGuideLabel}
+                      </button>
                     )}
                   </div>
 
@@ -701,10 +692,24 @@ function ProductPage() {
       {/* Product Specifications (Dynamic per product) */}
       <ProductSpecifications specifications={p.specifications} />
 
-      {/* Product Description Accordion [Manufacture, Care and Fit] */}
-      <ProductDescriptionAccordion description={p.description} detailsHtml={p.detailsHtml} />
+      {/* Product Description Accordion [Manufacture, Care and Fit, Features, Manufacturing] */}
+      <ProductDescriptionAccordion
+        description={p.description}
+        detailsHtml={p.detailsHtml}
+        features={p.features}
+        careInstructions={p.careInstructions}
+        manufacturingInfo={p.manufacturingInfo}
+      />
 
       <ProductReviews productId={p.productId} productTitle={p.title} />
+
+      {/* Dynamic Size Guide Modal */}
+      <ProductSizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
+        measurements={p.sizeMeasurements}
+        productTitle={p.title}
+      />
 
       {lightboxOpen && images[activeImage] && (
         <Lightbox

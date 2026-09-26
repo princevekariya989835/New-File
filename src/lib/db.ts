@@ -348,6 +348,7 @@ const _mockDesignSubmissions: any[] = [];
 const _mockInventoryTransactions: any[] = [];
 let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
+let _mockProductOffers: any[] = [];
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -360,6 +361,7 @@ export function removeMockProduct(productIdOrSlug: string): boolean {
     _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
     _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
     _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
+    _mockProductOffers = _mockProductOffers.filter((o) => String(o.product_id) !== String(removed.id));
     return true;
   }
   return false;
@@ -435,6 +437,35 @@ export function getSql() {
         if (lower.includes("select 1")) {
           return _mockProducts.length > 0 ? [{ 1: 1 }] : [];
         }
+        const mapProd = (p: any, isActiveOnly = false) => {
+          const prodVariants = _mockVariants.filter((v) => String(v.product_id) === String(p.id));
+          const prodHighlights = _mockProductHighlights
+            .filter((h) => String(h.product_id) === String(p.id) && (!isActiveOnly || h.is_active !== false))
+            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+          const prodSpecs = _mockProductSpecifications
+            .filter((s) => String(s.product_id) === String(p.id) && (!isActiveOnly || s.is_active !== false))
+            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+          const prodOffers = _mockProductOffers
+            .filter((o) => String(o.product_id) === String(p.id) && (!isActiveOnly || o.is_active !== false))
+            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+
+          return {
+            ...p,
+            mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
+            compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : (p.mrp != null ? Number(p.mrp) : null),
+            is_tax_inclusive: p.is_tax_inclusive !== false,
+            product_variants: prodVariants,
+            variants: prodVariants,
+            highlights: prodHighlights.length > 0 ? prodHighlights : (p.highlights || []),
+            specifications: prodSpecs.length > 0 ? prodSpecs : (p.specifications || []),
+            offers: prodOffers.length > 0 ? prodOffers : (p.offers || []),
+            features: p.features || [],
+            care_instructions: p.care_instructions || [],
+            manufacturing_info: p.manufacturing_info || {},
+            size_measurements: p.size_measurements || [],
+          };
+        };
+
         // Single product lookup by slug or id
         if (lower.includes("slug =") || lower.includes("slug::text =") || lower.includes("id::text =")) {
           const targetVal = String(values[0] ?? "").toLowerCase();
@@ -444,79 +475,116 @@ export function getSql() {
               (item.id && String(item.id).toLowerCase() === targetVal),
           );
           if (!p) return [];
-          if (lower.includes("is_active = true") && p.is_active === false) return [];
-          const prodVariants = _mockVariants.filter((v) => String(v.product_id) === String(p.id));
-          const prodHighlights = _mockProductHighlights
-            .filter((h) => String(h.product_id) === String(p.id) && h.is_active !== false)
-            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
-          const prodSpecs = _mockProductSpecifications
-            .filter((s) => String(s.product_id) === String(p.id) && s.is_active !== false)
-            .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
-          return [{
-            ...p,
-            product_variants: prodVariants,
-            highlights: prodHighlights,
-            specifications: prodSpecs,
-          }];
+          const isActiveOnly = lower.includes("is_active = true");
+          if (isActiveOnly && p.is_active === false) return [];
+          return [mapProd(p, isActiveOnly)];
         }
-        // Active products query
+
+        // Active products query or general list
         if (lower.includes("where is_active = true") || lower.includes("is_active is null")) {
-          return _mockProducts.filter((p) => p.is_active !== false);
+          return _mockProducts.filter((p) => p.is_active !== false).map((p) => mapProd(p, true));
         }
-        return [..._mockProducts];
+        return _mockProducts.map((p) => mapProd(p, false));
       }
 
       // INSERT INTO products
       if (lower.startsWith("insert into products") || lower.includes("insert into products")) {
-        const hasDetails = lower.includes("details_html");
+        const colsMatch = queryStr.match(/insert\s+into\s+products\s*\(([^)]+)\)/i);
+        if (colsMatch) {
+          const cols = colsMatch[1].split(",").map((c) => c.trim().toLowerCase());
+          const colMap: Record<string, any> = {};
+          cols.forEach((col, i) => {
+            colMap[col] = values[i];
+          });
+
+          const id = colMap["id"] ? String(colMap["id"]) : `prod_${Date.now().toString(36)}`;
+          const name = colMap["name"] ? String(colMap["name"]) : "Product";
+          const slug = colMap["slug"] ? String(colMap["slug"]) : id;
+          const description = colMap["description"] !== undefined ? (colMap["description"] ? String(colMap["description"]) : null) : null;
+          const details_html = colMap["details_html"] !== undefined ? (colMap["details_html"] ? String(colMap["details_html"]) : null) : null;
+          const price = Number(colMap["price"] || 0);
+          const base_price = Number(colMap["base_price"] || price);
+          const mrp = colMap["mrp"] != null ? Number(colMap["mrp"]) : colMap["compare_at_price"] != null ? Number(colMap["compare_at_price"]) : null;
+          const compare_at_price = colMap["compare_at_price"] != null ? Number(colMap["compare_at_price"]) : mrp;
+          const is_tax_inclusive = colMap["is_tax_inclusive"] !== false;
+          const currency = colMap["currency"] ? String(colMap["currency"]) : "INR";
+          let images: string[] = [];
+          try { images = typeof colMap["images"] === "string" ? JSON.parse(colMap["images"]) : (colMap["images"] || []); } catch { images = ["/placeholder-tee.jpg"]; }
+          const category = colMap["category"] ? String(colMap["category"]) : "Oversized Tees";
+          let sizes: string[] = [];
+          try { sizes = typeof colMap["sizes"] === "string" ? JSON.parse(colMap["sizes"]) : (colMap["sizes"] || ["S", "M", "L", "XL", "XXL"]); } catch { /* ignored */ }
+          let colors: string[] = [];
+          try { colors = typeof colMap["colors"] === "string" ? JSON.parse(colMap["colors"]) : (colMap["colors"] || ["Black"]); } catch { /* ignored */ }
+          const stock_quantity = Number(colMap["stock_quantity"] || 0);
+          const is_active = colMap["is_active"] !== false;
+          let tags: string[] = [];
+          try { tags = typeof colMap["tags"] === "string" ? JSON.parse(colMap["tags"]) : (colMap["tags"] || []); } catch { /* ignored */ }
+          let features: string[] = [];
+          try { features = typeof colMap["features"] === "string" ? JSON.parse(colMap["features"]) : (colMap["features"] || []); } catch { /* ignored */ }
+          let care_instructions: string[] = [];
+          try { care_instructions = typeof colMap["care_instructions"] === "string" ? JSON.parse(colMap["care_instructions"]) : (colMap["care_instructions"] || []); } catch { /* ignored */ }
+          let manufacturing_info: any = {};
+          try { manufacturing_info = typeof colMap["manufacturing_info"] === "string" ? JSON.parse(colMap["manufacturing_info"]) : (colMap["manufacturing_info"] || {}); } catch { /* ignored */ }
+          let size_measurements: any[] = [];
+          try { size_measurements = typeof colMap["size_measurements"] === "string" ? JSON.parse(colMap["size_measurements"]) : (colMap["size_measurements"] || []); } catch { /* ignored */ }
+
+          const newProd = {
+            id,
+            name,
+            slug,
+            description,
+            details_html,
+            price,
+            base_price,
+            mrp,
+            compare_at_price,
+            is_tax_inclusive,
+            currency,
+            images: Array.isArray(images) && images.length ? images : ["/placeholder-tee.jpg"],
+            category,
+            sizes: Array.isArray(sizes) && sizes.length ? sizes : ["S", "M", "L", "XL", "XXL"],
+            colors: Array.isArray(colors) && colors.length ? colors : ["Black"],
+            stock_quantity,
+            is_active,
+            tags: Array.isArray(tags) ? tags : [],
+            features: Array.isArray(features) ? features : [],
+            care_instructions: Array.isArray(care_instructions) ? care_instructions : [],
+            manufacturing_info,
+            size_measurements: Array.isArray(size_measurements) ? size_measurements : [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          const existingIdx = _mockProducts.findIndex((p) => p.id === id || p.slug === slug);
+          if (existingIdx >= 0) {
+            _mockProducts[existingIdx] = newProd;
+          } else {
+            _mockProducts.unshift(newProd);
+          }
+          return [{ id }];
+        }
+
         const id = values[0] ? String(values[0]) : `prod_${Date.now().toString(36)}`;
         const name = values[1] ? String(values[1]) : "Product";
         const slug = values[2] ? String(values[2]) : id;
         const description = values[3] ? String(values[3]) : null;
-        const details_html = hasDetails && values[4] !== undefined ? (values[4] ? String(values[4]) : null) : null;
-        const price = Number(hasDetails ? (values[5] || 0) : (values[4] || 0));
-        const imgVal = hasDetails ? values[8] : values[7];
-        let images: string[] = [];
-        try {
-          images = typeof imgVal === "string" ? JSON.parse(imgVal) : (imgVal || []);
-        } catch {
-          images = ["/placeholder-tee.jpg"];
-        }
-        const category = hasDetails ? (values[9] ? String(values[9]) : "Oversized Tees") : (values[8] ? String(values[8]) : "Oversized Tees");
-        const sizeVal = hasDetails ? values[10] : values[9];
-        let sizes: string[] = [];
-        try {
-          sizes = typeof sizeVal === "string" ? JSON.parse(sizeVal) : (sizeVal || ["S", "M", "L", "XL", "XXL"]);
-        } catch { /* ignored */ }
-        const colorVal = hasDetails ? values[11] : values[10];
-        let colors: string[] = [];
-        try {
-          colors = typeof colorVal === "string" ? JSON.parse(colorVal) : (colorVal || ["Black"]);
-        } catch { /* ignored */ }
-        const stock_quantity = Number((hasDetails ? values[12] : values[11]) || 0);
-        const is_active = (hasDetails ? values[13] : values[12]) !== false;
-        const tagVal = hasDetails ? values[14] : values[13];
-        let tags: string[] = [];
-        try {
-          tags = typeof tagVal === "string" ? JSON.parse(tagVal) : (tagVal || []);
-        } catch { /* ignored */ }
+        const price = Number(values[4] || 0);
 
         const newProd = {
           id,
           name,
           slug,
           description,
-          details_html,
           price,
           base_price: price,
           currency: "INR",
-          images: Array.isArray(images) && images.length ? images : ["/placeholder-tee.jpg"],
-          category,
-          sizes: Array.isArray(sizes) && sizes.length ? sizes : ["S", "M", "L", "XL", "XXL"],
-          colors: Array.isArray(colors) && colors.length ? colors : ["Black"],
-          stock_quantity,
-          is_active,
-          tags: Array.isArray(tags) ? tags : [],
+          images: ["/placeholder-tee.jpg"],
+          category: "Oversized Tees",
+          sizes: ["S", "M", "L", "XL", "XXL"],
+          colors: ["Black"],
+          stock_quantity: 0,
+          is_active: true,
+          tags: [],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -537,47 +605,62 @@ export function getSql() {
         if (prod) {
           if (lower.includes("is_active =") && !lower.includes("name =")) {
             prod.is_active = values[0] !== false;
+          } else if (lower.includes("features =") || lower.includes("mrp =")) {
+            // Full update from adminUpdateProduct
+            if (values[0] !== undefined) prod.name = String(values[0]);
+            if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
+            if (values[2] !== undefined) prod.details_html = values[2] ? String(values[2]) : null;
+            if (values[3] !== undefined) prod.price = Number(values[3]);
+            if (values[4] !== undefined) prod.base_price = Number(values[4]);
+            if (values[5] !== undefined) prod.mrp = values[5] != null ? Number(values[5]) : null;
+            if (values[6] !== undefined) prod.compare_at_price = values[6] != null ? Number(values[6]) : null;
+            if (values[7] !== undefined) prod.is_tax_inclusive = values[7] !== false;
+            if (values[8] !== undefined) {
+              try { prod.images = typeof values[8] === "string" ? JSON.parse(values[8]) : values[8]; } catch { /* ignored */ }
+            }
+            if (values[9] !== undefined) prod.category = String(values[9]);
+            if (values[10] !== undefined) {
+              try { prod.sizes = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
+            }
+            if (values[11] !== undefined) {
+              try { prod.colors = typeof values[11] === "string" ? JSON.parse(values[11]) : values[11]; } catch { /* ignored */ }
+            }
+            if (values[12] !== undefined) prod.stock_quantity = Number(values[12]);
+            if (values[13] !== undefined) prod.is_active = values[13] !== false;
+            if (values[14] !== undefined) {
+              try { prod.tags = typeof values[14] === "string" ? JSON.parse(values[14]) : values[14]; } catch { /* ignored */ }
+            }
+            if (values[15] !== undefined) {
+              try { prod.features = typeof values[15] === "string" ? JSON.parse(values[15]) : values[15]; } catch { /* ignored */ }
+            }
+            if (values[16] !== undefined) {
+              try { prod.care_instructions = typeof values[16] === "string" ? JSON.parse(values[16]) : values[16]; } catch { /* ignored */ }
+            }
+            if (values[17] !== undefined) {
+              try { prod.manufacturing_info = typeof values[17] === "string" ? JSON.parse(values[17]) : values[17]; } catch { /* ignored */ }
+            }
+            if (values[18] !== undefined) {
+              try { prod.size_measurements = typeof values[18] === "string" ? JSON.parse(values[18]) : values[18]; } catch { /* ignored */ }
+            }
           } else {
-            const hasDetails = lower.includes("details_html");
             if (values[0]) prod.name = String(values[0]);
             if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
-            if (hasDetails) {
-              if (values[2] !== undefined) prod.details_html = values[2] ? String(values[2]) : null;
-              if (values[3] !== undefined) prod.price = Number(values[3]);
-              if (values[4] !== undefined) prod.base_price = Number(values[4]);
-              if (values[5]) {
-                try { prod.images = typeof values[5] === "string" ? JSON.parse(values[5]) : values[5]; } catch { /* ignored */ }
-              }
-              if (values[6]) prod.category = String(values[6]);
-              if (values[7]) {
-                try { prod.sizes = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
-              }
-              if (values[8]) {
-                try { prod.colors = typeof values[8] === "string" ? JSON.parse(values[8]) : values[8]; } catch { /* ignored */ }
-              }
-              if (values[9] !== undefined) prod.stock_quantity = Number(values[9]);
-              if (values[10] !== undefined) prod.is_active = values[10] !== false;
-              if (values[11]) {
-                try { prod.tags = typeof values[11] === "string" ? JSON.parse(values[11]) : values[11]; } catch { /* ignored */ }
-              }
-            } else {
-              if (values[2] !== undefined) prod.price = Number(values[2]);
-              if (values[3] !== undefined) prod.base_price = Number(values[3]);
-              if (values[4]) {
-                try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
-              }
-              if (values[5]) prod.category = String(values[5]);
-              if (values[6]) {
-                try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
-              }
-              if (values[7]) {
-                try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
-              }
-              if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
-              if (values[9] !== undefined) prod.is_active = values[9] !== false;
-              if (values[10]) {
-                try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
-              }
+            if (values[2] !== undefined) prod.price = Number(values[2]);
+            if (values[3] !== undefined) prod.base_price = Number(values[3]);
+            if (values[4]) {
+              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
+            }
+            if (values[5]) prod.category = String(values[5]);
+            if (values[6]) {
+              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
+            }
+            if (values[7]) {
+              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
+            }
+            if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
+            if (values[9] !== undefined) prod.is_active = values[9] !== false;
+            if (values[10]) {
+              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
             }
           }
           prod.updated_at = new Date().toISOString();
@@ -750,6 +833,75 @@ export function getSql() {
         const existIdx = _mockProductSpecifications.findIndex((s) => s.id === id);
         if (existIdx >= 0) _mockProductSpecifications[existIdx] = item;
         else _mockProductSpecifications.push(item);
+        return [{ id }];
+      }
+
+      // DELETE FROM product_offers
+      if (lower.startsWith("delete from product_offers") || lower.includes("delete from product_offers")) {
+        const target = String(values[0] ?? "");
+        _mockProductOffers = _mockProductOffers.filter(
+          (o) => String(o.product_id) !== target && String(o.id) !== target,
+        );
+        return [];
+      }
+
+      // SELECT from product_offers
+      if (lower.includes("from product_offers") && !lower.includes("delete from")) {
+        const pid = String(values[0] ?? "");
+        let res = _mockProductOffers;
+        if (pid) {
+          res = res.filter((o) => String(o.product_id) === pid);
+        }
+        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
+          res = res.filter((o) => o.is_active !== false);
+        }
+        return res
+          .slice()
+          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+      }
+
+      // INSERT INTO product_offers
+      if (lower.startsWith("insert into product_offers") || lower.includes("insert into product_offers")) {
+        const id = values[0] ? String(values[0]) : `po_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const product_id = values[1] ? String(values[1]) : "";
+        const title = values[2] ? String(values[2]) : "";
+        const description = values[3] !== undefined && values[3] !== null ? String(values[3]) : null;
+        const discount_type = values[4] ? String(values[4]) : "percentage";
+        const discount_value = Number(values[5] || 0);
+        const promo_code = values[6] !== undefined && values[6] !== null ? String(values[6]) : null;
+        const minimum_quantity = Number(values[7] || 1);
+        const maximum_quantity = values[8] !== undefined && values[8] !== null ? Number(values[8]) : null;
+        const eligible_products = values[9] ? (typeof values[9] === "string" ? JSON.parse(values[9]) : values[9]) : [];
+        const eligible_categories = values[10] ? (typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]) : [];
+        const start_date = values[11] ? String(values[11]) : null;
+        const end_date = values[12] ? String(values[12]) : null;
+        const is_active = values[13] !== false;
+        const display_order = Number(values[14] || 0);
+        const terms_and_conditions = values[15] !== undefined && values[15] !== null ? String(values[15]) : null;
+
+        const item = {
+          id,
+          product_id,
+          title,
+          description,
+          discount_type,
+          discount_value,
+          promo_code,
+          minimum_quantity,
+          maximum_quantity,
+          eligible_products,
+          eligible_categories,
+          start_date,
+          end_date,
+          is_active,
+          display_order,
+          terms_and_conditions,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const existIdx = _mockProductOffers.findIndex((o) => o.id === id);
+        if (existIdx >= 0) _mockProductOffers[existIdx] = item;
+        else _mockProductOffers.push(item);
         return [{ id }];
       }
 
@@ -1489,7 +1641,8 @@ export async function ensureDbSchema() {
             to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates,
             to_regclass('public.email_logs') IS NOT NULL AS has_email_logs,
             to_regclass('public.product_highlights') IS NOT NULL AS has_product_highlights,
-            to_regclass('public.product_specifications') IS NOT NULL AS has_product_specifications
+            to_regclass('public.product_specifications') IS NOT NULL AS has_product_specifications,
+            to_regclass('public.product_offers') IS NOT NULL AS has_product_offers
         `;
         const row = check?.[0];
         if (row && (row.has_products || row.has_profiles || row.has_orders || row.has_website || row.has_settings)) {
@@ -1881,8 +2034,43 @@ export async function ensureDbSchema() {
             );
           }
 
+          if (!row.has_product_offers) {
+            missingStatements.push(
+              `CREATE TABLE IF NOT EXISTS product_offers (
+                id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                description TEXT,
+                discount_type TEXT NOT NULL DEFAULT 'percentage',
+                discount_value NUMERIC NOT NULL DEFAULT 0,
+                promo_code TEXT,
+                minimum_quantity INTEGER NOT NULL DEFAULT 1,
+                maximum_quantity INTEGER,
+                eligible_products JSONB DEFAULT '[]'::jsonb,
+                eligible_categories JSONB DEFAULT '[]'::jsonb,
+                start_date TIMESTAMP WITH TIME ZONE,
+                end_date TIMESTAMP WITH TIME ZONE,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                display_order INTEGER NOT NULL DEFAULT 0,
+                terms_and_conditions TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+              )`,
+              `CREATE INDEX IF NOT EXISTS idx_prod_offers_prod_id ON product_offers (product_id, is_active, display_order ASC)`,
+            );
+          }
+
           missingStatements.push(
             `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp NUMERIC`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS is_tax_inclusive BOOLEAN DEFAULT true`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'::jsonb`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS manufacturing_info JSONB DEFAULT '{}'::jsonb`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS size_measurements JSONB DEFAULT '[]'::jsonb`,
+            `UPDATE products SET mrp = compare_at_price WHERE mrp IS NULL AND compare_at_price IS NOT NULL`,
+            `UPDATE products SET compare_at_price = mrp WHERE compare_at_price IS NULL AND mrp IS NOT NULL`,
           );
 
           if (missingStatements.length > 0) {
@@ -1933,7 +2121,12 @@ export async function ensureDbSchema() {
           name TEXT NOT NULL,
           slug TEXT UNIQUE NOT NULL,
           description TEXT,
+          details_html TEXT,
           price NUMERIC NOT NULL DEFAULT 0,
+          base_price NUMERIC DEFAULT 0,
+          mrp NUMERIC,
+          compare_at_price NUMERIC,
+          is_tax_inclusive BOOLEAN DEFAULT true,
           currency TEXT NOT NULL DEFAULT 'INR',
           images JSONB NOT NULL DEFAULT '[]'::jsonb,
           category TEXT,
@@ -1944,6 +2137,10 @@ export async function ensureDbSchema() {
           low_stock_threshold INTEGER NOT NULL DEFAULT 2,
           is_active BOOLEAN NOT NULL DEFAULT true,
           tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+          features JSONB NOT NULL DEFAULT '[]'::jsonb,
+          care_instructions JSONB NOT NULL DEFAULT '[]'::jsonb,
+          manufacturing_info JSONB DEFAULT '{}'::jsonb,
+          size_measurements JSONB DEFAULT '[]'::jsonb,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
@@ -1977,6 +2174,26 @@ export async function ensureDbSchema() {
           value TEXT NOT NULL,
           display_order INTEGER NOT NULL DEFAULT 0,
           is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS product_offers (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT,
+          discount_type TEXT NOT NULL DEFAULT 'percentage',
+          discount_value NUMERIC NOT NULL DEFAULT 0,
+          promo_code TEXT,
+          minimum_quantity INTEGER NOT NULL DEFAULT 1,
+          maximum_quantity INTEGER,
+          eligible_products JSONB DEFAULT '[]'::jsonb,
+          eligible_categories JSONB DEFAULT '[]'::jsonb,
+          start_date TIMESTAMP WITH TIME ZONE,
+          end_date TIMESTAMP WITH TIME ZONE,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          terms_and_conditions TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
@@ -2319,7 +2536,15 @@ export async function ensureDbSchema() {
         `CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants (product_id)`,
         `CREATE INDEX IF NOT EXISTS idx_prod_highlights_prod_id ON product_highlights (product_id, is_active, display_order ASC)`,
         `CREATE INDEX IF NOT EXISTS idx_prod_specs_prod_id ON product_specifications (product_id, is_active, display_order ASC)`,
+        `CREATE INDEX IF NOT EXISTS idx_prod_offers_prod_id ON product_offers (product_id, is_active, display_order ASC)`,
         `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp NUMERIC`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS is_tax_inclusive BOOLEAN DEFAULT true`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'::jsonb`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS manufacturing_info JSONB DEFAULT '{}'::jsonb`,
+        `ALTER TABLE products ADD COLUMN IF NOT EXISTS size_measurements JSONB DEFAULT '[]'::jsonb`,
         `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
         `CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`,
         `CREATE INDEX IF NOT EXISTS idx_inv_tx_product ON inventory_transactions (product_id)`,

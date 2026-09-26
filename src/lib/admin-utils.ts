@@ -238,11 +238,32 @@ export type ProductSpecificationInput = {
   isActive?: boolean;
 };
 
+export type ProductOfferInput = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  discountType?: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
+  discountValue?: number;
+  promoCode?: string | null;
+  minimumQuantity?: number;
+  maximumQuantity?: number | null;
+  eligibleProducts?: string[];
+  eligibleCategories?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  isActive?: boolean;
+  displayOrder?: number;
+  termsAndConditions?: string | null;
+};
+
 export type ProductInput = {
   title: string;
   description?: string;
   detailsHtml?: string | null;
   price: string | number;
+  mrp?: string | number | null;
+  compareAtPrice?: string | number | null;
+  isTaxInclusive?: boolean;
   sizes?: string[];
   colors?: string[];
   tags?: string[];
@@ -253,6 +274,26 @@ export type ProductInput = {
   isActive?: boolean;
   highlights?: ProductHighlightInput[];
   specifications?: ProductSpecificationInput[];
+  offers?: ProductOfferInput[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: {
+    countryOfOrigin?: string;
+    manufacturer?: string;
+    marketedBy?: string;
+    customerCare?: string;
+    country_of_origin?: string;
+    marketed_by?: string;
+    customer_care?: string;
+  };
+  sizeMeasurements?: Array<{
+    size: string;
+    chest: string | number;
+    shoulder: string | number;
+    length: string | number;
+    sleeve: string | number;
+    toFitChest?: string | number;
+  }>;
 };
 
 function cleanList(list?: string[]) {
@@ -268,6 +309,18 @@ export function normalizeProductInput(d: ProductInput) {
   const price = Number(d.price);
   if (!Number.isFinite(price) || price < 0)
     throw new Error("Invalid product data: price must be a number ≥ 0");
+
+  // Validate MRP / compare_at_price
+  let mrp: number | null = null;
+  const rawMrp = d.mrp !== undefined && d.mrp !== null && d.mrp !== "" ? Number(d.mrp) : d.compareAtPrice !== undefined && d.compareAtPrice !== null && d.compareAtPrice !== "" ? Number(d.compareAtPrice) : null;
+  if (rawMrp !== null && Number.isFinite(rawMrp) && rawMrp > 0) {
+    if (price > rawMrp) {
+      throw new Error(`Invalid pricing: Selling price (₹${price}) cannot exceed MRP (₹${rawMrp})`);
+    }
+    mrp = rawMrp;
+  }
+
+  const isTaxInclusive = d.isTaxInclusive !== false;
 
   let sizes = cleanList(d.sizes);
   if (sizes.length === 0) {
@@ -336,11 +389,72 @@ export function normalizeProductInput(d: ProductInput) {
       isActive: s.isActive !== false,
     }));
 
+  // Sanitize and validate offers
+  const rawOffers = Array.isArray(d.offers) ? d.offers : [];
+  const offers = rawOffers
+    .filter((o) => o && typeof o === "object" && String(o.title ?? "").trim().length > 0)
+    .map((o, idx) => ({
+      id: o.id ? String(o.id) : `po_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      title: String(o.title).trim(),
+      description: o.description ? String(o.description).trim() : null,
+      discountType: o.discountType || "percentage",
+      discountValue: Math.max(0, Number(o.discountValue) || 0),
+      promoCode: o.promoCode ? String(o.promoCode).trim().toUpperCase() : null,
+      minimumQuantity: Math.max(1, Number(o.minimumQuantity) || 1),
+      maximumQuantity: o.maximumQuantity ? Math.max(1, Number(o.maximumQuantity)) : null,
+      eligibleProducts: Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+      eligibleCategories: Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+      startDate: o.startDate ? String(o.startDate) : null,
+      endDate: o.endDate ? String(o.endDate) : null,
+      isActive: o.isActive !== false,
+      displayOrder: typeof o.displayOrder === "number" && Number.isFinite(o.displayOrder) ? o.displayOrder : idx + 1,
+      termsAndConditions: o.termsAndConditions ? String(o.termsAndConditions).trim() : null,
+    }));
+
+  // Sanitize features
+  const features = Array.isArray(d.features)
+    ? d.features.map((f) => String(f).trim()).filter(Boolean)
+    : [];
+
+  // Sanitize care instructions
+  const careInstructions = Array.isArray(d.careInstructions)
+    ? d.careInstructions.map((c) => String(c).trim()).filter(Boolean)
+    : [];
+
+  // Sanitize manufacturing info
+  const mInfo = (d.manufacturingInfo || {}) as any;
+  const countryOrigin = mInfo.country_of_origin || mInfo.countryOfOrigin;
+  const manufacturer = mInfo.manufacturer;
+  const marketedBy = mInfo.marketed_by || mInfo.marketedBy;
+  const customerCare = mInfo.customer_care || mInfo.customerCare;
+  const manufacturingInfo = {
+    country_of_origin: countryOrigin ? String(countryOrigin).trim() : undefined,
+    manufacturer: manufacturer ? String(manufacturer).trim() : undefined,
+    marketed_by: marketedBy ? String(marketedBy).trim() : undefined,
+    customer_care: customerCare ? String(customerCare).trim() : undefined,
+  };
+
+  // Sanitize size measurements
+  const rawMeasurements = Array.isArray(d.sizeMeasurements) ? d.sizeMeasurements : [];
+  const sizeMeasurements = rawMeasurements
+    .filter((m) => m && typeof m === "object" && String(m.size ?? "").trim().length > 0)
+    .map((m) => ({
+      size: String(m.size).trim().toUpperCase(),
+      chest: m.chest !== undefined && m.chest !== null ? String(m.chest).trim() : "",
+      shoulder: m.shoulder !== undefined && m.shoulder !== null ? String(m.shoulder).trim() : "",
+      length: m.length !== undefined && m.length !== null ? String(m.length).trim() : "",
+      sleeve: m.sleeve !== undefined && m.sleeve !== null ? String(m.sleeve).trim() : "",
+      toFitChest: m.toFitChest !== undefined && m.toFitChest !== null ? String(m.toFitChest).trim() : undefined,
+    }));
+
   return {
     name: title,
     description: d.description?.trim() ? d.description.trim() : null,
     details_html: d.detailsHtml?.trim() ? d.detailsHtml.trim() : null,
     price,
+    mrp,
+    compare_at_price: mrp,
+    is_tax_inclusive: isTaxInclusive,
     images: images.length > 0 ? images : ["/placeholder-tee.jpg"],
     sizes,
     colors: cleanList(d.colors).length > 0 ? cleanList(d.colors) : ["Black"],
@@ -351,6 +465,11 @@ export function normalizeProductInput(d: ProductInput) {
     is_active: d.isActive !== false,
     highlights,
     specifications,
+    offers,
+    features,
+    care_instructions: careInstructions,
+    manufacturing_info: manufacturingInfo,
+    size_measurements: sizeMeasurements,
   };
 }
 

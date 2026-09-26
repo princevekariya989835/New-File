@@ -37,10 +37,17 @@ export type AdminProduct = {
   featuredImage: string | null;
   images: string[];
   price: string;
+  mrp?: string | null;
+  isTaxInclusive?: boolean;
   description: string | null;
   detailsHtml?: string | null;
   highlights?: ProductHighlight[];
   specifications?: ProductSpecification[];
+  offers?: any[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: Record<string, any>;
+  sizeMeasurements?: any[];
   sizes: string[];
   colors: string[];
   tags: string[];
@@ -133,7 +140,9 @@ export const adminListProducts = createServerFn({ method: "GET" })
     try {
       rows = await sql`
         SELECT 
-          p.id, p.name, p.slug, p.description, p.details_html, p.price, p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
+          p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
+          p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
+          p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
           COALESCE(
             (
               SELECT jsonb_agg(jsonb_build_object(
@@ -173,7 +182,31 @@ export const adminListProducts = createServerFn({ method: "GET" })
               WHERE s.product_id::text = p.id::text
             ),
             '[]'::jsonb
-          ) AS specifications
+          ) AS specifications,
+          COALESCE(
+            (
+              SELECT jsonb_agg(jsonb_build_object(
+                'id', o.id,
+                'title', o.title,
+                'description', o.description,
+                'discountType', o.discount_type,
+                'discountValue', o.discount_value,
+                'promoCode', o.promo_code,
+                'minimumQuantity', o.minimum_quantity,
+                'maximumQuantity', o.maximum_quantity,
+                'eligibleProducts', o.eligible_products,
+                'eligibleCategories', o.eligible_categories,
+                'startDate', o.start_date,
+                'endDate', o.end_date,
+                'isActive', o.is_active,
+                'displayOrder', o.display_order,
+                'termsAndConditions', o.terms_and_conditions
+              ) ORDER BY o.display_order ASC, o.created_at ASC)
+              FROM product_offers o
+              WHERE o.product_id::text = p.id::text
+            ),
+            '[]'::jsonb
+          ) AS offers
         FROM products p
         ORDER BY p.updated_at DESC
       `;
@@ -250,6 +283,28 @@ export const adminListProducts = createServerFn({ method: "GET" })
           }))
         : [];
 
+      const offers = Array.isArray(p.offers)
+        ? p.offers.map((o: any) => ({
+            id: String(o.id),
+            title: String(o.title || ""),
+            description: o.description ?? null,
+            discountType: o.discountType || o.discount_type || "percentage",
+            discountValue: Number(o.discountValue ?? o.discount_value ?? 0),
+            promoCode: o.promoCode || o.promo_code || null,
+            minimumQuantity: Number(o.minimumQuantity ?? o.minimum_quantity ?? 1),
+            maximumQuantity: o.maximumQuantity !== undefined ? Number(o.maximumQuantity) : null,
+            eligibleProducts: Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+            eligibleCategories: Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+            startDate: o.startDate || o.start_date || null,
+            endDate: o.endDate || o.end_date || null,
+            isActive: o.isActive !== false && o.is_active !== false,
+            displayOrder: Number(o.displayOrder ?? o.display_order ?? 0),
+            termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
+          }))
+        : [];
+
+      const mrpVal = p.mrp != null ? String(p.mrp) : p.compare_at_price != null ? String(p.compare_at_price) : null;
+
       return {
         id: String(p.id),
         title: p.name,
@@ -260,10 +315,17 @@ export const adminListProducts = createServerFn({ method: "GET" })
         featuredImage: optimizedImgs[0] || null,
         images: optimizedImgs,
         price: String(p.price),
+        mrp: mrpVal,
+        isTaxInclusive: p.is_tax_inclusive !== false,
         description: p.description ?? null,
         detailsHtml: p.details_html ?? null,
         highlights,
         specifications,
+        offers,
+        features: Array.isArray(p.features) ? p.features : [],
+        careInstructions: Array.isArray(p.care_instructions) ? p.care_instructions : [],
+        manufacturingInfo: p.manufacturing_info || {},
+        sizeMeasurements: Array.isArray(p.size_measurements) ? p.size_measurements : [],
         sizes: Array.isArray(p.sizes) ? p.sizes : [],
         colors: Array.isArray(p.colors) ? p.colors : [],
         tags: Array.isArray(p.tags) ? p.tags : [],
@@ -364,6 +426,7 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     try {
       await sql`DELETE FROM product_highlights WHERE product_id::text = ${data.productId}`;
       await sql`DELETE FROM product_specifications WHERE product_id::text = ${data.productId}`;
+      await sql`DELETE FROM product_offers WHERE product_id::text = ${data.productId}`;
     } catch {
       /* non-fatal if table not yet present */
     }
@@ -512,16 +575,18 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, description, details_html, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
           ) VALUES (
-            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, 'INR',
+            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
             ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
-            ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
+            ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
+            ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
+            ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb
           );
         `;
       } catch (colErr: any) {
         const msg = String(colErr?.message || "").toLowerCase();
-        if (msg.includes("details_html") || msg.includes("base_price")) {
+        if (msg.includes("details_html") || msg.includes("base_price") || msg.includes("mrp") || msg.includes("features")) {
           await sql`
             INSERT INTO products (
               id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
@@ -617,6 +682,23 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       }
     }
 
+    // Save offers if provided
+    if (Array.isArray(values.offers) && values.offers.length > 0) {
+      for (const o of values.offers) {
+        try {
+          await sql`
+            INSERT INTO product_offers (
+              id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
+            ) VALUES (
+              ${o.id}, ${productId}, ${o.title}, ${o.description}, ${o.discountType}, ${o.discountValue}, ${o.promoCode}, ${o.minimumQuantity}, ${o.maximumQuantity}, ${JSON.stringify(o.eligibleProducts)}::jsonb, ${JSON.stringify(o.eligibleCategories)}::jsonb, ${o.startDate}, ${o.endDate}, ${o.isActive}, ${o.displayOrder}, ${o.termsAndConditions}
+            )
+          `;
+        } catch (oErr) {
+          console.warn("[adminCreateProduct] offer insert warning:", oErr);
+        }
+      }
+    }
+
     try {
       const sql = getSql();
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
@@ -659,6 +741,9 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           details_html = ${values.details_html},
           price = ${values.price},
           base_price = ${values.price},
+          mrp = ${values.mrp},
+          compare_at_price = ${values.compare_at_price},
+          is_tax_inclusive = ${values.is_tax_inclusive},
           images = ${JSON.stringify(values.images)}::jsonb,
           category = ${values.category},
           sizes = ${JSON.stringify(values.sizes)}::jsonb,
@@ -666,6 +751,10 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           stock_quantity = ${values.stock_quantity},
           is_active = ${values.is_active},
           tags = ${JSON.stringify(values.tags)}::jsonb,
+          features = ${JSON.stringify(values.features)}::jsonb,
+          care_instructions = ${JSON.stringify(values.care_instructions)}::jsonb,
+          manufacturing_info = ${JSON.stringify(values.manufacturing_info)}::jsonb,
+          size_measurements = ${JSON.stringify(values.size_measurements)}::jsonb,
           updated_at = NOW()
         WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
         RETURNING id, name, slug, price, stock_quantity, is_active
@@ -757,6 +846,24 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       }
     }
 
+    // Sync offers
+    if (Array.isArray(values.offers)) {
+      try {
+        await sql`DELETE FROM product_offers WHERE product_id::text = ${canonicalId}`;
+        for (const o of values.offers) {
+          await sql`
+            INSERT INTO product_offers (
+              id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
+            ) VALUES (
+              ${o.id}, ${canonicalId}, ${o.title}, ${o.description}, ${o.discountType}, ${o.discountValue}, ${o.promoCode}, ${o.minimumQuantity}, ${o.maximumQuantity}, ${JSON.stringify(o.eligibleProducts)}::jsonb, ${JSON.stringify(o.eligibleCategories)}::jsonb, ${o.startDate}, ${o.endDate}, ${o.isActive}, ${o.displayOrder}, ${o.termsAndConditions}
+            )
+          `;
+        }
+      } catch (oErr) {
+        console.warn("[adminUpdateProduct] offer sync warning:", oErr);
+      }
+    }
+
     try {
       await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
     } catch {
@@ -790,6 +897,8 @@ export const adminGetProductDetails = createServerFn({ method: "POST" })
     let highlights: any[] = [];
     let specifications: any[] = [];
 
+    let offers: any[] = [];
+
     try {
       highlights = await sql`
         SELECT id, product_id, image_url, title, description, display_order, is_active
@@ -812,6 +921,17 @@ export const adminGetProductDetails = createServerFn({ method: "POST" })
       console.warn("[adminGetProductDetails] specifications query warning:", err);
     }
 
+    try {
+      offers = await sql`
+        SELECT id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
+        FROM product_offers
+        WHERE product_id::text = ${data.productId}
+        ORDER BY display_order ASC, created_at ASC
+      `;
+    } catch (err) {
+      console.warn("[adminGetProductDetails] offers query warning:", err);
+    }
+
     return {
       highlights: (highlights || []).map((h: any) => ({
         id: String(h.id),
@@ -829,6 +949,24 @@ export const adminGetProductDetails = createServerFn({ method: "POST" })
         value: String(s.value),
         displayOrder: Number(s.display_order ?? 0),
         isActive: s.is_active !== false,
+      })),
+      offers: (offers || []).map((o: any) => ({
+        id: String(o.id),
+        productId: String(o.product_id),
+        title: String(o.title),
+        description: o.description ?? null,
+        discountType: o.discount_type,
+        discountValue: Number(o.discount_value || 0),
+        promoCode: o.promo_code ?? null,
+        minimumQuantity: Number(o.minimum_quantity || 1),
+        maximumQuantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+        eligibleProducts: Array.isArray(o.eligible_products) ? o.eligible_products : [],
+        eligibleCategories: Array.isArray(o.eligible_categories) ? o.eligible_categories : [],
+        startDate: o.start_date ?? null,
+        endDate: o.end_date ?? null,
+        isActive: o.is_active !== false,
+        displayOrder: Number(o.display_order ?? 0),
+        termsAndConditions: o.terms_and_conditions ?? null,
       })),
     };
   });
