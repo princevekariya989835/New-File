@@ -600,12 +600,24 @@ export function getSql() {
 
       // UPDATE products
       if (lower.startsWith("update products") || lower.includes("update products")) {
-        const idVal = String(values[values.length - 1] ?? values[0] ?? "");
+        let idVal = String(values[values.length - 1] ?? values[0] ?? "");
+        const idMatch = queryStr.match(/(?:id|slug)(?:::text)?\s*=\s*(?:'([^']+)'|"([^"]+)"|([a-zA-Z0-9_-]+))/i);
+        if (idMatch) {
+          const matched = idMatch[1] || idMatch[2] || idMatch[3];
+          if (matched && !matched.startsWith("__VAL_")) idVal = matched;
+        }
         const prod = _mockProducts.find((p) => p.id === idVal || p.slug === idVal);
         if (prod) {
-          if (lower.includes("is_active =") && !lower.includes("name =")) {
+          const priceMatch = queryStr.match(/price\s*=\s*([0-9.]+)/i);
+          if (priceMatch) prod.price = Number(priceMatch[1]);
+          const mrpMatch = queryStr.match(/mrp\s*=\s*([0-9.]+)/i);
+          if (mrpMatch) prod.mrp = Number(mrpMatch[1]);
+          const compareMatch = queryStr.match(/compare_at_price\s*=\s*([0-9.]+)/i);
+          if (compareMatch) prod.compare_at_price = Number(compareMatch[1]);
+
+          if (lower.includes("is_active =") && !lower.includes("name =") && !lower.includes("price =")) {
             prod.is_active = values[0] !== false;
-          } else if (lower.includes("features =") || lower.includes("mrp =")) {
+          } else if (lower.includes("name =") && (lower.includes("features =") || lower.includes("manufacturing_info ="))) {
             // Full update from adminUpdateProduct
             if (values[0] !== undefined) prod.name = String(values[0]);
             if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
@@ -643,24 +655,28 @@ export function getSql() {
               try { prod.size_measurements = typeof values[18] === "string" ? JSON.parse(values[18]) : values[18]; } catch { /* ignored */ }
             }
           } else {
-            if (values[0]) prod.name = String(values[0]);
-            if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
-            if (values[2] !== undefined) prod.price = Number(values[2]);
-            if (values[3] !== undefined) prod.base_price = Number(values[3]);
-            if (values[4]) {
-              try { prod.images = typeof values[4] === "string" ? JSON.parse(values[4]) : values[4]; } catch { /* ignored */ }
-            }
-            if (values[5]) prod.category = String(values[5]);
-            if (values[6]) {
-              try { prod.sizes = typeof values[6] === "string" ? JSON.parse(values[6]) : values[6]; } catch { /* ignored */ }
-            }
-            if (values[7]) {
-              try { prod.colors = typeof values[7] === "string" ? JSON.parse(values[7]) : values[7]; } catch { /* ignored */ }
-            }
-            if (values[8] !== undefined) prod.stock_quantity = Number(values[8]);
-            if (values[9] !== undefined) prod.is_active = values[9] !== false;
-            if (values[10]) {
-              try { prod.tags = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
+            // General column-by-column update
+            const setMatch = queryStr.match(/set\s+([\s\S]+?)\s+where/i);
+            if (setMatch) {
+              const clauses = setMatch[1].split(",");
+              let valIdx = 0;
+              for (const clause of clauses) {
+                const parts = clause.split("=");
+                if (parts.length === 2) {
+                  const col = parts[0].trim().toLowerCase();
+                  const rawVal = parts[1].trim();
+                  let val = rawVal.startsWith("__VAL_") ? values[valIdx++] : rawVal.replace(/^['"]|['"]$/g, "");
+                  if (col === "price") prod.price = Number(val);
+                  else if (col === "mrp") prod.mrp = Number(val);
+                  else if (col === "compare_at_price") prod.compare_at_price = Number(val);
+                  else if (col === "is_tax_inclusive") prod.is_tax_inclusive = val === true || val === "true";
+                  else if (col === "is_active") prod.is_active = val === true || val === "true";
+                  else if (col === "name") prod.name = String(val);
+                  else if (col === "description") prod.description = val ? String(val) : null;
+                  else if (col === "details_html") prod.details_html = val ? String(val) : null;
+                  else if (col === "category") prod.category = String(val);
+                }
+              }
             }
           }
           prod.updated_at = new Date().toISOString();

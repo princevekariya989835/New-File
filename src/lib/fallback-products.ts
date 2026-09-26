@@ -104,7 +104,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
     slug: "oversized-black-t-shirt",
     description:
       "Heavyweight 240 GSM combed cotton oversized streetwear tee in solid black. Drop-shoulder relaxed boxy fit.",
-    price: 999,
+    price: 1199,
     mrp: 1999,
     is_tax_inclusive: true,
     currency: "INR",

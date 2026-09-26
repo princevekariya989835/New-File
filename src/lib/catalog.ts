@@ -643,19 +643,17 @@ export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   }
 }
 
-export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
-  .handler(async ({ data }): Promise<CatalogProductNode | null> => {
-    const handleKey = String(data.handle).toLowerCase().trim();
+export async function getProductByHandleDirect(handle: string): Promise<CatalogProductNode | null> {
+  const handleKey = String(handle).toLowerCase().trim();
 
-    // Check burst debounce cache first
-    const cached = _productHandleCache.get(handleKey);
-    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
-      return cached.data;
-    }
+  // Check burst debounce cache first
+  const cached = _productHandleCache.get(handleKey);
+  if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+    return cached.data;
+  }
 
-    try {
-      const sql = getSql();
+  try {
+    const sql = getSql();
 
       // Read directly from database - single query with correlated variants, highlights, specifications, offers
       let products: any[] = [];
@@ -735,7 +733,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
               '[]'::jsonb
             ) AS offers
           FROM products p
-          WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle}) AND (p.is_active = true OR p.is_active IS NULL)
           LIMIT 1
         `;
       } catch (queryErr) {
@@ -759,7 +757,7 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
               '[]'::jsonb
             ) AS product_variants
           FROM products p
-          WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle}) AND (p.is_active = true OR p.is_active IS NULL)
           LIMIT 1
         `;
       }
@@ -878,13 +876,19 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "fetchProductByHandle",
-        productId: data.handle,
+        productId: handle,
         status: "FAILED",
         error: err?.message || String(err),
       });
       console.warn("fetchProductByHandle error:", err);
       return cached?.data || null;
     }
+}
+
+export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
+  .handler(async ({ data }): Promise<CatalogProductNode | null> => {
+    return getProductByHandleDirect(data.handle);
   });
 
 export async function fetchProductByHandle(handle: string): Promise<CatalogProductNode | null> {
