@@ -94,12 +94,13 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
   }, [collections]);
 
   return (
-    <div className="relative -mx-6 w-[calc(100%+3rem)] overflow-hidden">
+    <div className="relative -mx-6 w-[calc(100%+3rem)] max-w-[100vw] overflow-hidden">
       {/* Horizontally scrollable single row of cards */}
       <div
-        className="flex w-full flex-nowrap items-stretch gap-2.5 overflow-x-auto scroll-smooth px-6 pb-2 pt-1 sm:gap-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full flex-nowrap items-stretch gap-2.5 overflow-x-auto scroll-smooth px-6 pb-2 pt-1 sm:gap-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-x-contain touch-pan-x"
         style={{
           WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain",
         }}
       >
         {items.map((cat, idx) => (
@@ -107,10 +108,10 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
             key={cat.id || idx}
             href={cat.link}
             aria-label={`Browse ${cat.name} category`}
-            className="group relative flex h-[98px] w-[110px] min-w-[110px] max-w-[115px] shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border border-sky-300/70 bg-gradient-to-b from-[#68b7ed] via-[#b5e0fa] to-[#eef7fc] p-1.5 shadow-xs transition-all duration-200 hover:border-sky-400 hover:shadow-sm active:scale-95 sm:h-[104px] sm:w-[118px] sm:min-w-[118px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red focus-visible:ring-offset-2"
+            className="group relative flex h-[94px] w-[106px] min-w-[106px] max-w-[115px] shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border border-sky-300/70 bg-gradient-to-b from-[#68b7ed] via-[#b5e0fa] to-[#eef7fc] p-1.5 shadow-xs transition-all duration-200 hover:border-sky-400 hover:shadow-sm active:scale-95 sm:h-[102px] sm:w-[116px] sm:min-w-[116px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red focus-visible:ring-offset-2"
           >
             {/* Top: Category Image Container with aspect ratio preservation */}
-            <div className="relative flex h-[60px] w-full items-end justify-center overflow-hidden sm:h-[66px]">
+            <div className="relative flex h-[58px] w-full items-end justify-center overflow-hidden sm:h-[64px]">
               <img
                 src={cat.imageUrl}
                 alt={cat.name}
@@ -126,8 +127,8 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
             </div>
 
             {/* Bottom: Category Name Text */}
-            <div className="flex w-full min-h-[26px] items-center justify-center px-1 text-center sm:min-h-[28px]">
-              <span className="line-clamp-2 text-center text-[10px] font-bold uppercase leading-[1.15] tracking-tight text-neutral-900 select-none sm:text-[10.5px]">
+            <div className="flex w-full min-h-[24px] items-center justify-center px-1 text-center sm:min-h-[26px]">
+              <span className="line-clamp-2 text-center text-[9.5px] font-bold uppercase leading-[1.15] tracking-tight text-neutral-900 select-none sm:text-[10px]">
                 {cat.name}
               </span>
             </div>

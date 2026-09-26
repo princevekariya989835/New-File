@@ -202,6 +202,9 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -210,6 +213,16 @@
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01";
     letter-spacing: -0.011em;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  @media (min-width: 768px) {
+    html,
+    body {
+      overflow-x: visible;
+    }
   }
 
   h1,
