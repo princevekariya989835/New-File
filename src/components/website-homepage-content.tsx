@@ -33,6 +33,7 @@ import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 import { StreetwearHero } from "@/components/ui/streetwear-hero";
 import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
+import { MobileCategoryNavigation } from "@/components/home/mobile-category-navigation";
 
 interface WebsiteHomepageContentProps {
   config: WebsiteConfig;
@@ -261,31 +262,37 @@ export function WebsiteHomepageContent({
             return (
               <section
                 key="sec-collections"
-                className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
+                className="mx-auto w-full max-w-[1400px] px-6 py-10 sm:py-14 md:px-10 md:py-24"
               >
-                {/* Standardized 3-tier section header: label, heading + View All, description (Issue 2, 3) */}
-                <div className="mb-8 md:mb-10">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                {/* Standardized 3-tier section header: label, heading + View All, description */}
+                <div className="mb-6 md:mb-10">
+                  <p className="mb-1.5 md:mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                     Collections
                   </p>
                   <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h2 className="text-3xl font-bold tracking-tight md:text-5xl leading-none">
+                    <h2 className="text-2xl font-bold tracking-tight md:text-5xl leading-none">
                       Shop the drop.
                     </h2>
                     <a
                       href="/shop"
-                      className="group inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
+                      className="group inline-flex h-8 sm:h-9 min-h-[32px] sm:min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
                     >
                       <span>View All</span>
                       <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     </a>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-1.5 md:mt-2 text-xs md:text-sm text-muted-foreground">
                     Signature silhouettes and limited-run graphic capsules.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+                {/* Mobile View (< md): Compact Single-Row Horizontal Category Navigation (Reference Image 1) */}
+                <div className="block md:hidden">
+                  <MobileCategoryNavigation collections={enabledCollections} />
+                </div>
+
+                {/* Desktop & Tablet View (>= md): Existing 4-Column Design UNCHANGED */}
+                <div className="hidden md:grid md:grid-cols-4 md:gap-6">
                   {enabledCollections.map((c, idx) => {
                     const imgUrl = c.imageUrl || fallbackImgs[idx % fallbackImgs.length];
                     return (
@@ -307,7 +314,7 @@ export function WebsiteHomepageContent({
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                         
-                        {/* Grouped sub-label & title at bottom with small cohesive gap (Issue 7) and sentence/title case (Issue 4) */}
+                        {/* Grouped sub-label & title at bottom with small cohesive gap and sentence/title case */}
                         <div className="relative z-10 flex flex-col items-start gap-1">
                           <span className="text-xs font-semibold tracking-wide text-white/80">
                             {c.tag}
