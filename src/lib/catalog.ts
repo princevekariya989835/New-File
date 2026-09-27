@@ -39,6 +39,9 @@ export interface CatalogVariant {
   availableForSale: boolean;
   selectedOptions: Array<{ name: string; value: string }>;
   image?: CatalogImage | null;
+  images?: CatalogImage[];
+  color?: string | null;
+  size?: string | null;
   sku?: string | null;
 }
 
@@ -175,6 +178,34 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
           ? Math.max(0, row.stock_quantity ?? 0)
           : 0;
 
+      // Derive variant-specific images according to color
+      const variantColor = color || match?.color || null;
+      let variantImages: CatalogImage[] = [];
+
+      if (variantColor && optimizedImages.length > 1) {
+        const cLower = variantColor.toLowerCase().trim();
+        const matches = optimizedImages.filter((url) => {
+          const uLower = url.toLowerCase();
+          if (cLower.includes("maroon") || cLower.includes("red")) {
+            return uLower.includes("maroon") || uLower.includes("red") || uLower.includes("zenitsu");
+          }
+          if (cLower.includes("black")) {
+            return uLower.includes("black") || uLower.includes("zoro-black");
+          }
+          if (cLower.includes("olive") || cLower.includes("green")) {
+            return uLower.includes("olive") || uLower.includes("green") || uLower.includes("zoro-olive");
+          }
+          return uLower.includes(cLower);
+        });
+        if (matches.length > 0) {
+          variantImages = matches.map((url) => ({ url, altText: `${row.name} - ${variantColor}` }));
+        }
+      }
+
+      if (variantImages.length === 0) {
+        variantImages = optimizedImages.map((url) => ({ url, altText: row.name }));
+      }
+
       variants.push({
         id: makeVariantId(row.id, size, color),
         variantRowId: match?.id ?? null,
@@ -186,7 +217,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
           ...(size ? [{ name: "Size", value: size }] : []),
           ...(color ? [{ name: "Color", value: color }] : []),
         ],
-        image: isListing ? null : (optimizedImages[0] ? { url: optimizedImages[0], altText: row.name } : null),
+        image: isListing ? null : (variantImages[0] ?? null),
+        images: isListing ? undefined : variantImages,
+        color: variantColor,
+        size: size || match?.size || null,
         sku: match?.sku ?? null,
       });
     }
@@ -246,40 +280,8 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 
   const rawOffers = isListing ? [] : (row.offers ?? []);
   const offers: ProductOffer[] = rawOffers
-    .filter((o) => o.is_active !== false)
-    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-    .map((o) => {
-      let computedLowPrice: number | undefined = undefined;
-      if (o.discount_type === "percentage" && o.discount_value > 0) {
-        computedLowPrice = Math.max(0, Math.round(sellingPrice * (1 - o.discount_value / 100)));
-      } else if (o.discount_type === "fixed_amount" && o.discount_value > 0) {
-        computedLowPrice = Math.max(0, sellingPrice - o.discount_value);
-      } else if (o.discount_type === "buy_x_get_y" && o.minimum_quantity > 1) {
-        const freeItems = Math.max(1, o.discount_value || 1);
-        const paidItems = Math.max(1, o.minimum_quantity - freeItems);
-        computedLowPrice = Math.round((sellingPrice * paidItems) / o.minimum_quantity);
-      } else if (o.discount_type === "flat_price" && o.discount_value > 0) {
-        computedLowPrice = o.discount_value;
-      }
-
-      return {
-        id: String(o.id),
-        productId: String(o.product_id || row.id),
-        title: String(o.title),
-        description: o.description ?? null,
-        discountType: o.discount_type,
-        discountValue: Number(o.discount_value || 0),
-        promoCode: o.promo_code ?? null,
-        minimumQuantity: Number(o.minimum_quantity || 1),
-        maximumQuantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
-        startDate: o.start_date ?? null,
-        endDate: o.end_date ?? null,
-        isActive: o.is_active !== false,
-        displayOrder: Number(o.display_order ?? 0),
-        termsAndConditions: o.terms_and_conditions ?? null,
-        computedLowPrice,
-      };
-    });
+    .filter((o) => o.isActive !== false)
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
   const features = isListing ? undefined : (Array.isArray(row.features) ? row.features.filter(Boolean) : []);
   const careInstructions = isListing ? undefined : (Array.isArray(row.care_instructions) ? row.care_instructions.filter(Boolean) : []);
@@ -295,22 +297,28 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     if (!productSku) {
       productSku = rawName;
     }
-    // Check fallback products for matching item
+    // Check variant colors first to avoid assigning mismatched colors (e.g. Black to a Maroon shirt)
+    const primaryColor = colors.find(Boolean) || rows.find((r) => r.color)?.color || null;
+    const colorLower = (primaryColor || "").toLowerCase().trim();
+
+    // Check fallback products for matching item by exact slug/id first, or matching category AND color
     const matchingFallback = FALLBACK_PRODUCTS.find(
       (f) =>
         f.id === row.id ||
         f.slug === row.slug ||
-        (f.category && row.category && f.category.toLowerCase() === row.category.toLowerCase()) ||
+        (colorLower && f.colors?.some((c) => c.toLowerCase() === colorLower)) ||
         (Array.isArray(f.tags) && Array.isArray(row.tags) && f.tags.some((t) => row.tags.includes(t))),
     );
     if (matchingFallback?.name) {
       resolvedTitle = matchingFallback.name;
+    } else if (primaryColor) {
+      resolvedTitle = `RIOTOUS ${primaryColor} Oversized T-Shirt`;
     } else if (row.tags && row.tags.length > 0 && !["Featured", "Trending"].includes(row.tags[0])) {
       resolvedTitle = `RIOTOUS ${row.tags[0]} Oversized T-Shirt`;
     } else if (row.category) {
-      resolvedTitle = `RIOTOUS Baki Hanma ${row.category.replace(/s$/, "")}`;
+      resolvedTitle = `RIOTOUS ${row.category.replace(/s$/, "")}`;
     } else {
-      resolvedTitle = `RIOTOUS Baki Hanma Oversized T-Shirt`;
+      resolvedTitle = `RIOTOUS Oversized Streetwear T-Shirt`;
     }
   } else if (!productSku) {
     const slugParts = (row.slug || "").split("-");

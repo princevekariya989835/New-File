@@ -191,9 +191,9 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           {columns.length > 0 ? (
             columns.map((sec) => (
               <div key={sec.id} className="col-span-1 sm:col-span-1 md:col-span-2">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <h3 className="mb-3.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   {sec.title}
-                </p>
+                </h3>
                 <ul className="space-y-2.5">
                   {(sec.links || []).map((l: any, idx: number) => {
                     const target = l.url || l.to || "/";

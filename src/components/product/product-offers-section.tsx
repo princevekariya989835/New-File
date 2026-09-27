@@ -29,7 +29,7 @@ export interface ProductOffersSectionProps {
 export const DEFAULT_PRODUCT_OFFERS: ProductOffer[] = [
   {
     id: "off-riotous20-canonical",
-    title: "BUY 3 GET 20% OFF",
+    title: "Buy 3 Get 20% OFF",
     description: "Get 20% off when you buy 3 or more streetwear pieces.",
     discountType: "percentage",
     discountValue: 20,
@@ -42,7 +42,7 @@ export const DEFAULT_PRODUCT_OFFERS: ProductOffer[] = [
   },
   {
     id: "off-b2g1-canonical",
-    title: "BUY 2 GET 1 FREE",
+    title: "Buy 2 Get 1 FREE",
     description: "Add any 3 items to your bag and get 1 free automatically at checkout.",
     discountType: "buy_x_get_y",
     discountValue: 1,
@@ -54,7 +54,7 @@ export const DEFAULT_PRODUCT_OFFERS: ProductOffer[] = [
   },
   {
     id: "off-save200-canonical",
-    title: "FLAT ₹200 OFF",
+    title: "Flat ₹200 OFF",
     description: "Flat ₹200 discount on your order.",
     discountType: "fixed_amount",
     discountValue: 200,
@@ -239,91 +239,85 @@ export function ProductOffersSection({
           return (
             <div
               key={offer.id || `offer-${idx}`}
-              className={`group relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 sm:p-4 rounded-xl border transition-all duration-200 hover:shadow-xs ${config.cardBgClass}`}
+              className="group relative flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-xl border border-border/80 bg-card transition-all duration-200 hover:border-foreground/20 hover:shadow-2xs"
             >
-              {/* Left Side: Icon + Information */}
-              <div className="flex items-start gap-3 min-w-0 flex-1">
+              {/* Top Row: Icon + Title + Description */}
+              <div className="flex items-start gap-3 min-w-0">
                 {/* Circular Icon Container */}
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-2xs mt-0.5 ${config.iconBgClass}`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-red/10 text-brand-red shadow-2xs mt-0.5"
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4.5 w-4.5" />
                 </div>
 
                 {/* Offer Details Block */}
-                <div className="space-y-1 min-w-0 flex-1">
-                  {/* Badges Row */}
-                  {(config.primaryBadge || config.secondaryBadge) && (
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      {config.primaryBadge && (
-                        <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider shadow-2xs ${config.primaryBadgeClass}`}
-                        >
-                          {config.primaryBadge}
-                        </span>
-                      )}
-                      {config.secondaryBadge && (
-                        <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${config.secondaryBadgeClass}`}
-                        >
-                          {config.secondaryBadge}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold tracking-tight text-foreground leading-snug">
+                      {offer.title}
+                    </h3>
+                    {config.primaryBadge && (
+                      <span
+                        className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${config.primaryBadgeClass}`}
+                      >
+                        {config.primaryBadge}
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Bold Title */}
-                  <h4 className="text-sm sm:text-base font-bold tracking-tight text-foreground leading-snug">
-                    {offer.title}
-                  </h4>
-
-                  {/* Gray Description */}
                   {offer.description && (
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                       {offer.description}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Right Side: Code Box + View Details Action */}
-              <div className="flex sm:flex-col sm:items-end items-center justify-between sm:justify-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/30">
-                {/* Dashed Code Box */}
-                {offer.promoCode && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleCopyCode(offer.promoCode!, e)}
-                    aria-label={`Copy coupon code ${offer.promoCode}`}
-                    title={`Click to copy code ${offer.promoCode}`}
-                    className={`group/btn relative flex items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1.5 text-xs font-mono font-bold transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer ${config.codeBoxClass}`}
-                  >
-                    <span className="text-[10px] font-sans font-semibold uppercase tracking-wider text-muted-foreground">
-                      Code:
+              {/* Bottom Row: Fixed Height, Consistent Internal Alignment Across ALL Cards */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/40 min-h-[36px]">
+                {/* Left: Code Box OR Automatic Savings Indicator */}
+                <div className="flex items-center">
+                  {offer.promoCode ? (
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyCode(offer.promoCode!, e)}
+                      aria-label={`Copy coupon code ${offer.promoCode}`}
+                      title={`Click to copy code ${offer.promoCode}`}
+                      className="group/btn relative inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border/80 bg-secondary/50 hover:bg-secondary px-2.5 py-1 text-xs font-mono font-bold transition-all active:scale-95 cursor-pointer text-foreground"
+                    >
+                      <span className="text-[10px] font-sans font-semibold uppercase tracking-wider text-muted-foreground">
+                        Code:
+                      </span>
+                      <span className="tracking-wider text-foreground font-extrabold">
+                        {offer.promoCode}
+                      </span>
+                      <span className="flex items-center ml-0.5">
+                        {isCopied ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-emerald-600 dark:text-emerald-400">
+                            <Check className="h-3 w-3 stroke-[2.5]" />
+                            <span>Copied!</span>
+                          </span>
+                        ) : (
+                          <Copy className="h-3 w-3 text-muted-foreground group-hover/btn:text-foreground transition-colors" />
+                        )}
+                      </span>
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                      <Sparkles className="h-3 w-3 text-brand-red shrink-0" />
+                      <span>Auto-applied at checkout</span>
                     </span>
-                    <span className="tracking-wider text-foreground font-extrabold">
-                      {offer.promoCode}
-                    </span>
-                    <span className="flex items-center ml-1">
-                      {isCopied ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-sans font-bold text-emerald-600 dark:text-emerald-400">
-                          <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                          <span>Copied!</span>
-                        </span>
-                      ) : (
-                        <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover/btn:text-foreground transition-colors" />
-                      )}
-                    </span>
-                  </button>
-                )}
+                  )}
+                </div>
 
-                {/* View Offer Details Action */}
+                {/* Right: View Offer Details Action - Always in the exact same anchored position */}
                 <button
                   type="button"
                   onClick={() => setSelectedOffer(offer)}
                   aria-label={`View offer details for ${offer.title}`}
-                  className={`group/link inline-flex items-center gap-1 text-xs font-semibold hover:underline underline-offset-4 transition-colors py-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md ${config.actionClass}`}
+                  className="group/link inline-flex items-center gap-1 text-xs font-semibold text-brand-red hover:underline underline-offset-4 transition-colors py-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
                 >
-                  <span>View Offer Details</span>
+                  <span>Details</span>
                   <ArrowRight className="h-3 w-3 group-hover/link:translate-x-0.5 transition-transform" />
                 </button>
               </div>

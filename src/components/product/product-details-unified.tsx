@@ -11,6 +11,7 @@ import {
   Scissors,
   Droplets,
   Award,
+  Check,
 } from "lucide-react";
 import type { ManufacturingInfo, ProductSpecification } from "@/lib/catalog";
 
@@ -65,7 +66,7 @@ export function renderMarkdownToHtml(rawText: string): React.ReactNode {
               key={idx}
               className="flex items-start gap-2.5 text-xs sm:text-sm text-muted-foreground leading-relaxed"
             >
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-red" />
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-red stroke-[2.5]" />
               <span>{renderInlineMarkdown(bullet)}</span>
             </li>
           ))}
@@ -251,8 +252,20 @@ export function ProductDetailsUnified({
       (s) => !excludedLabels.has(s.label.toLowerCase()) && s.isActive !== false,
     );
 
-    // 6. Clean story without duplicated wash care, fit, or manufacture blocks
-    const cleanStoryText = storyLines
+    // 6. Clean story without duplicated wash care, fit, manufacture, or fabric/GSM blocks
+    const cleanStoryLines = storyLines.filter((line) => {
+      const lower = line.toLowerCase().trim();
+      if (!lower) return true;
+      if (lower.includes("wash care") || lower.includes("care instruction")) return false;
+      if (lower.includes("manufacture") || lower.includes("origin") || lower.includes("crafted in")) return false;
+      if (lower.includes("fit & silhouette") || lower.includes("boxy silhouette") || lower.includes("oversized aesthetic")) return false;
+      if (lower.includes("240 gsm") || lower.includes("combed cotton") || lower.includes("heavyweight fabric")) return false;
+      if (lower.includes("pre-shrunk") && lower.includes("hem")) return false;
+      if (lower.includes("machine wash") || lower.includes("do not bleach") || lower.includes("tumble dry")) return false;
+      return true;
+    });
+
+    const cleanStoryText = cleanStoryLines
       .join("\n")
       .replace(/###\s*(Wash Care|Manufacture|Fit)[^\n]*/gi, "")
       .trim();
@@ -266,8 +279,6 @@ export function ProductDetailsUnified({
       storyText: cleanStoryText,
     };
   }, [description, detailsHtml, specifications, manufacturingInfo, careInstructions, category]);
-
-  const activeFeatures = (features || []).filter(Boolean);
 
   return (
     <section
@@ -369,7 +380,7 @@ export function ProductDetailsUnified({
 
       {/* 3. PRODUCT STORY / OVERVIEW ACCORDION (Unique content only, clean Markdown-to-HTML) */}
       {parsedData.storyText && (
-        <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60 transition-all shadow-2xs mb-8">
+        <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60 transition-all shadow-2xs">
           <button
             type="button"
             onClick={() => setIsStoryOpen((prev) => !prev)}
@@ -378,9 +389,9 @@ export function ProductDetailsUnified({
           >
             <div className="flex items-center gap-2.5">
               <Sparkles className="h-4 w-4 text-brand-red" />
-              <span className="text-sm sm:text-base font-bold text-foreground">
+              <h3 className="text-sm sm:text-base font-bold text-foreground">
                 About this Piece
-              </span>
+              </h3>
             </div>
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full border border-border bg-secondary/60 text-foreground transition-transform duration-200 ${
@@ -398,29 +409,6 @@ export function ProductDetailsUnified({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* 4. KEY FEATURES (if available) */}
-      {activeFeatures.length > 0 && (
-        <div className="rounded-2xl border border-border/80 bg-card/60 p-5 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Award className="h-4 w-4 text-brand-red" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
-              Key Features
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {activeFeatures.map((feat, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-secondary/30 p-3 text-xs sm:text-sm text-foreground"
-              >
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-red mt-0.5" />
-                <span>{feat}</span>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </section>

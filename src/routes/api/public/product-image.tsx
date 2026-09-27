@@ -142,6 +142,27 @@ export const Route = createFileRoute("/api/public/product-image")({
             return new Response("Image not found", { status: 404 });
           }
 
+          // If the dataUrl recursively refers to /api/public/product-image, resolve or fall back to images[0]
+          if (dataUrl.startsWith("/api/public/product-image")) {
+            if (productId && idx !== 0) {
+              // Try fallback to image 0
+              const rows = await sql`SELECT images FROM products WHERE id::text = ${productId} LIMIT 1`;
+              const images = Array.isArray(rows?.[0]?.images)
+                ? rows[0].images
+                : typeof rows?.[0]?.images === "string"
+                  ? JSON.parse(rows[0].images)
+                  : [];
+              const firstImg = images[0];
+              if (firstImg && firstImg !== dataUrl && !firstImg.startsWith("/api/public/product-image")) {
+                dataUrl = firstImg;
+              } else {
+                return new Response("Image not found", { status: 404 });
+              }
+            } else {
+              return new Response("Image not found", { status: 404 });
+            }
+          }
+
           // If the dataUrl is a local relative asset path, redirect safely
           if (dataUrl.startsWith("/") && !dataUrl.startsWith("//") && !dataUrl.includes("\\")) {
             return Response.redirect(dataUrl, 302);
@@ -186,40 +207,44 @@ export const Route = createFileRoute("/api/public/product-image")({
               return new Response("Unsupported or unsafe image format", { status: 400 });
             }
 
-            const base64Data = match[2];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
+            try {
+              const base64Data = match[2].replace(/[\r\n\s]/g, "");
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
 
-            const etag = `"${(cacheKey || "img").replace(/[^a-zA-Z0-9_-]/g, "_")}-${bytes.byteLength}"`;
+              const etag = `"${(cacheKey || "img").replace(/[^a-zA-Z0-9_-]/g, "_")}-${bytes.byteLength}"`;
 
-            if (cacheKey) {
-              setCachedImage(cacheKey, { bytes, contentType, etag });
-            }
+              if (cacheKey) {
+                setCachedImage(cacheKey, { bytes, contentType, etag });
+              }
 
-            if (checkNoneMatch(request, etag)) {
-              return new Response(null, {
-                status: 304,
+              if (checkNoneMatch(request, etag)) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    ETag: etag,
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "X-Content-Type-Options": "nosniff",
+                  },
+                });
+              }
+
+              return new Response(bytes as unknown as BodyInit, {
+                status: 200,
                 headers: {
-                  ETag: etag,
+                  "Content-Type": contentType,
                   "Cache-Control": "public, max-age=31536000, immutable",
+                  "Content-Length": String(bytes.byteLength),
                   "X-Content-Type-Options": "nosniff",
+                  ETag: etag,
                 },
               });
+            } catch {
+              return new Response("Invalid base64 payload", { status: 400 });
             }
-
-            return new Response(bytes as unknown as BodyInit, {
-              status: 200,
-              headers: {
-                "Content-Type": contentType,
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Content-Length": String(bytes.byteLength),
-                "X-Content-Type-Options": "nosniff",
-                ETag: etag,
-              },
-            });
           }
 
           return new Response("Invalid image data", { status: 400 });
