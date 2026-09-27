@@ -111,49 +111,62 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       )}
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
-      {/* Simplified Mobile Checkout Header (approx 56px, mobile-only) */}
+      {/* Dedicated Mobile Checkout Header (approx 64px, mobile-only, solid dark #111111 for high logo contrast) */}
       {isCheckoutPage && (
-        <header className="fixed inset-x-0 top-0 z-50 flex md:hidden h-14 items-center justify-between border-b border-border/80 bg-background/95 px-4 shadow-sm backdrop-blur-md">
-          <button
-            onClick={() => {
-              if (typeof window !== "undefined" && window.history.length > 1) {
-                window.history.back();
-              } else {
-                navigate({ to: "/shop" });
+        <header className="fixed inset-x-0 top-0 z-50 flex md:hidden h-16 w-full items-center justify-between border-b border-zinc-800 bg-[#111111] px-3.5 sm:px-4 shadow-md">
+          {/* Left: Back arrow */}
+          <div className="flex w-12 items-center justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  navigate({ to: "/shop" });
+                }
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5 text-white" />
+            </button>
+          </div>
+
+          {/* Center: RIOTOUS Logo (high contrast on dark background) */}
+          <div className="flex flex-1 items-center justify-center">
+            <Link to="/" className="flex items-center justify-center py-1" aria-label="RIOTOUS home">
+              <img
+                src="/assets/riotous-logo.png"
+                alt="RIOTOUS"
+                width={130}
+                height={32}
+                loading="eager"
+                decoding="async"
+                className="h-7 sm:h-8 w-auto max-w-[140px] object-contain drop-shadow-sm select-none"
+                draggable={false}
+              />
+            </Link>
+          </div>
+
+          {/* Right: Cart icon + badge */}
+          <div className="flex w-12 items-center justify-end">
+            <CartDrawer
+              trigger={
+                <button
+                  type="button"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer"
+                  aria-label={`Cart, ${totalCartItems} items`}
+                >
+                  <ShoppingBag className="h-5 w-5 text-white" />
+                  {totalCartItems > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#f00b11] px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#111111]">
+                      {totalCartItems}
+                    </span>
+                  )}
+                </button>
               }
-            }}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-secondary transition-colors"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-
-          <Link to="/" className="flex items-center" aria-label="RIOTOUS home">
-            <img
-              src="/assets/riotous-logo.png"
-              alt="RIOTOUS"
-              width={105}
-              height={26}
-              className="h-6 w-auto object-contain"
-              draggable={false}
             />
-          </Link>
-
-          <CartDrawer
-            trigger={
-              <button
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-secondary transition-colors"
-                aria-label={`Cart, ${totalCartItems} items`}
-              >
-                <ShoppingBag className="h-5 w-5" />
-                {totalCartItems > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-bold text-white shadow-sm">
-                    {totalCartItems}
-                  </span>
-                )}
-              </button>
-            }
-          />
+          </div>
         </header>
       )}
 
