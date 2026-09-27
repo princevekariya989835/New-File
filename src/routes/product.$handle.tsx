@@ -322,7 +322,7 @@ function ProductPage() {
     <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
       <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
         {/* Gallery */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
           <button
             onClick={() => router.history.back()}
             className="flex h-10 w-10 items-center justify-center self-start rounded-full hover:bg-secondary transition-colors"
@@ -332,7 +332,7 @@ function ProductPage() {
           </button>
 
           <div
-            className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
+            className="group relative aspect-[4/5] md:max-h-[calc(100vh-16rem)] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -427,7 +427,7 @@ function ProductPage() {
         </div>
 
         {/* Info */}
-        <div className="md:sticky md:top-24 md:self-start">
+        <div className="flex flex-col min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
             {p.productType || <BrandName />}
           </p>
