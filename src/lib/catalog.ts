@@ -396,12 +396,14 @@ export async function seedInitialProductsIfNeeded() {
         try {
           await sql`
             INSERT INTO products (
-              id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+              id, name, slug, description, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, stock_quantity, is_active, tags
             ) VALUES (
-              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.mrp ?? null}, ${p.compare_at_price ?? p.mrp ?? null}, ${p.is_tax_inclusive !== false}, ${p.currency},
               ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
               ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-            ) ON CONFLICT (id) DO NOTHING;
+            ) ON CONFLICT (id) DO UPDATE SET
+              mrp = COALESCE(products.mrp, EXCLUDED.mrp),
+              compare_at_price = COALESCE(products.compare_at_price, EXCLUDED.compare_at_price);
           `;
         } catch {
           await sql`
@@ -459,7 +461,7 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     // Ultra-fast single-roundtrip query: Correlated subquery fetches product + variants together
     const products = await sql`
       SELECT 
-        p.id, p.name, p.slug, p.price, p.currency,
+        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
         CASE 
           WHEN jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0 THEN jsonb_build_array(p.images->0)
           ELSE '[]'::jsonb 
@@ -496,6 +498,9 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
       slug: p.slug as string,
       description: null,
       price: Number(p.price || 0),
+      mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
+      compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : null,
+      is_tax_inclusive: p.is_tax_inclusive !== false,
       currency: (p.currency as string) || "INR",
       images: Array.isArray(p.images)
         ? p.images
@@ -537,7 +542,7 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     // Single query using LEFT JOIN to guarantee 1 roundtrip even in fallback
     const rowsJoined = await sql`
       SELECT 
-        p.id, p.name, p.slug, p.price, p.currency,
+        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
         p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         v.id AS variant_id, v.size AS variant_size, v.color AS variant_color,
         v.stock_quantity AS variant_stock_quantity, v.reserved_stock AS variant_reserved_stock,
@@ -566,6 +571,9 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           slug: row.slug as string,
           description: null,
           price: Number(row.price || 0),
+          mrp: row.mrp != null ? Number(row.mrp) : row.compare_at_price != null ? Number(row.compare_at_price) : null,
+          compare_at_price: row.compare_at_price != null ? Number(row.compare_at_price) : null,
+          is_tax_inclusive: row.is_tax_inclusive !== false,
           currency: (row.currency as string) || "INR",
           images: Array.isArray(row.images)
             ? row.images
@@ -740,7 +748,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
         // Fallback query if new columns or tables are resolving
         products = await sql`
           SELECT 
-            p.id, p.name, p.slug, p.description, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(

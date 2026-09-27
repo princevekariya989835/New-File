@@ -23,6 +23,11 @@ export function ProductCard({
   const sellingPrice = parseFloat(price.amount);
   const mrpNumber = p.mrp != null ? Number(p.mrp) : null;
   const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > sellingPrice;
+  const discountPercentage = hasValidMrp
+    ? (p.discountPercentage != null && p.discountPercentage > 0
+        ? p.discountPercentage
+        : Math.round(((mrpNumber - sellingPrice) / mrpNumber) * 100))
+    : null;
   const soldOut = p.variants.edges.every((v) => !v.node.availableForSale);
 
   const { user } = useAuth();
@@ -165,13 +170,20 @@ export function ProductCard({
           {p.title}
         </h2>
         <p className="mt-1 text-xs text-muted-foreground leading-normal line-clamp-2">{p.productType || <BrandName />}</p>
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
-          <span className="whitespace-nowrap text-sm font-bold text-foreground">
-            {formatPrice(price.amount, price.currencyCode)}
-          </span>
-          {hasValidMrp && (
-            <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
-              {formatPrice(mrpNumber!, price.currencyCode)}
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <div className="flex items-baseline gap-1.5 sm:gap-2">
+            <span className="whitespace-nowrap text-sm font-bold text-foreground sm:text-base">
+              {formatPrice(price.amount, price.currencyCode)}
+            </span>
+            {hasValidMrp && (
+              <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
+                {formatPrice(mrpNumber!, price.currencyCode)}
+              </span>
+            )}
+          </div>
+          {hasValidMrp && discountPercentage != null && discountPercentage > 0 && (
+            <span className="whitespace-nowrap text-xs font-bold text-brand-red">
+              {discountPercentage}% OFF
             </span>
           )}
         </div>
