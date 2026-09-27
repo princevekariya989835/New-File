@@ -151,6 +151,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   {filteredProducts.map((p) => {
                     const img = p.node.images?.edges?.[0]?.node?.url;
                     const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
+                    const mrpNumber = p.node.mrp != null ? Number(p.node.mrp) : null;
+                    const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > price;
                     return (
                       <button
                         key={p.node.id}
@@ -181,6 +183,11 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-foreground">{money(price)}</p>
+                          {hasValidMrp && (
+                            <p className="text-xs text-muted-foreground line-through mt-0.5">
+                              {money(mrpNumber!)}
+                            </p>
+                          )}
                         </div>
                       </button>
                     );
@@ -221,6 +228,8 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                     {products.slice(0, 3).map((p) => {
                       const img = p.node.images?.edges?.[0]?.node?.url;
                       const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
+                      const mrpNumber = p.node.mrp != null ? Number(p.node.mrp) : null;
+                      const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > price;
                       return (
                         <button
                           key={p.node.id}
@@ -240,7 +249,14 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                           <p className="text-xs font-semibold line-clamp-2 leading-snug min-h-[2rem] text-foreground">
                             {p.node.title}
                           </p>
-                          <p className="text-xs font-bold text-brand-red mt-1">{money(price)}</p>
+                          <div className="flex items-baseline gap-1.5 mt-1">
+                            <span className="text-xs font-bold text-brand-red">{money(price)}</span>
+                            {hasValidMrp && (
+                              <span className="text-[11px] text-muted-foreground line-through">
+                                {money(mrpNumber!)}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}

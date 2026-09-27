@@ -20,6 +20,9 @@ export function ProductCard({
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const currentImg = images[activeImgIdx]?.node ?? images[0]?.node;
   const price = p.priceRange.minVariantPrice;
+  const sellingPrice = parseFloat(price.amount);
+  const mrpNumber = p.mrp != null ? Number(p.mrp) : null;
+  const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > sellingPrice;
   const soldOut = p.variants.edges.every((v) => !v.node.availableForSale);
 
   const { user } = useAuth();
@@ -162,9 +165,16 @@ export function ProductCard({
           {p.title}
         </h2>
         <p className="mt-1 text-xs text-muted-foreground leading-normal line-clamp-2">{p.productType || <BrandName />}</p>
-        <p className="mt-1.5 whitespace-nowrap text-sm font-semibold text-foreground">
-          {formatPrice(price.amount, price.currencyCode)}
-        </p>
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+          <span className="whitespace-nowrap text-sm font-bold text-foreground">
+            {formatPrice(price.amount, price.currencyCode)}
+          </span>
+          {hasValidMrp && (
+            <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
+              {formatPrice(mrpNumber!, price.currencyCode)}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );
