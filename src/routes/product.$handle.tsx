@@ -21,8 +21,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { fetchProductByHandle } from "@/lib/catalog";
-import { formatPrice } from "@/lib/catalog";
+import { fetchProductByHandle, fetchProducts, formatPrice } from "@/lib/catalog";
+import { ProductRecommendations } from "@/components/product/product-recommendations";
 import { useCartStore } from "@/stores/cart-store";
 import { toast } from "sonner";
 import { BrandName } from "@/components/brand-name";
@@ -61,7 +61,18 @@ function formatProductPageTitle(title: string): string {
 }
 
 export const Route = createFileRoute("/product/$handle")({
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(productQuery(params.handle)),
+  loader: async ({ context, params }) => {
+    const p = await context.queryClient.ensureQueryData(productQuery(params.handle));
+    // Non-blocking prefetch of catalog for instant recommendations
+    context.queryClient
+      .prefetchQuery({
+        queryKey: ["products", "catalog", 50],
+        queryFn: () => fetchProducts(50),
+        staleTime: 1000 * 60 * 5,
+      })
+      .catch(() => {});
+    return p;
+  },
   head: ({ loaderData }) => {
     if (!loaderData) {
       return {
@@ -702,6 +713,9 @@ function ProductPage() {
       />
 
       <ProductReviews productId={p.productId} productTitle={p.title} />
+
+      {/* Recommended Products: You may also like */}
+      <ProductRecommendations currentProduct={p} />
 
       {/* Dynamic Size Guide Modal */}
       <ProductSizeGuideModal
