@@ -184,13 +184,21 @@ function CheckoutPage() {
   );
 
   const b2g1 = calculateBuy2Get1Discount(displayItems, config?.buy2get1Offer);
-  const b2g1Discount = b2g1.discountAmount;
-  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  const totalDiscount = b2g1Discount + couponDiscount;
-  const finalSubtotal = Math.max(0, subtotal - totalDiscount);
-  const baseShipping = shippingQuote?.cheapestRate ?? 79;
-  const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : baseShipping;
-  const total = finalSubtotal + shipping;
+  const b2g1Discount = Number(b2g1?.discountAmount) || 0;
+  const couponDiscount = appliedCoupon ? (Number(appliedCoupon.discountAmount) || 0) : 0;
+  const calculatedDiscountAmount = b2g1Discount + couponDiscount;
+  const discountAmount = calculatedDiscountAmount ?? 0;
+  const safeDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+  const totalDiscount = safeDiscountAmount;
+
+  const subtotalAmount = Number.isFinite(Number(subtotal)) ? Number(subtotal) : 0;
+  const finalSubtotal = Math.max(0, subtotalAmount - safeDiscountAmount);
+  const baseShipping = Number.isFinite(Number(shippingQuote?.cheapestRate)) ? Number(shippingQuote?.cheapestRate) : 79;
+  const shippingAmount = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : baseShipping;
+  const shipping = shippingAmount;
+  const taxAmount = 0;
+  const finalAmount = Math.max(0, subtotalAmount - safeDiscountAmount + shippingAmount + taxAmount);
+  const total = finalAmount;
 
   // Check live Zippyy courier serviceability & calculate dynamic shipping rates
   useEffect(() => {
@@ -334,6 +342,20 @@ function CheckoutPage() {
       ? `${address.trim()}, PIN: ${pincode.trim()}`
       : address.trim();
 
+    // Validate all financial values defensively before sending order/payment request
+    if (
+      !Number.isFinite(subtotalAmount) ||
+      !Number.isFinite(safeDiscountAmount) ||
+      !Number.isFinite(shippingAmount) ||
+      !Number.isFinite(taxAmount) ||
+      !Number.isFinite(finalAmount) ||
+      Number.isNaN(finalAmount) ||
+      finalAmount <= 0
+    ) {
+      toast.error("Invalid order pricing. Please refresh the page and try again.");
+      return;
+    }
+
     const orderPayload = {
       shippingName: name.trim(),
       shippingEmail: email.trim(),
@@ -341,6 +363,11 @@ function CheckoutPage() {
       shippingAddress: formattedAddress,
       currency,
       couponCode: appliedCoupon ? appliedCoupon.code : null,
+      subtotal: subtotalAmount,
+      discountAmount: safeDiscountAmount,
+      shipping: shippingAmount,
+      taxAmount: taxAmount,
+      finalAmount: finalAmount,
       items: displayItems.map((i) => ({
         productId: i.productId,
         designSubmissionId: i.designSubmissionId ?? null,
@@ -386,6 +413,9 @@ function CheckoutPage() {
       }
       if (!onlineOrderRes.razorpayOrderId) {
         throw new Error("Failed to create Razorpay order ID on the server.");
+      }
+      if (!Number.isFinite(Number(onlineOrderRes.amount)) || Number(onlineOrderRes.amount) <= 0) {
+        throw new Error("Invalid payment amount received from order creation server.");
       }
 
       setPlacingText("Loading Razorpay Checkout...");

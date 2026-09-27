@@ -247,6 +247,10 @@ export type PlaceOrderInput = {
   shipping?: number;
   currency?: string;
   couponCode?: string | null;
+  subtotal?: number;
+  discountAmount?: number;
+  taxAmount?: number;
+  finalAmount?: number;
 };
 
 export const getMyOrders = createServerFn({ method: "GET" })
@@ -383,7 +387,11 @@ export const placeOrder = createServerFn({ method: "POST" })
       shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
+      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
+      subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
+      taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
+      finalAmount: Number.isFinite(Number(d?.finalAmount)) ? Number(d.finalAmount) : undefined,
       couponCode: d.couponCode ? str(d.couponCode, 50).toUpperCase().replace(/\s+/g, "") : null,
       items: d.items.map((i) => ({
         productId: typeof i.productId === "string" ? i.productId : null,
@@ -481,9 +489,10 @@ export const placeOrder = createServerFn({ method: "POST" })
         })),
         publicCfg?.config?.buy2get1Offer,
       );
-      b2g1Discount = b2g1Res.discountAmount;
+      b2g1Discount = Number(b2g1Res?.discountAmount) || 0;
     } catch (b2g1Err) {
       console.warn("[Orders] B2G1 calculation warning in placeOrder:", b2g1Err);
+      b2g1Discount = 0;
     }
 
     // Validate and calculate coupon discount if code was provided
@@ -492,6 +501,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     let eligibleAmount = itemsTotal;
 
     const authCtx = context as any;
+    const customerUserId = String(authCtx?.userId || "usr_guest");
 
     if (data.couponCode) {
       const couponRes = await validateAndCalculateCoupon({
@@ -504,22 +514,33 @@ export const placeOrder = createServerFn({ method: "POST" })
         })),
         subtotal: Math.max(0, itemsTotal - b2g1Discount),
         customerEmail: data.shippingEmail,
-        customerId: String(authCtx.userId),
+        customerId: customerUserId,
       });
 
       if (!couponRes.valid) {
         throw new Error(couponRes.error || "Invalid coupon code.");
       }
 
-      couponDiscount = couponRes.discountAmount;
+      couponDiscount = Number(couponRes?.discountAmount) || 0;
       appliedCoupon = couponRes.coupon;
       eligibleAmount = couponRes.eligibleSubtotal;
     }
 
-    const totalDiscount = b2g1Discount + couponDiscount;
-    const finalSubtotal = Math.max(0, itemsTotal - totalDiscount);
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
-    const total = finalSubtotal + shipping;
+    // Calculate discountAmount properly before it is used
+    const calculatedDiscountAmount = (Number(b2g1Discount) || 0) + (Number(couponDiscount) || 0);
+    const discountAmount = calculatedDiscountAmount ?? 0;
+    const safeDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+    const totalDiscount = safeDiscountAmount;
+
+    const subtotal = Number.isFinite(Number(itemsTotal)) ? Number(itemsTotal) : 0;
+    const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
+
+    // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
+    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
+    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const taxAmount = 0;
+    const total = Math.max(0, finalSubtotal + shipping + taxAmount);
+    const finalAmount = total;
 
     let discountCode = null;
     if (b2g1Discount > 0 && appliedCoupon) {
@@ -544,7 +565,7 @@ export const placeOrder = createServerFn({ method: "POST" })
           selectedSize: i.selectedSize,
           selectedColor: i.selectedColor,
         })),
-        String(authCtx.userId),
+        customerUserId,
       );
     } catch (err) {
       if (err instanceof InventoryError) {
@@ -580,9 +601,9 @@ export const placeOrder = createServerFn({ method: "POST" })
         shipping_charge, tax_amount, total_amount, currency, status, payment_status,
         payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
-        ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${totalDiscount}, ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
-        ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)}, ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal},
-        ${shipping}, 0, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
+        ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount}, ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
+        ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)}, ${eligibleAmount}, ${subtotal}, ${finalSubtotal},
+        ${shipping}, ${taxAmount}, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
         ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
     `;
@@ -594,8 +615,8 @@ export const placeOrder = createServerFn({ method: "POST" })
         INSERT INTO coupon_usage (
           id, coupon_id, order_id, customer_id, customer_email, coupon_code, discount_amount, order_amount, used_at
         ) VALUES (
-          ${usageId}, ${appliedCoupon.id}, ${orderId}, ${String(authCtx.userId)}, ${data.shippingEmail.toLowerCase().trim()},
-          ${appliedCoupon.code}, ${discountAmount}, ${total}, NOW()
+          ${usageId}, ${appliedCoupon.id}, ${orderId}, ${customerUserId}, ${data.shippingEmail.toLowerCase().trim()},
+          ${appliedCoupon.code}, ${couponDiscount}, ${total}, NOW()
         );
       `;
     }
@@ -627,8 +648,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       customerPhone: data.shippingPhone || null,
       shippingAddress: data.shippingAddress,
       paymentMethod: "Cash on Delivery (COD)",
-      subtotal: itemsTotal.toLocaleString("en-IN"),
-      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      subtotal: subtotal.toLocaleString("en-IN"),
+      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
       couponCode: appliedCoupon ? appliedCoupon.code : null,
       shippingCharge: shipping.toLocaleString("en-IN"),
       total: total.toLocaleString("en-IN"),
@@ -659,15 +680,15 @@ export const placeOrder = createServerFn({ method: "POST" })
         color: i.selectedColor ?? null,
         price: i.price.toLocaleString("en-IN"),
       })),
-      subtotal: itemsTotal.toLocaleString("en-IN"),
-      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      subtotal: subtotal.toLocaleString("en-IN"),
+      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
       discountCode: appliedCoupon ? appliedCoupon.code : null,
       shippingCharge: shipping.toLocaleString("en-IN"),
       total: total.toLocaleString("en-IN"),
       currency: "₹",
       paymentMethod: "Cash on Delivery (COD)",
       paymentStatus: "Confirmed",
-      userId: String(authCtx.userId),
+      userId: customerUserId,
     }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
 
     // Send store owner / admin notification via legacy template (fire and forget)
@@ -679,8 +700,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       customerPhone: data.shippingPhone || null,
       shippingAddress: data.shippingAddress,
       paymentMethod: "Cash on Delivery (COD)",
-      subtotal: itemsTotal.toLocaleString("en-IN"),
-      discountAmount: discountAmount > 0 ? discountAmount.toLocaleString("en-IN") : null,
+      subtotal: subtotal.toLocaleString("en-IN"),
+      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
       couponCode: appliedCoupon ? appliedCoupon.code : null,
       shippingCharge: shipping.toLocaleString("en-IN"),
       total: total.toLocaleString("en-IN"),
@@ -709,9 +730,13 @@ export const placeOrder = createServerFn({ method: "POST" })
       ok: true,
       orderId,
       orderNumber,
+      subtotal,
       total,
+      finalAmount,
       shipping,
-      discountAmount,
+      shippingAmount: shipping,
+      taxAmount,
+      discountAmount: safeDiscountAmount,
       couponCode: appliedCoupon?.code ?? null,
     };
   });
@@ -731,7 +756,11 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : 0,
+      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
+      subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
+      taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
+      finalAmount: Number.isFinite(Number(d?.finalAmount)) ? Number(d.finalAmount) : undefined,
       couponCode: d.couponCode ? str(d.couponCode, 50).toUpperCase().replace(/\s+/g, "") : null,
       items: d.items.map((i) => ({
         productId: typeof i.productId === "string" ? i.productId : null,
@@ -830,15 +859,18 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         })),
         publicCfg?.config?.buy2get1Offer,
       );
-      b2g1Discount = b2g1Res.discountAmount;
+      b2g1Discount = Number(b2g1Res?.discountAmount) || 0;
     } catch (b2g1Err) {
       console.warn("[Orders] B2G1 calculation warning in createOnlineOrder:", b2g1Err);
+      b2g1Discount = 0;
     }
 
     // Validate and calculate coupon discount if code was provided
     let couponDiscount = 0;
     let appliedCoupon: any = null;
     let eligibleAmount = itemsTotal;
+
+    const customerUserId = String(authCtx?.userId || "usr_guest");
 
     if (data.couponCode) {
       const couponRes = await validateAndCalculateCoupon({
@@ -851,22 +883,33 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         })),
         subtotal: Math.max(0, itemsTotal - b2g1Discount),
         customerEmail: data.shippingEmail,
-        customerId: String(authCtx.userId),
+        customerId: customerUserId,
       });
 
       if (!couponRes.valid) {
         throw new Error(couponRes.error || "Invalid coupon code.");
       }
 
-      couponDiscount = couponRes.discountAmount;
+      couponDiscount = Number(couponRes?.discountAmount) || 0;
       appliedCoupon = couponRes.coupon;
       eligibleAmount = couponRes.eligibleSubtotal;
     }
 
-    const totalDiscount = b2g1Discount + couponDiscount;
-    const finalSubtotal = Math.max(0, itemsTotal - totalDiscount);
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : 79;
-    const total = finalSubtotal + shipping;
+    // Calculate discountAmount properly before it is used
+    const calculatedDiscountAmount = (Number(b2g1Discount) || 0) + (Number(couponDiscount) || 0);
+    const discountAmount = calculatedDiscountAmount ?? 0;
+    const safeDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+    const totalDiscount = safeDiscountAmount;
+
+    const subtotal = Number.isFinite(Number(itemsTotal)) ? Number(itemsTotal) : 0;
+    const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
+
+    // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
+    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
+    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const taxAmount = 0;
+    const total = Math.max(0, finalSubtotal + shipping + taxAmount);
+    const finalAmount = total;
     const amountInPaise = Math.round(total * 100);
 
     let discountCode = null;
@@ -891,7 +934,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         notes: {
           orderId,
           orderNumber,
-          userId: String(authCtx.userId),
+          userId: customerUserId,
           customerEmail: data.shippingEmail,
         },
       });
@@ -910,10 +953,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
           payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
           shipping_email, shipping_phone, shipping_address
         ) VALUES (
-          ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${totalDiscount},
+          ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount},
           ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
           ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)},
-          ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
+          ${eligibleAmount}, ${subtotal}, ${finalSubtotal}, ${shipping}, ${taxAmount}, ${total}, ${data.currency},
           'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
           ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
         );
@@ -939,10 +982,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
             payment_method, stock_state, razorpay_order_id, payment_gateway, shipping_name,
             shipping_email, shipping_phone, shipping_address
           ) VALUES (
-            ${orderId}, ${String(authCtx.userId)}, ${orderNumber}, ${itemsTotal}, ${discountAmount},
+            ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount},
             ${appliedCoupon ? appliedCoupon.code : null}, ${appliedCoupon ? appliedCoupon.id : null},
             ${appliedCoupon ? appliedCoupon.discountType : null}, ${appliedCoupon ? appliedCoupon.discountValue : null},
-            ${eligibleAmount}, ${itemsTotal}, ${finalSubtotal}, ${shipping}, 0, ${total}, ${data.currency},
+            ${eligibleAmount}, ${subtotal}, ${finalSubtotal}, ${shipping}, ${taxAmount}, ${total}, ${data.currency},
             'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
             ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
           );
@@ -975,9 +1018,13 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       customerName: data.shippingName,
       customerEmail: data.shippingEmail,
       customerPhone: data.shippingPhone || "",
+      subtotal,
       total,
-      discountAmount,
+      finalAmount,
+      discountAmount: safeDiscountAmount,
       shipping,
+      shippingAmount: shipping,
+      taxAmount,
       couponCode: appliedCoupon?.code ?? null,
     };
   });
