@@ -29,8 +29,7 @@ import { BrandName } from "@/components/brand-name";
 import { ProductReviews } from "@/components/reviews/product-reviews";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { ProductHighlights } from "@/components/product/product-highlights";
-import { ProductSpecifications } from "@/components/product/product-specifications";
-import { ProductDescriptionAccordion } from "@/components/product/product-description-accordion";
+import { ProductDetailsUnified, renderMarkdownToHtml } from "@/components/product/product-details-unified";
 import { ProductOffersSection } from "@/components/product/product-offers-section";
 import { ProductSizeGuideModal } from "@/components/product/product-size-guide-modal";
 import { isItemEligibleForB2G1 } from "@/lib/promotions";
@@ -439,10 +438,18 @@ function ProductPage() {
 
         {/* Info */}
         <div className="flex flex-col min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-            {p.productType || <BrandName />}
-          </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">{p.title}</h1>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <span>{p.productType || <BrandName />}</span>
+            {p.sku && (
+              <>
+                <span className="text-border">•</span>
+                <span className="font-mono tracking-normal text-muted-foreground">SKU: {p.sku}</span>
+              </>
+            )}
+          </div>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground md:text-4xl lg:text-5xl leading-tight">
+            {p.title}
+          </h1>
           {/* Upgraded Pricing Block (Selling Price, Struck-through MRP, Discount Badge, Tax info) */}
           {(() => {
             const sellingPrice = Number(
@@ -626,7 +633,7 @@ function ProductPage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions - Standardized Button System (Primary & Secondary) */}
           <div className="mt-8 space-y-3">
             <button
               type="button"
@@ -637,13 +644,13 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex h-13 sm:h-14 w-full items-center justify-center gap-2 rounded-full bg-brand-red text-sm sm:text-base font-bold text-white transition-all hover:bg-brand-red/90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
             >
               {isLoading && !isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : justAdded ? (
                 <>
-                  <Check className="h-4 w-4" /> Added
+                  <Check className="h-4 w-4 stroke-[2.5]" /> Added
                 </>
               ) : currentVariant?.availableForSale && available > 0 ? (
                 addToCartLabel
@@ -660,7 +667,7 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-medium hover:bg-secondary disabled:opacity-50 transition-all cursor-pointer disabled:cursor-not-allowed"
+              className="flex h-13 sm:h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-background text-sm sm:text-base font-bold text-foreground hover:bg-secondary active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
             >
               {isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -670,15 +677,21 @@ function ProductPage() {
             </button>
           </div>
 
-          {/* Description */}
-          {p.description && (
-            <div className="mt-10 border-t border-border pt-8">
-              <h2 className="text-sm font-semibold uppercase tracking-widest">{detailsLabel}</h2>
-              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                {p.description}
-              </p>
-            </div>
-          )}
+          {/* Clean Overview Narrative (Stripped of duplicate wash care/fit/manufacture headers) */}
+          {(() => {
+            const rawDesc = (p.description || "").trim();
+            const storyNarrative = rawDesc.includes("###") ? rawDesc.split("###")[0].trim() : rawDesc;
+            if (!storyNarrative) return null;
+
+            return (
+              <div className="mt-8 border-t border-border pt-6">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{detailsLabel}</p>
+                <div className="mt-3 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                  {renderMarkdownToHtml(storyNarrative)}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
             <div>
@@ -700,16 +713,16 @@ function ProductPage() {
       {/* Key Highlights (Dynamic per product) */}
       <ProductHighlights highlights={p.highlights} productTitle={p.title} />
 
-      {/* Product Specifications (Dynamic per product) */}
-      <ProductSpecifications specifications={p.specifications} />
-
-      {/* Product Description Accordion [Manufacture, Care and Fit, Features, Manufacturing] */}
-      <ProductDescriptionAccordion
+      {/* Authoritative Single Product Details Section (Fit, Material, Manufacturing, Wash Care, Specifications, & Full Story) */}
+      <ProductDetailsUnified
         description={p.description}
         detailsHtml={p.detailsHtml}
         features={p.features}
         careInstructions={p.careInstructions}
         manufacturingInfo={p.manufacturingInfo}
+        specifications={p.specifications}
+        productTitle={p.title}
+        category={p.productType}
       />
 
       <ProductReviews productId={p.productId} productTitle={p.title} />

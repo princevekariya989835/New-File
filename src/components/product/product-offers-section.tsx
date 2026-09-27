@@ -85,6 +85,12 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
   const code = (offer.promoCode || "").toUpperCase();
   const type = offer.discountType;
 
+  // Unified clean card styling for all offers
+  const baseCardBg = "bg-card border-border/80 hover:border-foreground/30 hover:bg-secondary/20";
+  const baseIconBg = "bg-brand-red/10 text-brand-red";
+  const baseCodeBox = "border-border/80 bg-secondary/50 hover:bg-secondary hover:border-foreground/40 text-foreground";
+  const baseAction = "text-brand-red hover:underline";
+
   // Card 1: BUY 3 GET 20% OFF / BEST DEAL / RIOTOUS20
   if (
     title.includes("20%") ||
@@ -99,18 +105,14 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
       primaryBadgeClass: "bg-brand-red text-white",
       secondaryBadge: null,
       secondaryBadgeClass: "",
-      cardBgClass:
-        "bg-rose-50/70 border-rose-200/80 dark:bg-rose-950/20 dark:border-rose-900/40 hover:border-rose-300 dark:hover:border-rose-800",
-      iconBgClass:
-        "bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400",
-      codeBoxClass:
-        "border-rose-300 bg-white/95 dark:bg-rose-950/40 dark:border-rose-800 hover:border-brand-red",
-      actionClass:
-        "text-brand-red hover:text-red-700 dark:text-rose-400 dark:hover:text-rose-300",
+      cardBgClass: baseCardBg,
+      iconBgClass: baseIconBg,
+      codeBoxClass: baseCodeBox,
+      actionClass: baseAction,
     };
   }
 
-  // Card 2: BUY 2 GET 1 FREE / POPULAR / SPECIAL BUNDLE
+  // Card 2: BUY 2 GET 1 FREE / SPECIAL BUNDLE
   if (
     title.includes("GET 1") ||
     title.includes("BUY 2") ||
@@ -121,19 +123,14 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
     return {
       theme: "emerald",
       icon: Gift,
-      primaryBadge: "POPULAR",
-      primaryBadgeClass: "bg-emerald-600 text-white",
-      secondaryBadge: "SPECIAL BUNDLE",
-      secondaryBadgeClass:
-        "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40",
-      cardBgClass:
-        "bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-900/40 hover:border-emerald-300 dark:hover:border-emerald-800",
-      iconBgClass:
-        "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400",
-      codeBoxClass:
-        "border-emerald-300 bg-white/95 dark:bg-emerald-950/40 dark:border-emerald-800 hover:border-emerald-500",
-      actionClass:
-        "text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300",
+      primaryBadge: "SPECIAL BUNDLE",
+      primaryBadgeClass: "bg-secondary text-foreground border border-border/60",
+      secondaryBadge: null,
+      secondaryBadgeClass: "",
+      cardBgClass: baseCardBg,
+      iconBgClass: baseIconBg,
+      codeBoxClass: baseCodeBox,
+      actionClass: baseAction,
     };
   }
 
@@ -141,18 +138,14 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
   return {
     theme: "amber",
     icon: IndianRupee,
-    primaryBadge: null,
-    primaryBadgeClass: "",
+    primaryBadge: "INSTANT SAVINGS",
+    primaryBadgeClass: "bg-secondary text-foreground border border-border/60",
     secondaryBadge: null,
     secondaryBadgeClass: "",
-    cardBgClass:
-      "bg-amber-50/70 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-900/40 hover:border-amber-300 dark:hover:border-amber-800",
-    iconBgClass:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400",
-    codeBoxClass:
-      "border-amber-300 bg-white/95 dark:bg-amber-950/40 dark:border-amber-800 hover:border-amber-500",
-    actionClass:
-      "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300",
+    cardBgClass: baseCardBg,
+    iconBgClass: baseIconBg,
+    codeBoxClass: baseCodeBox,
+    actionClass: baseAction,
   };
 }
 
@@ -227,9 +220,9 @@ export function ProductOffersSection({
           <Tag className="h-4.5 w-4.5" />
         </div>
         <div className="space-y-0.5">
-          <h3 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
             Available Offers
-          </h3>
+          </h2>
           <p className="text-xs sm:text-sm text-muted-foreground font-normal">
             Save more on your favourite streetwear.
           </p>
@@ -476,7 +469,7 @@ export function ProductOffersSection({
                     <button
                       type="button"
                       onClick={() => setSelectedOffer(null)}
-                      className="rounded-xl bg-foreground px-5 py-2.5 text-xs font-bold text-background hover:opacity-90 transition-opacity cursor-pointer"
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-brand-red px-6 text-xs sm:text-sm font-bold text-white hover:bg-brand-red/90 transition-all cursor-pointer"
                     >
                       Got It
                     </button>

@@ -39,6 +39,7 @@ export interface CatalogVariant {
   availableForSale: boolean;
   selectedOptions: Array<{ name: string; value: string }>;
   image?: CatalogImage | null;
+  sku?: string | null;
 }
 
 export interface ProductHighlight {
@@ -81,6 +82,7 @@ export interface ProductOffer {
 export interface CatalogProductNode {
   id: string;
   productId: string;
+  sku?: string | null;
   title: string;
   description: string;
   detailsHtml?: string | null;
@@ -185,6 +187,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
           ...(color ? [{ name: "Color", value: color }] : []),
         ],
         image: isListing ? null : (optimizedImages[0] ? { url: optimizedImages[0], altText: row.name } : null),
+        sku: match?.sku ?? null,
       });
     }
   }
@@ -283,11 +286,49 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
   const manufacturingInfo = isListing ? undefined : (row.manufacturing_info || null);
   const sizeMeasurements = isListing ? undefined : (Array.isArray(row.size_measurements) ? row.size_measurements : []);
 
+  const rawName = String(row.name || "").trim();
+  const isNumericSkuName = /^\d{6,}$/.test(rawName);
+  let resolvedTitle = rawName;
+  let productSku: string | null = (row as any).sku || rows.find((r) => r.sku)?.sku || null;
+
+  if (isNumericSkuName) {
+    if (!productSku) {
+      productSku = rawName;
+    }
+    // Check fallback products for matching item
+    const matchingFallback = FALLBACK_PRODUCTS.find(
+      (f) =>
+        f.id === row.id ||
+        f.slug === row.slug ||
+        (f.category && row.category && f.category.toLowerCase() === row.category.toLowerCase()) ||
+        (Array.isArray(f.tags) && Array.isArray(row.tags) && f.tags.some((t) => row.tags.includes(t))),
+    );
+    if (matchingFallback?.name) {
+      resolvedTitle = matchingFallback.name;
+    } else if (row.tags && row.tags.length > 0 && !["Featured", "Trending"].includes(row.tags[0])) {
+      resolvedTitle = `RIOTOUS ${row.tags[0]} Oversized T-Shirt`;
+    } else if (row.category) {
+      resolvedTitle = `RIOTOUS Baki Hanma ${row.category.replace(/s$/, "")}`;
+    } else {
+      resolvedTitle = `RIOTOUS Baki Hanma Oversized T-Shirt`;
+    }
+  } else if (!productSku) {
+    const slugParts = (row.slug || "").split("-");
+    if (/^\d{6,}$/.test(slugParts[0])) {
+      productSku = slugParts[0];
+    } else if (rows.find((r) => r.sku)?.sku) {
+      productSku = rows.find((r) => r.sku)?.sku || null;
+    } else if (row.id) {
+      productSku = row.id.startsWith("prod_") ? row.id.slice(5, 15).toUpperCase() : row.id;
+    }
+  }
+
   return {
     node: {
       id: row.id,
       productId: row.id,
-      title: row.name,
+      sku: productSku,
+      title: resolvedTitle,
       description: isListing ? "" : (row.description ?? ""),
       detailsHtml: isListing ? null : (row.details_html ?? null),
       highlights: isListing ? undefined : highlights,
@@ -677,6 +718,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
                   'id', v.id,
                   'size', v.size,
                   'color', v.color,
+                  'sku', v.sku,
                   'stock_quantity', v.stock_quantity,
                   'reserved_stock', v.reserved_stock,
                   'low_stock_threshold', v.low_stock_threshold
@@ -755,6 +797,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
                   'id', v.id,
                   'size', v.size,
                   'color', v.color,
+                  'sku', v.sku,
                   'stock_quantity', v.stock_quantity,
                   'reserved_stock', v.reserved_stock,
                   'low_stock_threshold', v.low_stock_threshold
@@ -771,6 +814,21 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
       }
 
       if (!products || products.length === 0) {
+        const fallbackMatch = FALLBACK_PRODUCTS.find(
+          (fb) =>
+            fb.slug === handle ||
+            fb.id === handle ||
+            (handle.startsWith("125248856") && fb.slug.includes("baki")),
+        );
+        if (fallbackMatch) {
+          const result = toCatalogProduct(fallbackMatch as any).node;
+          if (handle.startsWith("125248856")) {
+            result.sku = "125248856";
+            result.handle = handle;
+          }
+          _productHandleCache.set(handleKey, { data: result, timestamp: Date.now() });
+          return result;
+        }
         _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
         return null;
       }
@@ -781,6 +839,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
             id: String(v.id),
             size: (v.size as string) || "",
             color: (v.color as string) || "",
+            sku: (v.sku as string) || null,
             stock_quantity: Number(v.stock_quantity || 0),
             reserved_stock: Number(v.reserved_stock || 0),
             low_stock_threshold: Number(v.low_stock_threshold || 2),
