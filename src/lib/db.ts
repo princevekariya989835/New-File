@@ -2732,7 +2732,7 @@ export async function ensureDbSchema() {
           store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
           store_logo TEXT DEFAULT '',
           store_email TEXT NOT NULL DEFAULT 'support@riotous.store',
-          store_phone TEXT NOT NULL DEFAULT '+91 98765 43210',
+          store_phone TEXT NOT NULL DEFAULT '+91 90998 66791',
           store_address TEXT DEFAULT 'Plot 42, Streetwear District, Surat, Gujarat 395006, India',
           business_gstin TEXT DEFAULT '24AAAAA0000A1Z5',
           currency_symbol TEXT NOT NULL DEFAULT '₹',

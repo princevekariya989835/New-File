@@ -198,7 +198,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       country_of_origin: "India",
       manufacturer: "RIOTOUS Apparel Co. Pvt Ltd, Tirupur, Tamil Nadu - 641602",
       marketed_by: "RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015",
-      customer_care: "care@riotous.in | +91 98765 43210 (Mon-Sat 10am-7pm)",
+      customer_care: "care@riotous.in | +91 90998 66791 (Mon-Sat 10am-7pm)",
     },
     size_measurements: [
       { size: "S", chest: 40, shoulder: 18.5, length: 28, sleeve: 8.5, toFitChest: 36 },
@@ -344,7 +344,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       country_of_origin: "India",
       manufacturer: "RIOTOUS Mills & Apparel Unit 2, Surat, Gujarat - 395002",
       marketed_by: "RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015",
-      customer_care: "support@riotous.in | +91 98765 43210 (Mon-Sat 10am-7pm)",
+      customer_care: "support@riotous.in | +91 90998 66791 (Mon-Sat 10am-7pm)",
     },
     size_measurements: [
       { size: "S", chest: 38, shoulder: 17, length: 27, sleeve: 7.5, toFitChest: 36 },
@@ -476,7 +476,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       country_of_origin: "India",
       manufacturer: "RIOTOUS Textiles Ltd, Coimbatore, Tamil Nadu - 641001",
       marketed_by: "RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015",
-      customer_care: "care@riotous.in | +91 98765 43210",
+      customer_care: "care@riotous.in | +91 90998 66791",
     },
     size_measurements: [
       { size: "S", chest: 39, shoulder: 17.5, length: 27.5, sleeve: 8, toFitChest: 36 },
@@ -763,7 +763,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       country_of_origin: "India",
       manufacturer: "RIOTOUS Dyehouse & Apparel, Tirupur, Tamil Nadu - 641602",
       marketed_by: "RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015",
-      customer_care: "support@riotous.in | +91 98765 43210",
+      customer_care: "support@riotous.in | +91 90998 66791",
     },
     size_measurements: [
       { size: "S", chest: 41, shoulder: 18.5, length: 28, sleeve: 8.5, toFitChest: 36 },
@@ -883,7 +883,7 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       country_of_origin: "India",
       manufacturer: "RIOTOUS Apparel Co. Pvt Ltd, Tirupur, Tamil Nadu - 641602",
       marketed_by: "RIOTOUS Brandworks LLP, Ahmedabad, Gujarat - 380015",
-      customer_care: "support@riotous.store | +91 98765 43210",
+      customer_care: "support@riotous.store | +91 90998 66791",
     },
     size_measurements: [
       { size: "S", chest: 42, shoulder: 20.5, length: 28, sleeve: 9, toFitChest: 36 },

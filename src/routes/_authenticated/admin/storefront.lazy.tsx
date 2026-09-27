@@ -1658,7 +1658,7 @@ export function AdminStorefrontManagement() {
                   <Input
                     id="soc-wa"
                     value={editorConfig.footer.socialLinks?.whatsapp || ""}
-                    placeholder="https://wa.me/919876543210"
+                    placeholder="https://wa.me/919099866791"
                     onChange={(e) =>
                       setEditorConfig({
                         ...editorConfig,
@@ -2159,7 +2159,7 @@ export function AdminStorefrontManagement() {
                 <Input
                   id="cnt-phone"
                   value={contactContent.phone}
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 90998 66791"
                   onChange={(e) =>
                     setEditorConfig({
                       ...editorConfig,

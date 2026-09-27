@@ -357,7 +357,7 @@ function AdminSettingsPage() {
                       id="store-phone"
                       value={form.storePhone || ""}
                       onChange={(e) => setForm({ ...form, storePhone: e.target.value })}
-                      placeholder="+91 98765 43210"
+                      placeholder="+91 90998 66791"
                     />
                   </div>
                 </div>
@@ -431,7 +431,7 @@ function AdminSettingsPage() {
                       id="acc-phone"
                       value={accountPhone}
                       onChange={(e) => setAccountPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
+                      placeholder="+91 90998 66791"
                     />
                   </div>
                 </div>

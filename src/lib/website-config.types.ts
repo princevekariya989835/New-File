@@ -289,7 +289,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMessage: "We are currently updating the store. Please check back shortly.",
     currencySymbol: "₹",
     contactEmail: "support@riotous.store",
-    contactPhone: "+91 98765 43211",
+    contactPhone: "+91 90998 66791",
     freeShippingThreshold: 1499,
   },
   settings: {
@@ -298,7 +298,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMode: false,
     currency: "INR",
     storeEmail: "support@riotous.store",
-    storePhone: "+91 98765 43211",
+    storePhone: "+91 90998 66791",
   },
   seo: {
     metaTitle: "RIOTOUS — We Don't Follow Trends. We Print Them.",
@@ -564,7 +564,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     description:
       "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.",
     email: "support@riotous.store",
-    phone: "+91 98765 43211",
+    phone: "+91 90998 66791",
     address: "Studio RIOTOUS, Surat, Gujarat, India",
     businessHours: "Mon — Sat · 10:00 — 19:00 IST",
     instagram: "@riotous_store",

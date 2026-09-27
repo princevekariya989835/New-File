@@ -17,9 +17,8 @@ function ContactPage() {
     cntTxt?.description ||
     "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.";
   const supportEmail = cntTxt?.email || config?.general?.contactEmail || "support@riotous.store";
-  const rawPhone = cntTxt?.phone || config?.general?.contactPhone || config?.settings?.storePhone || "+91 98765 43211";
-  const supportPhone =
-    rawPhone.includes("98980") || rawPhone.includes("90998") ? "+91 98765 43211" : rawPhone;
+  const rawPhone = cntTxt?.phone || config?.general?.contactPhone || config?.settings?.storePhone || "+91 90998 66791";
+  const supportPhone = rawPhone.includes("98765") ? "+91 90998 66791" : rawPhone;
   const businessHours = cntTxt?.businessHours || "Mon — Sat · 10:00 — 19:00 IST";
   const instagram = cntTxt?.instagram || "@riotous_store";
 

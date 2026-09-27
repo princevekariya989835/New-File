@@ -1552,7 +1552,7 @@ export function ProductManufacturingEditor({
           <Input
             value={info.customer_care ?? ""}
             onChange={(e) => update({ customer_care: e.target.value })}
-            placeholder="care@riotous.in | +91 98765 43210"
+            placeholder="care@riotous.in | +91 90998 66791"
             className="h-8 mt-1 text-xs"
           />
         </div>

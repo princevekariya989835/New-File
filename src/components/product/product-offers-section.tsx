@@ -65,7 +65,7 @@ export const DEFAULT_PRODUCT_OFFERS: ProductOffer[] = [
     termsAndConditions:
       "• Use promo code SAVE200 at checkout.\n• Flat ₹200 instant discount deducted from order total.\n• Applicable on all orders across the entire catalog.\n• Limited to one use per customer account.",
   },
-]; vvvv
+];
 
 interface OfferThemeConfig {
   theme: "rose" | "emerald" | "amber";

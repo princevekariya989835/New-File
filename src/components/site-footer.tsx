@@ -172,16 +172,14 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                   config?.settings?.storePhone ||
                   (config as any)?.general?.contactPhone) && (
                   <a
-                    href={`tel:${(footer?.contactPhone === "+91 98980 00000" || footer?.contactPhone === "+91 90998 66791" ? "+91 98765 43211" : footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone || "+91 98765 43211").replace(/\s+/g, "")}`}
+                    href={`tel:${(footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone || "+91 90998 66791").replace(/\s+/g, "")}`}
                     className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
                   >
                     <Phone className="h-4 w-4" />
-                    {footer?.contactPhone === "+91 98980 00000" || footer?.contactPhone === "+91 90998 66791"
-                      ? "+91 98765 43211"
-                      : footer?.contactPhone ||
-                        config?.settings?.storePhone ||
-                        (config as any)?.general?.contactPhone ||
-                        "+91 98765 43211"}
+                    {footer?.contactPhone ||
+                      config?.settings?.storePhone ||
+                      (config as any)?.general?.contactPhone ||
+                      "+91 90998 66791"}
                   </a>
                 )}
               </div>
