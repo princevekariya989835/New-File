@@ -478,7 +478,7 @@ function ProductPage() {
                   </p>
                 </div>
 
-                {/* SAVE EXTRA WITH THESE OFFERS */}
+                {/* AVAILABLE OFFERS */}
                 <ProductOffersSection
                   offers={p.offers}
                   sellingPrice={sellingPrice}
