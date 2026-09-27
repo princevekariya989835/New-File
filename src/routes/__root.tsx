@@ -206,10 +206,14 @@ function AppShell() {
   return (
     <div className="flex min-h-screen flex-col relative w-full max-w-full overflow-x-hidden md:overflow-x-visible">
       <SiteHeader />
-      <main className={isAuthPage ? "flex-1 flex flex-col w-full max-w-full" : "flex-1 pt-16 md:pt-20 w-full max-w-full"}>
+      <main className={isAuthPage ? "flex-1 flex flex-col w-full max-w-full" : isCheckoutPage ? "flex-1 pt-14 md:pt-20 w-full max-w-full" : "flex-1 pt-16 md:pt-20 w-full max-w-full"}>
         <Outlet />
       </main>
-      {!isAuthPage && <SiteFooter />}
+      {!isAuthPage && (
+        <div className={isCheckoutPage ? "hidden md:block" : ""}>
+          <SiteFooter />
+        </div>
+      )}
       {showMobileOfferBar && <MobileBottomOfferBar />}
       <Toaster position="top-center" />
     </div>

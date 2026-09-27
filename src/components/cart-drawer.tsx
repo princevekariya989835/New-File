@@ -15,7 +15,7 @@ import { formatPrice } from "@/lib/catalog";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { calculateBuy2Get1Discount } from "@/lib/promotions";
 
-export function CartDrawer() {
+export function CartDrawer({ trigger }: { trigger?: React.ReactNode } = {}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
@@ -58,18 +58,22 @@ export function CartDrawer() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button
-          suppressHydrationWarning
-          className="relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
-          aria-label={`Cart, ${totalItems} items`}
-        >
-          <ShoppingBag className="h-5 w-5" />
-          {totalItems > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
-              {totalItems}
-            </span>
-          )}
-        </button>
+        {trigger ? (
+          trigger
+        ) : (
+          <button
+            suppressHydrationWarning
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-brand-red hover:text-white"
+            aria-label={`Cart, ${totalItems} items`}
+          >
+            <ShoppingBag className="h-5 w-5" />
+            {totalItems > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
+                {totalItems}
+              </span>
+            )}
+          </button>
+        )}
       </SheetTrigger>
       <SheetContent className="flex h-full w-full flex-col sm:max-w-lg">
         <SheetHeader className="flex-shrink-0">
