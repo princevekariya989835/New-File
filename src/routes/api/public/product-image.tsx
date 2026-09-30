@@ -17,13 +17,14 @@ export const Route = createFileRoute("/api/public/product-image")({
         try {
           const url = new URL(request.url);
           const productId = url.searchParams.get("id");
+          const colorParam = url.searchParams.get("color");
           const idx = Math.max(0, parseInt(url.searchParams.get("idx") || "0", 10));
           const designId = url.searchParams.get("designId");
           const side = url.searchParams.get("side");
           const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
 
           const cacheKey = productId
-            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
+            ? `prod_${productId}_${colorParam ? `col_${encodeURIComponent(colorParam)}_` : ""}${idx}${widthParam ? `_w${widthParam}` : ""}`
             : designId
               ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
               : null;
@@ -66,6 +67,7 @@ export const Route = createFileRoute("/api/public/product-image")({
         try {
           const url = new URL(request.url);
           const productId = url.searchParams.get("id");
+          const colorParam = url.searchParams.get("color");
           const idx = Math.max(0, parseInt(url.searchParams.get("idx") || "0", 10));
           const designId = url.searchParams.get("designId");
           const side = url.searchParams.get("side");
@@ -73,7 +75,7 @@ export const Route = createFileRoute("/api/public/product-image")({
           const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
 
           const cacheKey = productId
-            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
+            ? `prod_${productId}_${colorParam ? `col_${encodeURIComponent(colorParam)}_` : ""}${idx}${widthParam ? `_w${widthParam}` : ""}`
             : designId
               ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
               : rawPath
@@ -109,15 +111,31 @@ export const Route = createFileRoute("/api/public/product-image")({
 
           if (productId) {
             const rows = await sql`
-              SELECT images FROM products WHERE id::text = ${productId} LIMIT 1
+              SELECT images, color_variants FROM products WHERE id::text = ${productId} LIMIT 1
             `;
             if (rows && rows.length > 0) {
-              const images = Array.isArray(rows[0].images)
-                ? rows[0].images
-                : typeof rows[0].images === "string"
-                  ? JSON.parse(rows[0].images)
-                  : [];
-              dataUrl = images[idx] || images[0] || null;
+              if (colorParam) {
+                const cvList = Array.isArray(rows[0].color_variants)
+                  ? rows[0].color_variants
+                  : typeof rows[0].color_variants === "string"
+                    ? JSON.parse(rows[0].color_variants)
+                    : [];
+                const matchCv = cvList.find(
+                  (c: any) =>
+                    String(c?.name || "").trim().toLowerCase() === colorParam.trim().toLowerCase(),
+                );
+                if (matchCv?.imageUrl) {
+                  dataUrl = matchCv.imageUrl;
+                }
+              }
+              if (!dataUrl) {
+                const images = Array.isArray(rows[0].images)
+                  ? rows[0].images
+                  : typeof rows[0].images === "string"
+                    ? JSON.parse(rows[0].images)
+                    : [];
+                dataUrl = images[idx] || images[0] || null;
+              }
             }
           } else if (designId) {
             const rows = await sql`

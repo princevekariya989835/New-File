@@ -10,6 +10,7 @@ import {
   type ProductOfferRow,
   type GarmentMeasurement,
   type ManufacturingInfo,
+  type ProductColorVariant,
 } from "./fallback-products";
 
 export {
@@ -21,6 +22,7 @@ export {
   type ProductOfferRow,
   type GarmentMeasurement,
   type ManufacturingInfo,
+  type ProductColorVariant,
 };
 
 export interface CatalogImage {
@@ -96,6 +98,7 @@ export interface CatalogProductNode {
   careInstructions?: string[];
   manufacturingInfo?: ManufacturingInfo | null;
   sizeMeasurements?: GarmentMeasurement[];
+  colorVariants?: ProductColorVariant[];
   mrp?: number | null;
   discountAmount?: number | null;
   discountPercentage?: number | null;
@@ -149,7 +152,6 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
   const DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"];
   const rawSizes = row.sizes?.length ? row.sizes : DEFAULT_SIZES;
   const sizes = rawSizes.filter(Boolean);
-  const colors = row.colors?.length ? row.colors : [null];
 
   // Optimize images: map base64 data URLs to binary streaming endpoint /api/public/product-image
   const rawImages = row.images && row.images.length > 0 ? row.images : ["/placeholder-tee.jpg"];
@@ -161,6 +163,33 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     }
     return img || "/placeholder-tee.jpg";
   });
+
+  const rawColorVariants: ProductColorVariant[] = Array.isArray(row.color_variants)
+    ? row.color_variants
+    : typeof (row as any).color_variants === "string"
+      ? (() => { try { return JSON.parse((row as any).color_variants); } catch { return []; } })()
+      : [];
+
+  const colorVariants: ProductColorVariant[] = rawColorVariants.map((cv, idx) => {
+    let img = cv.imageUrl || "";
+    if (typeof img === "string" && img.startsWith("data:image/")) {
+      img = `/api/public/product-image?id=${encodeURIComponent(row.id)}&color=${encodeURIComponent(cv.name)}&idx=${idx}&v=${vHash}`;
+    }
+    return {
+      id: cv.id || `cv_${idx}`,
+      name: cv.name,
+      hex: cv.hex || undefined,
+      imageUrl: img,
+    };
+  });
+
+  const effectiveColors = Array.from(
+    new Set([
+      ...(row.colors ?? []).filter(Boolean),
+      ...colorVariants.map((cv) => cv.name).filter(Boolean),
+    ]),
+  );
+  const colors = effectiveColors.length ? effectiveColors : [null];
 
   const variants: CatalogVariant[] = [];
   for (const color of colors) {
@@ -182,7 +211,16 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       const variantColor = color || match?.color || null;
       let variantImages: CatalogImage[] = [];
 
-      if (variantColor && optimizedImages.length > 1) {
+      // Check if this variant color matches an uploaded color variant
+      const matchedCv = variantColor
+        ? colorVariants.find((cv) => cv.name.toLowerCase() === variantColor.toLowerCase().trim())
+        : null;
+
+      if (matchedCv?.imageUrl) {
+        variantImages = [{ url: matchedCv.imageUrl, altText: `${row.name} - ${variantColor}` }];
+      } else if (match?.image_url) {
+        variantImages = [{ url: match.image_url, altText: `${row.name} - ${variantColor}` }];
+      } else if (variantColor && optimizedImages.length > 1) {
         const cLower = variantColor.toLowerCase().trim();
         const matches = optimizedImages.filter((url) => {
           const uLower = url.toLowerCase();
@@ -242,7 +280,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 
   const options = [
     { name: "Size", values: sizes },
-    ...(row.colors?.length ? [{ name: "Color", values: row.colors }] : []),
+    ...(effectiveColors.length ? [{ name: "Color", values: effectiveColors }] : []),
   ];
 
   const rawHighlights = isListing ? [] : (row.highlights ?? []);
@@ -362,6 +400,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
         })),
       },
       variants: { edges: variants.map((node) => ({ node })) },
+      colorVariants,
       options,
     },
   };
@@ -515,13 +554,15 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           WHEN jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0 THEN jsonb_build_array(p.images->0)
           ELSE '[]'::jsonb 
         END AS images,
-        p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         COALESCE(
           (
             SELECT jsonb_agg(jsonb_build_object(
               'id', v.id,
               'size', v.size,
               'color', v.color,
+              'color_hex', v.color_hex,
+              'image_url', v.image_url,
               'stock_quantity', v.stock_quantity,
               'reserved_stock', v.reserved_stock,
               'low_stock_threshold', v.low_stock_threshold
@@ -567,6 +608,11 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
         : typeof p.colors === "string"
           ? JSON.parse(p.colors)
           : [],
+      color_variants: Array.isArray(p.color_variants)
+        ? p.color_variants
+        : typeof p.color_variants === "string"
+          ? JSON.parse(p.color_variants)
+          : [],
       stock_quantity: Number(p.stock_quantity || 0),
       is_active: Boolean(p.is_active),
       tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
@@ -576,6 +622,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
             id: String(v.id),
             size: (v.size as string) || "",
             color: (v.color as string) || "",
+            color_hex: (v.color_hex as string) || null,
+            image_url: (v.image_url as string) || null,
             stock_quantity: Number(v.stock_quantity || 0),
             reserved_stock: Number(v.reserved_stock || 0),
             low_stock_threshold: Number(v.low_stock_threshold || 2),
@@ -592,8 +640,9 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     const rowsJoined = await sql`
       SELECT 
         p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
-        p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         v.id AS variant_id, v.size AS variant_size, v.color AS variant_color,
+        v.color_hex AS variant_color_hex, v.image_url AS variant_image_url,
         v.stock_quantity AS variant_stock_quantity, v.reserved_stock AS variant_reserved_stock,
         v.low_stock_threshold AS variant_low_stock_threshold
       FROM (
@@ -640,6 +689,11 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
             : typeof row.colors === "string"
               ? JSON.parse(row.colors)
               : [],
+          color_variants: Array.isArray(row.color_variants)
+            ? row.color_variants
+            : typeof row.color_variants === "string"
+              ? JSON.parse(row.color_variants)
+              : [],
           stock_quantity: Number(row.stock_quantity || 0),
           is_active: Boolean(row.is_active),
           tags: Array.isArray(row.tags) ? row.tags : typeof row.tags === "string" ? JSON.parse(row.tags) : [],
@@ -653,6 +707,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           id: String(row.variant_id),
           size: (row.variant_size as string) || "",
           color: (row.variant_color as string) || "",
+          color_hex: (row.variant_color_hex as string) || null,
+          image_url: (row.variant_image_url as string) || null,
           stock_quantity: Number(row.variant_stock_quantity || 0),
           reserved_stock: Number(row.variant_reserved_stock || 0),
           low_stock_threshold: Number(row.variant_low_stock_threshold || 2),
@@ -719,13 +775,15 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
           SELECT 
             p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
             p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
-            p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(
                   'id', v.id,
                   'size', v.size,
                   'color', v.color,
+                  'color_hex', v.color_hex,
+                  'image_url', v.image_url,
                   'sku', v.sku,
                   'stock_quantity', v.stock_quantity,
                   'reserved_stock', v.reserved_stock,
@@ -798,13 +856,15 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
         // Fallback query if new columns or tables are resolving
         products = await sql`
           SELECT 
-            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(
                   'id', v.id,
                   'size', v.size,
                   'color', v.color,
+                  'color_hex', v.color_hex,
+                  'image_url', v.image_url,
                   'sku', v.sku,
                   'stock_quantity', v.stock_quantity,
                   'reserved_stock', v.reserved_stock,
@@ -847,6 +907,8 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
             id: String(v.id),
             size: (v.size as string) || "",
             color: (v.color as string) || "",
+            color_hex: (v.color_hex as string) || null,
+            image_url: (v.image_url as string) || null,
             sku: (v.sku as string) || null,
             stock_quantity: Number(v.stock_quantity || 0),
             reserved_stock: Number(v.reserved_stock || 0),
@@ -930,6 +992,11 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
           ? p.colors
           : typeof p.colors === "string"
             ? JSON.parse(p.colors)
+            : [],
+        color_variants: Array.isArray(p.color_variants)
+          ? p.color_variants
+          : typeof p.color_variants === "string"
+            ? JSON.parse(p.color_variants)
             : [],
         stock_quantity: Number(p.stock_quantity || 0),
         is_active: Boolean(p.is_active),

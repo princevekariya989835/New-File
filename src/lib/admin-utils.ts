@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/auth";
+import type { ProductColorVariant } from "./fallback-products";
 
 export type AdminCtx = {
   userId?: string;
@@ -266,6 +267,7 @@ export type ProductInput = {
   isTaxInclusive?: boolean;
   sizes?: string[];
   colors?: string[];
+  colorVariants?: ProductColorVariant[];
   tags?: string[];
   category?: string;
   stock?: number;
@@ -447,6 +449,21 @@ export function normalizeProductInput(d: ProductInput) {
       toFitChest: m.toFitChest !== undefined && m.toFitChest !== null ? String(m.toFitChest).trim() : undefined,
     }));
 
+  // Sanitize color variants
+  const rawColorVariants = Array.isArray(d.colorVariants) ? d.colorVariants : [];
+  const colorVariants: ProductColorVariant[] = rawColorVariants
+    .filter((cv) => cv && typeof cv === "object" && String(cv.name ?? "").trim().length > 0)
+    .map((cv, idx) => ({
+      id: cv.id ? String(cv.id) : `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: String(cv.name).trim(),
+      hex: cv.hex ? String(cv.hex).trim() : undefined,
+      imageUrl: String(cv.imageUrl || "").trim(),
+    }));
+
+  const variantColorNames = colorVariants.map((cv) => cv.name);
+  const rawColors = cleanList([...(d.colors ?? []), ...variantColorNames]);
+  const colors = rawColors.length > 0 ? rawColors : ["Black"];
+
   return {
     name: title,
     description: d.description?.trim() ? d.description.trim() : null,
@@ -457,7 +474,8 @@ export function normalizeProductInput(d: ProductInput) {
     is_tax_inclusive: isTaxInclusive,
     images: images.length > 0 ? images : ["/placeholder-tee.jpg"],
     sizes,
-    colors: cleanList(d.colors).length > 0 ? cleanList(d.colors) : ["Black"],
+    colors,
+    color_variants: colorVariants,
     tags: cleanList(d.tags),
     category: d.category?.trim() ? d.category.trim() : "Oversized Tees",
     stock_quantity: totalStock,
@@ -529,6 +547,7 @@ export async function syncProductVariants(
   colors: string[],
   distributeTotal?: number,
   sizeStock?: Record<string, number>,
+  colorVariants?: ProductColorVariant[],
 ) {
   const sql = getSql();
   const s = sizes.length ? sizes : [""];
@@ -555,23 +574,37 @@ export async function syncProductVariants(
     Object.values(sizeStock).some((val) => val > 0),
   );
 
+  const getCvData = (colorName: string) => {
+    const cv = colorVariants?.find(
+      (c) => c.name.toLowerCase() === (colorName || "").toLowerCase().trim(),
+    );
+    return {
+      colorHex: cv?.hex || null,
+      imageUrl: cv?.imageUrl || null,
+    };
+  };
+
   if (hasExplicitSizeStock) {
     // 1. Explicit per-size allocation
     for (const item of desired) {
       const k = key(item);
       const targetQty = Math.max(0, Math.round(Number(sizeStock![item.size]) || 0));
       const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
       if (ex) {
         await sql`
           UPDATE product_variants
-          SET stock_quantity = ${targetQty}, updated_at = NOW()
+          SET stock_quantity = ${targetQty},
+              color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = COALESCE(${imageUrl}, image_url),
+              updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty}, ${colorHex}, ${imageUrl});
         `;
       }
     }
@@ -586,17 +619,21 @@ export async function syncProductVariants(
       const k = key(item);
       const targetQty = base + (i < rem ? 1 : 0);
       const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
       if (ex) {
         await sql`
           UPDATE product_variants
-          SET stock_quantity = ${targetQty}, updated_at = NOW()
+          SET stock_quantity = ${targetQty},
+              color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = COALESCE(${imageUrl}, image_url),
+              updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty}, ${colorHex}, ${imageUrl});
         `;
       }
     }
@@ -606,9 +643,10 @@ export async function syncProductVariants(
       const k = key(item);
       if (!existingMap.has(k)) {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        const { colorHex, imageUrl } = getCvData(item.color);
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0);
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0, ${colorHex}, ${imageUrl});
         `;
       }
     }

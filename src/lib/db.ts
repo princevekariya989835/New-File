@@ -11,6 +11,7 @@ const _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
   sizes: [...p.sizes],
   colors: [...p.colors],
   tags: [...p.tags],
+  color_variants: p.color_variants ? [...p.color_variants] : [],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }));
@@ -19,6 +20,8 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
   (p.product_variants || []).map((v) => ({
     ...v,
     product_id: p.id,
+    color_hex: v.color_hex || null,
+    image_url: v.image_url || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   })),
@@ -2135,6 +2138,9 @@ export async function ensureDbSchema() {
             `ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'::jsonb`,
             `ALTER TABLE products ADD COLUMN IF NOT EXISTS manufacturing_info JSONB DEFAULT '{}'::jsonb`,
             `ALTER TABLE products ADD COLUMN IF NOT EXISTS size_measurements JSONB DEFAULT '[]'::jsonb`,
+            `ALTER TABLE products ADD COLUMN IF NOT EXISTS color_variants JSONB DEFAULT '[]'::jsonb`,
+            `ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS color_hex TEXT`,
+            `ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS image_url TEXT`,
             `UPDATE products SET mrp = compare_at_price WHERE mrp IS NULL AND compare_at_price IS NOT NULL`,
             `UPDATE products SET compare_at_price = mrp WHERE compare_at_price IS NULL AND mrp IS NOT NULL`,
           );
@@ -2198,6 +2204,7 @@ export async function ensureDbSchema() {
           category TEXT,
           sizes JSONB NOT NULL DEFAULT '[]'::jsonb,
           colors JSONB NOT NULL DEFAULT '[]'::jsonb,
+          color_variants JSONB NOT NULL DEFAULT '[]'::jsonb,
           stock_quantity INTEGER NOT NULL DEFAULT 0,
           reserved_stock INTEGER NOT NULL DEFAULT 0,
           low_stock_threshold INTEGER NOT NULL DEFAULT 2,
@@ -2215,6 +2222,8 @@ export async function ensureDbSchema() {
           product_id TEXT,
           size TEXT,
           color TEXT,
+          color_hex TEXT,
+          image_url TEXT,
           sku TEXT,
           stock_quantity INTEGER NOT NULL DEFAULT 0,
           reserved_stock INTEGER NOT NULL DEFAULT 0,

@@ -186,6 +186,7 @@ function ProductsPage() {
             category: editing.category ?? "",
             images: editing.images,
             colors: editing.colors,
+            colorVariants: editing.colorVariants ?? [],
             sizes: editing.sizes,
             tags: editing.tags.filter((t) => t !== ARCHIVED_TAG),
             stock: String(editing.totalInventory),

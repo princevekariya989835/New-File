@@ -29,7 +29,7 @@ import {
   type ProductSpecificationItem,
 } from "./product-details-editor";
 import type { ProductOfferInput } from "@/lib/admin-utils";
-import type { GarmentMeasurement, ManufacturingInfo } from "@/lib/fallback-products";
+import type { GarmentMeasurement, ManufacturingInfo, ProductColorVariant } from "@/lib/fallback-products";
 
 export {
   KeyHighlightsEditor,
@@ -41,7 +41,7 @@ export {
   ProductCareEditor,
   ProductManufacturingEditor,
 };
-export type { ProductHighlightItem, ProductSpecificationItem };
+export type { ProductHighlightItem, ProductSpecificationItem, ProductColorVariant };
 
 export const ARCHIVED_TAG = "__archived";
 
@@ -55,6 +55,7 @@ export type ProductFormValues = {
   category: string;
   images: string[];
   colors: string[];
+  colorVariants?: ProductColorVariant[];
   sizes: string[];
   sizeStock?: Record<string, number>;
   tags: string[];
@@ -388,6 +389,437 @@ export function ImageManager({
   );
 }
 
+const COLOR_PRESETS = [
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Red", hex: "#E31B23" },
+  { name: "Maroon", hex: "#7B1113" },
+  { name: "Navy Blue", hex: "#1B2A4A" },
+  { name: "Olive Green", hex: "#556B2F" },
+  { name: "Charcoal", hex: "#2D2D2D" },
+  { name: "Beige", hex: "#D4C5B9" },
+];
+
+export function ProductColorVariantsEditor({
+  colorVariants = [],
+  onChange,
+}: {
+  colorVariants: ProductColorVariant[];
+  onChange: (next: ProductColorVariant[]) => void;
+}) {
+  const [draftName, setDraftName] = useState("");
+  const [draftHex, setDraftHex] = useState("#000000");
+  const [draftImage, setDraftImage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [replacingVariantId, setReplacingVariantId] = useState<string | null>(null);
+
+  const handleFileUpload = async (file: File, forVariantId?: string) => {
+    try {
+      setUploading(true);
+      const res = await uploadProductImage(file);
+      if (res) {
+        if (forVariantId) {
+          onChange(
+            colorVariants.map((v) => ((v.id || v.name) === forVariantId ? { ...v, imageUrl: res } : v)),
+          );
+          toast.success("Color image replaced successfully");
+        } else {
+          setDraftImage(res);
+          toast.success("Color image uploaded");
+        }
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to upload image");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (replaceFileInputRef.current) replaceFileInputRef.current.value = "";
+      setReplacingVariantId(null);
+    }
+  };
+
+  const handleAddUrl = () => {
+    const trimmed = urlDraft.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/")) {
+      toast.error("Please enter a valid image URL");
+      return;
+    }
+    setDraftImage(trimmed);
+    setUrlDraft("");
+    setShowUrlInput(false);
+    toast.success("Image URL set");
+  };
+
+  const handleSave = () => {
+    const name = draftName.trim();
+    if (!name) {
+      toast.error("Please enter a color name (e.g. Black, White, Red)");
+      return;
+    }
+    const hex = draftHex.trim() || "#000000";
+    const imageUrl = draftImage.trim();
+    if (!imageUrl) {
+      toast.error("Please upload an image specifically for this color");
+      return;
+    }
+
+    if (editingId) {
+      onChange(
+        colorVariants.map((v) =>
+          (v.id || v.name) === editingId ? { ...v, name, hex, imageUrl } : v,
+        ),
+      );
+      toast.success(`Updated color "${name}"`);
+      setEditingId(null);
+    } else {
+      const newVariant: ProductColorVariant = {
+        id: `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        hex,
+        imageUrl,
+      };
+      onChange([...colorVariants, newVariant]);
+      toast.success(`Added color "${name}"`);
+    }
+
+    setDraftName("");
+    setDraftHex("#000000");
+    setDraftImage("");
+    setShowUrlInput(false);
+    setUrlDraft("");
+  };
+
+  const startEdit = (v: ProductColorVariant) => {
+    setEditingId(v.id || v.name);
+    setDraftName(v.name);
+    setDraftHex(v.hex || "#000000");
+    setDraftImage(v.imageUrl || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraftName("");
+    setDraftHex("#000000");
+    setDraftImage("");
+    setShowUrlInput(false);
+    setUrlDraft("");
+  };
+
+  const handleDelete = (idOrName: string) => {
+    onChange(colorVariants.filter((v) => (v.id || v.name) !== idOrName));
+    toast.success("Color removed");
+    if (editingId === idOrName) {
+      cancelEdit();
+    }
+  };
+
+  const triggerReplace = (variantId: string) => {
+    setReplacingVariantId(variantId);
+    replaceFileInputRef.current?.click();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+      />
+      <input
+        type="file"
+        ref={replaceFileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) =>
+          e.target.files?.[0] && replacingVariantId && handleFileUpload(e.target.files[0], replacingVariantId)
+        }
+      />
+
+      {/* Editor Box */}
+      <div className="rounded-xl border border-border/80 bg-background/60 p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-bold uppercase tracking-wider text-foreground">
+            {editingId ? "Edit Color Variant" : "Add Color Variant"}
+          </Label>
+          {editingId && (
+            <Button type="button" variant="ghost" size="sm" onClick={cancelEdit} className="h-7 text-xs">
+              Cancel Edit
+            </Button>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Color Name */}
+          <div>
+            <Label className="text-xs font-medium">Color Name *</Label>
+            <Input
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              placeholder="e.g. Black, White, Red, Navy Blue"
+              className="mt-1 h-9 text-sm"
+            />
+          </div>
+
+          {/* Color Hex & Swatch */}
+          <div>
+            <Label className="text-xs font-medium">Color Swatch / Hex Value</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="color"
+                value={draftHex.startsWith("#") && draftHex.length === 7 ? draftHex : "#000000"}
+                onChange={(e) => setDraftHex(e.target.value)}
+                className="h-9 w-10 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                title="Choose color"
+              />
+              <Input
+                value={draftHex}
+                onChange={(e) => setDraftHex(e.target.value)}
+                placeholder="#000000"
+                className="h-9 text-xs font-mono uppercase"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick presets */}
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Quick Presets:</Label>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {COLOR_PRESETS.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => {
+                  setDraftName(p.name);
+                  setDraftHex(p.hex);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full border border-black/20 shrink-0"
+                  style={{ backgroundColor: p.hex }}
+                />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Color-specific Image Upload */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">
+              Image Specifically For This Color *
+            </Label>
+            <button
+              type="button"
+              onClick={() => setShowUrlInput((v) => !v)}
+              className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <LinkIcon className="h-3 w-3" />
+              {showUrlInput ? "Upload file instead" : "Use image URL"}
+            </button>
+          </div>
+
+          {showUrlInput ? (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Paste image link (https://...)"
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddUrl();
+                  }
+                }}
+                className="h-9 text-sm"
+              />
+              <Button type="button" size="sm" onClick={handleAddUrl} className="shrink-0 gap-1">
+                Set URL
+              </Button>
+            </div>
+          ) : draftImage ? (
+            <div className="flex items-center gap-3 rounded-lg border border-border/80 bg-card p-2.5">
+              <img
+                src={draftImage}
+                alt="Color variant preview"
+                className="h-16 w-16 rounded-md object-contain border bg-secondary/30 shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">
+                  Image attached for {draftName || "this color"}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  This image will be shown whenever this color is selected.
+                </p>
+                <div className="mt-1.5 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    Replace Image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => setDraftImage("")}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-secondary/20 p-5 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/40"
+            >
+              {uploading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" /> Uploading image…
+                </div>
+              ) : (
+                <>
+                  <Upload className="h-6 w-6 text-muted-foreground/80 mb-1" />
+                  <span className="text-xs font-semibold text-foreground">
+                    Upload image for this color variant
+                  </span>
+                  <span className="text-[11px] text-muted-foreground mt-0.5">
+                    Click to browse or drag & drop PNG, JPG, or WebP
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Add/Update Button */}
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={uploading}
+            className="gap-1.5 font-medium text-xs bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
+          >
+            {editingId ? (
+              <>Update Color Variant</>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5" /> Add Color Variant
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* List of Configured Color Variants */}
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Configured Colors ({colorVariants.length})
+        </Label>
+
+        {colorVariants.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+            No color variants added yet. Add colors above with their dedicated uploaded photos.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {colorVariants.map((v) => {
+              const itemKey = v.id || v.name;
+              return (
+                <div
+                  key={itemKey}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-7 w-7 rounded-full border border-black/20 shadow-xs shrink-0"
+                      style={{ backgroundColor: v.hex || "#333333" }}
+                      title={v.hex || v.name}
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{v.name}</span>
+                        {v.hex && (
+                          <span className="text-[11px] font-mono uppercase rounded bg-secondary px-2 py-0.5 text-muted-foreground">
+                            {v.hex}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        Dedicated photo attached
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {v.imageUrl && (
+                      <img
+                        src={v.imageUrl}
+                        alt={v.name}
+                        className="h-12 w-12 rounded-lg border bg-secondary/30 object-contain shrink-0"
+                      />
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => triggerReplace(itemKey)}
+                        disabled={uploading}
+                        className="h-7 px-2 text-xs gap-1 cursor-pointer"
+                        title="Replace this color's image"
+                      >
+                        <Upload className="h-3 w-3" /> Replace Image
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => startEdit(v)}
+                        className="h-7 px-2 text-xs cursor-pointer"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(itemKey)}
+                        className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const EMPTY_FORM: ProductFormValues = {
   title: "",
   description: "",
@@ -398,6 +830,7 @@ const EMPTY_FORM: ProductFormValues = {
   category: "Oversized Tees",
   images: [],
   colors: ["Black"],
+  colorVariants: [],
   sizes: ["S", "M", "L", "XL", "XXL"],
   tags: ["Featured"],
   stock: "25",
@@ -426,6 +859,7 @@ export function ProductForm({
 }) {
   const [values, setValues] = useState<ProductFormValues>(() => ({
     ...(initial ?? EMPTY_FORM),
+    colorVariants: initial?.colorVariants ?? [],
     mrp: initial?.mrp ?? "",
     isTaxInclusive: initial?.isTaxInclusive !== false,
     highlights: initial?.highlights ?? [],
@@ -719,11 +1153,36 @@ export function ProductForm({
         <ImageManager images={values.images} onChange={(v) => set("images", v)} />
       </div>
 
-      {/* 5. VARIANTS / SIZES */}
+      {/* 5. PRODUCT COLORS / COLOR VARIANTS */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+              5
+            </span>
+            Product Colors / Color Variants
+          </h4>
+          <span className="text-xs text-muted-foreground">
+            Each color has its own actual uploaded image for storefront swatches.
+          </span>
+        </div>
+        <ProductColorVariantsEditor
+          colorVariants={values.colorVariants ?? []}
+          onChange={(nextCv) => {
+            set("colorVariants", nextCv);
+            const cvNames = nextCv.map((c) => c.name.trim()).filter(Boolean);
+            if (cvNames.length > 0) {
+              set("colors", Array.from(new Set([...values.colors, ...cvNames])));
+            }
+          }}
+        />
+      </div>
+
+      {/* 6. VARIANTS / SIZES */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-            5
+            6
           </span>
           Variants & Options
         </h4>

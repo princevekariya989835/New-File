@@ -231,6 +231,17 @@ function ProductPage() {
 
   // Gallery is derived strictly from the selected variant/color. Only images belonging to this variant appear.
   const galleryImages = useMemo(() => {
+    // 1. If product has dedicated colorVariants, use the uploaded image for the selected color as source of truth
+    if (selectedColor && p.colorVariants && p.colorVariants.length > 0) {
+      const matchCv = p.colorVariants.find(
+        (cv) => cv.name.toLowerCase().trim() === selectedColor.toLowerCase().trim() && cv.imageUrl,
+      );
+      if (matchCv && matchCv.imageUrl) {
+        const cvImg = { node: { url: matchCv.imageUrl, altText: `${displayTitle} - ${matchCv.name}` } };
+        const others = p.images.edges.filter((e) => e.node.url !== matchCv.imageUrl);
+        return [cvImg, ...others];
+      }
+    }
     if (selectedVariant?.images && selectedVariant.images.length > 0) {
       return selectedVariant.images.map((img) => ({
         node: { url: img.url, altText: img.altText ?? displayTitle },
@@ -255,7 +266,7 @@ function ProductPage() {
       if (matched.length > 0) return matched;
     }
     return p.images.edges;
-  }, [selectedVariant, selectedColor, p.images.edges, displayTitle]);
+  }, [p.colorVariants, selectedVariant, selectedColor, p.images.edges, displayTitle]);
 
   useEffect(() => {
     setActiveImage(0);
@@ -622,7 +633,8 @@ function ProductPage() {
                       {opt.values.map((v) => {
                         const active = (selected[opt.name] || opt.values[0]) === v;
                         const inStock = optionAvailable(opt.name, v);
-                        const colorHex = getColorHex(v);
+                        const matchCv = p.colorVariants?.find((cv) => cv.name.toLowerCase().trim() === v.toLowerCase().trim());
+                        const colorHex = matchCv?.hex || getColorHex(v);
 
                         return (
                           <button

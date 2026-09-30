@@ -1,7 +1,16 @@
+export interface ProductColorVariant {
+  id?: string;
+  name: string;
+  hex?: string;
+  imageUrl: string;
+}
+
 export interface VariantRow {
   id: string;
   size: string;
   color: string;
+  color_hex?: string;
+  image_url?: string;
   sku?: string;
   stock_quantity: number;
   reserved_stock: number;
@@ -95,6 +104,7 @@ export interface ProductRow {
   care_instructions?: string[];
   manufacturing_info?: ManufacturingInfo;
   size_measurements?: GarmentMeasurement[];
+  color_variants?: ProductColorVariant[];
 }
 
 export const FALLBACK_PRODUCTS: ProductRow[] = [

@@ -23,9 +23,9 @@ import {
   type InventoryTransactionRecord,
 } from "@/lib/inventory.service";
 import { resolveOrderItemImage } from "@/lib/orders.functions";
-import type { ProductHighlight, ProductSpecification } from "@/lib/catalog";
+import type { ProductHighlight, ProductSpecification, ProductColorVariant } from "@/lib/catalog";
 
-export type { ProductInput, InventoryTransactionRecord, ProductHighlight, ProductSpecification };
+export type { ProductInput, InventoryTransactionRecord, ProductHighlight, ProductSpecification, ProductColorVariant };
 
 export type AdminProduct = {
   id: string;
@@ -50,6 +50,7 @@ export type AdminProduct = {
   sizeMeasurements?: any[];
   sizes: string[];
   colors: string[];
+  colorVariants?: ProductColorVariant[];
   tags: string[];
   category: string | null;
   sizeStock?: Record<string, number>;
@@ -141,7 +142,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
       rows = await sql`
         SELECT 
           p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
-          p.images, p.sizes, p.colors, p.tags, p.stock_quantity, p.is_active, p.category,
+          p.images, p.sizes, p.colors, p.color_variants, p.tags, p.stock_quantity, p.is_active, p.category,
           p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
           COALESCE(
             (
@@ -224,7 +225,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
       }
     } catch {
       rows = await sql`
-        SELECT id, name, slug, description, price, images, sizes, colors, tags, stock_quantity, is_active, category
+        SELECT id, name, slug, description, price, images, sizes, colors, color_variants, tags, stock_quantity, is_active, category
         FROM products
         ORDER BY updated_at DESC
       `;
@@ -328,6 +329,11 @@ export const adminListProducts = createServerFn({ method: "GET" })
         sizeMeasurements: Array.isArray(p.size_measurements) ? p.size_measurements : [],
         sizes: Array.isArray(p.sizes) ? p.sizes : [],
         colors: Array.isArray(p.colors) ? p.colors : [],
+        colorVariants: Array.isArray(p.color_variants)
+          ? p.color_variants
+          : typeof p.color_variants === "string"
+            ? JSON.parse(p.color_variants)
+            : [],
         tags: Array.isArray(p.tags) ? p.tags : [],
         category: p.category ?? null,
         sizeStock: sizeStockByProd.get(String(p.id)) || {},
@@ -575,11 +581,11 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
+            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
           ) VALUES (
             ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
             ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
-            ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
+            ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
             ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb
           );
@@ -589,11 +595,11 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
         if (msg.includes("details_html") || msg.includes("base_price") || msg.includes("mrp") || msg.includes("features")) {
           await sql`
             INSERT INTO products (
-              id, name, slug, description, price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+              id, name, slug, description, price, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags
             ) VALUES (
               ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, 'INR',
               ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
-              ${JSON.stringify(values.colors)}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
+              ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
             );
           `;
         } else {
@@ -646,6 +652,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       values.colors,
       values.stock_quantity,
       values.sizeStock,
+      values.color_variants,
     );
 
     // Save highlights if provided
@@ -748,6 +755,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           category = ${values.category},
           sizes = ${JSON.stringify(values.sizes)}::jsonb,
           colors = ${JSON.stringify(values.colors)}::jsonb,
+          color_variants = ${JSON.stringify(values.color_variants || [])}::jsonb,
           stock_quantity = ${values.stock_quantity},
           is_active = ${values.is_active},
           tags = ${JSON.stringify(values.tags)}::jsonb,
@@ -771,6 +779,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
             category = ${values.category},
             sizes = ${JSON.stringify(values.sizes)}::jsonb,
             colors = ${JSON.stringify(values.colors)}::jsonb,
+            color_variants = ${JSON.stringify(values.color_variants || [])}::jsonb,
             stock_quantity = ${values.stock_quantity},
             is_active = ${values.is_active},
             tags = ${JSON.stringify(values.tags)}::jsonb,
@@ -808,6 +817,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       values.colors,
       values.stock_quantity,
       values.sizeStock,
+      values.color_variants,
     );
 
     // Sync highlights
