@@ -453,16 +453,33 @@ export function normalizeProductInput(d: ProductInput) {
   const rawColorVariants = Array.isArray(d.colorVariants) ? d.colorVariants : [];
   const colorVariants: ProductColorVariant[] = rawColorVariants
     .filter((cv) => cv && typeof cv === "object" && String(cv.name ?? "").trim().length > 0)
-    .map((cv, idx) => ({
-      id: cv.id ? String(cv.id) : `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-      name: String(cv.name).trim(),
-      hex: cv.hex ? String(cv.hex).trim() : undefined,
-      imageUrl: String(cv.imageUrl || "").trim(),
-    }));
+    .map((cv, idx) => {
+      const rawImgs = Array.isArray(cv.images) && cv.images.length > 0
+        ? cv.images
+        : (cv.imageUrl ? [cv.imageUrl] : []);
+      const cvImages: string[] = rawImgs
+        .map((img) => String(img || "").trim())
+        .filter(Boolean);
+      return {
+        id: cv.id ? String(cv.id) : `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: String(cv.name).trim(),
+        hex: cv.hex ? String(cv.hex).trim() : undefined,
+        images: cvImages,
+        imageUrl: cvImages[0] || "",
+      };
+    });
 
   const variantColorNames = colorVariants.map((cv) => cv.name);
   const rawColors = cleanList([...(d.colors ?? []), ...variantColorNames]);
   const colors = rawColors.length > 0 ? rawColors : ["Black"];
+
+  let finalImages = images;
+  if (finalImages.length === 0) {
+    const allCvImages = colorVariants.flatMap((cv) => cv.images || (cv.imageUrl ? [cv.imageUrl] : []));
+    if (allCvImages.length > 0) {
+      finalImages = allCvImages;
+    }
+  }
 
   return {
     name: title,
@@ -472,7 +489,7 @@ export function normalizeProductInput(d: ProductInput) {
     mrp,
     compare_at_price: mrp,
     is_tax_inclusive: isTaxInclusive,
-    images: images.length > 0 ? images : ["/placeholder-tee.jpg"],
+    images: finalImages.length > 0 ? finalImages : ["/placeholder-tee.jpg"],
     sizes,
     colors,
     color_variants: colorVariants,
@@ -580,7 +597,7 @@ export async function syncProductVariants(
     );
     return {
       colorHex: cv?.hex || null,
-      imageUrl: cv?.imageUrl || null,
+      imageUrl: cv?.images?.[0] || cv?.imageUrl || null,
     };
   };
 

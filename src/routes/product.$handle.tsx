@@ -231,15 +231,20 @@ function ProductPage() {
 
   // Gallery is derived strictly from the selected variant/color. Only images belonging to this variant appear.
   const galleryImages = useMemo(() => {
-    // 1. If product has dedicated colorVariants, use the uploaded image for the selected color as source of truth
+    // 1. If product has dedicated colorVariants, use ONLY the uploaded images for the selected color
     if (selectedColor && p.colorVariants && p.colorVariants.length > 0) {
       const matchCv = p.colorVariants.find(
-        (cv) => cv.name.toLowerCase().trim() === selectedColor.toLowerCase().trim() && cv.imageUrl,
+        (cv) => cv.name.toLowerCase().trim() === selectedColor.toLowerCase().trim(),
       );
-      if (matchCv && matchCv.imageUrl) {
-        const cvImg = { node: { url: matchCv.imageUrl, altText: `${displayTitle} - ${matchCv.name}` } };
-        const others = p.images.edges.filter((e) => e.node.url !== matchCv.imageUrl);
-        return [cvImg, ...others];
+      if (matchCv) {
+        const cvImages = (Array.isArray(matchCv.images) && matchCv.images.length > 0)
+          ? matchCv.images
+          : (matchCv.imageUrl ? [matchCv.imageUrl] : []);
+        if (cvImages.length > 0) {
+          return cvImages.map((url, i) => ({
+            node: { url, altText: `${displayTitle} - ${matchCv.name} ${i + 1}` },
+          }));
+        }
       }
     }
     if (selectedVariant?.images && selectedVariant.images.length > 0) {
@@ -383,6 +388,7 @@ function ProductPage() {
   };
 
   const images = galleryImages;
+  const safeActiveImage = Math.min(activeImage, Math.max(0, images.length - 1));
 
   const router = useRouter();
   const navigate = useNavigate();
@@ -445,7 +451,7 @@ function ProductPage() {
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
-            {images[activeImage] && (
+            {images[safeActiveImage] && (
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
@@ -453,9 +459,9 @@ function ProductPage() {
                 aria-label="Open full-size image"
               >
                 <img
-                  key={images[activeImage].node.url}
-                  src={images[activeImage].node.url}
-                  alt={images[activeImage].node.altText ?? p.title}
+                  key={images[safeActiveImage].node.url}
+                  src={images[safeActiveImage].node.url}
+                  alt={images[safeActiveImage].node.altText ?? p.title}
                   width={600}
                   height={750}
                   loading="eager"
@@ -498,7 +504,7 @@ function ProductPage() {
                       }}
                       aria-label={`Go to image ${i + 1} of ${images.length}`}
                       className={`h-2 rounded-full transition-all duration-300 ${
-                        activeImage === i
+                        safeActiveImage === i
                           ? "w-6 bg-brand-red"
                           : "w-2 bg-foreground/30 hover:bg-foreground/60"
                       }`}
@@ -512,11 +518,11 @@ function ProductPage() {
             <div className="flex gap-3 overflow-x-auto pb-1">
               {images.map((img, i) => (
                 <button
-                  key={i}
+                  key={`${img.node.url}-${i}`}
                   onClick={() => setActiveImage(i)}
                   aria-label={`Show image ${i + 1} of ${images.length}`}
                   className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors ${
-                    activeImage === i ? "border-foreground" : "border-transparent"
+                    safeActiveImage === i ? "border-foreground" : "border-transparent"
                   }`}
                 >
                   <img
@@ -901,10 +907,10 @@ function ProductPage() {
         productTitle={p.title}
       />
 
-      {lightboxOpen && images[activeImage] && (
+      {lightboxOpen && images[safeActiveImage] && (
         <Lightbox
           images={images.map((e) => ({ url: e.node.url, alt: e.node.altText ?? p.title }))}
-          index={activeImage}
+          index={safeActiveImage}
           onIndex={setActiveImage}
           onClose={() => setLightboxOpen(false)}
         />

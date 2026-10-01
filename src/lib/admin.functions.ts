@@ -329,11 +329,28 @@ export const adminListProducts = createServerFn({ method: "GET" })
         sizeMeasurements: Array.isArray(p.size_measurements) ? p.size_measurements : [],
         sizes: Array.isArray(p.sizes) ? p.sizes : [],
         colors: Array.isArray(p.colors) ? p.colors : [],
-        colorVariants: Array.isArray(p.color_variants)
-          ? p.color_variants
-          : typeof p.color_variants === "string"
-            ? JSON.parse(p.color_variants)
-            : [],
+        colorVariants: (() => {
+          const raw = Array.isArray(p.color_variants)
+            ? p.color_variants
+            : typeof p.color_variants === "string"
+              ? JSON.parse(p.color_variants)
+              : [];
+          return raw.map((cv: any) => {
+            const rawImgs = Array.isArray(cv.images) && cv.images.length > 0
+              ? cv.images
+              : (cv.imageUrl ? [cv.imageUrl] : []);
+            const cvImages: string[] = rawImgs
+              .map((img: any) => String(img || "").trim())
+              .filter(Boolean);
+            return {
+              id: cv.id || `cv_${Math.random().toString(36).slice(2, 6)}`,
+              name: String(cv.name || "").trim(),
+              hex: cv.hex || undefined,
+              images: cvImages,
+              imageUrl: cvImages[0] || "",
+            };
+          });
+        })(),
         tags: Array.isArray(p.tags) ? p.tags : [],
         category: p.category ?? null,
         sizeStock: sizeStockByProd.get(String(p.id)) || {},

@@ -164,22 +164,30 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     return img || "/placeholder-tee.jpg";
   });
 
-  const rawColorVariants: ProductColorVariant[] = Array.isArray(row.color_variants)
+  const rawColorVariants: any[] = Array.isArray(row.color_variants)
     ? row.color_variants
     : typeof (row as any).color_variants === "string"
       ? (() => { try { return JSON.parse((row as any).color_variants); } catch { return []; } })()
       : [];
 
-  const colorVariants: ProductColorVariant[] = rawColorVariants.map((cv, idx) => {
-    let img = cv.imageUrl || "";
-    if (typeof img === "string" && img.startsWith("data:image/")) {
-      img = `/api/public/product-image?id=${encodeURIComponent(row.id)}&color=${encodeURIComponent(cv.name)}&idx=${idx}&v=${vHash}`;
-    }
+  const colorVariants: ProductColorVariant[] = rawColorVariants.map((cv, cvIdx) => {
+    const rawList: string[] = Array.isArray(cv.images) && cv.images.length > 0
+      ? cv.images
+      : (cv.imageUrl ? [cv.imageUrl] : []);
+
+    const optimizedCvImages = rawList.map((img, imgIdx) => {
+      if (typeof img === "string" && img.startsWith("data:image/")) {
+        return `/api/public/product-image?id=${encodeURIComponent(row.id)}&color=${encodeURIComponent(cv.name)}&idx=${imgIdx}&v=${vHash}`;
+      }
+      return img || "/placeholder-tee.jpg";
+    });
+
     return {
-      id: cv.id || `cv_${idx}`,
+      id: cv.id || `cv_${cvIdx}`,
       name: cv.name,
       hex: cv.hex || undefined,
-      imageUrl: img,
+      images: optimizedCvImages,
+      imageUrl: optimizedCvImages[0] || "",
     };
   });
 
@@ -213,10 +221,15 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 
       // Check if this variant color matches an uploaded color variant
       const matchedCv = variantColor
-        ? colorVariants.find((cv) => cv.name.toLowerCase() === variantColor.toLowerCase().trim())
+        ? colorVariants.find((cv) => cv.name.toLowerCase().trim() === variantColor.toLowerCase().trim())
         : null;
 
-      if (matchedCv?.imageUrl) {
+      if (matchedCv && matchedCv.images && matchedCv.images.length > 0) {
+        variantImages = matchedCv.images.map((url, i) => ({
+          url,
+          altText: `${row.name} - ${variantColor} (${i + 1})`,
+        }));
+      } else if (matchedCv?.imageUrl) {
         variantImages = [{ url: matchedCv.imageUrl, altText: `${row.name} - ${variantColor}` }];
       } else if (match?.image_url) {
         variantImages = [{ url: match.image_url, altText: `${row.name} - ${variantColor}` }];

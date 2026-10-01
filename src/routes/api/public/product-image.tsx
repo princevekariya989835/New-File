@@ -124,8 +124,11 @@ export const Route = createFileRoute("/api/public/product-image")({
                   (c: any) =>
                     String(c?.name || "").trim().toLowerCase() === colorParam.trim().toLowerCase(),
                 );
-                if (matchCv?.imageUrl) {
-                  dataUrl = matchCv.imageUrl;
+                if (matchCv) {
+                  const cvImages = Array.isArray(matchCv.images) && matchCv.images.length > 0
+                    ? matchCv.images
+                    : (matchCv.imageUrl ? [matchCv.imageUrl] : []);
+                  dataUrl = cvImages[idx] || cvImages[0] || null;
                 }
               }
               if (!dataUrl) {

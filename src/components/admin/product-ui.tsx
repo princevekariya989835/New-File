@@ -15,6 +15,9 @@ import {
   Loader2,
   Link as LinkIcon,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
 } from "lucide-react";
 import {
   KeyHighlightsEditor,
@@ -400,6 +403,12 @@ const COLOR_PRESETS = [
   { name: "Beige", hex: "#D4C5B9" },
 ];
 
+function getVariantImages(v: ProductColorVariant): string[] {
+  if (Array.isArray(v.images) && v.images.length > 0) return v.images;
+  if (v.imageUrl) return [v.imageUrl];
+  return [];
+}
+
 export function ProductColorVariantsEditor({
   colorVariants = [],
   onChange,
@@ -409,72 +418,101 @@ export function ProductColorVariantsEditor({
 }) {
   const [draftName, setDraftName] = useState("");
   const [draftHex, setDraftHex] = useState("#000000");
-  const [draftImage, setDraftImage] = useState("");
+  const [draftImages, setDraftImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlDraft, setUrlDraft] = useState("");
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const replaceFileInputRef = useRef<HTMLInputElement>(null);
-  const [replacingVariantId, setReplacingVariantId] = useState<string | null>(null);
+  const draftFileInputRef = useRef<HTMLInputElement>(null);
+  const directFileInputRef = useRef<HTMLInputElement>(null);
+  const [directTargetId, setDirectTargetId] = useState<string | null>(null);
 
-  const handleFileUpload = async (file: File, forVariantId?: string) => {
-    try {
-      setUploading(true);
-      const res = await uploadProductImage(file);
-      if (res) {
-        if (forVariantId) {
-          onChange(
-            colorVariants.map((v) => ((v.id || v.name) === forVariantId ? { ...v, imageUrl: res } : v)),
-          );
-          toast.success("Color image replaced successfully");
-        } else {
-          setDraftImage(res);
-          toast.success("Color image uploaded");
-        }
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTarget, setReplaceTarget] = useState<{ variantId: string; imageIndex: number } | null>(null);
+
+  // Upload multiple files for the draft color variant
+  const handleDraftFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    const newUploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const res = await uploadProductImage(file);
+        if (res) newUploaded.push(res);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to upload photo");
       }
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to upload image");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      if (replaceFileInputRef.current) replaceFileInputRef.current.value = "";
-      setReplacingVariantId(null);
     }
+    setUploading(false);
+    if (newUploaded.length > 0) {
+      setDraftImages((prev) => [...prev, ...newUploaded]);
+      toast.success(`${newUploaded.length} photo(s) added to color`);
+    }
+    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
   };
 
-  const handleAddUrl = () => {
+  const handleAddDraftUrl = () => {
     const trimmed = urlDraft.trim();
     if (!trimmed) return;
     if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/")) {
       toast.error("Please enter a valid image URL");
       return;
     }
-    setDraftImage(trimmed);
+    setDraftImages((prev) => [...prev, trimmed]);
     setUrlDraft("");
     setShowUrlInput(false);
-    toast.success("Image URL set");
+    toast.success("Image URL added");
+  };
+
+  const handleDraftRemoveImage = (index: number) => {
+    setDraftImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleDraftMakeCover = (index: number) => {
+    setDraftImages((prev) => {
+      const next = [...prev];
+      const [target] = next.splice(index, 1);
+      return [target, ...next];
+    });
+  };
+
+  const handleDraftMove = (fromIndex: number, toIndex: number) => {
+    setDraftImages((prev) => {
+      if (toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [target] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, target);
+      return next;
+    });
   };
 
   const handleSave = () => {
     const name = draftName.trim();
     if (!name) {
-      toast.error("Please enter a color name (e.g. Black, White, Red)");
+      toast.error("Please enter a color name (e.g. Black, White, Red, Blue)");
       return;
     }
     const hex = draftHex.trim() || "#000000";
-    const imageUrl = draftImage.trim();
-    if (!imageUrl) {
-      toast.error("Please upload an image specifically for this color");
+    if (draftImages.length === 0) {
+      toast.error("Please upload at least one image for this color");
       return;
     }
 
     if (editingId) {
       onChange(
-        colorVariants.map((v) =>
-          (v.id || v.name) === editingId ? { ...v, name, hex, imageUrl } : v,
-        ),
+        colorVariants.map((v) => {
+          if ((v.id || v.name) === editingId) {
+            return {
+              ...v,
+              name,
+              hex,
+              images: draftImages,
+              imageUrl: draftImages[0] || "",
+            };
+          }
+          return v;
+        }),
       );
       toast.success(`Updated color "${name}"`);
       setEditingId(null);
@@ -483,15 +521,16 @@ export function ProductColorVariantsEditor({
         id: `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
         name,
         hex,
-        imageUrl,
+        images: draftImages,
+        imageUrl: draftImages[0] || "",
       };
       onChange([...colorVariants, newVariant]);
-      toast.success(`Added color "${name}"`);
+      toast.success(`Added color "${name}" with ${draftImages.length} photo(s)`);
     }
 
     setDraftName("");
     setDraftHex("#000000");
-    setDraftImage("");
+    setDraftImages([]);
     setShowUrlInput(false);
     setUrlDraft("");
   };
@@ -500,213 +539,399 @@ export function ProductColorVariantsEditor({
     setEditingId(v.id || v.name);
     setDraftName(v.name);
     setDraftHex(v.hex || "#000000");
-    setDraftImage(v.imageUrl || "");
+    setDraftImages(getVariantImages(v));
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setDraftName("");
     setDraftHex("#000000");
-    setDraftImage("");
+    setDraftImages([]);
     setShowUrlInput(false);
     setUrlDraft("");
   };
 
   const handleDelete = (idOrName: string) => {
     onChange(colorVariants.filter((v) => (v.id || v.name) !== idOrName));
-    toast.success("Color removed");
+    toast.success("Color variant removed");
     if (editingId === idOrName) {
       cancelEdit();
     }
   };
 
-  const triggerReplace = (variantId: string) => {
-    setReplacingVariantId(variantId);
+  // Direct upload photos for an existing configured variant
+  const handleDirectFiles = async (files: FileList | null) => {
+    if (!files?.length || !directTargetId) return;
+    setUploading(true);
+    const newUploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const res = await uploadProductImage(file);
+        if (res) newUploaded.push(res);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to upload photo");
+      }
+    }
+    setUploading(false);
+    if (newUploaded.length > 0) {
+      onChange(
+        colorVariants.map((v) => {
+          if ((v.id || v.name) === directTargetId) {
+            const currentImgs = getVariantImages(v);
+            const combined = [...currentImgs, ...newUploaded];
+            return {
+              ...v,
+              images: combined,
+              imageUrl: combined[0] || "",
+            };
+          }
+          return v;
+        }),
+      );
+      toast.success(`Added ${newUploaded.length} photo(s) to color`);
+    }
+    if (directFileInputRef.current) directFileInputRef.current.value = "";
+    setDirectTargetId(null);
+  };
+
+  const triggerDirectUpload = (variantId: string) => {
+    setDirectTargetId(variantId);
+    directFileInputRef.current?.click();
+  };
+
+  const handleRemovePhoto = (variantId: string, imageIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = getVariantImages(v);
+          const filtered = currentImgs.filter((_, idx) => idx !== imageIndex);
+          return {
+            ...v,
+            images: filtered,
+            imageUrl: filtered[0] || "",
+          };
+        }
+        return v;
+      }),
+    );
+    toast.success("Photo removed");
+  };
+
+  const triggerReplacePhoto = (variantId: string, imageIndex: number) => {
+    setReplaceTarget({ variantId, imageIndex });
     replaceFileInputRef.current?.click();
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Hidden file inputs */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-      />
-      <input
-        type="file"
-        ref={replaceFileInputRef}
-        accept="image/*"
-        className="hidden"
-        onChange={(e) =>
-          e.target.files?.[0] && replacingVariantId && handleFileUpload(e.target.files[0], replacingVariantId)
+  const handleReplaceFile = async (file: File) => {
+    if (!replaceTarget) return;
+    try {
+      setUploading(true);
+      const res = await uploadProductImage(file);
+      if (res) {
+        onChange(
+          colorVariants.map((v) => {
+            if ((v.id || v.name) === replaceTarget.variantId) {
+              const currentImgs = [...getVariantImages(v)];
+              currentImgs[replaceTarget.imageIndex] = res;
+              return {
+                ...v,
+                images: currentImgs,
+                imageUrl: currentImgs[0] || "",
+              };
+            }
+            return v;
+          }),
+        );
+        toast.success("Photo replaced successfully");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to replace photo");
+    } finally {
+      setUploading(false);
+      if (replaceFileInputRef.current) replaceFileInputRef.current.value = "";
+      setReplaceTarget(null);
+    }
+  };
+
+  const handleMakeCoverPhoto = (variantId: string, imageIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = [...getVariantImages(v)];
+          const [target] = currentImgs.splice(imageIndex, 1);
+          const updated = [target, ...currentImgs];
+          return {
+            ...v,
+            images: updated,
+            imageUrl: updated[0] || "",
+          };
         }
+        return v;
+      }),
+    );
+    toast.success("Cover photo updated");
+  };
+
+  const handleMovePhoto = (variantId: string, fromIndex: number, toIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = [...getVariantImages(v)];
+          if (toIndex < 0 || toIndex >= currentImgs.length) return v;
+          const [target] = currentImgs.splice(fromIndex, 1);
+          currentImgs.splice(toIndex, 0, target);
+          return {
+            ...v,
+            images: currentImgs,
+            imageUrl: currentImgs[0] || "",
+          };
+        }
+        return v;
+      }),
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Hidden file input for direct photo addition to an existing color card */}
+      <input
+        ref={directFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        multiple
+        className="hidden"
+        onChange={(e) => handleDirectFiles(e.target.files)}
       />
 
-      {/* Editor Box */}
-      <div className="rounded-xl border border-border/80 bg-background/60 p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-bold uppercase tracking-wider text-foreground">
-            {editingId ? "Edit Color Variant" : "Add Color Variant"}
-          </Label>
+      {/* Hidden file input for replacing an individual photo */}
+      <input
+        ref={replaceFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleReplaceFile(file);
+        }}
+      />
+
+      {/* 1. Add / Edit Color Variant Builder */}
+      <div className="rounded-2xl border border-border/80 bg-secondary/15 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-4 w-4 rounded-full border border-black/20 shadow-2xs"
+              style={{ backgroundColor: draftHex }}
+            />
+            <h5 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              {editingId ? "Edit Color Variant" : "Add Color Variant"}
+            </h5>
+          </div>
           {editingId && (
-            <Button type="button" variant="ghost" size="sm" onClick={cancelEdit} className="h-7 text-xs">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={cancelEdit}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            >
               Cancel Edit
             </Button>
           )}
         </div>
 
+        {/* Color Name + Hex Picker */}
         <div className="grid gap-3 sm:grid-cols-2">
-          {/* Color Name */}
-          <div>
-            <Label className="text-xs font-medium">Color Name *</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Color Name</Label>
             <Input
+              placeholder="e.g. Black, Blue, Red, White"
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              placeholder="e.g. Black, White, Red, Navy Blue"
-              className="mt-1 h-9 text-sm"
+              className="h-9 text-xs"
             />
+            {/* Quick preset buttons */}
+            <div className="flex flex-wrap gap-1 pt-1">
+              {COLOR_PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => {
+                    setDraftName(p.name);
+                    setDraftHex(p.hex);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-black/20 shadow-2xs shrink-0"
+                    style={{ backgroundColor: p.hex }}
+                  />
+                  {p.name}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Color Hex & Swatch */}
-          <div>
-            <Label className="text-xs font-medium">Color Swatch / Hex Value</Label>
-            <div className="mt-1 flex items-center gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Color Swatch (Hex)</Label>
+            <div className="flex items-center gap-2">
               <input
                 type="color"
-                value={draftHex.startsWith("#") && draftHex.length === 7 ? draftHex : "#000000"}
-                onChange={(e) => setDraftHex(e.target.value)}
-                className="h-9 w-10 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                title="Choose color"
-              />
-              <Input
                 value={draftHex}
                 onChange={(e) => setDraftHex(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-background p-1"
+                title="Pick swatch color"
+              />
+              <Input
                 placeholder="#000000"
-                className="h-9 text-xs font-mono uppercase"
+                value={draftHex}
+                onChange={(e) => setDraftHex(e.target.value)}
+                className="h-9 font-mono text-xs uppercase"
               />
             </div>
           </div>
         </div>
 
-        {/* Quick presets */}
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Quick Presets:</Label>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {COLOR_PRESETS.map((p) => (
-              <button
-                key={p.name}
-                type="button"
-                onClick={() => {
-                  setDraftName(p.name);
-                  setDraftHex(p.hex);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer"
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full border border-black/20 shrink-0"
-                  style={{ backgroundColor: p.hex }}
-                />
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Color-specific Image Upload */}
-        <div className="space-y-2">
+        {/* Photos Upload Zone for Draft */}
+        <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">
-              Image Specifically For This Color *
+            <Label className="text-xs font-semibold text-foreground">
+              Photos for this Color ({draftImages.length})
             </Label>
             <button
               type="button"
               onClick={() => setShowUrlInput((v) => !v)}
-              className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium"
             >
               <LinkIcon className="h-3 w-3" />
-              {showUrlInput ? "Upload file instead" : "Use image URL"}
+              {showUrlInput ? "Hide URL input" : "Add photo via URL"}
             </button>
           </div>
 
-          {showUrlInput ? (
-            <div className="flex gap-2">
+          {showUrlInput && (
+            <div className="flex gap-2 pb-1">
               <Input
-                placeholder="Paste image link (https://...)"
+                placeholder="Paste direct photo link (https://...)"
                 value={urlDraft}
                 onChange={(e) => setUrlDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    handleAddUrl();
+                    handleAddDraftUrl();
                   }
                 }}
-                className="h-9 text-sm"
+                className="h-8 text-xs"
               />
-              <Button type="button" size="sm" onClick={handleAddUrl} className="shrink-0 gap-1">
-                Set URL
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddDraftUrl}
+                className="h-8 shrink-0 text-xs gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add
               </Button>
             </div>
-          ) : draftImage ? (
-            <div className="flex items-center gap-3 rounded-lg border border-border/80 bg-card p-2.5">
-              <img
-                src={draftImage}
-                alt="Color variant preview"
-                className="h-16 w-16 rounded-md object-contain border bg-secondary/30 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">
-                  Image attached for {draftName || "this color"}
-                </p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  This image will be shown whenever this color is selected.
-                </p>
-                <div className="mt-1.5 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1"
-                    disabled={uploading}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                    Replace Image
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-destructive hover:text-destructive"
-                    onClick={() => setDraftImage("")}
-                  >
-                    Remove
-                  </Button>
-                </div>
+          )}
+
+          {/* Hidden file input for draft */}
+          <input
+            ref={draftFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            multiple
+            className="hidden"
+            onChange={(e) => handleDraftFiles(e.target.files)}
+          />
+
+          {/* Drag & Drop Upload Zone */}
+          <div
+            onClick={() => !uploading && draftFileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDraftFiles(e.dataTransfer.files);
+            }}
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/50 p-5 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/30"
+          >
+            {uploading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Processing uploaded photos…
               </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => !uploading && fileInputRef.current?.click()}
-              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-secondary/20 p-5 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/40"
-            >
-              {uploading ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" /> Uploading image…
+            ) : (
+              <>
+                <Upload className="h-6 w-6 text-muted-foreground/80 mb-1" />
+                <span className="text-xs font-semibold text-foreground">
+                  Upload photos for {draftName.trim() || "this color"}
+                </span>
+                <span className="text-[11px] text-muted-foreground mt-0.5">
+                  Select multiple photos (Front, Back, Side, Model, Close-up) — PNG, JPG, or WebP
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Draft Image Previews */}
+          {draftImages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pt-2">
+              {draftImages.map((imgUrl, i) => (
+                <div
+                  key={`${imgUrl.slice(0, 30)}-${i}`}
+                  className="group relative aspect-square rounded-xl border bg-secondary/30 overflow-hidden shadow-xs"
+                >
+                  <img
+                    src={imgUrl}
+                    alt={`Color photo ${i + 1}`}
+                    className="h-full w-full object-contain p-1"
+                  />
+
+                  {i === 0 ? (
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-brand-red px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                      Cover
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      title="Make cover photo"
+                      className="absolute left-1.5 top-1.5 rounded-full bg-background/90 p-1 text-muted-foreground opacity-90 transition-opacity hover:opacity-100 hover:text-amber-500 shadow-xs cursor-pointer"
+                      onClick={() => handleDraftMakeCover(i)}
+                    >
+                      <Star className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    title="Remove photo"
+                    className="absolute right-1.5 top-1.5 rounded-full bg-background/90 p-1 text-destructive opacity-90 transition-opacity hover:opacity-100 hover:bg-destructive/10 shadow-xs cursor-pointer"
+                    onClick={() => handleDraftRemoveImage(i)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+
+                  {draftImages.length > 1 && (
+                    <div className="absolute inset-x-1 bottom-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        title="Move left"
+                        onClick={() => handleDraftMove(i, i - 1)}
+                        className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === draftImages.length - 1}
+                        title="Move right"
+                        onClick={() => handleDraftMove(i, i + 1)}
+                        className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <Upload className="h-6 w-6 text-muted-foreground/80 mb-1" />
-                  <span className="text-xs font-semibold text-foreground">
-                    Upload image for this color variant
-                  </span>
-                  <span className="text-[11px] text-muted-foreground mt-0.5">
-                    Click to browse or drag & drop PNG, JPG, or WebP
-                  </span>
-                </>
-              )}
+              ))}
             </div>
           )}
         </div>
@@ -730,84 +955,186 @@ export function ProductColorVariantsEditor({
         </div>
       </div>
 
-      {/* List of Configured Color Variants */}
-      <div className="space-y-2">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Configured Colors ({colorVariants.length})
+      {/* 2. List of Configured Color Variants */}
+      <div className="space-y-3">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+          <span>Configured Color Variants ({colorVariants.length})</span>
+          <span className="text-[11px] normal-case text-muted-foreground font-normal">
+            Each color has its own complete photo gallery
+          </span>
         </Label>
 
         {colorVariants.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/80 bg-secondary/10 p-6 text-center text-xs text-muted-foreground">
             No color variants added yet. Add colors above with their dedicated uploaded photos.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {colorVariants.map((v) => {
               const itemKey = v.id || v.name;
+              const vImages = getVariantImages(v);
+              const isBeingEdited = editingId === itemKey;
+
               return (
                 <div
                   key={itemKey}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-xs"
+                  className={`rounded-2xl border transition-all shadow-xs ${
+                    isBeingEdited
+                      ? "border-primary/80 bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/80 bg-card/80 hover:border-border"
+                  } p-4 md:p-5 space-y-3.5`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-7 w-7 rounded-full border border-black/20 shadow-xs shrink-0"
-                      style={{ backgroundColor: v.hex || "#333333" }}
-                      title={v.hex || v.name}
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">{v.name}</span>
-                        {v.hex && (
-                          <span className="text-[11px] font-mono uppercase rounded bg-secondary px-2 py-0.5 text-muted-foreground">
-                            {v.hex}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-muted-foreground">
-                        Dedicated photo attached
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {v.imageUrl && (
-                      <img
-                        src={v.imageUrl}
-                        alt={v.name}
-                        className="h-12 w-12 rounded-lg border bg-secondary/30 object-contain shrink-0"
+                  {/* Top Bar of Color Variant Card */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-8 w-8 rounded-full border border-black/20 shadow-xs shrink-0"
+                        style={{ backgroundColor: v.hex || "#333333" }}
+                        title={v.hex || v.name}
                       />
-                    )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-base text-foreground tracking-wide">
+                            {v.name}
+                          </span>
+                          {v.hex && (
+                            <span className="text-[11px] font-mono uppercase rounded-md bg-secondary px-2 py-0.5 text-muted-foreground">
+                              {v.hex}
+                            </span>
+                          )}
+                          <span className="text-xs rounded-full bg-secondary/80 px-2.5 py-0.5 font-medium text-foreground">
+                            {vImages.length} {vImages.length === 1 ? "photo" : "photos"}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Dedicated photos displayed when {v.name} is selected on storefront
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-1.5">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => triggerReplace(itemKey)}
-                        disabled={uploading}
-                        className="h-7 px-2 text-xs gap-1 cursor-pointer"
-                        title="Replace this color's image"
-                      >
-                        <Upload className="h-3 w-3" /> Replace Image
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
                         onClick={() => startEdit(v)}
-                        className="h-7 px-2 text-xs cursor-pointer"
+                        className="h-8 px-2.5 text-xs gap-1.5 cursor-pointer hover:bg-secondary"
+                        title="Edit name, hex or photos in builder"
                       >
-                        Edit
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit Color
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(itemKey)}
-                        className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                        className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                        title="Delete this color variant"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
+                  </div>
+
+                  {/* Photo Gallery for this Color Variant */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {v.name} Photos ({vImages.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => triggerDirectUpload(itemKey)}
+                        disabled={uploading}
+                        className="text-xs text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add more photos
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 pt-1">
+                      {vImages.map((imgUrl, imgIdx) => (
+                        <div
+                          key={`${imgUrl.slice(0, 30)}-${imgIdx}`}
+                          className="group relative aspect-square rounded-xl border bg-secondary/30 overflow-hidden shadow-xs"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`${v.name} photo ${imgIdx + 1}`}
+                            className="h-full w-full object-contain p-1"
+                          />
+
+                          {imgIdx === 0 ? (
+                            <span className="absolute left-1.5 top-1.5 rounded-full bg-brand-red px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                              Cover
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Make cover photo for this color"
+                              className="absolute left-1.5 top-1.5 rounded-full bg-background/90 p-1 text-muted-foreground opacity-90 transition-opacity hover:opacity-100 hover:text-amber-500 shadow-xs cursor-pointer"
+                              onClick={() => handleMakeCoverPhoto(itemKey, imgIdx)}
+                            >
+                              <Star className="h-3 w-3" />
+                            </button>
+                          )}
+
+                          <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              title="Replace photo"
+                              className="rounded-full bg-background/90 p-1 text-foreground hover:bg-background shadow-xs cursor-pointer"
+                              onClick={() => triggerReplacePhoto(itemKey, imgIdx)}
+                            >
+                              <Upload className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Remove photo"
+                              className="rounded-full bg-background/90 p-1 text-destructive hover:bg-destructive/10 shadow-xs cursor-pointer"
+                              onClick={() => handleRemovePhoto(itemKey, imgIdx)}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+
+                          {/* Reorder arrows on hover */}
+                          {vImages.length > 1 && (
+                            <div className="absolute inset-x-1 bottom-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                              <button
+                                type="button"
+                                disabled={imgIdx === 0}
+                                title="Move left"
+                                onClick={() => handleMovePhoto(itemKey, imgIdx, imgIdx - 1)}
+                                className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                              >
+                                <ChevronLeft className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={imgIdx === vImages.length - 1}
+                                title="Move right"
+                                onClick={() => handleMovePhoto(itemKey, imgIdx, imgIdx + 1)}
+                                className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Direct "+ Add Photo" card button */}
+                      <div
+                        onClick={() => !uploading && triggerDirectUpload(itemKey)}
+                        className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border/80 bg-secondary/15 p-2 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/35"
+                        title={`Upload more photos for ${v.name}`}
+                      >
+                        <Plus className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-[11px] font-medium text-muted-foreground">Add Photo</span>
+                      </div>
                     </div>
                   </div>
                 </div>

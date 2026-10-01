@@ -2,7 +2,8 @@ export interface ProductColorVariant {
   id?: string;
   name: string;
   hex?: string;
-  imageUrl: string;
+  images: string[];
+  imageUrl?: string;
 }
 
 export interface VariantRow {
