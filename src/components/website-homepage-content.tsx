@@ -425,7 +425,17 @@ export function WebsiteHomepageContent({
                             <IconComp className="h-5 w-5" />
                           </div>
                           <h3 className="text-base font-semibold tracking-tight leading-snug">{f.title}</h3>
-                          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{f.description}</p>
+                          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+                            {f.description}
+                            {f.title.toLowerCase().includes("return") && (
+                              <Link
+                                to="/refund-policy"
+                                className="ml-1.5 inline-flex items-center text-xs font-semibold text-foreground underline hover:text-brand-red transition-colors"
+                              >
+                                Read policy
+                              </Link>
+                            )}
+                          </p>
                         </div>
                       );
                     })}

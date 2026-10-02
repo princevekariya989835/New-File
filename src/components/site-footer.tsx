@@ -128,11 +128,14 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
               className="mt-3.5 flex w-full max-w-md items-center gap-2 sm:gap-2.5"
             >
               <input
+                id="newsletter-email"
+                name="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email for exclusive drops"
+                aria-label="Email address for exclusive drops"
                 suppressHydrationWarning
                 className="h-11 min-w-0 flex-1 rounded-full border border-border bg-secondary/80 px-3.5 sm:px-4 text-xs sm:text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
               />

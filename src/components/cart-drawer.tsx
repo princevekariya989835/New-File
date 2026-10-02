@@ -144,15 +144,19 @@ export function CartDrawer({ trigger }: { trigger?: React.ReactNode } = {}) {
                           <div className="mt-auto flex items-center justify-between pt-2">
                             <div className="flex items-center gap-2 rounded-full border border-border">
                               <button
-                                className="flex h-7 w-7 items-center justify-center"
+                                type="button"
+                                className="flex h-7 w-7 items-center justify-center cursor-pointer"
                                 onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                                aria-label="Decrease quantity"
                               >
                                 <Minus className="h-3 w-3" />
                               </button>
                               <span className="w-5 text-center text-xs">{item.quantity}</span>
                               <button
-                                className="flex h-7 w-7 items-center justify-center"
+                                type="button"
+                                className="flex h-7 w-7 items-center justify-center cursor-pointer"
                                 onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                                aria-label="Increase quantity"
                               >
                                 <Plus className="h-3 w-3" />
                               </button>

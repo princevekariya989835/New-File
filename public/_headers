@@ -1,0 +1,21 @@
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/products/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/videos/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+  X-Content-Type-Options: nosniff
+
+/favicon*
+  Cache-Control: public, max-age=86400
+  X-Content-Type-Options: nosniff

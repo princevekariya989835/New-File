@@ -110,8 +110,8 @@
 
 :root {
   --radius: 8px;
-  --brand-red: #f00b11;
-  --brand: #f00b11;
+  --brand-red: #e80a10;
+  --brand: #e80a10;
   --brand-foreground: #ffffff;
   --brand-soft: oklch(0.95 0.03 27);
   --font-display: "Archivo Black", sans-serif;

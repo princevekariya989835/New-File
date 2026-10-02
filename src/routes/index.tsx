@@ -22,13 +22,13 @@ const websiteConfigQuery = {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    // Fast prefetch for SSR/cached queries, capped at 1500ms so initial HTML contains products without hanging
+    // Fast prefetch for SSR/cached queries, capped at 400ms so initial HTML streams rapidly without server delay
     await Promise.race([
       Promise.allSettled([
         context.queryClient.ensureQueryData(websiteConfigQuery),
         context.queryClient.ensureQueryData(productsQuery),
       ]),
-      new Promise((resolve) => setTimeout(resolve, 1500)),
+      new Promise((resolve) => setTimeout(resolve, 400)),
     ]);
   },
   pendingComponent: () => (

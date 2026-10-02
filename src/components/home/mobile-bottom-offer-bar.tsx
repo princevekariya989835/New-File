@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Lock, LockOpen, ChevronUp } from "lucide-react";
+import { Lock, LockOpen, ChevronUp, ChevronDown } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import { calculateBuy2Get1Discount } from "@/lib/promotions";
@@ -46,9 +46,10 @@ export function MobileBottomOfferBar() {
     }
   };
 
-  // Only run if offer is enabled in website config (defaults to enabled)
+  // Only run if offer is enabled in website config and has valid promotion content (Issue 5)
   const isEnabled = offerConfig ? offerConfig.enabled !== false : true;
-  if (!mounted || !isEnabled) return null;
+  const hasPromoContent = Boolean(offerConfig?.title || offerConfig?.subtitle || "BUY 2 GET 1 FREE");
+  if (!mounted || !isEnabled || !hasPromoContent) return null;
 
   // Calculate real B2G1 offer status from current cart
   const cartItems = Array.isArray(items) ? items : [];
@@ -66,8 +67,16 @@ export function MobileBottomOfferBar() {
   const { eligibleUnitsCount, freeUnitsCount, progressCount } = calculation;
   const isUnlocked = freeUnitsCount > 0;
 
+  // Normalize long all-caps category subtitle to sentence/title case (Issue 6)
+  const rawCategoryLabel = offerConfig?.subtitle || "Oversized Printed T-Shirts";
+  const categoryLabel =
+    rawCategoryLabel === rawCategoryLabel.toUpperCase() && rawCategoryLabel.length > 12
+      ? rawCategoryLabel
+          .toLowerCase()
+          .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase())
+      : rawCategoryLabel;
+
   // Dynamic supporting text matching reference format
-  const categoryLabel = offerConfig?.subtitle || "OVERSIZED PRINTED T-SHIRTS";
   let dynamicSubtitle = offerConfig?.supportingText || `Add 3 ${categoryLabel.toLowerCase()} to unlock this offer`;
   if (eligibleUnitsCount === 1) {
     dynamicSubtitle = `Add 2 more ${categoryLabel.toLowerCase()} to unlock this offer`;
@@ -108,7 +117,8 @@ export function MobileBottomOfferBar() {
           <div className="flex size-5 items-center justify-center rounded-full bg-[#c5d0ed] text-[#182363]">
             <ChevronUp className="size-3.5 stroke-[2.5]" />
           </div>
-          <span className="text-[11px] font-black uppercase tracking-wider text-white">
+          {/* Issue 7: Increased to at least 12px (text-xs) */}
+          <span className="text-xs font-black uppercase tracking-wider text-white">
             {offerConfig?.title || "BUY 2 GET 1 FREE"}
           </span>
           {isUnlocked && (
@@ -129,32 +139,24 @@ export function MobileBottomOfferBar() {
       }}
     >
       <div className="relative pointer-events-auto">
-        {/* 1. TOP STACKED CARD LAYER (Pale lavender/periwinkle tab peeking out behind main pill) */}
+        {/* MAIN PILL CARD with visually integrated minimize control (Issue 5) */}
         <div
-          className="absolute -top-2 inset-x-8 sm:inset-x-10 h-5 rounded-t-[18px] sm:rounded-t-2xl bg-[#c2ceec] border-t border-x border-[#b3c1e6] shadow-xs pointer-events-none opacity-90"
-          aria-hidden="true"
-        />
-
-        {/* 2. TOP CENTER CHEVRON TOGGLE BUTTON (Pale lavender circle with dark navy chevron) */}
-        <button
-          onClick={handleToggle}
-          type="button"
-          aria-label="Minimize promotional offer"
-          className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 flex size-6 items-center justify-center rounded-full bg-[#c5d0ed] border border-white/60 text-[#182363] shadow-md active:scale-90 hover:bg-[#d8e0f5] transition-all cursor-pointer"
-        >
-          <ChevronUp className="size-3.5 stroke-[2.8]" />
-        </button>
-
-        {/* 3. MAIN PILL CARD (Symmetrical rounded-full capsule in royal navy) */}
-        <div
+          role="button"
+          tabIndex={0}
           onClick={() => navigate({ to: "/shop" })}
-          className="relative flex items-center gap-3 overflow-hidden rounded-full border border-[#35458a] bg-gradient-to-b from-[#182363] to-[#131b4d] px-3.5 py-2.5 sm:px-4 sm:py-3 text-white shadow-[0_12px_36px_rgba(0,0,0,0.65)] backdrop-blur-xl transition-all duration-300 hover:border-[#4357ab] active:scale-[0.99] cursor-pointer"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              navigate({ to: "/shop" });
+            }
+          }}
+          className="relative flex items-center gap-2.5 sm:gap-3 overflow-hidden rounded-full border border-[#35458a] bg-gradient-to-b from-[#182363] to-[#131b4d] px-3.5 py-2 sm:px-4 sm:py-2.5 text-white shadow-[0_12px_36px_rgba(0,0,0,0.65)] backdrop-blur-xl transition-all duration-300 hover:border-[#4357ab] active:scale-[0.99] cursor-pointer"
         >
           {/* Subtle top edge metallic shine */}
           <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
           {/* Left: Circular Lock Icon with Progress Ring */}
-          <div className="relative size-10 sm:size-11 shrink-0 flex items-center justify-center">
+          <div className="relative size-10 shrink-0 flex items-center justify-center">
             {/* SVG Circular Progress Track */}
             <svg
               className="absolute inset-0 size-full -rotate-90"
@@ -196,35 +198,37 @@ export function MobileBottomOfferBar() {
             </svg>
 
             {/* Inner Dark Circle with Lock Icon */}
-            <div className="flex size-7 sm:size-8 items-center justify-center rounded-full bg-[#162058] border border-[#2b377b] text-white shadow-inner">
+            <div className="flex size-7 items-center justify-center rounded-full bg-[#162058] border border-[#2b377b] text-white shadow-inner">
               {isUnlocked ? (
-                <LockOpen className="size-3.5 sm:size-4 text-emerald-400 animate-pulse" />
+                <LockOpen className="size-3.5 text-emerald-400 animate-pulse" />
               ) : (
-                <Lock className="size-3.5 sm:size-4 text-white" />
+                <Lock className="size-3.5 text-white" />
               )}
             </div>
           </div>
 
           {/* Middle: Promotion Copy & Bottom Progress Dots */}
           <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
-            {/* Headline with Pipe separator */}
+            {/* Headline with Pipe separator - text-xs (12px) (Issue 7 & 8) */}
             <div className="flex items-center gap-1.5 min-w-0 overflow-hidden leading-snug">
-              <span className="font-black text-[11px] sm:text-[12.5px] uppercase tracking-wide text-white truncate">
+              <span className="font-black text-xs sm:text-[13px] uppercase tracking-wide text-white truncate">
                 {offerConfig?.title || "BUY 2 GET 1 FREE"}
               </span>
               <span className="text-white/40 font-bold text-xs shrink-0">|</span>
-              <span className="font-black text-[10.5px] sm:text-[12px] uppercase tracking-wide text-white/95 truncate">
+              {/* Sentence/title case for category label (Issue 6) */}
+              <span className="font-semibold text-xs sm:text-[13px] tracking-wide text-white/95 truncate">
                 {categoryLabel}
               </span>
             </div>
 
-            {/* Supporting Subtitle */}
-            <p className="mt-0.5 truncate text-[10px] sm:text-[11px] font-medium text-[#9faee3] leading-tight">
+            {/* Supporting Subtitle - text-xs (12px) (Issue 8) */}
+            <p className="mt-0.5 truncate text-xs sm:text-[13px] font-medium text-[#c5d0ed] leading-tight">
               {dynamicSubtitle}
             </p>
 
             {/* Bottom Progress Dashes/Dots (— • • matching reference) */}
             <div
+              role="img"
               className="mt-1 flex items-center justify-center gap-1.5 shrink-0"
               aria-label={`Offer progress: ${progressCount} of 3 items eligible`}
             >
@@ -248,6 +252,16 @@ export function MobileBottomOfferBar() {
               })}
             </div>
           </div>
+
+          {/* Right: Visually Associated Minimize Button (Issue 5) */}
+          <button
+            onClick={handleToggle}
+            type="button"
+            aria-label="Minimize promotional offer"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-all active:scale-90 cursor-pointer ml-0.5"
+          >
+            <ChevronDown className="size-4 stroke-[2.5]" />
+          </button>
         </div>
       </div>
     </div>

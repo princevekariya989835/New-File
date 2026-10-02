@@ -119,6 +119,7 @@ export const Route = createFileRoute("/product/$handle")({
             image: p.images.edges.map((e) => e.node.url),
             brand: { "@type": "Brand", name: "RIOTOUS" },
             url: `https://riotous.store/product/${p.handle}`,
+            ...((p as any).updated_at ? { dateModified: new Date((p as any).updated_at).toISOString() } : {}),
             offers: p.variants.edges.map((v) => ({
               "@type": "Offer",
               name: v.node.title,

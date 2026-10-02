@@ -15,6 +15,7 @@ import "../styles.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { MobileBottomOfferBar } from "@/components/home/mobile-bottom-offer-bar";
+import { FloatingWhatsApp } from "@/components/floating-whatsapp";
 import { useCartSync } from "@/hooks/use-cart-sync";
 import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
@@ -108,13 +109,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { rel: "icon", href: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "icon", href: "/favicon.png", sizes: "192x192", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
+        media: "print",
+        onLoad: "this.media='all'",
       },
       {
         rel: "preload",
@@ -215,6 +218,7 @@ function AppShell() {
         </div>
       )}
       {showMobileOfferBar && <MobileBottomOfferBar />}
+      <FloatingWhatsApp />
       <Toaster position="top-center" />
     </div>
   );

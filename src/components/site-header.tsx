@@ -185,13 +185,15 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-3.5 sm:px-6 md:px-10 gap-2 sm:gap-4"
           }`}
         >
-          <button
-            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          {!mobileOpen && (
+            <button
+              className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
 
           <Link to="/" className="flex shrink-0 items-center" aria-label="RIOTOUS home">
             <img

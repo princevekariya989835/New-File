@@ -92,6 +92,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
               }
             }}
             placeholder="Search hoodies, oversized tees, drops…"
+            aria-label="Search products"
             className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground text-foreground"
           />
           {query ? (
