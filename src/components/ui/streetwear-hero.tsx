@@ -194,13 +194,18 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
             <div className="anim-float relative overflow-hidden bg-secondary shadow-2xl">
               <img
                 src={imageSrc}
+                onError={(e) => {
+                  if (e.currentTarget.src !== heroModelFallback) {
+                    e.currentTarget.src = heroModelFallback;
+                  }
+                }}
                 alt="Model wearing RIOTOUS streetwear heavyweight tee"
                 width={1024}
                 height={1280}
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
-                className="aspect-[4/5] w-full object-cover select-none"
+                className="aspect-[4/5] w-full object-cover object-top select-none"
               />
             </div>
 
