@@ -33,6 +33,7 @@ import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 import { StreetwearHero } from "@/components/ui/streetwear-hero";
 import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
+import { MobileCategoryNavigation } from "@/components/home/mobile-category-navigation";
 
 interface WebsiteHomepageContentProps {
   config: WebsiteConfig;
@@ -320,8 +321,13 @@ export function WebsiteHomepageContent({
                   </div>
                 </div>
 
-                {/* Collections Cards: Horizontally scrollable carousel on mobile (< sm), 2 cols on tablet (sm-md), 4 cols on desktop (lg) */}
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-none sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-5 md:gap-6 sm:overflow-visible sm:pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden touch-pan-x">
+                {/* Mobile View (< md): Compact Horizontal Category Selector matching reference */}
+                <div className="block md:hidden">
+                  <MobileCategoryNavigation collections={enabledCollections} />
+                </div>
+
+                {/* Desktop View (>= md): Existing 4-Column Design UNCHANGED */}
+                <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6">
                   {enabledCollections.map((c, idx) => {
                     const preset = COLLECTION_CARD_PRESETS[idx % COLLECTION_CARD_PRESETS.length];
                     const imgUrl = c.imageUrl || preset.fallbackImg;
@@ -334,7 +340,7 @@ export function WebsiteHomepageContent({
                     return (
                       <div
                         key={c.id || idx}
-                        className="w-[82vw] max-w-[320px] shrink-0 snap-start sm:w-auto sm:max-w-none"
+                        className="w-auto max-w-none shrink-0"
                       >
                         <a
                           href={link}

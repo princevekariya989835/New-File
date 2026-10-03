@@ -94,10 +94,10 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
   }, [collections]);
 
   return (
-    <div className="relative -mx-6 w-[calc(100%+3rem)] max-w-[100vw] overflow-hidden">
+    <div className="relative -mx-6 overflow-hidden">
       {/* Horizontally scrollable single row of cards */}
       <div
-        className="flex w-full flex-nowrap items-stretch gap-2.5 overflow-x-auto scroll-smooth px-6 pb-2 pt-1 sm:gap-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-x-contain touch-pan-x"
+        className="flex w-full flex-nowrap items-start gap-2.5 overflow-x-auto scroll-smooth px-6 pb-2 pt-1 sm:gap-3.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-x-contain touch-pan-x"
         style={{
           WebkitOverflowScrolling: "touch",
           overscrollBehaviorX: "contain",
@@ -108,16 +108,16 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
             key={cat.id || idx}
             href={cat.link}
             aria-label={`Browse ${cat.name} category`}
-            className="group relative flex h-[94px] w-[106px] min-w-[106px] max-w-[115px] shrink-0 flex-col items-center justify-between overflow-hidden rounded-2xl border border-sky-300/70 bg-gradient-to-b from-[#68b7ed] via-[#b5e0fa] to-[#eef7fc] p-1.5 shadow-xs transition-all duration-200 hover:border-sky-400 hover:shadow-sm active:scale-95 sm:h-[102px] sm:w-[116px] sm:min-w-[116px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red focus-visible:ring-offset-2"
+            className="group flex flex-col items-center shrink-0 w-[100px] min-w-[100px] max-w-[108px] snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red focus-visible:ring-offset-2"
           >
-            {/* Top: Category Image Container with aspect ratio preservation */}
-            <div className="relative flex h-[58px] w-full items-end justify-center overflow-hidden sm:h-[64px]">
+            {/* Top: Rounded rectangular image area with sky-blue gradient matching reference screenshot */}
+            <div className="relative flex h-[82px] w-full items-end justify-center overflow-hidden rounded-2xl border border-sky-300/80 bg-gradient-to-b from-[#68b7ed] via-[#b5e0fa] to-[#eef7fc] p-1 shadow-xs transition-transform duration-200 group-hover:scale-105 group-active:scale-95 sm:h-[90px]">
               <img
                 src={cat.imageUrl}
                 alt={cat.name}
                 loading="lazy"
                 decoding="async"
-                className="h-full w-auto max-w-[92%] object-contain object-bottom drop-shadow-xs transition-transform duration-300 group-hover:scale-105"
+                className="h-full w-auto max-w-[92%] object-contain object-bottom drop-shadow-xs transition-transform duration-300 group-hover:scale-110"
                 onError={(e) => {
                   if (cat.fallbackUrl && e.currentTarget.src !== cat.fallbackUrl) {
                     e.currentTarget.src = cat.fallbackUrl;
@@ -126,9 +126,9 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
               />
             </div>
 
-            {/* Bottom: Category Name Text */}
-            <div className="flex w-full min-h-[24px] items-center justify-center px-1 text-center sm:min-h-[26px]">
-              <span className="line-clamp-2 text-center text-[9.5px] font-bold uppercase leading-[1.15] tracking-tight text-neutral-900 select-none sm:text-[10px]">
+            {/* Bottom: Small uppercase category title underneath */}
+            <div className="mt-1.5 flex w-full min-h-[26px] items-start justify-center px-0.5 text-center">
+              <span className="line-clamp-2 text-center text-[9.5px] sm:text-[10px] font-bold uppercase leading-tight tracking-tight text-foreground select-none">
                 {cat.name}
               </span>
             </div>
