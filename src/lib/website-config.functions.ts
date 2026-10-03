@@ -49,7 +49,7 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
         ? savedConfig.collections.map((c: any, i: number) => ({
             ...(def.collections[i] || {}),
             ...c,
-            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/products/zoro-black-1.jpg",
+            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/assets/collections/collection-printed-tees.jpg",
           }))
         : def.collections,
     featuredProducts: {
