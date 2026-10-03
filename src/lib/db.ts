@@ -7,13 +7,21 @@ let _cfEnv: any = null;
 
 // Allow server.ts or Cloudflare runtime to inject env bindings
 export function setCloudflareEnv(env: any) {
-  if (env) {
+  if (env && typeof env === "object") {
     _cfEnv = env;
     if (typeof globalThis !== "undefined") {
       const g = globalThis as any;
       g.__cf_env__ = env;
+      g.env = env;
       if (env.DB) {
         g.DB = env.DB;
+      }
+    }
+    if (typeof process !== "undefined" && process.env) {
+      for (const [k, v] of Object.entries(env)) {
+        if (typeof v === "string" && (!process.env[k] || process.env[k] === "")) {
+          process.env[k] = v;
+        }
       }
     }
   }
