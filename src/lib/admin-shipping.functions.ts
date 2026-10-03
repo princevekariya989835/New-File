@@ -453,3 +453,11 @@ export const adminGetTrackingEvents = createServerFn({ method: "GET" })
 
     return events as any[];
   });
+
+export const adminTestZippyyAuth = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context as any);
+    const { testZippyyAuthentication } = await import("@/lib/zippyy");
+    return await testZippyyAuthentication();
+  });

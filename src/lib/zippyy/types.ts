@@ -4,7 +4,8 @@
 
 export interface ZippyyAuthConfig {
   baseUrl: string;
-  email?: string;
+  emailAddress?: string;
+  email?: string; // backwards compatibility alias for emailAddress
   password?: string;
   apiKey?: string;
   warehouseId?: string;
@@ -13,11 +14,31 @@ export interface ZippyyAuthConfig {
   isSandbox?: boolean;
 }
 
+export interface ZippyyLoginRequest {
+  emailAddress: string;
+  password: string;
+}
+
 export interface ZippyyAuthResponse {
+  idToken?: string;
   accessToken: string;
   refreshToken?: string;
   tokenType?: string;
   expiresIn?: number; // in seconds
+}
+
+export interface ZippyyAuthTestResult {
+  success: boolean;
+  message: string;
+  statusCode?: number;
+  environment: string;
+  baseUrl: string;
+  configuredEmail?: string;
+  tokenExpiresAt?: string;
+  tokenType?: string;
+  hasIdToken?: boolean;
+  hasRefreshToken?: boolean;
+  error?: string;
 }
 
 export interface ZippyyCourierServiceability {

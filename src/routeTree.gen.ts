@@ -63,6 +63,7 @@ import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay.we
 import { Route as ApiStorefrontContentRouteImport } from './routes/api/storefront/content'
 import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storefront/navigation'
 import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
+import { Route as ApiZippyyAuthTestRouteImport } from './routes/api/zippyy.auth-test'
 import { Route as ApiZippyyWebhookRouteImport } from './routes/api/zippyy.webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -395,6 +396,11 @@ const ApiStorefrontSettingsRoute = ApiStorefrontSettingsRouteImport.update({
   path: '/api/storefront/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiZippyyAuthTestRoute = ApiZippyyAuthTestRouteImport.update({
+  id: '/api/zippyy/auth-test',
+  path: '/api/zippyy/auth-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiZippyyWebhookRoute = ApiZippyyWebhookRouteImport.update({
   id: '/api/zippyy/webhook',
   path: '/api/zippyy/webhook',
@@ -454,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -509,6 +516,7 @@ export interface FileRoutesByTo {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -567,6 +575,7 @@ export interface FileRoutesById {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -625,6 +634,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -680,6 +690,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/admin'
   id:
@@ -737,6 +748,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -772,6 +784,7 @@ export interface RootRouteChildren {
   ApiStorefrontContentRoute: typeof ApiStorefrontContentRoute
   ApiStorefrontNavigationRoute: typeof ApiStorefrontNavigationRoute
   ApiStorefrontSettingsRoute: typeof ApiStorefrontSettingsRoute
+  ApiZippyyAuthTestRoute: typeof ApiZippyyAuthTestRoute
   ApiZippyyWebhookRoute: typeof ApiZippyyWebhookRoute
 }
 
@@ -1155,6 +1168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStorefrontSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/zippyy/auth-test': {
+      id: '/api/zippyy/auth-test'
+      path: '/api/zippyy/auth-test'
+      fullPath: '/api/zippyy/auth-test'
+      preLoaderRoute: typeof ApiZippyyAuthTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/zippyy/webhook': {
       id: '/api/zippyy/webhook'
       path: '/api/zippyy/webhook'
@@ -1265,6 +1285,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStorefrontContentRoute: ApiStorefrontContentRoute,
   ApiStorefrontNavigationRoute: ApiStorefrontNavigationRoute,
   ApiStorefrontSettingsRoute: ApiStorefrontSettingsRoute,
+  ApiZippyyAuthTestRoute: ApiZippyyAuthTestRoute,
   ApiZippyyWebhookRoute: ApiZippyyWebhookRoute,
 }
 export const routeTree = rootRouteImport
