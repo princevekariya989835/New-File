@@ -330,7 +330,10 @@ export const adminListProducts = createServerFn({ method: "GET" })
         title: p.name,
         name: p.name,
         handle: p.slug,
-        status: p.is_active ? "ACTIVE" : "DRAFT",
+        status:
+          p.is_active === 0 || p.is_active === false || p.is_active === "false"
+            ? "DRAFT"
+            : "ACTIVE",
         totalInventory: Number(p.stock_quantity ?? 0),
         featuredImage: cleanImgs[0] || null,
         images: cleanImgs,

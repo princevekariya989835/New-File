@@ -845,7 +845,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
               '[]'::jsonb
             ) AS offers
           FROM products p
-          WHERE (p.slug = ${handle} OR p.id::text = ${handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
           LIMIT 1
         `;
       } catch (queryErr) {
@@ -872,27 +872,12 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
               '[]'::jsonb
             ) AS product_variants
           FROM products p
-          WHERE (p.slug = ${handle} OR p.id::text = ${handle}) AND (p.is_active = true OR p.is_active IS NULL)
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
           LIMIT 1
         `;
       }
 
       if (!products || products.length === 0) {
-        const fallbackMatch = FALLBACK_PRODUCTS.find(
-          (fb) =>
-            fb.slug === handle ||
-            fb.id === handle ||
-            (handle.startsWith("125248856") && fb.slug.includes("baki")),
-        );
-        if (fallbackMatch) {
-          const result = toCatalogProduct(fallbackMatch as any).node;
-          if (handle.startsWith("125248856")) {
-            result.sku = "125248856";
-            result.handle = handle;
-          }
-          _productHandleCache.set(handleKey, { data: result, timestamp: Date.now() });
-          return result;
-        }
         _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
         return null;
       }

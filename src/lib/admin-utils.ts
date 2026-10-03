@@ -657,12 +657,21 @@ export async function syncProductVariants(
       }
     }
   } else {
-    // 3. Make sure any missing variants exist
+    // 3. Make sure any missing variants exist and existing variants have their image and color kept up-to-date
     for (const item of desired) {
       const k = key(item);
-      if (!existingMap.has(k)) {
+      const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
+      if (ex) {
+        await sql`
+          UPDATE product_variants
+          SET color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = ${imageUrl},
+              updated_at = NOW()
+          WHERE id::text = ${String(ex.id)}
+        `;
+      } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-        const { colorHex, imageUrl } = getCvData(item.color);
         await sql`
           INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
           VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0, ${colorHex}, ${imageUrl});
