@@ -2328,7 +2328,7 @@ export function AdminStorefrontManagement() {
                   <Input
                     id="seo-og-img"
                     value={editorConfig.seo.ogImageUrl || ""}
-                    placeholder="/assets/riotous-hero-graphic-clean.jpg"
+                    placeholder="/assets/hero-model.jpg"
                     onChange={(e) =>
                       setEditorConfig({
                         ...editorConfig,

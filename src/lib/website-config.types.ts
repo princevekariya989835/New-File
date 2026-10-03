@@ -314,7 +314,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       "Premium DTF printed streetwear made in India. Custom apparel for creators, dreamers, and streetwear lovers.",
     shopTitle: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS",
     shopDescription: "Browse the full RIOTOUS collection. DTF printed tees, oversized fits, and limited drops.",
-    ogImageUrl: "/assets/riotous-hero-graphic-clean.jpg",
+    ogImageUrl: "/assets/hero-model.jpg",
     googleSearchConsoleCode: "",
   },
   announcement: {
@@ -337,8 +337,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     secondaryCtaText: "Design Your Own",
     secondaryCtaLink: "/design",
     mediaType: "image",
-    mediaUrl: "/assets/riotous-hero-graphic-clean.jpg",
-    imageUrl: "/assets/riotous-hero-graphic-clean.jpg",
+    mediaUrl: "/assets/hero-model.jpg",
+    imageUrl: "/assets/hero-model.jpg",
     videoUrl: "",
     alignment: "left",
     animationSettings: {

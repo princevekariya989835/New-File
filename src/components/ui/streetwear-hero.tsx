@@ -55,7 +55,11 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
   const primaryLink = hero?.primaryCtaLink || "/shop";
   const secondaryCta = hero?.secondaryCtaText || "Design your own";
   const secondaryLink = hero?.secondaryCtaLink || "/design";
-  const imageSrc = hero?.imageUrl || heroModelFallback;
+  const rawImageSrc = hero?.imageUrl || hero?.mediaUrl;
+  const imageSrc =
+    rawImageSrc && !rawImageSrc.includes("riotous-hero-graphic-clean.jpg")
+      ? rawImageSrc
+      : "/assets/hero-model.jpg";
 
   // Split heading into lines, with special highlight for the final word or phrase
   const lines = rawHeading.includes("\n")
@@ -195,8 +199,8 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
               <img
                 src={imageSrc}
                 onError={(e) => {
-                  if (e.currentTarget.src !== heroModelFallback) {
-                    e.currentTarget.src = heroModelFallback;
+                  if (!e.currentTarget.src.includes("hero-model.jpg")) {
+                    e.currentTarget.src = "/assets/hero-model.jpg";
                   }
                 }}
                 alt="Model wearing RIOTOUS streetwear heavyweight tee"
