@@ -1047,12 +1047,52 @@ export function ProductOffersEditor({
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
+                  <Label className="text-[11px] font-semibold">Max Quantity (Optional)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={offer.maximumQuantity ?? ""}
+                    onChange={(e) =>
+                      updateOffer(index, {
+                        maximumQuantity: e.target.value ? parseInt(e.target.value, 10) : null,
+                      })
+                    }
+                    placeholder="No limit"
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">Start Date (Optional)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={offer.startDate ? offer.startDate.slice(0, 16) : ""}
+                    onChange={(e) =>
+                      updateOffer(index, { startDate: e.target.value ? new Date(e.target.value).toISOString() : null })
+                    }
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[11px] font-semibold">End Date (Optional)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={offer.endDate ? offer.endDate.slice(0, 16) : ""}
+                    onChange={(e) =>
+                      updateOffer(index, { endDate: e.target.value ? new Date(e.target.value).toISOString() : null })
+                    }
+                    className="h-8 mt-1 text-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
                   <Label className="text-[11px] font-semibold">Description</Label>
                   <Input
                     value={offer.description ?? ""}
                     onChange={(e) => updateOffer(index, { description: e.target.value })}
-                    placeholder="Short description displayed on card"
+                    placeholder="Short promotional description displayed on card"
                     className="h-8 mt-1 text-xs"
                   />
                 </div>
@@ -1068,16 +1108,19 @@ export function ProductOffersEditor({
                   />
                 </div>
 
-                <div className="sm:col-span-4 flex items-center justify-between pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs">
+                <div className="sm:col-span-4 flex items-center justify-between pt-2 border-t border-border/50">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium">
                     <input
                       type="checkbox"
                       checked={offer.isActive !== false}
                       onChange={(e) => updateOffer(index, { isActive: e.target.checked })}
-                      className="rounded border-border accent-foreground"
+                      className="rounded border-border accent-foreground h-4 w-4"
                     />
-                    <span>Active on Product Page</span>
+                    <span>Enable this offer on Product Page & Checkout</span>
                   </label>
+                  <span className={`text-[11px] font-medium ${offer.isActive !== false ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                    {offer.isActive !== false ? "● Active in database" : "○ Disabled in database"}
+                  </span>
                 </div>
               </div>
             </div>

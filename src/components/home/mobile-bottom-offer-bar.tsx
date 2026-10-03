@@ -46,9 +46,9 @@ export function MobileBottomOfferBar() {
     }
   };
 
-  // Only run if offer is enabled in website config and has valid promotion content (Issue 5)
-  const isEnabled = offerConfig ? offerConfig.enabled !== false : true;
-  const hasPromoContent = Boolean(offerConfig?.title || offerConfig?.subtitle || "BUY 2 GET 1 FREE");
+  // Only run if offer is explicitly enabled in website config and has configured promo content
+  const isEnabled = Boolean(offerConfig && offerConfig.enabled === true);
+  const hasPromoContent = Boolean(offerConfig?.title || offerConfig?.subtitle);
   if (!mounted || !isEnabled || !hasPromoContent) return null;
 
   // Calculate real B2G1 offer status from current cart

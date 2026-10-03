@@ -68,12 +68,12 @@ export interface ProductSpecification {
 
 export interface ProductOffer {
   id: string;
-  productId: string;
+  productId?: string;
   title: string;
   description: string | null;
   discountType: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
   discountValue: number;
-  promoCode: string | null;
+  promoCode?: string | null;
   minimumQuantity: number;
   maximumQuantity?: number | null;
   startDate?: string | null;
@@ -316,8 +316,33 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
   const isTaxInclusive = row.is_tax_inclusive !== false;
 
   const rawOffers = isListing ? [] : (row.offers ?? []);
+  const now = new Date();
   const offers: ProductOffer[] = rawOffers
-    .filter((o) => o.isActive !== false)
+    .filter((o: any) => {
+      const active = o.isActive !== false && o.is_active !== false && o.is_active !== 0 && o.is_active !== "0";
+      if (!active) return false;
+      const sDate = o.startDate || o.start_date;
+      if (sDate && new Date(sDate).getTime() > now.getTime()) return false;
+      const eDate = o.endDate || o.end_date;
+      if (eDate && new Date(eDate).getTime() < now.getTime()) return false;
+      return true;
+    })
+    .map((o: any) => ({
+      id: String(o.id),
+      productId: String(o.productId || o.product_id || row.id),
+      title: String(o.title),
+      description: o.description ?? null,
+      discountType: o.discountType || o.discount_type || "percentage",
+      discountValue: Number(o.discountValue ?? o.discount_value ?? 0),
+      promoCode: o.promoCode || o.promo_code || null,
+      minimumQuantity: Number(o.minimumQuantity ?? o.minimum_quantity ?? 1),
+      maximumQuantity: o.maximumQuantity ?? o.maximum_quantity ?? null,
+      startDate: o.startDate || o.start_date || null,
+      endDate: o.endDate || o.end_date || null,
+      isActive: true,
+      displayOrder: Number(o.displayOrder ?? o.display_order ?? 0),
+      termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
+    }))
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
   const features = isListing ? undefined : (Array.isArray(row.features) ? row.features.filter(Boolean) : []);
@@ -703,8 +728,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           id: String(row.variant_id),
           size: (row.variant_size as string) || "",
           color: (row.variant_color as string) || "",
-          color_hex: (row.variant_color_hex as string) || null,
-          image_url: (row.variant_image_url as string) || null,
+          color_hex: (row.variant_color_hex as string) || undefined,
+          image_url: (row.variant_image_url as string) || undefined,
           stock_quantity: Number(row.variant_stock_quantity || 0),
           reserved_stock: Number(row.variant_reserved_stock || 0),
           low_stock_threshold: Number(row.variant_low_stock_threshold || 2),

@@ -50,6 +50,7 @@ import {
   Settings,
   Ticket,
   Activity,
+  Tag,
 } from "lucide-react";
 
 function AdminPendingShell() {
@@ -112,6 +113,7 @@ const NAV: Array<{
   { to: "/admin/reviews", label: "Reviews", icon: Star },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/coupons", label: "Coupons", icon: Ticket },
+  { to: "/admin/offers", label: "Offers", icon: Tag },
   { to: "/admin/designs", label: "Design Studio", icon: Palette },
   { to: "/admin/storefront", label: "Storefront", icon: Store },
   { to: "/admin/marketing", label: "Marketing", icon: Megaphone },

@@ -80,7 +80,7 @@ interface OfferThemeConfig {
   actionClass: string;
 }
 
-function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConfig {
+function getOfferThemeConfig(offer: ProductOffer, _index: number): OfferThemeConfig {
   const title = (offer.title || "").toUpperCase();
   const code = (offer.promoCode || "").toUpperCase();
   const type = offer.discountType;
@@ -91,35 +91,7 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
   const baseCodeBox = "border-border/80 bg-secondary/50 hover:bg-secondary hover:border-foreground/40 text-foreground";
   const baseAction = "text-brand-red hover:underline";
 
-  // Card 1: BUY 3 GET 20% OFF / BEST DEAL / RIOTOUS20
-  if (
-    title.includes("20%") ||
-    code === "RIOTOUS20" ||
-    title.includes("BUY 3") ||
-    index === 0
-  ) {
-    return {
-      theme: "rose",
-      icon: Percent,
-      primaryBadge: "BEST DEAL",
-      primaryBadgeClass: "bg-brand-red text-white",
-      secondaryBadge: null,
-      secondaryBadgeClass: "",
-      cardBgClass: baseCardBg,
-      iconBgClass: baseIconBg,
-      codeBoxClass: baseCodeBox,
-      actionClass: baseAction,
-    };
-  }
-
-  // Card 2: BUY 2 GET 1 FREE / SPECIAL BUNDLE
-  if (
-    title.includes("GET 1") ||
-    title.includes("BUY 2") ||
-    type === "buy_x_get_y" ||
-    title.includes("BUNDLE") ||
-    index === 1
-  ) {
+  if (type === "buy_x_get_y" || title.includes("GET 1") || title.includes("BUY 2")) {
     return {
       theme: "emerald",
       icon: Gift,
@@ -134,11 +106,40 @@ function getOfferThemeConfig(offer: ProductOffer, index: number): OfferThemeConf
     };
   }
 
-  // Card 3: FLAT ₹200 OFF / SAVE200
+  if (type === "percentage" || title.includes("%") || code === "RIOTOUS20") {
+    return {
+      theme: "rose",
+      icon: Percent,
+      primaryBadge: offer.discountValue ? `${offer.discountValue}% OFF` : "SPECIAL DEAL",
+      primaryBadgeClass: "bg-brand-red text-white",
+      secondaryBadge: null,
+      secondaryBadgeClass: "",
+      cardBgClass: baseCardBg,
+      iconBgClass: baseIconBg,
+      codeBoxClass: baseCodeBox,
+      actionClass: baseAction,
+    };
+  }
+
+  if (type === "fixed_amount" || type === "flat_price" || title.includes("₹") || title.includes("FLAT")) {
+    return {
+      theme: "amber",
+      icon: IndianRupee,
+      primaryBadge: offer.discountValue ? `FLAT ₹${offer.discountValue} OFF` : "INSTANT SAVINGS",
+      primaryBadgeClass: "bg-secondary text-foreground border border-border/60",
+      secondaryBadge: null,
+      secondaryBadgeClass: "",
+      cardBgClass: baseCardBg,
+      iconBgClass: baseIconBg,
+      codeBoxClass: baseCodeBox,
+      actionClass: baseAction,
+    };
+  }
+
   return {
     theme: "amber",
-    icon: IndianRupee,
-    primaryBadge: "INSTANT SAVINGS",
+    icon: Tag,
+    primaryBadge: offer.promoCode ? "PROMO CODE" : "SPECIAL OFFER",
     primaryBadgeClass: "bg-secondary text-foreground border border-border/60",
     secondaryBadge: null,
     secondaryBadgeClass: "",
@@ -158,28 +159,20 @@ export function ProductOffersSection({
   const [selectedOffer, setSelectedOffer] = useState<ProductOffer | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Extract and sort active offers
-  let activeOffers = (offers || [])
-    .filter((o) => o.isActive !== false)
+  // Extract and sort active offers strictly from props (database source of truth)
+  const now = new Date();
+  const activeOffers = (offers || [])
+    .filter((o) => {
+      if (o.isActive === false) return false;
+      if (o.startDate && new Date(o.startDate).getTime() > now.getTime()) return false;
+      if (o.endDate && new Date(o.endDate).getTime() < now.getTime()) return false;
+      return true;
+    })
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
-  // If no offers exist, or fewer than the standard 3 offers are configured,
-  // ensure the canonical promotional offers are available so all 3 cards render seamlessly
+  // If no active offers are configured for this product in the database, render NOTHING
   if (activeOffers.length === 0) {
-    activeOffers = [...DEFAULT_PRODUCT_OFFERS];
-  } else if (activeOffers.length < 3) {
-    const existingTitles = activeOffers.map((o) => (o.title || "").toUpperCase());
-    const existingCodes = activeOffers.map((o) => (o.promoCode || "").toUpperCase());
-
-    for (const def of DEFAULT_PRODUCT_OFFERS) {
-      const alreadyHas =
-        existingTitles.some((t) => t.includes(def.title.slice(0, 8))) ||
-        (def.promoCode && existingCodes.includes(def.promoCode.toUpperCase()));
-      if (!alreadyHas) {
-        activeOffers.push(def);
-      }
-    }
-    activeOffers.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    return null;
   }
 
   const handleCopyCode = async (code: string, e: React.MouseEvent) => {

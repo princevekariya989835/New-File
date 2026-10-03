@@ -184,6 +184,10 @@ export const Route = createFileRoute("/api/public/product-image")({
             }
           }
 
+          if (!dataUrl) {
+            return Response.redirect("/placeholder-tee.jpg", 302);
+          }
+
           // If the dataUrl is a local relative asset path, redirect safely
           if (dataUrl.startsWith("/") && !dataUrl.startsWith("//") && !dataUrl.includes("\\")) {
             return Response.redirect(dataUrl, 302);

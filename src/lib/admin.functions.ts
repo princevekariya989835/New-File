@@ -840,11 +840,17 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     if (Array.isArray(values.offers) && values.offers.length > 0) {
       for (const o of values.offers) {
         try {
+          const offId = o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
+            ? o.id
+            : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const isActive = o.isActive !== false ? 1 : 0;
+          const eligProds = JSON.stringify(Array.isArray(o.eligibleProducts) ? o.eligibleProducts : []);
+          const eligCats = JSON.stringify(Array.isArray(o.eligibleCategories) ? o.eligibleCategories : []);
           await sql`
             INSERT INTO product_offers (
               id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
             ) VALUES (
-              ${o.id}, ${productId}, ${o.title}, ${o.description}, ${o.discountType}, ${o.discountValue}, ${o.promoCode}, ${o.minimumQuantity}, ${o.maximumQuantity}, ${JSON.stringify(o.eligibleProducts)}::jsonb, ${JSON.stringify(o.eligibleCategories)}::jsonb, ${o.startDate}, ${o.endDate}, ${o.isActive}, ${o.displayOrder}, ${o.termsAndConditions}
+              ${offId}, ${productId}, ${o.title}, ${o.description || null}, ${o.discountType || 'percentage'}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
             )
           `;
         } catch (oErr) {
@@ -1035,11 +1041,17 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       try {
         await sql`DELETE FROM product_offers WHERE product_id::text = ${canonicalId}`;
         for (const o of values.offers) {
+          const offId = o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
+            ? o.id
+            : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const isActive = o.isActive !== false ? 1 : 0;
+          const eligProds = JSON.stringify(Array.isArray(o.eligibleProducts) ? o.eligibleProducts : []);
+          const eligCats = JSON.stringify(Array.isArray(o.eligibleCategories) ? o.eligibleCategories : []);
           await sql`
             INSERT INTO product_offers (
               id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
             ) VALUES (
-              ${o.id}, ${canonicalId}, ${o.title}, ${o.description}, ${o.discountType}, ${o.discountValue}, ${o.promoCode}, ${o.minimumQuantity}, ${o.maximumQuantity}, ${JSON.stringify(o.eligibleProducts)}::jsonb, ${JSON.stringify(o.eligibleCategories)}::jsonb, ${o.startDate}, ${o.endDate}, ${o.isActive}, ${o.displayOrder}, ${o.termsAndConditions}
+              ${offId}, ${canonicalId}, ${o.title}, ${o.description || null}, ${o.discountType || 'percentage'}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
             )
           `;
         }
@@ -1854,4 +1866,205 @@ export const adminGetDesign = createServerFn({ method: "GET" })
       LIMIT 1
     `;
     return rows[0] || null;
+  });
+
+export type AdminOfferRecord = {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  title: string;
+  description: string | null;
+  discountType: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
+  discountValue: number;
+  promoCode: string | null;
+  minimumQuantity: number;
+  maximumQuantity: number | null;
+  eligibleProducts: string[];
+  eligibleCategories: string[];
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  termsAndConditions: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export const adminListAllOffers = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<AdminOfferRecord[]> => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+    let rows: any[] = [];
+    try {
+      rows = await sql`
+        SELECT 
+          o.id, o.product_id, o.title, o.description, o.discount_type, o.discount_value, o.promo_code,
+          o.minimum_quantity, o.maximum_quantity, o.eligible_products, o.eligible_categories,
+          o.start_date, o.end_date, o.is_active, o.display_order, o.terms_and_conditions,
+          o.created_at, o.updated_at,
+          p.name as product_name, p.slug as product_slug
+        FROM product_offers o
+        LEFT JOIN products p ON o.product_id::text = p.id::text
+        ORDER BY o.display_order ASC, o.created_at DESC
+      `;
+    } catch (err) {
+      console.warn("[adminListAllOffers] query warning:", err);
+    }
+
+    return (rows || []).map((o: any) => ({
+      id: String(o.id),
+      productId: String(o.product_id),
+      productName: o.product_name || "Unassigned / General",
+      productSlug: o.product_slug || "",
+      title: String(o.title),
+      description: o.description ?? null,
+      discountType: (o.discount_type as any) || "percentage",
+      discountValue: Number(o.discount_value || 0),
+      promoCode: o.promo_code ?? null,
+      minimumQuantity: Number(o.minimum_quantity || 1),
+      maximumQuantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+      eligibleProducts: Array.isArray(o.eligible_products)
+        ? o.eligible_products
+        : typeof o.eligible_products === "string"
+          ? (() => { try { return JSON.parse(o.eligible_products); } catch { return []; } })()
+          : [],
+      eligibleCategories: Array.isArray(o.eligible_categories)
+        ? o.eligible_categories
+        : typeof o.eligible_categories === "string"
+          ? (() => { try { return JSON.parse(o.eligible_categories); } catch { return []; } })()
+          : [],
+      startDate: o.start_date ?? null,
+      endDate: o.end_date ?? null,
+      isActive: o.is_active !== false && o.is_active !== 0 && o.is_active !== "0",
+      displayOrder: Number(o.display_order ?? 0),
+      termsAndConditions: o.terms_and_conditions ?? null,
+      createdAt: o.created_at,
+      updatedAt: o.updated_at,
+    }));
+  });
+
+export const adminSaveOffer = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => d)
+  .handler(async ({ data, context }): Promise<{ success: boolean; id: string }> => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    const id = data.id || `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const productId = String(data.productId || "").trim();
+    if (!productId) {
+      throw new Error("Product ID is required for offer association.");
+    }
+    const title = String(data.title || "").trim();
+    if (!title) {
+      throw new Error("Offer title is required.");
+    }
+    const description = data.description ? String(data.description).trim() : null;
+    const discountType = data.discountType || "percentage";
+    const discountValue = Number(data.discountValue ?? 0);
+    const promoCode = data.promoCode ? String(data.promoCode).trim().toUpperCase() : null;
+    const minimumQuantity = Number(data.minimumQuantity ?? 1);
+    const maximumQuantity = data.maximumQuantity ? Number(data.maximumQuantity) : null;
+    const eligibleProducts = JSON.stringify(Array.isArray(data.eligibleProducts) ? data.eligibleProducts : []);
+    const eligibleCategories = JSON.stringify(Array.isArray(data.eligibleCategories) ? data.eligibleCategories : []);
+    const startDate = data.startDate ? String(data.startDate) : null;
+    const endDate = data.endDate ? String(data.endDate) : null;
+    const isActive = data.isActive !== false ? 1 : 0;
+    const displayOrder = Number(data.displayOrder ?? 0);
+    const termsAndConditions = data.termsAndConditions ? String(data.termsAndConditions).trim() : null;
+
+    const existing = await sql`SELECT id FROM product_offers WHERE id = ${id} LIMIT 1`;
+    if (existing && existing.length > 0) {
+      await sql`
+        UPDATE product_offers SET
+          product_id = ${productId},
+          title = ${title},
+          description = ${description},
+          discount_type = ${discountType},
+          discount_value = ${discountValue},
+          promo_code = ${promoCode},
+          minimum_quantity = ${minimumQuantity},
+          maximum_quantity = ${maximumQuantity},
+          eligible_products = ${eligibleProducts},
+          eligible_categories = ${eligibleCategories},
+          start_date = ${startDate},
+          end_date = ${endDate},
+          is_active = ${isActive},
+          display_order = ${displayOrder},
+          terms_and_conditions = ${termsAndConditions},
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${id}
+      `;
+    } else {
+      await sql`
+        INSERT INTO product_offers (
+          id, product_id, title, description, discount_type, discount_value, promo_code,
+          minimum_quantity, maximum_quantity, eligible_products, eligible_categories,
+          start_date, end_date, is_active, display_order, terms_and_conditions,
+          created_at, updated_at
+        ) VALUES (
+          ${id}, ${productId}, ${title}, ${description}, ${discountType}, ${discountValue}, ${promoCode},
+          ${minimumQuantity}, ${maximumQuantity}, ${eligibleProducts}, ${eligibleCategories},
+          ${startDate}, ${endDate}, ${isActive}, ${displayOrder}, ${termsAndConditions},
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+      `;
+    }
+
+    try {
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {
+      /* non-fatal */
+    }
+
+    invalidateCatalogCache();
+    return { success: true, id };
+  });
+
+export const adminToggleOfferStatus = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { offerId: string; isActive: boolean }) => ({
+    offerId: String(d.offerId),
+    isActive: Boolean(d.isActive),
+  }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    const sql = getSql();
+    const activeVal = data.isActive ? 1 : 0;
+    await sql`
+      UPDATE product_offers 
+      SET is_active = ${activeVal}, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ${data.offerId}
+    `;
+
+    try {
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {
+      /* non-fatal */
+    }
+
+    invalidateCatalogCache();
+    return { success: true };
+  });
+
+export const adminDeleteOffer = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { offerId: string }) => ({ offerId: String(d.offerId) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    const sql = getSql();
+    await sql`DELETE FROM product_offers WHERE id = ${data.offerId}`;
+
+    try {
+      await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+    } catch {
+      /* non-fatal */
+    }
+
+    invalidateCatalogCache();
+    return { success: true };
   });

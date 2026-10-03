@@ -594,21 +594,30 @@ function ProductPage() {
             );
           })()}
 
-          {/* Mobile-only B2G1 Promotional Nudge */}
-          {isItemEligibleForB2G1(
-            { productId: p.productId, productTitle: displayTitle, category: p.productType },
-            config?.buy2get1Offer,
-          ) && (
-            <div className="mt-3 block md:hidden">
-              <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-red/10 border border-brand-red/20 px-2.5 py-1 text-xs text-brand-red">
-                <Sparkles className="h-3 w-3 shrink-0" />
-                <span className="font-bold tracking-wider uppercase text-[11px]">BUY 2 GET 1 FREE</span>
-                <span className="text-[10px] text-muted-foreground font-normal">
-                  · Add 3 to unlock
-                </span>
+          {/* Mobile-only Offer Nudge (strictly based on configured product offers in database) */}
+          {(() => {
+            const activeProductOffer = p.offers?.find(
+              (o) =>
+                o.isActive &&
+                (!o.startDate || new Date(o.startDate).getTime() <= Date.now()) &&
+                (!o.endDate || new Date(o.endDate).getTime() >= Date.now()),
+            );
+            if (!activeProductOffer) return null;
+
+            return (
+              <div className="mt-3 block md:hidden">
+                <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-red/10 border border-brand-red/20 px-2.5 py-1 text-xs text-brand-red">
+                  <Sparkles className="h-3 w-3 shrink-0" />
+                  <span className="font-bold tracking-wider uppercase text-[11px]">
+                    {activeProductOffer.title}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    · {activeProductOffer.description || "Special offer"}
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Options & Size Selection */}
           <div className="mt-8 space-y-6">

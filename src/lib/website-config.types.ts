@@ -70,16 +70,16 @@ export interface WebsiteWhyUsItem {
 }
 
 export interface WebsiteBuy2Get1OfferConfig {
-  enabled: boolean;
-  title: string;
+  enabled?: boolean;
+  title?: string;
   subtitle?: string;
-  supportingText: string;
-  appliesTo: "all" | "categories" | "products";
+  supportingText?: string;
+  appliesTo?: "all" | "categories" | "products";
   categoryNames?: string[];
   productIds?: string[];
   maxFreeItemsPerOrder?: number;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export interface WebsitePromoBannerConfig {

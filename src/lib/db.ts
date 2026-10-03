@@ -690,7 +690,7 @@ function createD1RestSql() {
     });
 
     let data: any = await res.json();
-    if (res.status === 401 || (data.errors && data.errors.some((e: any) => e.code === 10000))) {
+    if (res.status === 401 || (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))) {
       // Token expired, force re-reading from wrangler config
       token = getLocalD1Token(true);
       if (token) {

@@ -298,13 +298,13 @@ function ProductsPage() {
                   <div className="truncate font-medium">{p.title}</div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-semibold text-foreground">{money(p.price)}</span>
-                    {p.mrp && p.mrp > p.price && (
+                    {p.mrp && Number(p.mrp) > Number(p.price) && (
                       <>
                         <span className="line-through text-muted-foreground/75">
                           MRP: {money(p.mrp)}
                         </span>
                         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">
-                          {Math.round(((p.mrp - p.price) / p.mrp) * 100)}% OFF
+                          {Math.round(((Number(p.mrp) - Number(p.price)) / Number(p.mrp)) * 100)}% OFF
                         </span>
                       </>
                     )}

@@ -82,7 +82,7 @@ function pureJsHmacSha256(keyStr: string, dataStr: string): string {
   let keyBytes = enc.encode(keyStr);
   const dataBytes = enc.encode(dataStr);
   if (keyBytes.length > 64) {
-    keyBytes = sha256Bytes(keyBytes);
+    keyBytes = new Uint8Array(sha256Bytes(keyBytes));
   }
   const keyPad = new Uint8Array(64);
   keyPad.set(keyBytes);
