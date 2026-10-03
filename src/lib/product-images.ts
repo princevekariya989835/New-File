@@ -63,6 +63,25 @@ export function validateImageFile(file: File) {
   return null;
 }
 
+async function uploadViaServerFn(
+  fileName: string,
+  mimeType: string,
+  dataBase64: string,
+): Promise<string | null> {
+  try {
+    const { adminUploadProductMedia } = await import("@/lib/admin.functions");
+    const res = await adminUploadProductMedia({
+      data: { fileName, mimeType, dataBase64 },
+    });
+    if (res && res.ok && res.mediaUrl) {
+      return res.mediaUrl;
+    }
+  } catch (err) {
+    console.warn("[uploadProductImage] uploadViaServerFn failed:", err);
+  }
+  return null;
+}
+
 async function uploadToMediaEndpoint(
   fileName: string,
   mimeType: string,
@@ -110,6 +129,23 @@ async function uploadToMediaEndpoint(
   return null;
 }
 
+async function persistImageFile(
+  fileName: string,
+  mimeType: string,
+  dataUrl: string,
+): Promise<string> {
+  // 1. Try server function
+  const serverFnUrl = await uploadViaServerFn(fileName, mimeType, dataUrl);
+  if (serverFnUrl) return serverFnUrl;
+
+  // 2. Try media upload HTTP endpoint
+  const endpointUrl = await uploadToMediaEndpoint(fileName, mimeType, dataUrl);
+  if (endpointUrl) return endpointUrl;
+
+  // 3. Fallback to dataUrl (will be auto-persisted on server save)
+  return dataUrl;
+}
+
 export async function uploadProductImage(file: File): Promise<string> {
   const invalid = validateImageFile(file);
   if (invalid) throw new Error(invalid);
@@ -121,7 +157,7 @@ export async function uploadProductImage(file: File): Promise<string> {
       const img = new Image();
       img.onload = async () => {
         try {
-          const MAX_DIM = 1200;
+          const MAX_DIM = 1600;
           let { width, height } = img;
           if (width > MAX_DIM || height > MAX_DIM) {
             if (width > height) {
@@ -137,23 +173,23 @@ export async function uploadProductImage(file: File): Promise<string> {
           canvas.height = Math.max(1, height);
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
-            resolve(uploadedUrl || dataUrl);
+            const resultUrl = await persistImageFile(file.name, file.type || "image/jpeg", dataUrl);
+            resolve(resultUrl);
             return;
           }
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const format = file.type === "image/png" ? "image/webp" : "image/jpeg";
-          const compressed = canvas.toDataURL(format, 0.85);
-          const uploadedUrl = await uploadToMediaEndpoint(file.name, format, compressed);
-          resolve(uploadedUrl || compressed);
+          const compressed = canvas.toDataURL(format, 0.88);
+          const resultUrl = await persistImageFile(file.name, format, compressed);
+          resolve(resultUrl);
         } catch {
-          const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
-          resolve(uploadedUrl || dataUrl);
+          const resultUrl = await persistImageFile(file.name, file.type || "image/jpeg", dataUrl);
+          resolve(resultUrl);
         }
       };
       img.onerror = async () => {
-        const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
-        resolve(uploadedUrl || dataUrl);
+        const resultUrl = await persistImageFile(file.name, file.type || "image/jpeg", dataUrl);
+        resolve(resultUrl);
       };
       img.src = dataUrl;
     };

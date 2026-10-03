@@ -231,26 +231,12 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
         }));
       } else if (matchedCv?.imageUrl) {
         variantImages = [{ url: matchedCv.imageUrl, altText: `${row.name} - ${variantColor}` }];
-      } else if (match?.image_url) {
-        variantImages = [{ url: match.image_url, altText: `${row.name} - ${variantColor}` }];
-      } else if (variantColor && optimizedImages.length > 1) {
-        const cLower = variantColor.toLowerCase().trim();
-        const matches = optimizedImages.filter((url) => {
-          const uLower = url.toLowerCase();
-          if (cLower.includes("maroon") || cLower.includes("red")) {
-            return uLower.includes("maroon") || uLower.includes("red") || uLower.includes("zenitsu");
-          }
-          if (cLower.includes("black")) {
-            return uLower.includes("black") || uLower.includes("zoro-black");
-          }
-          if (cLower.includes("olive") || cLower.includes("green")) {
-            return uLower.includes("olive") || uLower.includes("green") || uLower.includes("zoro-olive");
-          }
-          return uLower.includes(cLower);
-        });
-        if (matches.length > 0) {
-          variantImages = matches.map((url) => ({ url, altText: `${row.name} - ${variantColor}` }));
-        }
+      } else if (match?.image_url && optimizedImages.includes(match.image_url)) {
+        const remaining = optimizedImages.filter((u) => u !== match.image_url);
+        variantImages = [
+          { url: match.image_url, altText: `${row.name} - ${variantColor}` },
+          ...remaining.map((url) => ({ url, altText: row.name })),
+        ];
       }
 
       if (variantImages.length === 0) {
@@ -424,10 +410,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Micro-cache (60s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
+// Micro-cache (2s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
-const CATALOG_CACHE_TTL = 60_000;
+const CATALOG_CACHE_TTL = 2_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();

@@ -177,10 +177,10 @@ export const Route = createFileRoute("/api/public/product-image")({
               if (firstImg && firstImg !== dataUrl && !firstImg.startsWith("/api/public/product-image")) {
                 dataUrl = firstImg;
               } else {
-                return new Response("Image not found", { status: 404 });
+                return Response.redirect("/placeholder-tee.jpg", 302);
               }
             } else {
-              return new Response("Image not found", { status: 404 });
+              return Response.redirect("/placeholder-tee.jpg", 302);
             }
           }
 

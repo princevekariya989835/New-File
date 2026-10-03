@@ -50,6 +50,7 @@ export function isD1Active(): boolean {
 export function getDatabaseEngineName(): string {
   if (isD1Active()) return "Cloudflare D1 (riotous-db)";
   if (getDatabaseUrl()) return "Neon PostgreSQL";
+  if (getLocalD1Token()) return "Cloudflare D1 (riotous-db via REST)";
   return "Local In-Memory Engine";
 }
 
@@ -426,6 +427,7 @@ const _mockInventoryTransactions: any[] = [];
 let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
 let _mockProductOffers: any[] = [];
+const _mockWebsiteMedia = new Map<string, any>();
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -624,23 +626,40 @@ function createD1Sql(d1: any) {
  * Allows local development server to query live D1 database.
  */
 let _cachedRestToken: string | null = null;
-function getLocalD1Token(): string | null {
+export function getLocalD1Token(forceRefresh: boolean = false): string | null {
   if (typeof process !== "undefined" && process.env?.CLOUDFLARE_API_TOKEN) {
     return process.env.CLOUDFLARE_API_TOKEN.trim();
   }
-  if (_cachedRestToken) return _cachedRestToken;
+  if (!forceRefresh && _cachedRestToken) return _cachedRestToken;
   try {
-    if (typeof process !== "undefined" && process.platform === "win32") {
-      const fs = require("fs");
-      const path = require("path");
-      const os = require("os");
-      const tomlPath = path.join(os.homedir(), "AppData", "Roaming", "xdg.config", ".wrangler", "config", "default.toml");
-      if (fs.existsSync(tomlPath)) {
-        const toml = fs.readFileSync(tomlPath, "utf8");
-        const m = toml.match(/oauth_token\s*=\s*"([^"]+)"/);
-        if (m) {
-          _cachedRestToken = m[1];
-          return _cachedRestToken;
+    if (typeof process !== "undefined" && process.versions?.node) {
+      let fs: any = null;
+      let path: any = null;
+      let os: any = null;
+
+      if (typeof (process as any).getBuiltinModule === "function") {
+        fs = (process as any).getBuiltinModule("fs") || (process as any).getBuiltinModule("node:fs");
+        path = (process as any).getBuiltinModule("path") || (process as any).getBuiltinModule("node:path");
+        os = (process as any).getBuiltinModule("os") || (process as any).getBuiltinModule("node:os");
+      }
+
+      if (fs && path && os) {
+        const home = os.homedir();
+        const candidatePaths = [
+          path.join(home, "AppData", "Roaming", "xdg.config", ".wrangler", "config", "default.toml"),
+          path.join(home, ".config", ".wrangler", "config", "default.toml"),
+          path.join(home, ".wrangler", "config", "default.toml"),
+        ];
+
+        for (const tomlPath of candidatePaths) {
+          if (fs.existsSync(tomlPath)) {
+            const toml = fs.readFileSync(tomlPath, "utf8");
+            const m = toml.match(/oauth_token\s*=\s*"([^"]+)"/);
+            if (m) {
+              _cachedRestToken = m[1];
+              return _cachedRestToken;
+            }
+          }
         }
       }
     }
@@ -655,13 +674,13 @@ function createD1RestSql() {
   const databaseId = "7487ac0f-706e-4560-baf8-e79031b2dd5e";
 
   const restSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
-    const token = getLocalD1Token();
+    let token = getLocalD1Token();
     if (!token) return [];
 
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) return [];
 
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
+    let res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -670,7 +689,23 @@ function createD1RestSql() {
       body: JSON.stringify({ sql, params: bindings }),
     });
 
-    const data: any = await res.json();
+    let data: any = await res.json();
+    if (res.status === 401 || (data.errors && data.errors.some((e: any) => e.code === 10000))) {
+      // Token expired, force re-reading from wrangler config
+      token = getLocalD1Token(true);
+      if (token) {
+        res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sql, params: bindings }),
+        });
+        data = await res.json();
+      }
+    }
+
     if (data.errors && data.errors.length > 0) {
       throw new Error(data.errors.map((e: any) => e.message).join(", "));
     }
@@ -689,7 +724,20 @@ let _cachedSql: any = null;
 let _cachedSqlMode: string | null = null;
 
 export function getSql() {
-  // 1. Cloudflare D1 Native Edge Binding (Priority 1 - Active in Production Worker)
+  const useNeon = (typeof process !== "undefined" && process.env?.USE_NEON === "true");
+  const localD1Token = getLocalD1Token();
+
+  // 1. In local Node.js development, connect to the real Cloudflare D1 database via REST
+  if (typeof process !== "undefined" && process.versions?.node && localD1Token && !useNeon) {
+    if (_cachedSql && _cachedSqlMode === "d1-rest") {
+      return _cachedSql;
+    }
+    _cachedSql = createD1RestSql();
+    _cachedSqlMode = "d1-rest";
+    return _cachedSql;
+  }
+
+  // 2. Cloudflare D1 Native Edge Binding (Active in Production Cloudflare Worker)
   const d1 = getD1Binding();
   if (d1) {
     if (_cachedSql && _cachedSqlMode === "d1-native") {
@@ -700,8 +748,7 @@ export function getSql() {
     return _cachedSql;
   }
 
-  // 2. Explicit Rollback to Neon PostgreSQL if requested (Priority 2)
-  const useNeon = (typeof process !== "undefined" && process.env?.USE_NEON === "true");
+  // 3. Explicit Rollback to Neon PostgreSQL if requested
   const neonUrl = getDatabaseUrl();
   if (useNeon && neonUrl) {
     if (_cachedSql && _cachedSqlMode === `neon-${neonUrl}`) {
@@ -709,17 +756,6 @@ export function getSql() {
     }
     _cachedSql = neon(neonUrl);
     _cachedSqlMode = `neon-${neonUrl}`;
-    return _cachedSql;
-  }
-
-  // 3. Local Node.js Dev talking to Cloudflare D1 via REST API (Priority 3)
-  const localD1Token = getLocalD1Token();
-  if (localD1Token && !useNeon) {
-    if (_cachedSql && _cachedSqlMode === "d1-rest") {
-      return _cachedSql;
-    }
-    _cachedSql = createD1RestSql();
-    _cachedSqlMode = "d1-rest";
     return _cachedSql;
   }
 
@@ -836,6 +872,107 @@ export function getSql() {
       // SELECT from order_items
       if (lower.includes("from order_items")) {
         return [..._mockOrderItems];
+      }
+
+      // INSERT INTO website_media
+      if (lower.includes("insert into website_media")) {
+        const id = values[0] ? String(values[0]) : `med_${Date.now()}`;
+        const fileName = values[1] ? String(values[1]) : "media";
+        const mimeType = values[2] ? String(values[2]) : "image/jpeg";
+        const mediaType = values[3] ? String(values[3]) : "image";
+        const sizeBytes = Number(values[4]) || 0;
+        const dataBase64 = values[5] ? String(values[5]) : "";
+        const createdAt = values[6] ? String(values[6]) : new Date().toISOString();
+        const createdBy = values[7] ? String(values[7]) : "Admin";
+        _mockWebsiteMedia.set(id, {
+          id,
+          file_name: fileName,
+          mime_type: mimeType,
+          media_type: mediaType,
+          size_bytes: sizeBytes,
+          data_base64: dataBase64,
+          created_at: createdAt,
+          created_by: createdBy,
+        });
+        return [{ id }];
+      }
+
+      // SELECT from website_media
+      if (lower.includes("from website_media")) {
+        if (lower.includes("where id =") || lower.includes("where id::text =")) {
+          const idVal = values[0] ? String(values[0]) : "";
+          if (idVal && _mockWebsiteMedia.has(idVal)) {
+            return [_mockWebsiteMedia.get(idVal)];
+          }
+          return [];
+        }
+        return Array.from(_mockWebsiteMedia.values());
+      }
+
+      // UPDATE products
+      if (lower.includes("update products")) {
+        const idVal = values[values.length - 1] ?? values[values.length - 2];
+        const matchVal = String(idVal || "").toLowerCase().trim();
+        const found = _mockProducts.find(
+          (p) => String(p.id).toLowerCase() === matchVal || String(p.slug).toLowerCase() === matchVal,
+        );
+        if (found) {
+          for (const v of values) {
+            if (Array.isArray(v)) {
+              if (v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
+                found.images = [...v];
+              }
+            } else if (typeof v === "string" && v.startsWith("[")) {
+              try {
+                const parsed = JSON.parse(v);
+                if (Array.isArray(parsed) && parsed.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
+                  found.images = [...parsed];
+                }
+              } catch {}
+            }
+          }
+          if (values[0] !== undefined && typeof values[0] === "string") found.name = values[0];
+          found.updated_at = new Date().toISOString();
+          return [found];
+        }
+        return [];
+      }
+
+      // INSERT INTO products
+      if (lower.includes("insert into products")) {
+        const id = values[0] ? String(values[0]) : `prod_${Date.now()}`;
+        const name = values[1] ? String(values[1]) : "Product";
+        const slug = values[2] ? String(values[2]) : id;
+        let images: string[] = [];
+        for (const v of values) {
+          if (Array.isArray(v) && v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+            images = [...v];
+            break;
+          } else if (typeof v === "string" && v.startsWith("[")) {
+            try {
+              const p = JSON.parse(v);
+              if (Array.isArray(p) && p.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+                images = [...p];
+                break;
+              }
+            } catch {}
+          }
+        }
+        const newProd = {
+          id,
+          name,
+          slug,
+          images: images.length ? images : ["/placeholder-tee.jpg"],
+          sizes: ["S", "M", "L", "XL", "XXL"],
+          colors: ["Black"],
+          stock_quantity: 25,
+          is_active: 1,
+          tags: ["New"],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        _mockProducts.push(newProd);
+        return [{ id }];
       }
 
       return [];

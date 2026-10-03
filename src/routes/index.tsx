@@ -9,8 +9,9 @@ import { DEFAULT_WEBSITE_CONFIG } from "@/lib/website-config.types";
 const productsQuery = {
   queryKey: ["products", "catalog", 50],
   queryFn: () => fetchProducts(50),
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
+  staleTime: 1000 * 5,
+  gcTime: 1000 * 60 * 5,
+  refetchOnWindowFocus: true,
 };
 
 const websiteConfigQuery = {

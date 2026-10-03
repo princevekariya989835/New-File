@@ -41,8 +41,9 @@ const productQuery = (handle: string) => ({
     if (!p) throw notFound();
     return p;
   },
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
+  staleTime: 1000 * 5,
+  gcTime: 1000 * 60 * 5,
+  refetchOnWindowFocus: true,
 });
 
 function formatProductPageTitle(title: string): string {
@@ -248,30 +249,21 @@ function ProductPage() {
         }
       }
     }
-    if (selectedVariant?.images && selectedVariant.images.length > 0) {
+    // 2. If the variant has multiple dedicated images, use them
+    if (selectedVariant?.images && selectedVariant.images.length > 1) {
       return selectedVariant.images.map((img) => ({
         node: { url: img.url, altText: img.altText ?? displayTitle },
       }));
     }
+    // 3. Main product images (uploaded via Admin)
+    if (p.images.edges && p.images.edges.length > 0) {
+      return p.images.edges;
+    }
+    // 4. Single variant image fallback
     if (selectedVariant?.image?.url) {
       return [{ node: { url: selectedVariant.image.url, altText: selectedVariant.image.altText ?? displayTitle } }];
     }
-    if (selectedColor && p.images.edges.length > 1) {
-      const col = selectedColor.toLowerCase();
-      const matched = p.images.edges.filter((e) => {
-        const u = e.node.url.toLowerCase();
-        const a = (e.node.altText || "").toLowerCase();
-        return (
-          u.includes(col) ||
-          a.includes(col) ||
-          (col === "maroon" && (u.includes("zenitsu") || u.includes("red"))) ||
-          (col === "black" && u.includes("zoro-black")) ||
-          (col === "olive" && u.includes("zoro-olive"))
-        );
-      });
-      if (matched.length > 0) return matched;
-    }
-    return p.images.edges;
+    return [{ node: { url: "/placeholder-tee.jpg", altText: displayTitle } }];
   }, [p.colorVariants, selectedVariant, selectedColor, p.images.edges, displayTitle]);
 
   useEffect(() => {

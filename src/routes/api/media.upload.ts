@@ -36,6 +36,24 @@ export const Route = createFileRoute("/api/media/upload")({
             if (user && hasAdminPanelAccess(user)) {
               isAdmin = true;
               userEmail = user.email;
+            } else {
+              try {
+                const rows = await sql`
+                  SELECT role, email, status FROM profiles 
+                  WHERE (id::text = ${token} OR email = ${token} OR id::text = ${user?.id || ""}) LIMIT 1
+                `;
+                if (rows && rows.length > 0) {
+                  const r = rows[0];
+                  if (r.status !== "Inactive" && r.status !== "Suspended") {
+                    if (isAdminEmail(r.email) || r.role === "admin" || r.role === "Super Admin" || r.role === "Manager") {
+                      isAdmin = true;
+                      userEmail = r.email;
+                    }
+                  }
+                }
+              } catch {
+                // ignore
+              }
             }
           }
 

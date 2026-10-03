@@ -565,6 +565,7 @@ export async function syncProductVariants(
   distributeTotal?: number,
   sizeStock?: Record<string, number>,
   colorVariants?: ProductColorVariant[],
+  defaultImageUrl?: string | null,
 ) {
   const sql = getSql();
   const s = sizes.length ? sizes : [""];
@@ -595,9 +596,10 @@ export async function syncProductVariants(
     const cv = colorVariants?.find(
       (c) => c.name.toLowerCase() === (colorName || "").toLowerCase().trim(),
     );
+    const cvImg = cv?.images?.[0] || cv?.imageUrl || null;
     return {
       colorHex: cv?.hex || null,
-      imageUrl: cv?.images?.[0] || cv?.imageUrl || null,
+      imageUrl: cvImg || defaultImageUrl || null,
     };
   };
 
@@ -613,7 +615,7 @@ export async function syncProductVariants(
           UPDATE product_variants
           SET stock_quantity = ${targetQty},
               color_hex = COALESCE(${colorHex}, color_hex),
-              image_url = COALESCE(${imageUrl}, image_url),
+              image_url = ${imageUrl},
               updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;
@@ -642,7 +644,7 @@ export async function syncProductVariants(
           UPDATE product_variants
           SET stock_quantity = ${targetQty},
               color_hex = COALESCE(${colorHex}, color_hex),
-              image_url = COALESCE(${imageUrl}, image_url),
+              image_url = ${imageUrl},
               updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;

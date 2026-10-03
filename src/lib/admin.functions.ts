@@ -267,12 +267,9 @@ export const adminListProducts = createServerFn({ method: "GET" })
         : typeof p.images === "string"
           ? (() => { try { return JSON.parse(p.images); } catch { return []; } })()
           : [];
-      const optimizedImgs = rawImgs.map((img: string, idx: number) => {
-        if (typeof img === "string" && img.startsWith("data:image/")) {
-          return `/api/public/product-image?id=${encodeURIComponent(p.id)}&idx=${idx}`;
-        }
-        return img;
-      });
+      const cleanImgs = rawImgs
+        .map((img: any) => String(img || "").trim())
+        .filter(Boolean);
 
       const rawHighlights = Array.isArray(p.highlights)
         ? p.highlights
@@ -335,8 +332,8 @@ export const adminListProducts = createServerFn({ method: "GET" })
         handle: p.slug,
         status: p.is_active ? "ACTIVE" : "DRAFT",
         totalInventory: Number(p.stock_quantity ?? 0),
-        featuredImage: optimizedImgs[0] || null,
-        images: optimizedImgs,
+        featuredImage: cleanImgs[0] || null,
+        images: cleanImgs,
         price: String(p.price),
         mrp: mrpVal,
         isTaxInclusive: p.is_tax_inclusive !== false,
@@ -438,6 +435,81 @@ function unwrapInput(d: any) {
   }
   return target;
 }
+
+export async function persistBase64ImagesToMedia(
+  images: string[],
+  userEmail: string = "Admin",
+): Promise<string[]> {
+  if (!Array.isArray(images) || images.length === 0) return [];
+  const sql = getSql();
+  const result: string[] = [];
+
+  for (const img of images) {
+    const trimmed = String(img || "").trim();
+    if (!trimmed) continue;
+
+    // Check if it's a data URL
+    if (trimmed.startsWith("data:image/")) {
+      try {
+        const mimeMatch = trimmed.match(/^data:([^;]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+        const cleanBase64 = trimmed.replace(/^data:[^;]+;base64,/, "");
+        const actualSize = Math.round((cleanBase64.length * 3) / 4);
+        const mediaId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const now = new Date().toISOString();
+
+        await sql`
+          INSERT INTO website_media (id, file_name, mime_type, media_type, size_bytes, data_base64, created_at, created_by)
+          VALUES (${mediaId}, 'product-photo', ${mimeType}, 'image', ${actualSize}, ${cleanBase64}, ${now}, ${userEmail})
+        `;
+        result.push(`/api/media/${mediaId}`);
+      } catch (err) {
+        console.warn("[persistBase64ImagesToMedia] Failed to persist data URL to website_media:", err);
+        result.push(trimmed);
+      }
+    } else {
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
+export const adminUploadProductMedia = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    return {
+      fileName: String(raw?.fileName || "product-image").slice(0, 150),
+      mimeType: String(raw?.mimeType || "image/jpeg").toLowerCase().slice(0, 50),
+      dataBase64: String(raw?.dataBase64 || ""),
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    await ensureDbSchema();
+    const sql = getSql();
+
+    if (!data.dataBase64) {
+      throw new Error("Empty image content");
+    }
+
+    const cleanBase64 = data.dataBase64.replace(/^data:[^;]+;base64,/, "");
+    const mediaId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const now = new Date().toISOString();
+    const userEmail = (context as any)?.user?.email || "Admin";
+    const actualSize = Math.round((cleanBase64.length * 3) / 4);
+
+    await sql`
+      INSERT INTO website_media (id, file_name, mime_type, media_type, size_bytes, data_base64, created_at, created_by)
+      VALUES (${mediaId}, ${data.fileName}, ${data.mimeType}, 'image', ${actualSize}, ${cleanBase64}, ${now}, ${userEmail})
+    `;
+
+    return {
+      ok: true,
+      mediaId,
+      mediaUrl: `/api/media/${mediaId}`,
+    };
+  });
 
 export const adminDeleteProduct = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -618,6 +690,31 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     await assertAdmin(context as any);
     await ensureDbSchema();
     const values = normalizeProductInput(data);
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    // Auto-persist any base64 images into website_media
+    values.images = await persistBase64ImagesToMedia(values.images, userEmail);
+    if (Array.isArray(values.color_variants)) {
+      for (const cv of values.color_variants) {
+        if (Array.isArray(cv.images) && cv.images.length > 0) {
+          cv.images = await persistBase64ImagesToMedia(cv.images, userEmail);
+          cv.imageUrl = cv.images[0] || cv.imageUrl || "";
+        } else if (typeof cv.imageUrl === "string" && cv.imageUrl.startsWith("data:image/")) {
+          const persisted = await persistBase64ImagesToMedia([cv.imageUrl], userEmail);
+          cv.imageUrl = persisted[0] || cv.imageUrl;
+          cv.images = [cv.imageUrl];
+        }
+      }
+    }
+    if (Array.isArray(values.highlights)) {
+      for (const h of values.highlights) {
+        if (typeof h.imageUrl === "string" && h.imageUrl.startsWith("data:image/")) {
+          const persisted = await persistBase64ImagesToMedia([h.imageUrl], userEmail);
+          h.imageUrl = persisted[0] || h.imageUrl;
+        }
+      }
+    }
+
     const sql = getSql();
     const productId = `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const base = slugify(values.name) || "product";
@@ -699,6 +796,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       values.stock_quantity,
       values.sizeStock,
       values.color_variants,
+      values.images[0] || null,
     );
 
     // Save highlights if provided
@@ -784,6 +882,31 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     if (!productId) throw new Error("Invalid product data: missing product id");
     data.productId = productId;
     const values = normalizeProductInput(data);
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    // Auto-persist any base64 images into website_media
+    values.images = await persistBase64ImagesToMedia(values.images, userEmail);
+    if (Array.isArray(values.color_variants)) {
+      for (const cv of values.color_variants) {
+        if (Array.isArray(cv.images) && cv.images.length > 0) {
+          cv.images = await persistBase64ImagesToMedia(cv.images, userEmail);
+          cv.imageUrl = cv.images[0] || cv.imageUrl || "";
+        } else if (typeof cv.imageUrl === "string" && cv.imageUrl.startsWith("data:image/")) {
+          const persisted = await persistBase64ImagesToMedia([cv.imageUrl], userEmail);
+          cv.imageUrl = persisted[0] || cv.imageUrl;
+          cv.images = [cv.imageUrl];
+        }
+      }
+    }
+    if (Array.isArray(values.highlights)) {
+      for (const h of values.highlights) {
+        if (typeof h.imageUrl === "string" && h.imageUrl.startsWith("data:image/")) {
+          const persisted = await persistBase64ImagesToMedia([h.imageUrl], userEmail);
+          h.imageUrl = persisted[0] || h.imageUrl;
+        }
+      }
+    }
+
     const sql = getSql();
 
     let updatedRows: any[] = [];
@@ -865,6 +988,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       values.stock_quantity,
       values.sizeStock,
       values.color_variants,
+      values.images[0] || null,
     );
 
     // Sync highlights
