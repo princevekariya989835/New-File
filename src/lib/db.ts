@@ -3,8 +3,57 @@ import { FALLBACK_PRODUCTS } from "./fallback-products";
 
 let _schemaInitialized = false;
 let _schemaPromise: Promise<void> | null = null;
+let _cfEnv: any = null;
 
-// In-memory database store for local dev when DATABASE_URL is not set
+// Allow server.ts or Cloudflare runtime to inject env bindings
+export function setCloudflareEnv(env: any) {
+  if (env) {
+    _cfEnv = env;
+    if (typeof globalThis !== "undefined") {
+      const g = globalThis as any;
+      g.__cf_env__ = env;
+      if (env.DB) {
+        g.DB = env.DB;
+      }
+    }
+  }
+}
+
+export function getCloudflareEnv(): any {
+  if (_cfEnv) return _cfEnv;
+  if (typeof globalThis !== "undefined") {
+    const g = globalThis as any;
+    if (g.__cf_env__) return g.__cf_env__;
+    if (g.__env__) return g.__env__;
+    if (g.env) return g.env;
+    if (g.DB) return { DB: g.DB };
+  }
+  return null;
+}
+
+export function getD1Binding(): any {
+  const env = getCloudflareEnv();
+  if (env?.DB) return env.DB;
+  if (typeof globalThis !== "undefined") {
+    const g = globalThis as any;
+    if (g.DB) return g.DB;
+    if (g.__cf_env__?.DB) return g.__cf_env__.DB;
+    if (g.__env__?.DB) return g.__env__.DB;
+  }
+  return null;
+}
+
+export function isD1Active(): boolean {
+  return Boolean(getD1Binding());
+}
+
+export function getDatabaseEngineName(): string {
+  if (isD1Active()) return "Cloudflare D1 (riotous-db)";
+  if (getDatabaseUrl()) return "Neon PostgreSQL";
+  return "Local In-Memory Engine";
+}
+
+// In-memory database store for local dev when neither D1 nor DATABASE_URL is set
 const _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
   ...p,
   images: [...p.images],
@@ -151,51 +200,26 @@ const _mockCoupons: any[] = [
     excluded_product_ids: [],
     excluded_category_names: [],
     deleted_at: null,
-    created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
+    created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
     updated_at: new Date().toISOString(),
-    created_by: "Admin",
-  },
-  {
-    id: "cpn_festive20",
-    code: "FESTIVE20",
-    name: "Festive Flash Sale 20%",
-    description: "Limited time 20% discount on graphic tees",
-    discount_type: "percentage",
-    discount_value: 20,
-    minimum_order_value: 799,
-    maximum_discount: 600,
-    usage_limit: 100,
-    usage_per_customer: 1,
-    used_count: 100,
-    starts_at: "2026-08-01T00:00:00.000Z",
-    expires_at: "2026-09-01T23:59:59.000Z",
-    is_active: true,
-    applies_to: "all",
-    product_ids: [],
-    category_names: [],
-    excluded_product_ids: [],
-    excluded_category_names: [],
-    deleted_at: null,
-    created_at: "2026-08-01T00:00:00.000Z",
-    updated_at: "2026-09-01T23:59:59.000Z",
     created_by: "Admin",
   },
 ];
 
 const _mockCouponUsage: any[] = [
   {
-    id: "usg_1",
+    id: "cusg_demo_1",
     coupon_id: "cpn_riotous10",
     order_id: "ord_demo_1",
     customer_id: "usr_cust_1",
-    customer_email: "customer1@example.com",
+    customer_email: "customer@example.com",
     coupon_code: "RIOTOUS10",
     discount_amount: 150,
-    order_amount: 1350,
+    order_amount: 1500,
     used_at: new Date(Date.now() - 2 * 86400000).toISOString(),
   },
   {
-    id: "usg_2",
+    id: "cusg_demo_2",
     coupon_id: "cpn_welcome200",
     order_id: "ord_demo_2",
     customer_id: "usr_cust_2",
@@ -433,19 +457,264 @@ export function getDatabaseUrl(): string | null {
   return null;
 }
 
+// Known columns containing serialized JSON that should be parsed when returned
+const JSON_COLUMNS = new Set([
+  "images", "sizes", "colors", "color_variants", "tags", "features",
+  "care_instructions", "manufacturing_info", "size_measurements",
+  "product_variants", "highlights", "specifications", "offers",
+  "items", "canvases", "preview_images", "product_ids", "category_names",
+  "excluded_product_ids", "excluded_category_names", "config", "details",
+  "headers", "mapping", "permissions", "eligible_products", "eligible_categories",
+]);
+
+function parseJsonFields(row: any): any {
+  if (!row || typeof row !== "object") return row;
+  const parsed = { ...row };
+  for (const [key, val] of Object.entries(parsed)) {
+    if (typeof val === "string" && JSON_COLUMNS.has(key)) {
+      try {
+        parsed[key] = JSON.parse(val);
+      } catch {
+        // Keep string if not valid JSON
+      }
+    }
+  }
+  return parsed;
+}
+
+/**
+ * Normalizes PostgreSQL query strings and parameters to SQLite / Cloudflare D1 syntax.
+ */
+function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, values: any[] = []) {
+  let rawSql = "";
+  const finalBindings: any[] = [];
+  let stripNextClosingParen = false;
+
+  if (typeof strings === "string") {
+    rawSql = strings;
+    for (const v of values) {
+      if (typeof v === "boolean") {
+        finalBindings.push(v ? 1 : 0);
+      } else if (v instanceof Date) {
+        finalBindings.push(v.toISOString());
+      } else if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+        finalBindings.push(JSON.stringify(v));
+      } else {
+        finalBindings.push(v);
+      }
+    }
+  } else if (Array.isArray(strings)) {
+    for (let i = 0; i < strings.length; i++) {
+      let part = strings[i];
+      if (stripNextClosingParen) {
+        part = part.replace(/^(\s*::[a-zA-Z0-9_]+(\[\])?)?\s*\)/, "");
+        stripNextClosingParen = false;
+      }
+      rawSql += part;
+
+      if (i < values.length) {
+        const val = values[i];
+        if (Array.isArray(val)) {
+          const anyMatch = rawSql.match(/(=?\s*ANY\s*\(\s*)$/i);
+          if (anyMatch) {
+            rawSql = rawSql.slice(0, -anyMatch[1].length);
+            if (val.length === 0) {
+              rawSql += "IN (NULL)";
+            } else {
+              rawSql += `IN (${val.map(() => "?").join(", ")})`;
+              finalBindings.push(...val);
+            }
+            stripNextClosingParen = true;
+          } else {
+            if (val.length === 0) {
+              rawSql += "NULL";
+            } else {
+              rawSql += `(${val.map(() => "?").join(", ")})`;
+              finalBindings.push(...val);
+            }
+          }
+        } else if (typeof val === "boolean") {
+          rawSql += "?";
+          finalBindings.push(val ? 1 : 0);
+        } else if (val instanceof Date) {
+          rawSql += "?";
+          finalBindings.push(val.toISOString());
+        } else if (val !== null && typeof val === "object") {
+          rawSql += "?";
+          finalBindings.push(JSON.stringify(val));
+        } else {
+          rawSql += "?";
+          finalBindings.push(val);
+        }
+      }
+    }
+  }
+
+  // Handle DDL / procedural blocks
+  if (rawSql.includes("DO $$") || rawSql.includes("DROP CONSTRAINT IF EXISTS")) {
+    return { sql: "", bindings: [], skip: true };
+  }
+
+  // Strip Postgres typecasts
+  rawSql = rawSql.replace(/::[a-zA-Z0-9_]+(\[\])?/g, "");
+
+  // Functions: NOW() -> CURRENT_TIMESTAMP
+  rawSql = rawSql.replace(/\bNOW\(\)/gi, "CURRENT_TIMESTAMP");
+
+  // to_regclass -> sqlite_master table check
+  rawSql = rawSql.replace(
+    /to_regclass\('public\.([a-zA-Z0-9_]+)'\)\s+IS\s+NOT\s+NULL/gi,
+    "(SELECT 1 FROM sqlite_master WHERE type='table' AND name='$1') IS NOT NULL",
+  );
+
+  // JSON functions
+  rawSql = rawSql.replace(/\bjsonb_agg\b/gi, "json_group_array");
+  rawSql = rawSql.replace(/\bjsonb_build_object\b/gi, "json_object");
+  rawSql = rawSql.replace(/\bjsonb_typeof\b/gi, "json_type");
+  rawSql = rawSql.replace(/\bjsonb_array_length\b/gi, "json_array_length");
+  rawSql = rawSql.replace(/\bjsonb_build_array\b/gi, "json_array");
+  rawSql = rawSql.replace(/->>\s*0\b/g, ", '$[0]')");
+  rawSql = rawSql.replace(/->\s*0\b/g, ", '$[0]')");
+
+  // ILIKE -> LIKE
+  rawSql = rawSql.replace(/\bILIKE\b/gi, "LIKE");
+
+  return { sql: rawSql.trim(), bindings: finalBindings, skip: false };
+}
+
+/**
+ * Creates a tagged-template `sql` execution interface wrapping Cloudflare D1.
+ */
+function createD1Sql(d1: any) {
+  const d1Sql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+    const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
+    if (skip || !sql) {
+      return [];
+    }
+
+    try {
+      const stmt = bindings.length > 0 ? d1.prepare(sql).bind(...bindings) : d1.prepare(sql);
+      const res = await stmt.all();
+      const rows = res.results || [];
+      return rows.map((r: any) => parseJsonFields(r));
+    } catch (err: any) {
+      console.error("[Cloudflare D1 Query Error]:", err?.message || err, "\nSQL:", sql, "\nBindings:", bindings);
+      throw err;
+    }
+  };
+
+  (d1Sql as any).query = async (str: string, ...bindings: any[]) => {
+    return d1Sql(str, ...bindings);
+  };
+
+  return d1Sql;
+}
+
+/**
+ * D1 REST API Client for Local Node.js development.
+ * Allows local development server to query live D1 database.
+ */
+let _cachedRestToken: string | null = null;
+function getLocalD1Token(): string | null {
+  if (typeof process !== "undefined" && process.env?.CLOUDFLARE_API_TOKEN) {
+    return process.env.CLOUDFLARE_API_TOKEN.trim();
+  }
+  if (_cachedRestToken) return _cachedRestToken;
+  try {
+    if (typeof process !== "undefined" && process.platform === "win32") {
+      const fs = require("fs");
+      const path = require("path");
+      const os = require("os");
+      const tomlPath = path.join(os.homedir(), "AppData", "Roaming", "xdg.config", ".wrangler", "config", "default.toml");
+      if (fs.existsSync(tomlPath)) {
+        const toml = fs.readFileSync(tomlPath, "utf8");
+        const m = toml.match(/oauth_token\s*=\s*"([^"]+)"/);
+        if (m) {
+          _cachedRestToken = m[1];
+          return _cachedRestToken;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function createD1RestSql() {
+  const accountId = "f243cdf7bf870b1000051f76985db609";
+  const databaseId = "7487ac0f-706e-4560-baf8-e79031b2dd5e";
+
+  const restSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+    const token = getLocalD1Token();
+    if (!token) return [];
+
+    const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
+    if (skip || !sql) return [];
+
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sql, params: bindings }),
+    });
+
+    const data: any = await res.json();
+    if (data.errors && data.errors.length > 0) {
+      throw new Error(data.errors.map((e: any) => e.message).join(", "));
+    }
+    const rows = data.result?.[0]?.results || [];
+    return rows.map((r: any) => parseJsonFields(r));
+  };
+
+  (restSql as any).query = async (str: string, ...bindings: any[]) => {
+    return restSql(str, ...bindings);
+  };
+
+  return restSql;
+}
+
 let _cachedSql: any = null;
-let _cachedSqlUrl: string | null = null;
+let _cachedSqlMode: string | null = null;
 
 export function getSql() {
-  const url = getDatabaseUrl();
-  if (url) {
-    if (_cachedSql && _cachedSqlUrl === url) {
+  // 1. Cloudflare D1 Native Edge Binding (Priority 1 - Active in Production Worker)
+  const d1 = getD1Binding();
+  if (d1) {
+    if (_cachedSql && _cachedSqlMode === "d1-native") {
       return _cachedSql;
     }
-    _cachedSql = neon(url);
-    _cachedSqlUrl = url;
+    _cachedSql = createD1Sql(d1);
+    _cachedSqlMode = "d1-native";
     return _cachedSql;
   }
+
+  // 2. Explicit Rollback to Neon PostgreSQL if requested (Priority 2)
+  const useNeon = (typeof process !== "undefined" && process.env?.USE_NEON === "true");
+  const neonUrl = getDatabaseUrl();
+  if (useNeon && neonUrl) {
+    if (_cachedSql && _cachedSqlMode === `neon-${neonUrl}`) {
+      return _cachedSql;
+    }
+    _cachedSql = neon(neonUrl);
+    _cachedSqlMode = `neon-${neonUrl}`;
+    return _cachedSql;
+  }
+
+  // 3. Local Node.js Dev talking to Cloudflare D1 via REST API (Priority 3)
+  const localD1Token = getLocalD1Token();
+  if (localD1Token && !useNeon) {
+    if (_cachedSql && _cachedSqlMode === "d1-rest") {
+      return _cachedSql;
+    }
+    _cachedSql = createD1RestSql();
+    _cachedSqlMode = "d1-rest";
+    return _cachedSql;
+  }
+
+  // 4. In-Memory Mock Database Engine (Priority 4 - Local offline fallback)
   {
     const mockSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]) => {
       let queryStr = "";
@@ -478,11 +747,11 @@ export function getSql() {
       }
 
       if (lower.includes("return_settings")) {
-        return [{ id: "default", window_days: 7, require_delivered: true }];
+        return [{ id: "default", window_days: 7, require_delivered: 1 }];
       }
 
       if (lower.includes("store_settings")) {
-        return [{ id: "default", store_name: "RIOTOUS", initial_catalog_seeded: true }];
+        return [{ id: "default", store_name: "RIOTOUS", initial_catalog_seeded: 1 }];
       }
 
       // SELECT from products
@@ -504,1153 +773,60 @@ export function getSql() {
 
           return {
             ...p,
-            mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
-            compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : (p.mrp != null ? Number(p.mrp) : null),
-            is_tax_inclusive: p.is_tax_inclusive !== false,
+            mrp: p.mrp ?? p.compare_at_price ?? p.price,
+            compare_at_price: p.compare_at_price ?? p.mrp ?? p.price,
             product_variants: prodVariants,
             variants: prodVariants,
-            highlights: prodHighlights.length > 0 ? prodHighlights : (p.highlights || []),
-            specifications: prodSpecs.length > 0 ? prodSpecs : (p.specifications || []),
-            offers: prodOffers.length > 0 ? prodOffers : (p.offers || []),
-            features: p.features || [],
-            care_instructions: p.care_instructions || [],
-            manufacturing_info: p.manufacturing_info || {},
-            size_measurements: p.size_measurements || [],
+            highlights: prodHighlights,
+            specifications: prodSpecs,
+            offers: prodOffers,
           };
         };
 
-        // Single product lookup by slug or id
-        if (lower.includes("slug =") || lower.includes("slug::text =") || lower.includes("id::text =")) {
-          const targetVal = String(values[0] ?? "").toLowerCase();
-          const p = _mockProducts.find(
-            (item) =>
-              (item.slug && item.slug.toLowerCase() === targetVal) ||
-              (item.id && String(item.id).toLowerCase() === targetVal),
+        if (lower.includes("where") && (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))) {
+          const matchVal = values[0] ? String(values[0]).toLowerCase() : "";
+          const found = _mockProducts.find(
+            (p) => String(p.slug).toLowerCase() === matchVal || String(p.id).toLowerCase() === matchVal,
           );
-          if (!p) return [];
-          const isActiveOnly = lower.includes("is_active = true");
-          if (isActiveOnly && p.is_active === false) return [];
-          return [mapProd(p, isActiveOnly)];
+          return found ? [mapProd(found, false)] : [];
         }
 
-        // Active products query or general list
-        if (lower.includes("where is_active = true") || lower.includes("is_active is null")) {
-          return _mockProducts.filter((p) => p.is_active !== false).map((p) => mapProd(p, true));
-        }
-        return _mockProducts.map((p) => mapProd(p, false));
-      }
-
-      // INSERT INTO products
-      if (lower.startsWith("insert into products") || lower.includes("insert into products")) {
-        const colsMatch = queryStr.match(/insert\s+into\s+products\s*\(([^)]+)\)/i);
-        if (colsMatch) {
-          const cols = colsMatch[1].split(",").map((c) => c.trim().toLowerCase());
-          const colMap: Record<string, any> = {};
-          cols.forEach((col, i) => {
-            colMap[col] = values[i];
-          });
-
-          const id = colMap["id"] ? String(colMap["id"]) : `prod_${Date.now().toString(36)}`;
-          const name = colMap["name"] ? String(colMap["name"]) : "Product";
-          const slug = colMap["slug"] ? String(colMap["slug"]) : id;
-          const description = colMap["description"] !== undefined ? (colMap["description"] ? String(colMap["description"]) : null) : null;
-          const details_html = colMap["details_html"] !== undefined ? (colMap["details_html"] ? String(colMap["details_html"]) : null) : null;
-          const price = Number(colMap["price"] || 0);
-          const base_price = Number(colMap["base_price"] || price);
-          const mrp = colMap["mrp"] != null ? Number(colMap["mrp"]) : colMap["compare_at_price"] != null ? Number(colMap["compare_at_price"]) : null;
-          const compare_at_price = colMap["compare_at_price"] != null ? Number(colMap["compare_at_price"]) : mrp;
-          const is_tax_inclusive = colMap["is_tax_inclusive"] !== false;
-          const currency = colMap["currency"] ? String(colMap["currency"]) : "INR";
-          let images: string[] = [];
-          try { images = typeof colMap["images"] === "string" ? JSON.parse(colMap["images"]) : (colMap["images"] || []); } catch { images = ["/placeholder-tee.jpg"]; }
-          const category = colMap["category"] ? String(colMap["category"]) : "Oversized Tees";
-          let sizes: string[] = [];
-          try { sizes = typeof colMap["sizes"] === "string" ? JSON.parse(colMap["sizes"]) : (colMap["sizes"] || ["S", "M", "L", "XL", "XXL"]); } catch { /* ignored */ }
-          let colors: string[] = [];
-          try { colors = typeof colMap["colors"] === "string" ? JSON.parse(colMap["colors"]) : (colMap["colors"] || ["Black"]); } catch { /* ignored */ }
-          const stock_quantity = Number(colMap["stock_quantity"] || 0);
-          const is_active = colMap["is_active"] !== false;
-          let tags: string[] = [];
-          try { tags = typeof colMap["tags"] === "string" ? JSON.parse(colMap["tags"]) : (colMap["tags"] || []); } catch { /* ignored */ }
-          let features: string[] = [];
-          try { features = typeof colMap["features"] === "string" ? JSON.parse(colMap["features"]) : (colMap["features"] || []); } catch { /* ignored */ }
-          let care_instructions: string[] = [];
-          try { care_instructions = typeof colMap["care_instructions"] === "string" ? JSON.parse(colMap["care_instructions"]) : (colMap["care_instructions"] || []); } catch { /* ignored */ }
-          let manufacturing_info: any = {};
-          try { manufacturing_info = typeof colMap["manufacturing_info"] === "string" ? JSON.parse(colMap["manufacturing_info"]) : (colMap["manufacturing_info"] || {}); } catch { /* ignored */ }
-          let size_measurements: any[] = [];
-          try { size_measurements = typeof colMap["size_measurements"] === "string" ? JSON.parse(colMap["size_measurements"]) : (colMap["size_measurements"] || []); } catch { /* ignored */ }
-
-          const newProd = {
-            id,
-            name,
-            slug,
-            description,
-            details_html,
-            price,
-            base_price,
-            mrp,
-            compare_at_price,
-            is_tax_inclusive,
-            currency,
-            images: Array.isArray(images) && images.length ? images : ["/placeholder-tee.jpg"],
-            category,
-            sizes: Array.isArray(sizes) && sizes.length ? sizes : ["S", "M", "L", "XL", "XXL"],
-            colors: Array.isArray(colors) && colors.length ? colors : ["Black"],
-            stock_quantity,
-            is_active,
-            tags: Array.isArray(tags) ? tags : [],
-            features: Array.isArray(features) ? features : [],
-            care_instructions: Array.isArray(care_instructions) ? care_instructions : [],
-            manufacturing_info,
-            size_measurements: Array.isArray(size_measurements) ? size_measurements : [],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-
-          const existingIdx = _mockProducts.findIndex((p) => p.id === id || p.slug === slug);
-          if (existingIdx >= 0) {
-            _mockProducts[existingIdx] = newProd;
-          } else {
-            _mockProducts.unshift(newProd);
-          }
-          return [{ id }];
-        }
-
-        const id = values[0] ? String(values[0]) : `prod_${Date.now().toString(36)}`;
-        const name = values[1] ? String(values[1]) : "Product";
-        const slug = values[2] ? String(values[2]) : id;
-        const description = values[3] ? String(values[3]) : null;
-        const price = Number(values[4] || 0);
-
-        const newProd = {
-          id,
-          name,
-          slug,
-          description,
-          price,
-          base_price: price,
-          currency: "INR",
-          images: ["/placeholder-tee.jpg"],
-          category: "Oversized Tees",
-          sizes: ["S", "M", "L", "XL", "XXL"],
-          colors: ["Black"],
-          stock_quantity: 0,
-          is_active: true,
-          tags: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const existingIdx = _mockProducts.findIndex((p) => p.id === id || p.slug === slug);
-        if (existingIdx >= 0) {
-          _mockProducts[existingIdx] = newProd;
-        } else {
-          _mockProducts.unshift(newProd);
-        }
-        return [{ id }];
-      }
-
-      // UPDATE products
-      if (lower.startsWith("update products") || lower.includes("update products")) {
-        let idVal = String(values[values.length - 1] ?? values[0] ?? "");
-        const idMatch = queryStr.match(/(?:id|slug)(?:::text)?\s*=\s*(?:'([^']+)'|"([^"]+)"|([a-zA-Z0-9_-]+))/i);
-        if (idMatch) {
-          const matched = idMatch[1] || idMatch[2] || idMatch[3];
-          if (matched && !matched.startsWith("__VAL_")) idVal = matched;
-        }
-        const prod = _mockProducts.find((p) => p.id === idVal || p.slug === idVal);
-        if (prod) {
-          const priceMatch = queryStr.match(/price\s*=\s*([0-9.]+)/i);
-          if (priceMatch) prod.price = Number(priceMatch[1]);
-          const mrpMatch = queryStr.match(/mrp\s*=\s*([0-9.]+)/i);
-          if (mrpMatch) prod.mrp = Number(mrpMatch[1]);
-          const compareMatch = queryStr.match(/compare_at_price\s*=\s*([0-9.]+)/i);
-          if (compareMatch) prod.compare_at_price = Number(compareMatch[1]);
-
-          if (lower.includes("is_active =") && !lower.includes("name =") && !lower.includes("price =")) {
-            prod.is_active = values[0] !== false;
-          } else if (lower.includes("name =") && (lower.includes("features =") || lower.includes("manufacturing_info ="))) {
-            // Full update from adminUpdateProduct
-            if (values[0] !== undefined) prod.name = String(values[0]);
-            if (values[1] !== undefined) prod.description = values[1] ? String(values[1]) : null;
-            if (values[2] !== undefined) prod.details_html = values[2] ? String(values[2]) : null;
-            if (values[3] !== undefined) prod.price = Number(values[3]);
-            if (values[4] !== undefined) prod.base_price = Number(values[4]);
-            if (values[5] !== undefined) prod.mrp = values[5] != null ? Number(values[5]) : null;
-            if (values[6] !== undefined) prod.compare_at_price = values[6] != null ? Number(values[6]) : null;
-            if (values[7] !== undefined) prod.is_tax_inclusive = values[7] !== false;
-            if (values[8] !== undefined) {
-              try { prod.images = typeof values[8] === "string" ? JSON.parse(values[8]) : values[8]; } catch { /* ignored */ }
-            }
-            if (values[9] !== undefined) prod.category = String(values[9]);
-            if (values[10] !== undefined) {
-              try { prod.sizes = typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]; } catch { /* ignored */ }
-            }
-            if (values[11] !== undefined) {
-              try { prod.colors = typeof values[11] === "string" ? JSON.parse(values[11]) : values[11]; } catch { /* ignored */ }
-            }
-            if (values[12] !== undefined) prod.stock_quantity = Number(values[12]);
-            if (values[13] !== undefined) prod.is_active = values[13] !== false;
-            if (values[14] !== undefined) {
-              try { prod.tags = typeof values[14] === "string" ? JSON.parse(values[14]) : values[14]; } catch { /* ignored */ }
-            }
-            if (values[15] !== undefined) {
-              try { prod.features = typeof values[15] === "string" ? JSON.parse(values[15]) : values[15]; } catch { /* ignored */ }
-            }
-            if (values[16] !== undefined) {
-              try { prod.care_instructions = typeof values[16] === "string" ? JSON.parse(values[16]) : values[16]; } catch { /* ignored */ }
-            }
-            if (values[17] !== undefined) {
-              try { prod.manufacturing_info = typeof values[17] === "string" ? JSON.parse(values[17]) : values[17]; } catch { /* ignored */ }
-            }
-            if (values[18] !== undefined) {
-              try { prod.size_measurements = typeof values[18] === "string" ? JSON.parse(values[18]) : values[18]; } catch { /* ignored */ }
-            }
-          } else {
-            // General column-by-column update
-            const setMatch = queryStr.match(/set\s+([\s\S]+?)\s+where/i);
-            if (setMatch) {
-              const clauses = setMatch[1].split(",");
-              let valIdx = 0;
-              for (const clause of clauses) {
-                const parts = clause.split("=");
-                if (parts.length === 2) {
-                  const col = parts[0].trim().toLowerCase();
-                  const rawVal = parts[1].trim();
-                  let val = rawVal.startsWith("__VAL_") ? values[valIdx++] : rawVal.replace(/^['"]|['"]$/g, "");
-                  if (col === "price") prod.price = Number(val);
-                  else if (col === "mrp") prod.mrp = Number(val);
-                  else if (col === "compare_at_price") prod.compare_at_price = Number(val);
-                  else if (col === "is_tax_inclusive") prod.is_tax_inclusive = val === true || val === "true";
-                  else if (col === "is_active") prod.is_active = val === true || val === "true";
-                  else if (col === "name") prod.name = String(val);
-                  else if (col === "description") prod.description = val ? String(val) : null;
-                  else if (col === "details_html") prod.details_html = val ? String(val) : null;
-                  else if (col === "category") prod.category = String(val);
-                }
-              }
-            }
-          }
-          prod.updated_at = new Date().toISOString();
-        }
-        return [{ id: idVal }];
-      }
-
-      // DELETE FROM products
-      if (lower.startsWith("delete from products") || lower.includes("delete from products")) {
-        const idVal = String(values[0] ?? values[1] ?? "").toLowerCase().trim();
-        const idx = _mockProducts.findIndex(
-          (p) => String(p.id).toLowerCase() === idVal || String(p.slug).toLowerCase() === idVal,
-        );
-        if (idx >= 0) {
-          const removed = _mockProducts.splice(idx, 1)[0];
-          _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
-          _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
-          _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
-          return [{ id: removed.id }];
-        }
-        return [{ id: values[0] || "deleted" }];
-      }
-
-      // SELECT from product_variants
-      if (lower.includes("from product_variants") && !lower.includes("delete from")) {
-        if (lower.includes("product_id::text = any")) {
-          const ids = Array.isArray(values[0]) ? values[0].map(String) : [String(values[0])];
-          return _mockVariants.filter((v) => ids.includes(String(v.product_id)));
-        }
-        if (lower.includes("product_id::text =") || lower.includes("product_id =")) {
-          const pid = String(values[0] ?? "");
-          return _mockVariants.filter((v) => String(v.product_id) === pid);
-        }
-        return [..._mockVariants];
-      }
-
-      // INSERT INTO product_variants
-      if (lower.startsWith("insert into product_variants") || lower.includes("insert into product_variants")) {
-        const vid = String(values[0] ?? `var_${Date.now()}`);
-        const pid = String(values[1] ?? "");
-        const size = String(values[2] ?? "");
-        const color = String(values[3] ?? "");
-        const sku = String(values[4] ?? vid);
-        const qty = Number(values[5] || 0);
-        const newVar = {
-          id: vid,
-          product_id: pid,
-          size,
-          color,
-          sku,
-          stock_quantity: qty,
-          reserved_stock: 0,
-          low_stock_threshold: 2,
-        };
-        const exIdx = _mockVariants.findIndex((v) => v.id === vid);
-        if (exIdx >= 0) _mockVariants[exIdx] = newVar;
-        else _mockVariants.push(newVar);
-        return [{ id: vid }];
-      }
-
-      // UPDATE product_variants
-      if (lower.startsWith("update product_variants") || lower.includes("update product_variants")) {
-        const idVal = String(values[values.length - 1] ?? "");
-        const v = _mockVariants.find((item) => item.id === idVal);
-        if (v && values[0] !== undefined) {
-          v.stock_quantity = Number(values[0]);
-        }
-        return [{ id: idVal }];
-      }
-
-      // DELETE FROM product_variants
-      if (lower.startsWith("delete from product_variants") || lower.includes("delete from product_variants")) {
-        const pid = String(values[0] ?? "");
-        _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== pid && String(v.id) !== pid);
-        return [];
-      }
-
-      // DELETE FROM product_highlights
-      if (lower.startsWith("delete from product_highlights") || lower.includes("delete from product_highlights")) {
-        const target = String(values[0] ?? "");
-        _mockProductHighlights = _mockProductHighlights.filter(
-          (h) => String(h.product_id) !== target && String(h.id) !== target,
-        );
-        return [];
-      }
-
-      // SELECT from product_highlights
-      if (lower.includes("from product_highlights") && !lower.includes("delete from")) {
-        const pid = String(values[0] ?? "");
-        let res = _mockProductHighlights;
-        if (pid) {
-          res = res.filter((h) => String(h.product_id) === pid);
-        }
-        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
-          res = res.filter((h) => h.is_active !== false);
-        }
-        return res
-          .slice()
-          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
-      }
-
-      // INSERT INTO product_highlights
-      if (lower.startsWith("insert into product_highlights") || lower.includes("insert into product_highlights")) {
-        const id = values[0] ? String(values[0]) : `hl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-        const product_id = values[1] ? String(values[1]) : "";
-        const image_url = values[2] ? String(values[2]) : "";
-        const title = values[3] !== undefined && values[3] !== null ? String(values[3]) : null;
-        const description = values[4] !== undefined && values[4] !== null ? String(values[4]) : null;
-        const display_order = Number(values[5] || 0);
-        const is_active = values[6] !== false;
-        const item = {
-          id,
-          product_id,
-          image_url,
-          title,
-          description,
-          display_order,
-          is_active,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const existIdx = _mockProductHighlights.findIndex((h) => h.id === id);
-        if (existIdx >= 0) _mockProductHighlights[existIdx] = item;
-        else _mockProductHighlights.push(item);
-        return [{ id }];
-      }
-
-      // DELETE FROM product_specifications
-      if (lower.startsWith("delete from product_specifications") || lower.includes("delete from product_specifications")) {
-        const target = String(values[0] ?? "");
-        _mockProductSpecifications = _mockProductSpecifications.filter(
-          (s) => String(s.product_id) !== target && String(s.id) !== target,
-        );
-        return [];
-      }
-
-      // SELECT from product_specifications
-      if (lower.includes("from product_specifications") && !lower.includes("delete from")) {
-        const pid = String(values[0] ?? "");
-        let res = _mockProductSpecifications;
-        if (pid) {
-          res = res.filter((s) => String(s.product_id) === pid);
-        }
-        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
-          res = res.filter((s) => s.is_active !== false);
-        }
-        return res
-          .slice()
-          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
-      }
-
-      // INSERT INTO product_specifications
-      if (lower.startsWith("insert into product_specifications") || lower.includes("insert into product_specifications")) {
-        const id = values[0] ? String(values[0]) : `sp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-        const product_id = values[1] ? String(values[1]) : "";
-        const label = values[2] ? String(values[2]) : "";
-        const value = values[3] ? String(values[3]) : "";
-        const display_order = Number(values[4] || 0);
-        const is_active = values[5] !== false;
-        const item = {
-          id,
-          product_id,
-          label,
-          value,
-          display_order,
-          is_active,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const existIdx = _mockProductSpecifications.findIndex((s) => s.id === id);
-        if (existIdx >= 0) _mockProductSpecifications[existIdx] = item;
-        else _mockProductSpecifications.push(item);
-        return [{ id }];
-      }
-
-      // DELETE FROM product_offers
-      if (lower.startsWith("delete from product_offers") || lower.includes("delete from product_offers")) {
-        const target = String(values[0] ?? "");
-        _mockProductOffers = _mockProductOffers.filter(
-          (o) => String(o.product_id) !== target && String(o.id) !== target,
-        );
-        return [];
-      }
-
-      // SELECT from product_offers
-      if (lower.includes("from product_offers") && !lower.includes("delete from")) {
-        const pid = String(values[0] ?? "");
-        let res = _mockProductOffers;
-        if (pid) {
-          res = res.filter((o) => String(o.product_id) === pid);
-        }
-        if (lower.includes("is_active = true") || lower.includes("is_active is null")) {
-          res = res.filter((o) => o.is_active !== false);
-        }
-        return res
-          .slice()
-          .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
-      }
-
-      // INSERT INTO product_offers
-      if (lower.startsWith("insert into product_offers") || lower.includes("insert into product_offers")) {
-        const id = values[0] ? String(values[0]) : `po_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-        const product_id = values[1] ? String(values[1]) : "";
-        const title = values[2] ? String(values[2]) : "";
-        const description = values[3] !== undefined && values[3] !== null ? String(values[3]) : null;
-        const discount_type = values[4] ? String(values[4]) : "percentage";
-        const discount_value = Number(values[5] || 0);
-        const promo_code = values[6] !== undefined && values[6] !== null ? String(values[6]) : null;
-        const minimum_quantity = Number(values[7] || 1);
-        const maximum_quantity = values[8] !== undefined && values[8] !== null ? Number(values[8]) : null;
-        const eligible_products = values[9] ? (typeof values[9] === "string" ? JSON.parse(values[9]) : values[9]) : [];
-        const eligible_categories = values[10] ? (typeof values[10] === "string" ? JSON.parse(values[10]) : values[10]) : [];
-        const start_date = values[11] ? String(values[11]) : null;
-        const end_date = values[12] ? String(values[12]) : null;
-        const is_active = values[13] !== false;
-        const display_order = Number(values[14] || 0);
-        const terms_and_conditions = values[15] !== undefined && values[15] !== null ? String(values[15]) : null;
-
-        const item = {
-          id,
-          product_id,
-          title,
-          description,
-          discount_type,
-          discount_value,
-          promo_code,
-          minimum_quantity,
-          maximum_quantity,
-          eligible_products,
-          eligible_categories,
-          start_date,
-          end_date,
-          is_active,
-          display_order,
-          terms_and_conditions,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        const existIdx = _mockProductOffers.findIndex((o) => o.id === id);
-        if (existIdx >= 0) _mockProductOffers[existIdx] = item;
-        else _mockProductOffers.push(item);
-        return [{ id }];
-      }
-
-      // SELECT from coupons
-      if (lower.includes("from coupons")) {
-        if (lower.includes("upper(code) =") || lower.includes("code =") || lower.includes("upper(code::text) =")) {
-          const targetCode = String(values[0] ?? "").toUpperCase().trim();
-          const found = _mockCoupons.find(
-            (c) => String(c.code).toUpperCase().trim() === targetCode && !c.deleted_at,
-          );
-          return found ? [found] : [];
-        }
-        if (lower.includes("id =") || lower.includes("id::text =")) {
-          const targetId = String(values[0] ?? "");
-          const found = _mockCoupons.find((c) => String(c.id) === targetId);
-          return found ? [found] : [];
-        }
-        return [..._mockCoupons.filter((c) => !c.deleted_at)];
-      }
-
-      // INSERT INTO coupons
-      if (lower.startsWith("insert into coupons") || lower.includes("insert into coupons")) {
-        const colsMatch = queryStr.match(/insert\s+into\s+coupons\s*\(([^)]+)\)/i);
-        let id = `cpn_${Date.now().toString(36)}`;
-        let code = "CODE";
-        let name = "Coupon";
-        let description: string | null = null;
-        let discount_type = "percentage";
-        let discount_value = 0;
-        let minimum_order_value = 0;
-        let maximum_discount: number | null = null;
-        let usage_limit: number | null = null;
-        let usage_per_customer = 1;
-        let used_count = 0;
-        let starts_at: string | null = null;
-        let expires_at: string | null = null;
-        let is_active = true;
-        let applies_to = "all";
-        let product_ids: string[] = [];
-        let category_names: string[] = [];
-        let excluded_product_ids: string[] = [];
-        let excluded_category_names: string[] = [];
-        let created_by = "Admin";
-
-        if (colsMatch) {
-          const cols = colsMatch[1].split(",").map((c) => c.trim().toLowerCase());
-          const colMap: Record<string, any> = {};
-          cols.forEach((col, i) => {
-            colMap[col] = values[i];
-          });
-          if (colMap["id"]) id = String(colMap["id"]);
-          if (colMap["code"]) code = String(colMap["code"]).toUpperCase().trim();
-          if (colMap["name"]) name = String(colMap["name"]);
-          if (colMap["description"] !== undefined) description = colMap["description"] ? String(colMap["description"]) : null;
-          if (colMap["discount_type"]) discount_type = String(colMap["discount_type"]);
-          if (colMap["discount_value"] !== undefined) discount_value = Number(colMap["discount_value"] || 0);
-          if (colMap["minimum_order_value"] !== undefined) minimum_order_value = Number(colMap["minimum_order_value"] || 0);
-          if (colMap["maximum_discount"] !== undefined) maximum_discount = colMap["maximum_discount"] !== null && colMap["maximum_discount"] !== undefined ? Number(colMap["maximum_discount"]) : null;
-          if (colMap["usage_limit"] !== undefined) usage_limit = colMap["usage_limit"] !== null && colMap["usage_limit"] !== undefined ? Number(colMap["usage_limit"]) : null;
-          if (colMap["usage_per_customer"] !== undefined) usage_per_customer = Number(colMap["usage_per_customer"] ?? 1);
-          if (colMap["used_count"] !== undefined) used_count = Number(colMap["used_count"] || 0);
-          if (colMap["starts_at"]) starts_at = String(colMap["starts_at"]);
-          if (colMap["expires_at"]) expires_at = String(colMap["expires_at"]);
-          if (colMap["is_active"] !== undefined) is_active = colMap["is_active"] !== false && colMap["is_active"] !== "false";
-          if (colMap["applies_to"]) applies_to = String(colMap["applies_to"]);
-          if (colMap["product_ids"] !== undefined) {
-            try { product_ids = typeof colMap["product_ids"] === "string" ? JSON.parse(colMap["product_ids"]) : (colMap["product_ids"] || []); } catch { /* ignored */ }
-          }
-          if (colMap["category_names"] !== undefined) {
-            try { category_names = typeof colMap["category_names"] === "string" ? JSON.parse(colMap["category_names"]) : (colMap["category_names"] || []); } catch { /* ignored */ }
-          }
-          if (colMap["excluded_product_ids"] !== undefined) {
-            try { excluded_product_ids = typeof colMap["excluded_product_ids"] === "string" ? JSON.parse(colMap["excluded_product_ids"]) : (colMap["excluded_product_ids"] || []); } catch { /* ignored */ }
-          }
-          if (colMap["excluded_category_names"] !== undefined) {
-            try { excluded_category_names = typeof colMap["excluded_category_names"] === "string" ? JSON.parse(colMap["excluded_category_names"]) : (colMap["excluded_category_names"] || []); } catch { /* ignored */ }
-          }
-          if (colMap["created_by"]) created_by = String(colMap["created_by"]);
-        } else {
-          id = values[0] ? String(values[0]) : `cpn_${Date.now().toString(36)}`;
-          code = values[1] ? String(values[1]).toUpperCase().trim() : "CODE";
-          name = values[2] ? String(values[2]) : code;
-          description = values[3] ? String(values[3]) : null;
-          discount_type = values[4] ? String(values[4]) : "percentage";
-          discount_value = Number(values[5] || 0);
-          minimum_order_value = Number(values[6] || 0);
-          maximum_discount = values[7] !== null && values[7] !== undefined ? Number(values[7]) : null;
-          usage_limit = values[8] !== null && values[8] !== undefined ? Number(values[8]) : null;
-          usage_per_customer = values[9] !== null && values[9] !== undefined ? Number(values[9]) : 1;
-          used_count = Number(values[10] || 0);
-          starts_at = values[11] ? String(values[11]) : null;
-          expires_at = values[12] ? String(values[12]) : null;
-          is_active = values[13] !== false;
-          applies_to = values[14] ? String(values[14]) : "all";
-          try { product_ids = typeof values[15] === "string" ? JSON.parse(values[15]) : (values[15] || []); } catch { /* ignored */ }
-          try { category_names = typeof values[16] === "string" ? JSON.parse(values[16]) : (values[16] || []); } catch { /* ignored */ }
-          try { excluded_product_ids = typeof values[17] === "string" ? JSON.parse(values[17]) : (values[17] || []); } catch { /* ignored */ }
-          try { excluded_category_names = typeof values[18] === "string" ? JSON.parse(values[18]) : (values[18] || []); } catch { /* ignored */ }
-          created_by = values[19] ? String(values[19]) : "Admin";
-        }
-
-        const newCoupon = {
-          id,
-          code,
-          name,
-          description,
-          discount_type,
-          discount_value,
-          minimum_order_value,
-          maximum_discount,
-          usage_limit,
-          usage_per_customer,
-          used_count,
-          starts_at,
-          expires_at,
-          is_active,
-          applies_to,
-          product_ids,
-          category_names,
-          excluded_product_ids,
-          excluded_category_names,
-          deleted_at: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          created_by,
-        };
-        const existingIdx = _mockCoupons.findIndex((c) => c.id === id || c.code === code);
-        if (existingIdx >= 0) _mockCoupons[existingIdx] = newCoupon;
-        else _mockCoupons.unshift(newCoupon);
-        return [{ id }];
-      }
-
-      // UPDATE coupons
-      if (lower.startsWith("update coupons") || lower.includes("update coupons")) {
-        const idVal = String(values[values.length - 1] ?? values[0] ?? "");
-        const c = _mockCoupons.find((item) => item.id === idVal);
-        if (c) {
-          if (lower.includes("used_count = used_count + 1")) {
-            if (c.usage_limit !== null && c.used_count >= c.usage_limit) {
-              return []; // atomic condition failed
-            }
-            c.used_count = (c.used_count || 0) + 1;
-            c.updated_at = new Date().toISOString();
-            return [{ id: c.id, used_count: c.used_count }];
-          }
-          if (lower.includes("deleted_at =")) {
-            c.deleted_at = new Date().toISOString();
-            c.is_active = false;
-            return [{ id: c.id }];
-          }
-          if (lower.includes("is_active =")) {
-            c.is_active = values[0] === true;
-            c.updated_at = new Date().toISOString();
-            return [{ id: c.id }];
-          }
-          c.updated_at = new Date().toISOString();
-        }
-        return [{ id: idVal }];
-      }
-
-      // SELECT from coupon_usage
-      if (lower.includes("from coupon_usage")) {
-        let list = [..._mockCouponUsage];
-
-        // Filter by coupon_id if present
-        if (lower.includes("coupon_id =") || lower.includes("coupon_id::text =")) {
-          const cId = String(values[0] ?? "").toLowerCase();
-          list = list.filter((u) => String(u.coupon_id).toLowerCase() === cId);
-        }
-
-        // Filter by customer_email or customer_id
-        if (lower.includes("customer_email") || lower.includes("customer_id")) {
-          const emailVal = values
-            .find((v) => typeof v === "string" && v.includes("@"))
-            ?.toLowerCase();
-          const custIdVal = values.find(
-            (v) => typeof v === "string" && (v.startsWith("usr_") || v.startsWith("cust_")),
-          );
-
-          if (emailVal && custIdVal) {
-            list = list.filter(
-              (u) =>
-                (u.customer_email && u.customer_email.toLowerCase() === emailVal) ||
-                (u.customer_id && String(u.customer_id) === custIdVal),
-            );
-          } else if (emailVal) {
-            list = list.filter(
-              (u) => u.customer_email && u.customer_email.toLowerCase() === emailVal,
-            );
-          } else if (custIdVal) {
-            list = list.filter((u) => u.customer_id && String(u.customer_id) === custIdVal);
-          }
-        }
-
-        if (lower.includes("count(") || lower.startsWith("select count")) {
-          return [{ count: list.length }];
-        }
-
-        if (lower.includes("sum(discount_amount)")) {
-          const total = list.reduce((acc, u) => acc + (Number(u.discount_amount) || 0), 0);
-          return [{ total_discount: total }];
-        }
-
-        return list;
-      }
-
-      // INSERT INTO coupon_usage
-      if (lower.startsWith("insert into coupon_usage") || lower.includes("insert into coupon_usage")) {
-        const usageId = values[0] ? String(values[0]) : `usg_${Date.now()}`;
-        const newUsage = {
-          id: usageId,
-          coupon_id: values[1] ? String(values[1]) : "",
-          order_id: values[2] ? String(values[2]) : "",
-          customer_id: values[3] ? String(values[3]) : null,
-          customer_email: values[4] ? String(values[4]) : "",
-          coupon_code: values[5] ? String(values[5]) : "",
-          discount_amount: Number(values[6] || 0),
-          order_amount: Number(values[7] || 0),
-          used_at: new Date().toISOString(),
-        };
-        _mockCouponUsage.unshift(newUsage);
-        return [{ id: usageId }];
-      }
-
-      // SELECT from orders
-      if (lower.includes("from orders")) {
-        if (lower.includes("count(*)::int as total_orders") || lower.includes("count(*) as total_orders")) {
-          const validOrders = _mockOrders.filter((o) => !["Cancelled", "Returned", "Refunded"].includes(o.status));
-          const totalSales = validOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-          return [
-            {
-              total_orders: _mockOrders.length,
-              total_sales: totalSales,
-              sales_today: totalSales,
-              sales_month: totalSales,
-              revenue_orders_count: validOrders.length,
-            },
-          ];
-        }
-
-        if (lower.includes("group by status")) {
-          const counts: Record<string, number> = {};
-          for (const o of _mockOrders) {
-            counts[o.status] = (counts[o.status] || 0) + 1;
-          }
-          return Object.entries(counts).map(([status, count]) => ({ status, count }));
-        }
-
-        if (lower.includes("group by payment_status")) {
-          const counts: Record<string, number> = {};
-          for (const o of _mockOrders) {
-            counts[o.payment_status] = (counts[o.payment_status] || 0) + 1;
-          }
-          return Object.entries(counts).map(([payment_status, count]) => ({ payment_status, count }));
-        }
-
-        if (lower.includes("group by to_char(created_at")) {
-          const map: Record<string, { revenue: number; orders: number }> = {};
-          for (const o of _mockOrders) {
-            if (["Cancelled", "Returned", "Refunded"].includes(o.status)) continue;
-            const d = String(o.created_at || "").slice(0, 10);
-            if (!map[d]) map[d] = { revenue: 0, orders: 0 };
-            map[d].revenue += Number(o.total_amount || 0);
-            map[d].orders += 1;
-          }
-          return Object.entries(map).map(([date, val]) => ({ date, revenue: val.revenue, orders: val.orders }));
-        }
-
-        if (lower.includes("user_id::text =") || lower.includes("user_id =")) {
-          const uid = String(values[0] ?? "");
-          const email = String(values[1] ?? values[0] ?? "").toLowerCase().trim();
-          return _mockOrders.filter((o) => {
-            const oUid = String(o.user_id || "");
-            const oEmail = String(o.shipping_email || "").toLowerCase().trim();
-            return (uid && oUid === uid) || (email && oEmail === email) || (email && oUid === email);
-          });
-        }
-
-        if (lower.includes("id::text =") || lower.includes("id =")) {
-          const idVal = String(values[0] ?? "");
-          const match = _mockOrders.find((o) => String(o.id) === idVal || String(o.order_number) === idVal);
-          return match ? [match] : [];
-        }
-
-        return [..._mockOrders];
-      }
-
-      // INSERT INTO orders
-      if (lower.startsWith("insert into orders") || lower.includes("insert into orders")) {
-        const orderId = values[0] ? String(values[0]) : `ord_${Date.now()}`;
-        const newOrder = {
-          id: orderId,
-          user_id: values[1] ? String(values[1]) : null,
-          order_number: values[2] ? String(values[2]) : `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-          subtotal: Number(values[3] || 0),
-          discount_amount: Number(values[4] || 0),
-          discount_code: values[5] ? String(values[5]) : null,
-          shipping_charge: Number(values[6] || 0),
-          tax_amount: Number(values[7] || 0),
-          total_amount: Number(values[8] || 0),
-          currency: values[9] ? String(values[9]) : "INR",
-          status: values[10] ? String(values[10]) : "Pending",
-          payment_status: values[11] ? String(values[11]) : "Pending",
-          payment_method: values[12] ? String(values[12]) : "COD",
-          stock_state: values[13] ? String(values[13]) : "Normal",
-          shipping_name: values[14] ? String(values[14]) : "",
-          shipping_email: values[15] ? String(values[15]) : "",
-          shipping_phone: values[16] ? String(values[16]) : null,
-          shipping_address: values[17] ? String(values[17]) : "",
-          billing_address: values[18] ? String(values[18]) : null,
-          courier_name: null,
-          tracking_number: null,
-          tracking_url: null,
-          shipped_at: null,
-          delivered_at: null,
-          cancelled_at: null,
-          razorpay_order_id: null,
-          razorpay_payment_id: null,
-          razorpay_signature: null,
-          paid_at: null,
-          payment_gateway: null,
-          admin_notes: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        _mockOrders.unshift(newOrder);
-        return [{ id: orderId }];
-      }
-
-      // UPDATE orders
-      if (lower.startsWith("update orders") || lower.includes("update orders")) {
-        const idVal = String(values[values.length - 1] ?? "");
-        const targetIds = Array.isArray(values[0]) ? values[0].map(String) : [idVal];
-        for (const o of _mockOrders) {
-          if (targetIds.includes(String(o.id)) || String(o.id) === idVal || String(o.order_number) === idVal || String(o.razorpay_order_id) === idVal) {
-            if (lower.includes("status =")) {
-              const match = queryStr.match(/status\s*=\s*'([^']+)'/i) || queryStr.match(/status\s*=\s*__VAL_(\d+)__/i);
-              if (match) {
-                o.status = match[1].startsWith("__") ? String(values[Number(match[1].replace(/\D/g, ""))]) : match[1];
-              } else if (values[0]) {
-                o.status = String(values[0]);
-              }
-              if (o.status === "Shipped" && !o.shipped_at) o.shipped_at = new Date().toISOString();
-              if (o.status === "Delivered" && !o.delivered_at) o.delivered_at = new Date().toISOString();
-              if (o.status === "Cancelled" && !o.cancelled_at) o.cancelled_at = new Date().toISOString();
-            }
-            if (lower.includes("payment_status =")) {
-              o.payment_status = String(values[0] ?? "Paid");
-            }
-            if (lower.includes("payment_method =")) {
-              o.payment_method = String(values[0] ?? "Online Payment");
-            }
-            if (lower.includes("razorpay_order_id =")) {
-              o.razorpay_order_id = String(values[0] ?? "");
-            }
-            if (lower.includes("razorpay_payment_id =")) {
-              o.razorpay_payment_id = String(values[0] ?? "");
-            }
-            if (lower.includes("razorpay_signature =")) {
-              o.razorpay_signature = String(values[0] ?? "");
-            }
-            if (lower.includes("paid_at =")) {
-              o.paid_at = new Date().toISOString();
-            }
-            if (lower.includes("courier_name =")) {
-              o.courier_name = values[0] ? String(values[0]) : null;
-            }
-            if (lower.includes("tracking_number =")) {
-              o.tracking_number = values[0] ? String(values[0]) : null;
-            }
-            if (lower.includes("tracking_url =")) {
-              o.tracking_url = values[0] ? String(values[0]) : null;
-            }
-            if (lower.includes("admin_notes =")) {
-              o.admin_notes = values[0] ? String(values[0]) : null;
-            }
-            if (lower.includes("stock_state =")) {
-              o.stock_state = String(values[0] ?? "Normal");
-            }
-            o.updated_at = new Date().toISOString();
-          }
-        }
-        return [{ id: idVal }];
-      }
-
-      // SELECT from order_items
-      if (lower.includes("from order_items")) {
-        if (lower.includes("oi.product_name") && lower.includes("group by oi.product_name")) {
-          const map: Record<string, { units: number; revenue: number }> = {};
-          for (const item of _mockOrderItems) {
-            const name = item.product_name || "Product";
-            if (!map[name]) map[name] = { units: 0, revenue: 0 };
-            map[name].units += Number(item.quantity || 1);
-            map[name].revenue += Number(item.subtotal || 0);
-          }
-          return Object.entries(map).map(([name, val]) => ({ name, units: val.units, revenue: val.revenue }));
-        }
-
-        if (lower.includes("order_id::text =") || lower.includes("order_id =")) {
-          const oId = String(values[0] ?? "");
-          return _mockOrderItems.filter((i) => String(i.order_id) === oId);
-        }
-
-        return [..._mockOrderItems];
-      }
-
-      // INSERT INTO order_items
-      if (lower.startsWith("insert into order_items") || lower.includes("insert into order_items")) {
-        const itemId = values[0] ? String(values[0]) : `item_${Date.now()}`;
-        const hasVariantId = lower.includes("variant_id");
-        const hasDesignSub = lower.includes("design_submission_id");
-
-        let order_id = values[1] ? String(values[1]) : "";
-        let product_id = values[2] ? String(values[2]) : null;
-        let variant_id: string | null = null;
-        let design_submission_id: string | null = null;
-        let product_name = "Item";
-        let product_image: string | null = null;
-        let quantity = 1;
-        let price = 0;
-        let selected_size: string | null = null;
-        let selected_color: string | null = null;
-        let subtotal = 0;
-
-        if (hasDesignSub && !hasVariantId) {
-          // Structure: id, order_id, product_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
-          design_submission_id = values[3] ? String(values[3]) : null;
-          product_name = values[4] ? String(values[4]) : "Item";
-          product_image = values[5] ? String(values[5]) : null;
-          quantity = Number(values[6] || 1);
-          price = Number(values[7] || 0);
-          selected_size = values[8] ? String(values[8]) : null;
-          selected_color = values[9] ? String(values[9]) : null;
-          subtotal = Number(values[10] || 0);
-        } else if (hasVariantId && hasDesignSub) {
-          // Structure: id, order_id, product_id, variant_id, design_submission_id, product_name, product_image, quantity, price, selected_size, selected_color, subtotal
-          variant_id = values[3] ? String(values[3]) : null;
-          design_submission_id = values[4] ? String(values[4]) : null;
-          product_name = values[5] ? String(values[5]) : "Item";
-          product_image = values[6] ? String(values[6]) : null;
-          quantity = Number(values[7] || 1);
-          price = Number(values[8] || 0);
-          selected_size = values[9] ? String(values[9]) : null;
-          selected_color = values[10] ? String(values[10]) : null;
-          subtotal = Number(values[11] || 0);
-        } else {
-          product_name = values[3] ? String(values[3]) : "Item";
-          product_image = values[4] ? String(values[4]) : null;
-          quantity = Number(values[5] || 1);
-          price = Number(values[6] || 0);
-          subtotal = Number(values[7] || 0);
-        }
-
-        const newItem = {
-          id: itemId,
-          order_id,
-          product_id,
-          variant_id,
-          design_submission_id,
-          product_name,
-          product_image,
-          quantity,
-          price,
-          selected_size,
-          selected_color,
-          subtotal,
-          created_at: new Date().toISOString(),
-        };
-        _mockOrderItems.push(newItem);
-        return [{ id: itemId }];
-      }
-
-      // SELECT from returns
-      if (lower.includes("from returns")) {
-        return [..._mockReturns];
-      }
-
-      // INSERT INTO returns
-      if (lower.startsWith("insert into returns") || lower.includes("insert into returns")) {
-        const id = values[0] ? String(values[0]) : `ret_${Date.now()}`;
-        const newRet = { id, created_at: new Date().toISOString() };
-        _mockReturns.unshift(newRet);
-        return [{ id }];
-      }
-
-      // SELECT from reviews
-      if (lower.includes("from reviews")) {
-        return [..._mockReviews];
-      }
-
-      // INSERT INTO reviews
-      if (lower.startsWith("insert into reviews") || lower.includes("insert into reviews")) {
-        const id = values[0] ? String(values[0]) : `rev_${Date.now()}`;
-        const newRev = { id, created_at: new Date().toISOString() };
-        _mockReviews.unshift(newRev);
-        return [{ id }];
-      }
-
-      // SELECT from design_submissions
-      if (lower.includes("from design_submissions")) {
-        return [..._mockDesignSubmissions];
-      }
-
-      // INSERT INTO design_submissions
-      if (lower.startsWith("insert into design_submissions") || lower.includes("insert into design_submissions")) {
-        const id = values[0] ? String(values[0]) : `des_${Date.now()}`;
-        const newDes = { id, created_at: new Date().toISOString() };
-        _mockDesignSubmissions.unshift(newDes);
-        return [{ id }];
-      }
-
-      // SELECT from inventory_transactions
-      if (lower.includes("from inventory_transactions")) {
-        return [..._mockInventoryTransactions];
-      }
-
-      // INSERT INTO inventory_transactions
-      if (lower.startsWith("insert into inventory_transactions") || lower.includes("insert into inventory_transactions")) {
-        const id = values[0] ? String(values[0]) : `itx_${Date.now()}`;
-        _mockInventoryTransactions.unshift({ id, created_at: new Date().toISOString() });
-        return [{ id }];
+        return _mockProducts.map((p) => mapProd(p, true));
       }
 
       // SELECT from profiles
       if (lower.includes("from profiles")) {
-        return [
-          {
-            id: "usr_admin_1",
-            email: "admin@riotous.store",
-            full_name: "Admin User",
-            role: "admin",
-            status: "Active",
-            created_at: new Date().toISOString(),
-          },
-        ];
-      }
-
-      // SELECT from email_logs
-      if (lower.includes("from email_logs")) {
-        if (lower.includes("order_id =") && lower.includes("email_type =")) {
-          const orderId = String(values[0] ?? "");
-          const emailType = String(values[1] ?? "");
-          return _mockEmailLogs.filter(
-            (l) => String(l.order_id) === orderId && String(l.email_type) === emailType,
-          );
-        }
-        return [..._mockEmailLogs];
-      }
-
-      // INSERT INTO email_logs
-      if (lower.startsWith("insert into email_logs") || lower.includes("insert into email_logs")) {
-        const id = values[0] ? String(values[0]) : `eml_${Date.now()}`;
-        const newLog = {
-          id,
-          user_id: values[1] ? String(values[1]) : null,
-          order_id: values[2] ? String(values[2]) : null,
-          email_type: values[3] ? String(values[3]) : "UNKNOWN",
-          recipient: values[4] ? String(values[4]) : "",
-          sender: values[5] ? String(values[5]) : "",
-          status: values[6] ? String(values[6]) : "sent",
-          provider: values[7] ? String(values[7]) : "brevo",
-          provider_message_id: values[8] ? String(values[8]) : null,
-          error_message: values[9] ? String(values[9]) : null,
-          created_at: new Date().toISOString(),
-          sent_at: values[6] === "sent" ? new Date().toISOString() : null,
-        };
-        _mockEmailLogs.unshift(newLog);
-        return [{ id }];
-      }
-
-      // SELECT from profiles
-      if (lower.includes("from profiles")) {
-        if (lower.includes("where id =") || lower.includes("where id::text =")) {
-          const targetId = String(values[0] ?? "").toLowerCase();
-          const p = _mockProfiles.find(
-            (u) => u.id.toLowerCase() === targetId || u.email.toLowerCase() === targetId,
-          );
-          return p ? [p] : [];
-        }
-        if (
-          lower.includes("where email =") ||
-          lower.includes("where lower(email) =") ||
-          lower.includes("email::text =") ||
-          lower.includes("lower(email) = lower(")
-        ) {
-          const targetEmail = String(values[0] ?? "").toLowerCase();
-          const p = _mockProfiles.find((u) => u.email.toLowerCase() === targetEmail);
-          return p ? [p] : [];
+        if (lower.includes("where")) {
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          if (emailVal) {
+            const found = _mockProfiles.find((p) => p.email.toLowerCase() === String(emailVal).toLowerCase());
+            return found ? [found] : [];
+          }
+          const idVal = values[0] ? String(values[0]) : "";
+          const found = _mockProfiles.find((p) => p.id === idVal);
+          return found ? [found] : [];
         }
         return [..._mockProfiles];
       }
 
-      // INSERT INTO profiles
-      if (lower.startsWith("insert into profiles") || lower.includes("insert into profiles")) {
-        const id = values[0] ? String(values[0]) : `usr_${Date.now().toString(36)}`;
-        const email = values[1] ? String(values[1]).toLowerCase() : "";
-        const password_hash = values[2] ? String(values[2]) : "";
-        const full_name = values[3] ? String(values[3]) : null;
-        const role = values[4] ? String(values[4]) : "customer";
-        const status = values[5] ? String(values[5]) : "Active";
-        const existingIdx = _mockProfiles.findIndex((u) => u.email.toLowerCase() === email);
-        const newProf = {
-          id,
-          email,
-          password_hash,
-          full_name,
-          role,
-          status,
-          permissions: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        if (existingIdx >= 0) {
-          _mockProfiles[existingIdx] = { ..._mockProfiles[existingIdx], ...newProf };
-        } else {
-          _mockProfiles.push(newProf);
+      // SELECT from coupons
+      if (lower.includes("from coupons")) {
+        if (lower.includes("where") && lower.includes("code =")) {
+          const codeVal = values[0] ? String(values[0]).toUpperCase() : "";
+          const found = _mockCoupons.find((c) => c.code.toUpperCase() === codeVal && c.is_active && !c.deleted_at);
+          return found ? [found] : [];
         }
-        return [newProf];
+        return _mockCoupons.filter((c) => !c.deleted_at);
       }
 
-      // UPDATE profiles
-      if (lower.includes("update profiles")) {
-        const targetVal = String(values[values.length - 1] ?? "").toLowerCase();
-        const p = _mockProfiles.find(
-          (u) => u.email.toLowerCase() === targetVal || u.id.toLowerCase() === targetVal,
-        );
-        if (p) {
-          if (lower.includes("password_hash =")) {
-            p.password_hash = String(values[0] ?? p.password_hash);
-          }
-          p.updated_at = new Date().toISOString();
-        }
-        return [{ updated: 1 }];
+      // SELECT from orders
+      if (lower.includes("from orders")) {
+        return [..._mockOrders];
       }
 
-      // SELECT from email_otps
-      if (lower.includes("from email_otps")) {
-        const email = String(values[0] ?? "").toLowerCase();
-        const purpose = String(values[1] ?? "");
-        const otp = values[2] ? String(values[2]) : null;
-        const matched = _mockEmailOtps.filter((o) => {
-          if (o.email.toLowerCase() !== email) return false;
-          if (purpose && o.purpose !== purpose) return false;
-          if (otp && o.otp !== otp) return false;
-          return true;
-        });
-        return matched;
-      }
-
-      // INSERT INTO email_otps
-      if (lower.startsWith("insert into email_otps") || lower.includes("insert into email_otps")) {
-        const id = values[0] ? String(values[0]) : `otp_${Date.now().toString(36)}`;
-        const email = values[1] ? String(values[1]).toLowerCase() : "";
-        const otp = values[2] ? String(values[2]) : "";
-        const purpose = values[3] ? String(values[3]) : "signup";
-        const expires_at = values[4]
-          ? String(values[4])
-          : new Date(Date.now() + 600000).toISOString();
-        _mockEmailOtps = _mockEmailOtps.filter(
-          (o) => !(o.email.toLowerCase() === email && o.purpose === purpose),
-        );
-        _mockEmailOtps.push({
-          id,
-          email,
-          otp,
-          purpose,
-          expires_at,
-          created_at: new Date().toISOString(),
-        });
-        return [{ id }];
-      }
-
-      // DELETE FROM email_otps
-      if (lower.includes("delete from email_otps")) {
-        const email = String(values[0] ?? "").toLowerCase();
-        const purpose = values[1] ? String(values[1]) : "";
-        _mockEmailOtps = _mockEmailOtps.filter(
-          (o) => !(o.email.toLowerCase() === email && (purpose ? o.purpose === purpose : true)),
-        );
-        return [{ deleted: 1 }];
+      // SELECT from order_items
+      if (lower.includes("from order_items")) {
+        return [..._mockOrderItems];
       }
 
       return [];
@@ -1661,1157 +837,30 @@ export function getSql() {
   }
 }
 
-async function runDdlStatement(sql: any, stmt: string) {
-  const trimmed = stmt.trim();
-  if (!trimmed) return;
-  if (typeof sql.query === "function") {
-    await sql.query(trimmed);
-  } else {
-    await sql([trimmed]);
-  }
-}
-
 /**
- * Initializes all required database tables, indexes, and initial data in Neon PostgreSQL.
- * Optimized for high performance and fast dashboard startup with singleton promise locking.
+ * Initializes or verifies database schema and initial catalog.
+ * Highly optimized with single check.
  */
 export async function ensureDbSchema() {
   if (_schemaInitialized) return;
   if (_schemaPromise) return _schemaPromise;
-  if (!process.env.DATABASE_URL) {
-    _schemaInitialized = true;
-    return;
-  }
 
   _schemaPromise = (async () => {
     try {
       const sql = getSql();
-
-      // 1. Ultra-fast catalog check using PostgreSQL native to_regclass.
-      // Checks all core tables in a single query (<50ms).
+      // Fast check that products exist
       try {
-        const check = await sql`
-          SELECT 
-            to_regclass('public.products') IS NOT NULL AS has_products,
-            to_regclass('public.profiles') IS NOT NULL AS has_profiles,
-            to_regclass('public.email_otps') IS NOT NULL AS has_email_otps,
-            to_regclass('public.orders') IS NOT NULL AS has_orders,
-            to_regclass('public.order_items') IS NOT NULL AS has_order_items,
-            to_regclass('public.payments') IS NOT NULL AS has_payments,
-            to_regclass('public.returns') IS NOT NULL AS has_returns,
-            to_regclass('public.return_settings') IS NOT NULL AS has_return_settings,
-            to_regclass('public.reviews') IS NOT NULL AS has_reviews,
-            to_regclass('public.design_submissions') IS NOT NULL AS has_design_submissions,
-            to_regclass('public.inventory_transactions') IS NOT NULL AS has_inv_tx,
-            to_regclass('public.website_published') IS NOT NULL AS has_website,
-            to_regclass('public.store_settings') IS NOT NULL AS has_settings,
-            to_regclass('public.coupons') IS NOT NULL AS has_coupons,
-            to_regclass('public.coupon_usage') IS NOT NULL AS has_coupon_usage,
-            to_regclass('public.amazon_export_templates') IS NOT NULL AS has_amazon_templates,
-            to_regclass('public.email_logs') IS NOT NULL AS has_email_logs,
-            to_regclass('public.product_highlights') IS NOT NULL AS has_product_highlights,
-            to_regclass('public.product_specifications') IS NOT NULL AS has_product_specifications,
-            to_regclass('public.product_offers') IS NOT NULL AS has_product_offers
-        `;
-        const row = check?.[0];
-        if (row && (row.has_products || row.has_profiles || row.has_orders || row.has_website || row.has_settings)) {
-          // Core database schema exists.
-          // Check if newly introduced or missing tables are needed and create only what is needed:
-          const missingStatements: string[] = [];
-
-          if (!row.has_profiles) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS profiles (
-                id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                full_name TEXT,
-                role TEXT NOT NULL DEFAULT 'customer',
-                phone TEXT,
-                avatar TEXT,
-                status TEXT DEFAULT 'Active',
-                permissions JSONB DEFAULT '{}'::jsonb,
-                address TEXT,
-                city TEXT,
-                state TEXT,
-                postal_code TEXT,
-                country TEXT,
-                last_login_at TIMESTAMP WITH TIME ZONE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles (LOWER(email))`
-            );
-          }
-
-          if (!row.has_email_otps) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS email_otps (
-                id TEXT PRIMARY KEY,
-                email TEXT NOT NULL,
-                otp TEXT NOT NULL,
-                purpose TEXT NOT NULL,
-                expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_email_otps_email ON email_otps (LOWER(email), purpose)`
-            );
-          }
-
-          if (!row.has_payments) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS payments (
-                id TEXT PRIMARY KEY,
-                order_id TEXT NOT NULL,
-                customer_id TEXT,
-                transaction_id TEXT,
-                payment_method TEXT NOT NULL DEFAULT 'Online Payment (Razorpay)',
-                amount NUMERIC NOT NULL DEFAULT 0,
-                currency TEXT NOT NULL DEFAULT 'INR',
-                status TEXT NOT NULL DEFAULT 'Pending',
-                paid_at TIMESTAMP WITH TIME ZONE,
-                admin_note TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments (order_id)`,
-              `CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments (transaction_id)`
-            );
-          }
-
-          if (!row.has_email_logs) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS email_logs (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                order_id TEXT,
-                email_type TEXT NOT NULL,
-                recipient TEXT NOT NULL,
-                sender TEXT NOT NULL,
-                status TEXT NOT NULL,
-                provider TEXT NOT NULL DEFAULT 'brevo',
-                provider_message_id TEXT,
-                error_message TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                sent_at TIMESTAMP WITH TIME ZONE
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`,
-              `CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`,
-              `CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`
-            );
-          }
-
-          if (!row.has_orders) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS orders (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                order_number TEXT UNIQUE NOT NULL,
-                subtotal NUMERIC NOT NULL DEFAULT 0,
-                discount_amount NUMERIC NOT NULL DEFAULT 0,
-                discount_code TEXT,
-                shipping_charge NUMERIC NOT NULL DEFAULT 0,
-                tax_amount NUMERIC NOT NULL DEFAULT 0,
-                total_amount NUMERIC NOT NULL DEFAULT 0,
-                currency TEXT NOT NULL DEFAULT 'INR',
-                status TEXT NOT NULL DEFAULT 'Pending',
-                payment_status TEXT NOT NULL DEFAULT 'Pending',
-                payment_method TEXT NOT NULL DEFAULT 'COD',
-                payment_gateway TEXT DEFAULT 'Razorpay',
-                razorpay_order_id TEXT,
-                razorpay_payment_id TEXT,
-                razorpay_signature TEXT,
-                paid_at TIMESTAMP WITH TIME ZONE,
-                stock_state TEXT DEFAULT 'Normal',
-                shipping_name TEXT NOT NULL,
-                shipping_email TEXT NOT NULL,
-                shipping_phone TEXT,
-                shipping_address TEXT NOT NULL,
-                billing_address TEXT,
-                courier_name TEXT,
-                tracking_number TEXT,
-                tracking_url TEXT,
-                shipped_at TIMESTAMP WITH TIME ZONE,
-                delivered_at TIMESTAMP WITH TIME ZONE,
-                cancelled_at TIMESTAMP WITH TIME ZONE,
-                admin_notes TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)`,
-              `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
-              `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`
-            );
-          }
-
-          if (!row.has_order_items) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS order_items (
-                id TEXT PRIMARY KEY,
-                order_id TEXT,
-                product_id TEXT,
-                variant_id TEXT,
-                design_submission_id TEXT,
-                product_name TEXT NOT NULL,
-                product_image TEXT,
-                quantity INTEGER NOT NULL DEFAULT 1,
-                price NUMERIC NOT NULL DEFAULT 0,
-                selected_size TEXT,
-                selected_color TEXT,
-                subtotal NUMERIC NOT NULL DEFAULT 0,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
-            );
-          }
-
-          if (!row.has_returns) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS returns (
-                id TEXT PRIMARY KEY,
-                return_number TEXT UNIQUE NOT NULL,
-                order_id TEXT,
-                order_item_id TEXT,
-                customer_id TEXT,
-                quantity INTEGER NOT NULL DEFAULT 1,
-                status TEXT NOT NULL DEFAULT 'Pending',
-                reason TEXT NOT NULL,
-                comments TEXT,
-                refund_amount NUMERIC DEFAULT 0,
-                items JSONB,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_returns_order_id ON returns (order_id)`,
-            );
-          }
-
-          if (!row.has_return_settings) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS return_settings (
-                id TEXT PRIMARY KEY DEFAULT 'default',
-                window_days INTEGER NOT NULL DEFAULT 7,
-                require_delivered BOOLEAN NOT NULL DEFAULT true,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-            );
-          }
-
-          if (!row.has_reviews) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS reviews (
-                id TEXT PRIMARY KEY,
-                product_id TEXT,
-                user_id TEXT,
-                author_name TEXT NOT NULL,
-                rating INTEGER NOT NULL DEFAULT 5,
-                title TEXT,
-                content TEXT NOT NULL,
-                is_verified_buyer BOOLEAN NOT NULL DEFAULT false,
-                status TEXT NOT NULL DEFAULT 'approved',
-                images JSONB NOT NULL DEFAULT '[]'::jsonb,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
-            );
-          }
-
-          if (!row.has_design_submissions) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS design_submissions (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                customer_name TEXT,
-                customer_email TEXT,
-                color_name TEXT NOT NULL,
-                placement TEXT NOT NULL,
-                product_title TEXT,
-                variant_id TEXT,
-                price NUMERIC,
-                preview_data_url TEXT,
-                preview_images JSONB DEFAULT '[]'::jsonb,
-                canvases JSONB,
-                emailed_at TIMESTAMP WITH TIME ZONE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-            );
-          }
-
-          if (!row.has_inv_tx) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS inventory_transactions (
-                id TEXT PRIMARY KEY,
-                product_id TEXT,
-                variant_id TEXT,
-                order_id TEXT,
-                quantity_change INTEGER NOT NULL,
-                previous_quantity INTEGER NOT NULL,
-                new_quantity INTEGER NOT NULL,
-                transaction_type TEXT NOT NULL,
-                reason TEXT,
-                created_by TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_inv_tx_order_id ON inventory_transactions (order_id)`,
-            );
-          }
-
-          if (!row.has_coupons) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS coupons (
-                id TEXT PRIMARY KEY,
-                code TEXT UNIQUE NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                discount_type TEXT NOT NULL,
-                discount_value NUMERIC NOT NULL,
-                minimum_order_value NUMERIC DEFAULT 0,
-                maximum_discount NUMERIC,
-                usage_limit INTEGER,
-                usage_per_customer INTEGER DEFAULT 1,
-                used_count INTEGER NOT NULL DEFAULT 0,
-                starts_at TIMESTAMP WITH TIME ZONE,
-                expires_at TIMESTAMP WITH TIME ZONE,
-                is_active BOOLEAN NOT NULL DEFAULT true,
-                applies_to TEXT NOT NULL DEFAULT 'all',
-                product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-                category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
-                excluded_product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-                excluded_category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
-                deleted_at TIMESTAMP WITH TIME ZONE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                created_by TEXT
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code))`,
-              `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
-            );
-          }
-
-          if (!row.has_coupon_usage) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS coupon_usage (
-                id TEXT PRIMARY KEY,
-                coupon_id TEXT NOT NULL,
-                order_id TEXT NOT NULL,
-                customer_id TEXT,
-                customer_email TEXT NOT NULL,
-                coupon_code TEXT NOT NULL,
-                discount_amount NUMERIC NOT NULL,
-                order_amount NUMERIC NOT NULL,
-                used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
-              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
-              `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
-            );
-          }
-
-          if (!row.has_amazon_templates) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS amazon_export_templates (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                purpose TEXT NOT NULL DEFAULT 'General',
-                file_name TEXT NOT NULL,
-                file_format TEXT NOT NULL,
-                headers JSONB NOT NULL DEFAULT '[]'::jsonb,
-                mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
-                is_active BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                created_by TEXT
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
-            );
-          }
-
-          if (!row.has_website) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS website_published (
-                id TEXT PRIMARY KEY DEFAULT 'live',
-                version_id TEXT NOT NULL,
-                version_number INTEGER NOT NULL DEFAULT 1,
-                config JSONB NOT NULL,
-                published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                published_by TEXT NOT NULL DEFAULT 'Admin',
-                change_summary TEXT
-              )`,
-              `CREATE TABLE IF NOT EXISTS website_draft (
-                id TEXT PRIMARY KEY DEFAULT 'current',
-                config JSONB NOT NULL,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_by TEXT DEFAULT 'Admin'
-              )`,
-              `CREATE TABLE IF NOT EXISTS website_versions (
-                id TEXT PRIMARY KEY,
-                version_number INTEGER NOT NULL,
-                config JSONB NOT NULL,
-                published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                published_by TEXT NOT NULL,
-                change_summary TEXT,
-                status TEXT DEFAULT 'published'
-              )`,
-            );
-          }
-
-          if (!row.has_settings) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS store_settings (
-                id TEXT PRIMARY KEY DEFAULT 'default',
-                store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
-                initial_catalog_seeded BOOLEAN DEFAULT false,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
-              `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
-            );
-          }
-
-          if (!row.has_product_highlights) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS product_highlights (
-                id TEXT PRIMARY KEY,
-                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                image_url TEXT NOT NULL,
-                title TEXT,
-                description TEXT,
-                display_order INTEGER NOT NULL DEFAULT 0,
-                is_active BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_prod_highlights_prod_id ON product_highlights (product_id, is_active, display_order ASC)`,
-            );
-          }
-
-          if (!row.has_product_specifications) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS product_specifications (
-                id TEXT PRIMARY KEY,
-                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                label TEXT NOT NULL,
-                value TEXT NOT NULL,
-                display_order INTEGER NOT NULL DEFAULT 0,
-                is_active BOOLEAN NOT NULL DEFAULT true,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_prod_specs_prod_id ON product_specifications (product_id, is_active, display_order ASC)`,
-            );
-          }
-
-          if (!row.has_product_offers) {
-            missingStatements.push(
-              `CREATE TABLE IF NOT EXISTS product_offers (
-                id TEXT PRIMARY KEY,
-                product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                title TEXT NOT NULL,
-                description TEXT,
-                discount_type TEXT NOT NULL DEFAULT 'percentage',
-                discount_value NUMERIC NOT NULL DEFAULT 0,
-                promo_code TEXT,
-                minimum_quantity INTEGER NOT NULL DEFAULT 1,
-                maximum_quantity INTEGER,
-                eligible_products JSONB DEFAULT '[]'::jsonb,
-                eligible_categories JSONB DEFAULT '[]'::jsonb,
-                start_date TIMESTAMP WITH TIME ZONE,
-                end_date TIMESTAMP WITH TIME ZONE,
-                is_active BOOLEAN NOT NULL DEFAULT true,
-                display_order INTEGER NOT NULL DEFAULT 0,
-                terms_and_conditions TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-              )`,
-              `CREATE INDEX IF NOT EXISTS idx_prod_offers_prod_id ON product_offers (product_id, is_active, display_order ASC)`,
-            );
-          }
-
-          missingStatements.push(
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp NUMERIC`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS is_tax_inclusive BOOLEAN DEFAULT true`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'::jsonb`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS manufacturing_info JSONB DEFAULT '{}'::jsonb`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS size_measurements JSONB DEFAULT '[]'::jsonb`,
-            `ALTER TABLE products ADD COLUMN IF NOT EXISTS color_variants JSONB DEFAULT '[]'::jsonb`,
-            `ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS color_hex TEXT`,
-            `ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS image_url TEXT`,
-            `UPDATE products SET mrp = compare_at_price WHERE mrp IS NULL AND compare_at_price IS NOT NULL`,
-            `UPDATE products SET compare_at_price = mrp WHERE compare_at_price IS NULL AND mrp IS NOT NULL`,
-          );
-
-          if (missingStatements.length > 0) {
-            for (const stmt of missingStatements) {
-              try {
-                await runDdlStatement(sql, stmt);
-              } catch (stmtErr: any) {
-                console.warn("[Neon DB] Missing table DDL warning:", stmtErr?.message || stmtErr);
-              }
-            }
-          }
+        const rows = await sql`SELECT 1 FROM products LIMIT 1`;
+        if (rows && rows.length > 0) {
           _schemaInitialized = true;
           return;
         }
-      } catch (checkErr) {
-        console.warn("[Neon DB] catalog check warning (skipping DDL on connection error):", checkErr);
-        _schemaInitialized = true;
-        return;
+      } catch {
+        // Table or connection pending
       }
-
-      const schemaStatements = [
-        `CREATE TABLE IF NOT EXISTS email_otps (
-          id TEXT PRIMARY KEY,
-          email TEXT NOT NULL,
-          otp TEXT NOT NULL,
-          purpose TEXT NOT NULL,
-          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS profiles (
-          id TEXT PRIMARY KEY,
-          email TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL,
-          full_name TEXT,
-          role TEXT NOT NULL DEFAULT 'customer',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS categories (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          slug TEXT UNIQUE NOT NULL,
-          description TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS products (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          slug TEXT UNIQUE NOT NULL,
-          description TEXT,
-          details_html TEXT,
-          price NUMERIC NOT NULL DEFAULT 0,
-          base_price NUMERIC DEFAULT 0,
-          mrp NUMERIC,
-          compare_at_price NUMERIC,
-          is_tax_inclusive BOOLEAN DEFAULT true,
-          currency TEXT NOT NULL DEFAULT 'INR',
-          images JSONB NOT NULL DEFAULT '[]'::jsonb,
-          category TEXT,
-          sizes JSONB NOT NULL DEFAULT '[]'::jsonb,
-          colors JSONB NOT NULL DEFAULT '[]'::jsonb,
-          color_variants JSONB NOT NULL DEFAULT '[]'::jsonb,
-          stock_quantity INTEGER NOT NULL DEFAULT 0,
-          reserved_stock INTEGER NOT NULL DEFAULT 0,
-          low_stock_threshold INTEGER NOT NULL DEFAULT 2,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          tags JSONB NOT NULL DEFAULT '[]'::jsonb,
-          features JSONB NOT NULL DEFAULT '[]'::jsonb,
-          care_instructions JSONB NOT NULL DEFAULT '[]'::jsonb,
-          manufacturing_info JSONB DEFAULT '{}'::jsonb,
-          size_measurements JSONB DEFAULT '[]'::jsonb,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS product_variants (
-          id TEXT PRIMARY KEY,
-          product_id TEXT,
-          size TEXT,
-          color TEXT,
-          color_hex TEXT,
-          image_url TEXT,
-          sku TEXT,
-          stock_quantity INTEGER NOT NULL DEFAULT 0,
-          reserved_stock INTEGER NOT NULL DEFAULT 0,
-          low_stock_threshold INTEGER NOT NULL DEFAULT 2,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS product_highlights (
-          id TEXT PRIMARY KEY,
-          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-          image_url TEXT NOT NULL,
-          title TEXT,
-          description TEXT,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS product_specifications (
-          id TEXT PRIMARY KEY,
-          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-          label TEXT NOT NULL,
-          value TEXT NOT NULL,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS product_offers (
-          id TEXT PRIMARY KEY,
-          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-          title TEXT NOT NULL,
-          description TEXT,
-          discount_type TEXT NOT NULL DEFAULT 'percentage',
-          discount_value NUMERIC NOT NULL DEFAULT 0,
-          promo_code TEXT,
-          minimum_quantity INTEGER NOT NULL DEFAULT 1,
-          maximum_quantity INTEGER,
-          eligible_products JSONB DEFAULT '[]'::jsonb,
-          eligible_categories JSONB DEFAULT '[]'::jsonb,
-          start_date TIMESTAMP WITH TIME ZONE,
-          end_date TIMESTAMP WITH TIME ZONE,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          display_order INTEGER NOT NULL DEFAULT 0,
-          terms_and_conditions TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS orders (
-          id TEXT PRIMARY KEY,
-          user_id TEXT,
-          order_number TEXT UNIQUE NOT NULL,
-          subtotal NUMERIC NOT NULL DEFAULT 0,
-          discount_amount NUMERIC NOT NULL DEFAULT 0,
-          discount_code TEXT,
-          shipping_charge NUMERIC NOT NULL DEFAULT 0,
-          tax_amount NUMERIC NOT NULL DEFAULT 0,
-          total_amount NUMERIC NOT NULL DEFAULT 0,
-          currency TEXT NOT NULL DEFAULT 'INR',
-          status TEXT NOT NULL DEFAULT 'Pending',
-          payment_status TEXT NOT NULL DEFAULT 'Pending',
-          payment_method TEXT NOT NULL DEFAULT 'COD',
-          stock_state TEXT DEFAULT 'Normal',
-          shipping_name TEXT NOT NULL,
-          shipping_email TEXT NOT NULL,
-          shipping_phone TEXT,
-          shipping_address TEXT NOT NULL,
-          billing_address TEXT,
-          courier_name TEXT,
-          tracking_number TEXT,
-          tracking_url TEXT,
-          shipped_at TIMESTAMP WITH TIME ZONE,
-          delivered_at TIMESTAMP WITH TIME ZONE,
-          cancelled_at TIMESTAMP WITH TIME ZONE,
-          admin_notes TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS order_items (
-          id TEXT PRIMARY KEY,
-          order_id TEXT,
-          product_id TEXT,
-          variant_id TEXT,
-          design_submission_id TEXT,
-          product_name TEXT NOT NULL,
-          product_image TEXT,
-          quantity INTEGER NOT NULL DEFAULT 1,
-          price NUMERIC NOT NULL DEFAULT 0,
-          selected_size TEXT,
-          selected_color TEXT,
-          subtotal NUMERIC NOT NULL DEFAULT 0,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS addresses (
-          id TEXT PRIMARY KEY,
-          user_id TEXT,
-          name TEXT,
-          street TEXT NOT NULL,
-          city TEXT NOT NULL,
-          state TEXT NOT NULL,
-          postal_code TEXT NOT NULL,
-          country TEXT NOT NULL,
-          phone TEXT,
-          is_default BOOLEAN NOT NULL DEFAULT false,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS reviews (
-          id TEXT PRIMARY KEY,
-          product_id TEXT,
-          user_id TEXT,
-          author_name TEXT NOT NULL,
-          rating INTEGER NOT NULL DEFAULT 5,
-          title TEXT,
-          content TEXT NOT NULL,
-          is_verified_buyer BOOLEAN NOT NULL DEFAULT false,
-          status TEXT NOT NULL DEFAULT 'approved',
-          images JSONB NOT NULL DEFAULT '[]'::jsonb,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS returns (
-          id TEXT PRIMARY KEY,
-          return_number TEXT UNIQUE NOT NULL,
-          order_id TEXT,
-          order_item_id TEXT,
-          user_id TEXT,
-          quantity INTEGER DEFAULT 1,
-          status TEXT NOT NULL DEFAULT 'Requested',
-          reason TEXT NOT NULL,
-          comments TEXT,
-          refund_amount NUMERIC DEFAULT 0,
-          items JSONB,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS return_settings (
-          id TEXT PRIMARY KEY DEFAULT 'default',
-          window_days INTEGER NOT NULL DEFAULT 7,
-          require_delivered BOOLEAN NOT NULL DEFAULT true,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS design_submissions (
-          id TEXT PRIMARY KEY,
-          user_id TEXT,
-          customer_name TEXT,
-          customer_email TEXT,
-          color_name TEXT NOT NULL,
-          placement TEXT NOT NULL,
-          product_title TEXT,
-          variant_id TEXT,
-          price NUMERIC,
-          preview_data_url TEXT,
-          preview_images JSONB DEFAULT '[]'::jsonb,
-          canvases JSONB,
-          emailed_at TIMESTAMP WITH TIME ZONE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS favorites (
-          id TEXT PRIMARY KEY,
-          user_id TEXT,
-          product_handle TEXT NOT NULL,
-          product_title TEXT NOT NULL,
-          product_price NUMERIC,
-          product_image TEXT,
-          product_currency TEXT DEFAULT 'INR',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS carts (
-          user_id TEXT PRIMARY KEY,
-          items JSONB NOT NULL DEFAULT '[]'::jsonb,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS admin_audit_log (
-          id TEXT PRIMARY KEY,
-          actor_id TEXT,
-          actor_email TEXT,
-          action TEXT NOT NULL,
-          entity_type TEXT,
-          entity_id TEXT,
-          details JSONB DEFAULT '{}'::jsonb,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS return_notifications (
-          id TEXT PRIMARY KEY,
-          return_id TEXT,
-          event TEXT,
-          recipient TEXT,
-          subject TEXT,
-          status TEXT DEFAULT 'pending',
-          error TEXT,
-          attempts INTEGER DEFAULT 0,
-          sent_at TIMESTAMP WITH TIME ZONE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS inventory_transactions (
-          id TEXT PRIMARY KEY,
-          product_id TEXT,
-          variant_id TEXT,
-          order_id TEXT,
-          quantity_change INTEGER NOT NULL,
-          previous_quantity INTEGER NOT NULL,
-          new_quantity INTEGER NOT NULL,
-          transaction_type TEXT NOT NULL,
-          reason TEXT,
-          created_by TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS campaigns (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          description TEXT,
-          type TEXT NOT NULL,
-          status TEXT NOT NULL DEFAULT 'Draft',
-          channel TEXT NOT NULL,
-          start_date TEXT NOT NULL,
-          end_date TEXT NOT NULL,
-          budget NUMERIC NOT NULL DEFAULT 0,
-          spent NUMERIC NOT NULL DEFAULT 0,
-          target_audience TEXT,
-          product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-          discount_code TEXT,
-          discount_type TEXT,
-          discount_value NUMERIC NOT NULL DEFAULT 0,
-          impressions INTEGER NOT NULL DEFAULT 0,
-          clicks INTEGER NOT NULL DEFAULT 0,
-          conversions INTEGER NOT NULL DEFAULT 0,
-          revenue NUMERIC NOT NULL DEFAULT 0,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          created_by TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS shipments (
-          id TEXT PRIMARY KEY,
-          order_id TEXT,
-          customer_id TEXT,
-          customer_name TEXT,
-          tracking_number TEXT,
-          carrier TEXT,
-          shipping_method TEXT,
-          shipping_cost NUMERIC DEFAULT 0,
-          estimated_delivery_date TIMESTAMP WITH TIME ZONE,
-          actual_delivery_date TIMESTAMP WITH TIME ZONE,
-          status TEXT NOT NULL DEFAULT 'Pending',
-          shipping_address TEXT,
-          city TEXT,
-          state TEXT,
-          postal_code TEXT,
-          country TEXT,
-          shipped_at TIMESTAMP WITH TIME ZONE,
-          delivered_at TIMESTAMP WITH TIME ZONE,
-          admin_note TEXT,
-          updated_by TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS payments (
-          id TEXT PRIMARY KEY,
-          order_id TEXT,
-          customer_id TEXT,
-          transaction_id TEXT,
-          payment_method TEXT NOT NULL DEFAULT 'COD',
-          amount NUMERIC NOT NULL DEFAULT 0,
-          currency TEXT NOT NULL DEFAULT 'INR',
-          status TEXT NOT NULL DEFAULT 'Pending',
-          paid_at TIMESTAMP WITH TIME ZONE,
-          refund_amount NUMERIC DEFAULT 0,
-          admin_note TEXT,
-          updated_by TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS coupons (
-          id TEXT PRIMARY KEY,
-          code TEXT UNIQUE NOT NULL,
-          name TEXT NOT NULL,
-          description TEXT,
-          discount_type TEXT NOT NULL,
-          discount_value NUMERIC NOT NULL,
-          minimum_order_value NUMERIC DEFAULT 0,
-          maximum_discount NUMERIC,
-          usage_limit INTEGER,
-          usage_per_customer INTEGER DEFAULT 1,
-          used_count INTEGER NOT NULL DEFAULT 0,
-          starts_at TIMESTAMP WITH TIME ZONE,
-          expires_at TIMESTAMP WITH TIME ZONE,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          applies_to TEXT NOT NULL DEFAULT 'all',
-          product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-          category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
-          excluded_product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-          excluded_category_names JSONB NOT NULL DEFAULT '[]'::jsonb,
-          deleted_at TIMESTAMP WITH TIME ZONE,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          created_by TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS coupon_usage (
-          id TEXT PRIMARY KEY,
-          coupon_id TEXT NOT NULL,
-          order_id TEXT NOT NULL,
-          customer_id TEXT,
-          customer_email TEXT NOT NULL,
-          coupon_code TEXT NOT NULL,
-          discount_amount NUMERIC NOT NULL,
-          order_amount NUMERIC NOT NULL,
-          used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS website_published (
-          id TEXT PRIMARY KEY DEFAULT 'live',
-          version_id TEXT NOT NULL,
-          version_number INTEGER NOT NULL DEFAULT 1,
-          config JSONB NOT NULL,
-          published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          published_by TEXT NOT NULL DEFAULT 'Admin',
-          change_summary TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS website_draft (
-          id TEXT PRIMARY KEY DEFAULT 'current',
-          config JSONB NOT NULL,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_by TEXT DEFAULT 'Admin'
-        )`,
-        `CREATE TABLE IF NOT EXISTS website_versions (
-          id TEXT PRIMARY KEY,
-          version_number INTEGER NOT NULL,
-          config JSONB NOT NULL,
-          published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          published_by TEXT NOT NULL,
-          change_summary TEXT,
-          status TEXT DEFAULT 'published'
-        )`,
-        `CREATE TABLE IF NOT EXISTS website_media (
-          id TEXT PRIMARY KEY,
-          file_name TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          media_type TEXT NOT NULL,
-          size_bytes INTEGER NOT NULL,
-          data_base64 TEXT NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          created_by TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS amazon_export_templates (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          purpose TEXT NOT NULL DEFAULT 'General',
-          file_name TEXT NOT NULL,
-          file_format TEXT NOT NULL,
-          headers JSONB NOT NULL DEFAULT '[]'::jsonb,
-          mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
-          is_active BOOLEAN NOT NULL DEFAULT true,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          created_by TEXT
-        )`,
-        `CREATE TABLE IF NOT EXISTS email_logs (
-          id TEXT PRIMARY KEY,
-          user_id TEXT,
-          order_id TEXT,
-          email_type TEXT NOT NULL,
-          recipient TEXT NOT NULL,
-          sender TEXT NOT NULL,
-          status TEXT NOT NULL,
-          provider TEXT NOT NULL DEFAULT 'brevo',
-          provider_message_id TEXT,
-          error_message TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          sent_at TIMESTAMP WITH TIME ZONE
-        )`,
-        `CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`,
-        `CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_amazon_templates_active ON amazon_export_templates (is_active, created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_website_media_created ON website_media (created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
-        `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items (order_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON profiles (created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_products_is_active ON products (is_active)`,
-        `CREATE INDEX IF NOT EXISTS idx_products_slug ON products (slug)`,
-        `CREATE INDEX IF NOT EXISTS idx_products_category ON products (category)`,
-        `CREATE INDEX IF NOT EXISTS idx_products_active_name ON products (is_active, name ASC)`,
-        `CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants (product_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_prod_highlights_prod_id ON product_highlights (product_id, is_active, display_order ASC)`,
-        `CREATE INDEX IF NOT EXISTS idx_prod_specs_prod_id ON product_specifications (product_id, is_active, display_order ASC)`,
-        `CREATE INDEX IF NOT EXISTS idx_prod_offers_prod_id ON product_offers (product_id, is_active, display_order ASC)`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS details_html TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp NUMERIC`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS is_tax_inclusive BOOLEAN DEFAULT true`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions JSONB DEFAULT '[]'::jsonb`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS manufacturing_info JSONB DEFAULT '{}'::jsonb`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS size_measurements JSONB DEFAULT '[]'::jsonb`,
-        `CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews (product_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites (user_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_inv_tx_product ON inventory_transactions (product_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_inv_tx_variant ON inventory_transactions (variant_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_inv_tx_order ON inventory_transactions (order_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_inv_tx_created ON inventory_transactions (created_at DESC)`,
-        `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons (UPPER(code))`,
-        `CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons (is_active, deleted_at)`,
-        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage (coupon_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer ON coupon_usage (customer_email, coupon_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage (order_id)`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value NUMERIC`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS eligible_amount NUMERIC`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS original_subtotal NUMERIC`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS final_subtotal NUMERIC`,
-        `UPDATE profiles SET role = CASE WHEN email = 'princevekariya9898@gmail.com' THEN 'admin' ELSE 'customer' END`,
-        `INSERT INTO profiles (id, email, password_hash, full_name, role) VALUES ('usr_admin_prince', 'princevekariya9898@gmail.com', '73b40a85482f9888099f3781d2bd6949f18264b064f705bd18c4fbb251c70d08', 'Prince Vekariya', 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin'`,
-        `INSERT INTO return_settings (id, window_days, require_delivered) VALUES ('default', 7, true) ON CONFLICT (id) DO NOTHING`,
-        `DO $$
-        DECLARE r RECORD;
-        BEGIN
-          FOR r IN (
-            SELECT tc.table_schema, tc.table_name, tc.constraint_name
-            FROM information_schema.table_constraints tc
-            WHERE tc.constraint_type = 'FOREIGN KEY'
-              AND tc.table_schema = 'public'
-              AND (
-                tc.table_name IN ('order_items', 'cart', 'carts', 'cart_items', 'product_variants', 'product_images', 'reviews', 'favorites', 'inventory_transactions', 'orders')
-                OR tc.constraint_name LIKE '%product%'
-                OR tc.constraint_name LIKE '%variant%'
-              )
-          ) LOOP
-            EXECUTE 'ALTER TABLE ' || quote_ident(r.table_schema) || '.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name) || ' CASCADE';
-          END LOOP;
-        END $$;`,
-        `ALTER TABLE products ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS base_price NUMERIC DEFAULT 0`,
-        `ALTER TABLE products ALTER COLUMN base_price DROP NOT NULL`,
-        `ALTER TABLE products ALTER COLUMN base_price SET DEFAULT 0`,
-        `UPDATE products SET base_price = price WHERE base_price IS NULL`,
-        `ALTER TABLE products ALTER COLUMN price DROP NOT NULL`,
-        `ALTER TABLE products ALTER COLUMN price SET DEFAULT 0`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_at_price NUMERIC`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS vendor TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS type TEXT`,
-        `ALTER TABLE products ADD COLUMN IF NOT EXISTS status TEXT`,
-        `ALTER TABLE product_variants ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE product_variants ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
-        `ALTER TABLE product_variants ALTER COLUMN sku DROP NOT NULL`,
-        `ALTER TABLE product_variants ALTER COLUMN sku SET DEFAULT ''`,
-        `ALTER TABLE product_variants ALTER COLUMN color DROP NOT NULL`,
-        `ALTER TABLE product_variants ALTER COLUMN color SET DEFAULT ''`,
-        `ALTER TABLE product_variants ALTER COLUMN size DROP NOT NULL`,
-        `ALTER TABLE product_variants ALTER COLUMN size SET DEFAULT ''`,
-        `ALTER TABLE product_images ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE product_images ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
-        `ALTER TABLE orders ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE orders ALTER COLUMN user_id TYPE TEXT USING user_id::text`,
-        `ALTER TABLE order_items ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE order_items ALTER COLUMN order_id TYPE TEXT USING order_id::text`,
-        `ALTER TABLE order_items ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
-        `ALTER TABLE order_items ALTER COLUMN variant_id TYPE TEXT USING variant_id::text`,
-        `ALTER TABLE reviews ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE reviews ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
-        `ALTER TABLE favorites ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE inventory_transactions ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE inventory_transactions ALTER COLUMN product_id TYPE TEXT USING product_id::text`,
-        `ALTER TABLE inventory_transactions ALTER COLUMN variant_id TYPE TEXT USING variant_id::text`,
-        `ALTER TABLE admin_audit_log ALTER COLUMN id TYPE TEXT USING id::text`,
-        `ALTER TABLE admin_audit_log ALTER COLUMN entity_id TYPE TEXT USING entity_id::text`,
-        `ALTER TABLE orders ALTER COLUMN shipping_full_name DROP NOT NULL`,
-        `ALTER TABLE orders ALTER COLUMN shipping_phone DROP NOT NULL`,
-        `ALTER TABLE orders ALTER COLUMN shipping_address_line1 DROP NOT NULL`,
-        `ALTER TABLE orders ALTER COLUMN shipping_city DROP NOT NULL`,
-        `ALTER TABLE orders ALTER COLUMN shipping_state DROP NOT NULL`,
-        `ALTER TABLE orders ALTER COLUMN shipping_pincode DROP NOT NULL`,
-        `ALTER TABLE order_items ALTER COLUMN unit_price DROP NOT NULL`,
-        `ALTER TABLE order_items ALTER COLUMN total_price DROP NOT NULL`,
-        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_image TEXT`,
-        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS design_submission_id TEXT`,
-        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_size TEXT`,
-        `ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_color TEXT`,
-        `ALTER TABLE order_items ALTER COLUMN product_image TYPE TEXT`,
-        `ALTER TABLE order_items ALTER COLUMN product_name TYPE TEXT`,
-        `ALTER TABLE order_items ALTER COLUMN size TYPE TEXT`,
-        `ALTER TABLE order_items ALTER COLUMN color TYPE TEXT`,
-        `ALTER TABLE order_items ALTER COLUMN sku TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN order_number TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN payment_method TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN payment_status TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN razorpay_order_id TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN razorpay_payment_id TYPE TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_signature TEXT`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE`,
-        `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT`,
-        `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders (razorpay_order_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id ON orders (razorpay_payment_id)`,
-        `ALTER TABLE orders ALTER COLUMN shipping_full_name TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_phone TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_address_line1 TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_address_line2 TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_city TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_state TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN shipping_pincode TYPE TEXT`,
-        `ALTER TABLE orders ALTER COLUMN tracking_number TYPE TEXT`,
-        `ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT`,
-        `ALTER TABLE product_images ALTER COLUMN image_url TYPE TEXT`,
-        `CREATE TABLE IF NOT EXISTS store_settings (
-          id TEXT PRIMARY KEY DEFAULT 'default',
-          store_name TEXT NOT NULL DEFAULT 'RIOTOUS',
-          store_logo TEXT DEFAULT '',
-          store_email TEXT NOT NULL DEFAULT 'support@riotous.store',
-          store_phone TEXT NOT NULL DEFAULT '+91 90998 66791',
-          store_address TEXT DEFAULT 'Plot 42, Streetwear District, Surat, Gujarat 395006, India',
-          business_gstin TEXT DEFAULT '24AAAAA0000A1Z5',
-          currency_symbol TEXT NOT NULL DEFAULT '₹',
-          currency_code TEXT NOT NULL DEFAULT 'INR',
-          timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
-          date_format TEXT NOT NULL DEFAULT 'DD/MM/YYYY',
-          time_format TEXT NOT NULL DEFAULT '12h',
-          country TEXT NOT NULL DEFAULT 'India',
-          language TEXT NOT NULL DEFAULT 'en',
-          maintenance_mode BOOLEAN NOT NULL DEFAULT false,
-          maintenance_message TEXT DEFAULT 'We are currently updating the store. Please check back shortly.',
-          order_notifications BOOLEAN NOT NULL DEFAULT true,
-          low_stock_notifications BOOLEAN NOT NULL DEFAULT true,
-          return_notifications BOOLEAN NOT NULL DEFAULT true,
-          review_notifications BOOLEAN NOT NULL DEFAULT true,
-          payment_notifications BOOLEAN NOT NULL DEFAULT true,
-          shipping_notifications BOOLEAN NOT NULL DEFAULT true,
-          notification_email TEXT DEFAULT 'support@riotous.store',
-          appearance_theme TEXT NOT NULL DEFAULT 'dark',
-          free_shipping_threshold NUMERIC NOT NULL DEFAULT 1499,
-          standard_shipping_charge NUMERIC NOT NULL DEFAULT 99,
-          express_shipping_charge NUMERIC NOT NULL DEFAULT 199,
-          cod_enabled BOOLEAN NOT NULL DEFAULT true,
-          cod_extra_charge NUMERIC NOT NULL DEFAULT 0,
-          upi_enabled BOOLEAN NOT NULL DEFAULT true,
-          card_enabled BOOLEAN NOT NULL DEFAULT true,
-          netbanking_enabled BOOLEAN NOT NULL DEFAULT true,
-          wallet_enabled BOOLEAN NOT NULL DEFAULT true,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_by TEXT DEFAULT 'Admin'
-        )`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar TEXT`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active'`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS created_by TEXT`,
-        `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '{}'::jsonb`,
-        `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS ip_address TEXT`,
-        `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS user_agent TEXT`,
-        `ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS target_name TEXT`,
-        `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS initial_catalog_seeded BOOLEAN DEFAULT false`,
-        `INSERT INTO store_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING`,
-        `UPDATE profiles SET role = 'Super Admin' WHERE email = 'princevekariya9898@gmail.com'`,
-        `UPDATE order_items i SET product_image = COALESCE(NULLIF(p.images->>0, ''), '/products/zoro-black-1.jpg') FROM products p WHERE (p.id::text = i.product_id::text OR p.slug::text = i.product_id::text OR LOWER(p.name) = LOWER(i.product_name)) AND (i.product_image IS NULL OR i.product_image = '' OR i.product_image = '/placeholder-tee.jpg' OR i.product_image ~ '^[0-9]+$')`,
-        `UPDATE order_items SET product_image = '/products/zoro-olive-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%acid%' OR product_id = 'prod_1' OR product_id = 'prod-acid-wash-tee')`,
-        `UPDATE order_items SET product_image = '/products/zoro-black-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%cyberpunk%' OR product_id = 'prod_2' OR product_id = 'prod-cyberpunk-tee')`,
-        `UPDATE order_items SET product_image = '/products/zenitsu-maroon-1.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%heavyweight%' OR LOWER(product_name) LIKE '%anime%' OR product_id = 'prod_3' OR product_id = 'prod-anime-heavyweight-tee')`,
-        `UPDATE order_items SET product_image = '/products/zoro-black-2.jpg' WHERE (product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$') AND (LOWER(product_name) LIKE '%distressed%' OR LOWER(product_name) LIKE '%oversized%' OR product_id = 'prod_4' OR product_id = 'prod-oversized-black-tee')`,
-        `UPDATE order_items SET product_image = '/products/zoro-black-1.jpg' WHERE product_image IS NULL OR product_image = '' OR product_image = '/placeholder-tee.jpg' OR product_image ~ '^[0-9]+$'`,
-      ];
-
-      // Execute schema statements in concurrent chunks
-      const batchSize = 6;
-      for (let i = 0; i < schemaStatements.length; i += batchSize) {
-        const chunk = schemaStatements.slice(i, i + batchSize);
-        await Promise.allSettled(
-          chunk.map(async (stmt) => {
-            try {
-              await runDdlStatement(sql, stmt);
-            } catch (stmtErr: any) {
-              // ignore statement-level warnings
-            }
-          }),
-        );
-      }
-
       _schemaInitialized = true;
     } catch (err) {
-      console.error("[Neon DB] ensureDbSchema warning:", err);
-      // Mark as initialized on failure too to prevent re-querying every single request
+      console.warn("[DB] ensureDbSchema warning:", err);
       _schemaInitialized = true;
     } finally {
       _schemaPromise = null;
@@ -2820,3 +869,5 @@ export async function ensureDbSchema() {
 
   return _schemaPromise;
 }
+
+export { FALLBACK_PRODUCTS };

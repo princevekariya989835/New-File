@@ -69,7 +69,7 @@ export default defineConfig({
     }),
     nitro({
       preset:
-        process.env.NITRO_PRESET || (process.env.CF_PAGES ? "cloudflare-pages" : "node-server"),
+        process.env.NITRO_PRESET || (process.env.CF_PAGES ? "cloudflare-pages" : "cloudflare_module"),
       compressPublicAssets: true,
       routeRules: {
         "/**": {
