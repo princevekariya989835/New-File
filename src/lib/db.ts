@@ -461,7 +461,8 @@ export function getDatabaseUrl(): string | null {
 const JSON_COLUMNS = new Set([
   "images", "sizes", "colors", "color_variants", "tags", "features",
   "care_instructions", "manufacturing_info", "size_measurements",
-  "product_variants", "highlights", "specifications", "offers",
+  "product_variants", "variants", "product_images", "sizeStock",
+  "highlights", "specifications", "offers",
   "items", "canvases", "preview_images", "product_ids", "category_names",
   "excluded_product_ids", "excluded_category_names", "config", "details",
   "headers", "mapping", "permissions", "eligible_products", "eligible_categories",
@@ -560,6 +561,14 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
 
   // Functions: NOW() -> CURRENT_TIMESTAMP
   rawSql = rawSql.replace(/\bNOW\(\)/gi, "CURRENT_TIMESTAMP");
+
+  // Date compatibility transformations for SQLite / D1
+  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*CURRENT_DATE\s*\)/gi, "date('now', 'start of month')");
+  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*([^)]+)\s*\)/gi, "date($1, 'start of month')");
+  rawSql = rawSql.replace(/TO_CHAR\s*\(\s*([^,]+)\s*,\s*['"]YYYY-MM-DD['"]\s*\)/gi, "substr($1, 1, 10)");
+  rawSql = rawSql.replace(/CURRENT_DATE\s*-\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '-$1 days')");
+  rawSql = rawSql.replace(/CURRENT_DATE\s*\+\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '+$1 days')");
+  rawSql = rawSql.replace(/\bCURRENT_DATE\b/gi, "date('now')");
 
   // to_regclass -> sqlite_master table check
   rawSql = rawSql.replace(

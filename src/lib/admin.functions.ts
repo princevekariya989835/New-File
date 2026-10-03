@@ -215,7 +215,16 @@ export const adminListProducts = createServerFn({ method: "GET" })
       for (const p of rows) {
         const pId = String(p.id);
         const stockMap: Record<string, number> = {};
-        const vars = Array.isArray(p.variants) ? p.variants : [];
+        let vars: any[] = [];
+        if (Array.isArray(p.variants)) {
+          vars = p.variants;
+        } else if (typeof p.variants === "string") {
+          try {
+            vars = JSON.parse(p.variants);
+          } catch {
+            vars = [];
+          }
+        }
         for (const v of vars) {
           if (v && v.size) {
             stockMap[String(v.size)] = Number(v.stock_quantity || 0);
@@ -236,7 +245,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
           variants = await sql`
             SELECT product_id, size, stock_quantity
             FROM product_variants
-            WHERE product_id::text = ANY(${productIds}::text[])
+            WHERE product_id IN (${productIds})
           `;
         } catch {
           variants = [];
@@ -253,7 +262,11 @@ export const adminListProducts = createServerFn({ method: "GET" })
     }
 
     return rows.map((p: any) => {
-      const rawImgs = Array.isArray(p.images) ? p.images : [];
+      const rawImgs = Array.isArray(p.images)
+        ? p.images
+        : typeof p.images === "string"
+          ? (() => { try { return JSON.parse(p.images); } catch { return []; } })()
+          : [];
       const optimizedImgs = rawImgs.map((img: string, idx: number) => {
         if (typeof img === "string" && img.startsWith("data:image/")) {
           return `/api/public/product-image?id=${encodeURIComponent(p.id)}&idx=${idx}`;
@@ -261,48 +274,57 @@ export const adminListProducts = createServerFn({ method: "GET" })
         return img;
       });
 
-      const highlights = Array.isArray(p.highlights)
-        ? p.highlights.map((h: any) => ({
-            id: String(h.id),
-            productId: String(p.id),
-            imageUrl: String(h.imageUrl || h.image_url || ""),
-            title: h.title ?? null,
-            description: h.description ?? null,
-            displayOrder: Number(h.displayOrder ?? h.display_order ?? 0),
-            isActive: h.isActive !== false && h.is_active !== false,
-          }))
-        : [];
+      const rawHighlights = Array.isArray(p.highlights)
+        ? p.highlights
+        : typeof p.highlights === "string"
+          ? (() => { try { return JSON.parse(p.highlights); } catch { return []; } })()
+          : [];
+      const highlights = rawHighlights.map((h: any) => ({
+        id: String(h.id),
+        productId: String(p.id),
+        imageUrl: String(h.imageUrl || h.image_url || ""),
+        title: h.title ?? null,
+        description: h.description ?? null,
+        displayOrder: Number(h.displayOrder ?? h.display_order ?? 0),
+        isActive: h.isActive !== false && h.is_active !== false,
+      }));
 
-      const specifications = Array.isArray(p.specifications)
-        ? p.specifications.map((s: any) => ({
-            id: String(s.id),
-            productId: String(p.id),
-            label: String(s.label || ""),
-            value: String(s.value || ""),
-            displayOrder: Number(s.displayOrder ?? s.display_order ?? 0),
-            isActive: s.isActive !== false && s.is_active !== false,
-          }))
-        : [];
+      const rawSpecs = Array.isArray(p.specifications)
+        ? p.specifications
+        : typeof p.specifications === "string"
+          ? (() => { try { return JSON.parse(p.specifications); } catch { return []; } })()
+          : [];
+      const specifications = rawSpecs.map((s: any) => ({
+        id: String(s.id),
+        productId: String(p.id),
+        label: String(s.label || ""),
+        value: String(s.value || ""),
+        displayOrder: Number(s.displayOrder ?? s.display_order ?? 0),
+        isActive: s.isActive !== false && s.is_active !== false,
+      }));
 
-      const offers = Array.isArray(p.offers)
-        ? p.offers.map((o: any) => ({
-            id: String(o.id),
-            title: String(o.title || ""),
-            description: o.description ?? null,
-            discountType: o.discountType || o.discount_type || "percentage",
-            discountValue: Number(o.discountValue ?? o.discount_value ?? 0),
-            promoCode: o.promoCode || o.promo_code || null,
-            minimumQuantity: Number(o.minimumQuantity ?? o.minimum_quantity ?? 1),
-            maximumQuantity: o.maximumQuantity !== undefined ? Number(o.maximumQuantity) : null,
-            eligibleProducts: Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
-            eligibleCategories: Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
-            startDate: o.startDate || o.start_date || null,
-            endDate: o.endDate || o.end_date || null,
-            isActive: o.isActive !== false && o.is_active !== false,
-            displayOrder: Number(o.displayOrder ?? o.display_order ?? 0),
-            termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
-          }))
-        : [];
+      const rawOffers = Array.isArray(p.offers)
+        ? p.offers
+        : typeof p.offers === "string"
+          ? (() => { try { return JSON.parse(p.offers); } catch { return []; } })()
+          : [];
+      const offers = rawOffers.map((o: any) => ({
+        id: String(o.id),
+        title: String(o.title || ""),
+        description: o.description ?? null,
+        discountType: o.discountType || o.discount_type || "percentage",
+        discountValue: Number(o.discountValue ?? o.discount_value ?? 0),
+        promoCode: o.promoCode || o.promo_code || null,
+        minimumQuantity: Number(o.minimumQuantity ?? o.minimum_quantity ?? 1),
+        maximumQuantity: o.maximumQuantity !== undefined ? Number(o.maximumQuantity) : null,
+        eligibleProducts: Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+        eligibleCategories: Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+        startDate: o.startDate || o.start_date || null,
+        endDate: o.endDate || o.end_date || null,
+        isActive: o.isActive !== false && o.is_active !== false,
+        displayOrder: Number(o.displayOrder ?? o.display_order ?? 0),
+        termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
+      }));
 
       const mrpVal = p.mrp != null ? String(p.mrp) : p.compare_at_price != null ? String(p.compare_at_price) : null;
 
@@ -474,15 +496,22 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
 
     // 2. Persist deletion in store_settings tombstones and update catalog timestamp
     try {
+      const currentSettings = await sql`SELECT deleted_product_ids FROM store_settings WHERE id = 'default' LIMIT 1`;
+      let deletedIds: string[] = [];
+      if (currentSettings && currentSettings.length > 0) {
+        const raw = currentSettings[0].deleted_product_ids;
+        if (Array.isArray(raw)) deletedIds = raw;
+        else if (typeof raw === "string") {
+          try { deletedIds = JSON.parse(raw); } catch { deletedIds = []; }
+        }
+      }
+      if (!deletedIds.includes(data.productId)) {
+        deletedIds.push(data.productId);
+      }
       await sql`
         UPDATE store_settings
         SET updated_at = NOW(),
-            deleted_product_ids = (
-              CASE 
-                WHEN deleted_product_ids IS NULL THEN ${JSON.stringify([data.productId])}::jsonb
-                ELSE deleted_product_ids || ${JSON.stringify([data.productId])}::jsonb
-              END
-            )
+            deleted_product_ids = ${JSON.stringify(deletedIds)}::jsonb
         WHERE id = 'default'
       `;
     } catch {
@@ -751,8 +780,9 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
   .inputValidator((d: any) => unwrapInput(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any);
-    await ensureDbSchema();
-    if (!data.productId) throw new Error("Invalid product data: missing product id");
+    const productId = String(data?.productId || data?.id || data?.product_id || "").trim();
+    if (!productId) throw new Error("Invalid product data: missing product id");
+    data.productId = productId;
     const values = normalizeProductInput(data);
     const sql = getSql();
 
@@ -1226,12 +1256,12 @@ export const adminListOrders = createServerFn({ method: "POST" })
               courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
               razorpay_order_id, razorpay_payment_id, paid_at
             FROM orders
-            WHERE (${data.status}::text = '' OR status = ${data.status})
-              AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
-              AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
-              AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+            WHERE (${data.status} = '' OR status = ${data.status})
+              AND (${data.paymentStatus} = '' OR payment_status = ${data.paymentStatus})
+              AND (${fromDate} IS NULL OR created_at >= ${fromDate})
+              AND (${toDate} IS NULL OR created_at <= ${toDate})
               AND (
-                ${qFilter}::text IS NULL OR
+                ${qFilter} IS NULL OR
                 LOWER(order_number) LIKE ${qFilter} OR
                 LOWER(shipping_name) LIKE ${qFilter} OR
                 LOWER(shipping_email) LIKE ${qFilter} OR
@@ -1244,15 +1274,15 @@ export const adminListOrders = createServerFn({ method: "POST" })
           `,
           sql`
             SELECT
-              COUNT(*)::int as total_count,
-              COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as net_revenue
+              COUNT(*) as total_count,
+              COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0) as net_revenue
             FROM orders
-            WHERE (${data.status}::text = '' OR status = ${data.status})
-              AND (${data.paymentStatus}::text = '' OR payment_status = ${data.paymentStatus})
-              AND (${fromDate}::timestamp with time zone IS NULL OR created_at >= ${fromDate}::timestamp with time zone)
-              AND (${toDate}::timestamp with time zone IS NULL OR created_at <= ${toDate}::timestamp with time zone)
+            WHERE (${data.status} = '' OR status = ${data.status})
+              AND (${data.paymentStatus} = '' OR payment_status = ${data.paymentStatus})
+              AND (${fromDate} IS NULL OR created_at >= ${fromDate})
+              AND (${toDate} IS NULL OR created_at <= ${toDate})
               AND (
-                ${qFilter}::text IS NULL OR
+                ${qFilter} IS NULL OR
                 LOWER(order_number) LIKE ${qFilter} OR
                 LOWER(shipping_name) LIKE ${qFilter} OR
                 LOWER(shipping_email) LIKE ${qFilter} OR
@@ -1292,15 +1322,15 @@ export const adminListOrders = createServerFn({ method: "POST" })
             i.selected_size, i.selected_color, i.subtotal, i.design_submission_id,
             p.images as product_images_json
           FROM order_items i
-          LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
-          WHERE i.order_id::text = ANY(${orderIds}::text[])
+          LEFT JOIN products p ON (i.product_id = p.id OR i.product_id = p.slug OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
+          WHERE i.order_id IN (${orderIds})
         `;
       } catch (itemErr: any) {
         console.warn("[Admin] Extended order_items query warning, using direct query:", itemErr?.message);
         try {
           items = await sql`
             SELECT * FROM order_items
-            WHERE order_id::text = ANY(${orderIds}::text[])
+            WHERE order_id IN (${orderIds})
           `;
         } catch (itemFbErr) {
           console.warn("[Admin] Fallback order_items query failed:", itemFbErr);

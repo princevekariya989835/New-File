@@ -157,20 +157,20 @@ export const adminDashboard = createServerFn({ method: "GET" })
       ] = await Promise.all([
         sql`
           SELECT 
-            COUNT(*)::int as total_orders,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0)::numeric as total_sales,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= CURRENT_DATE THEN total_amount ELSE 0 END), 0)::numeric as sales_today,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN total_amount ELSE 0 END), 0)::numeric as sales_month,
-            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END)::int as revenue_orders_count,
-            (SELECT COUNT(*)::int FROM profiles) as total_customers,
-            (SELECT COUNT(*)::int FROM products) as total_products
+            COUNT(*) as total_orders,
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0) as total_sales,
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= date('now') THEN total_amount ELSE 0 END), 0) as sales_today,
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= date('now', 'start of month') THEN total_amount ELSE 0 END), 0) as sales_month,
+            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END) as revenue_orders_count,
+            (SELECT COUNT(*) FROM profiles) as total_customers,
+            (SELECT COUNT(*) FROM products) as total_products
           FROM orders
         `,
         sql`
-          SELECT status, COUNT(*)::int as count FROM orders GROUP BY status
+          SELECT status, COUNT(*) as count FROM orders GROUP BY status
         `,
         sql`
-          SELECT payment_status, COUNT(*)::int as count FROM orders GROUP BY payment_status
+          SELECT payment_status, COUNT(*) as count FROM orders GROUP BY payment_status
         `,
         sql`
           SELECT id, order_number, created_at, total_amount, currency, status, payment_status, shipping_name, shipping_email
@@ -181,17 +181,17 @@ export const adminDashboard = createServerFn({ method: "GET" })
         sql`
           SELECT id, name, stock_quantity, reserved_stock, low_stock_threshold, is_active
           FROM products
-          WHERE is_active = true
+          WHERE is_active = 1 OR is_active = true
           ORDER BY (stock_quantity - reserved_stock) ASC
           LIMIT 100
         `,
         sql`
           SELECT 
             p.id, p.email, p.full_name, p.created_at,
-            COUNT(o.id)::int as orders,
-            COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN o.total_amount ELSE 0 END), 0)::numeric as spent
+            COUNT(o.id) as orders,
+            COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN o.total_amount ELSE 0 END), 0) as spent
           FROM profiles p
-          LEFT JOIN orders o ON p.id::text = o.user_id::text
+          LEFT JOIN orders o ON p.id = o.user_id
           GROUP BY p.id, p.email, p.full_name, p.created_at
           ORDER BY p.created_at DESC
           LIMIT 10
@@ -199,10 +199,10 @@ export const adminDashboard = createServerFn({ method: "GET" })
         sql`
           SELECT 
             oi.product_name as name,
-            COALESCE(SUM(oi.quantity), 0)::int as units,
-            COALESCE(SUM(oi.subtotal), 0)::numeric as revenue
+            COALESCE(SUM(oi.quantity), 0) as units,
+            COALESCE(SUM(oi.subtotal), 0) as revenue
           FROM order_items oi
-          JOIN orders o ON oi.order_id::text = o.id::text
+          JOIN orders o ON oi.order_id = o.id
           WHERE o.status NOT IN ('Cancelled', 'Returned', 'Refunded')
           GROUP BY oi.product_name
           ORDER BY units DESC
@@ -210,13 +210,13 @@ export const adminDashboard = createServerFn({ method: "GET" })
         `,
         sql`
           SELECT 
-            TO_CHAR(created_at, 'YYYY-MM-DD') as date,
-            COALESCE(SUM(total_amount), 0)::numeric as revenue,
-            COUNT(*)::int as orders
+            substr(created_at, 1, 10) as date,
+            COALESCE(SUM(total_amount), 0) as revenue,
+            COUNT(*) as orders
           FROM orders
-          WHERE created_at >= CURRENT_DATE - INTERVAL '14 days'
+          WHERE created_at >= date('now', '-14 days')
             AND status NOT IN ('Cancelled', 'Returned', 'Refunded')
-          GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+          GROUP BY substr(created_at, 1, 10)
           ORDER BY date ASC
         `,
       ]);

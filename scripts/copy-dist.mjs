@@ -31,6 +31,9 @@ if (fs.existsSync(outputDir)) {
             database_id: "7487ac0f-706e-4560-baf8-e79031b2dd5e",
           },
         ];
+        if (config.assets && typeof config.assets === "object") {
+          config.assets.directory = "../public";
+        }
         fs.writeFileSync(wPath, JSON.stringify(config, null, 2), "utf8");
       } catch (err) {
         console.warn(`Could not patch ${wPath}:`, err);

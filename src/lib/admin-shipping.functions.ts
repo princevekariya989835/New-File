@@ -106,23 +106,34 @@ async function seedShipmentsIfEmpty() {
     ];
 
     try {
-      await sql`
-        INSERT INTO shipments (
-          id, order_id, customer_id, customer_name, tracking_number, carrier, shipping_method,
-          shipping_cost, estimated_delivery_date, actual_delivery_date, status, shipping_address,
-          city, state, postal_code, country, shipped_at, delivered_at, admin_note, created_at, updated_at
-        )
-        SELECT
-          'shp_' || o.id, o.id, COALESCE(o.user_id, 'usr_guest'), COALESCE(o.shipping_name, 'Customer'),
-          'TRK' || (100000000 + FLOOR(RANDOM() * 900000000))::text,
-          'BlueDart', 'Standard', COALESCE(o.shipping_charge, 0),
-          o.created_at + INTERVAL '4 days', NULL, 'Pending',
-          COALESCE(o.shipping_address, '123 MG Road'), 'Mumbai', 'Maharashtra', '400001', 'India',
-          NULL, NULL, NULL, o.created_at, NOW()
-        FROM orders o
-        LIMIT 25
-        ON CONFLICT (id) DO NOTHING
-      `;
+      for (const o of (orders as any[])) {
+        const shipmentId = `shp_${o.id}`;
+        const trk = `TRK${Math.floor(100000000 + Math.random() * 900000000)}`;
+        const carrier = carriers[Math.floor(Math.random() * carriers.length)] || "Blue Dart";
+        const method = methods[Math.floor(Math.random() * methods.length)] || "Standard";
+        const estDelivery = new Date(Date.now() + 4 * 86400000).toISOString();
+        const createdAt = o.created_at ? new Date(o.created_at).toISOString() : new Date().toISOString();
+        const now = new Date().toISOString();
+
+        try {
+          await sql`
+            INSERT INTO shipments (
+              id, order_id, customer_id, customer_name, tracking_number, carrier, shipping_method,
+              shipping_cost, estimated_delivery_date, actual_delivery_date, status, shipping_address,
+              city, state, postal_code, country, shipped_at, delivered_at, admin_note, created_at, updated_at
+            )
+            VALUES (
+              ${shipmentId}, ${o.id}, ${o.user_id || "usr_guest"}, ${o.shipping_name || "Customer"},
+              ${trk}, ${carrier}, ${method},
+              ${Number(o.shipping_charge || 0)}, ${estDelivery}, NULL, 'Pending',
+              ${o.shipping_address || "123 MG Road"}, 'Mumbai', 'Maharashtra', '400001', 'India',
+              NULL, NULL, NULL, ${createdAt}, ${now}
+            )
+          `;
+        } catch {
+          // ignore duplicate
+        }
+      }
     } catch (err) {
       console.error("Error batch seeding shipments:", err);
     }

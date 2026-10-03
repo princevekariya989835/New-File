@@ -64,7 +64,9 @@ function DesignsPage() {
             <div key={d.id} className="overflow-hidden rounded-xl border bg-card">
               {(() => {
                 const sides = Object.entries(d.preview_images ?? {}).filter(
-                  ([, url]) => typeof url === "string" && url.startsWith("data:image/"),
+                  ([, url]) =>
+                    typeof url === "string" &&
+                    (url.startsWith("data:image/") || url.startsWith("/") || url.startsWith("http")),
                 );
                 if (sides.length === 0 && d.preview_data_url) {
                   sides.push([d.placement || "Design", d.preview_data_url]);

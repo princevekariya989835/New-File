@@ -63,6 +63,53 @@ export function validateImageFile(file: File) {
   return null;
 }
 
+async function uploadToMediaEndpoint(
+  fileName: string,
+  mimeType: string,
+  dataBase64: string,
+): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem("riotous_session");
+    } catch {
+      // ignore
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+      headers["x-riotous-session"] = token;
+    }
+
+    const res = await fetch("/api/media/upload", {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({
+        fileName,
+        mimeType,
+        mediaType: "image",
+        dataBase64,
+        sizeBytes: dataBase64.length,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.mediaUrl) {
+        return data.mediaUrl;
+      }
+    }
+  } catch (err) {
+    console.warn("[uploadProductImage] Upload to /api/media/upload failed, falling back:", err);
+  }
+  return null;
+}
+
 export async function uploadProductImage(file: File): Promise<string> {
   const invalid = validateImageFile(file);
   if (invalid) throw new Error(invalid);
@@ -72,9 +119,9 @@ export async function uploadProductImage(file: File): Promise<string> {
     reader.onload = () => {
       const dataUrl = reader.result as string;
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         try {
-          const MAX_DIM = 1000;
+          const MAX_DIM = 1200;
           let { width, height } = img;
           if (width > MAX_DIM || height > MAX_DIM) {
             if (width > height) {
@@ -90,21 +137,28 @@ export async function uploadProductImage(file: File): Promise<string> {
           canvas.height = Math.max(1, height);
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            resolve(dataUrl);
+            const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
+            resolve(uploadedUrl || dataUrl);
             return;
           }
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const format = file.type === "image/png" ? "image/webp" : "image/jpeg";
           const compressed = canvas.toDataURL(format, 0.85);
-          resolve(compressed);
+          const uploadedUrl = await uploadToMediaEndpoint(file.name, format, compressed);
+          resolve(uploadedUrl || compressed);
         } catch {
-          resolve(dataUrl);
+          const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
+          resolve(uploadedUrl || dataUrl);
         }
       };
-      img.onerror = () => resolve(dataUrl);
+      img.onerror = async () => {
+        const uploadedUrl = await uploadToMediaEndpoint(file.name, file.type || "image/jpeg", dataUrl);
+        resolve(uploadedUrl || dataUrl);
+      };
       img.src = dataUrl;
     };
     reader.onerror = (e) => reject(e || new Error("Failed to read image file"));
     reader.readAsDataURL(file);
   });
 }
+

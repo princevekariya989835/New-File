@@ -563,10 +563,7 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     const products = await sql`
       SELECT 
         p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
-        CASE 
-          WHEN jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0 THEN jsonb_build_array(p.images->0)
-          ELSE '[]'::jsonb 
-        END AS images,
+        p.images,
         p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         COALESCE(
           (
@@ -581,12 +578,12 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
               'low_stock_threshold', v.low_stock_threshold
             ))
             FROM product_variants v
-            WHERE v.product_id::text = p.id::text
+            WHERE v.product_id = p.id
           ),
           '[]'::jsonb
         ) AS product_variants
       FROM products p
-      WHERE p.is_active = true OR p.is_active IS NULL
+      WHERE p.is_active = 1 OR p.is_active = true OR p.is_active IS NULL
       ORDER BY p.name ASC, p.id ASC
       LIMIT ${first}
     `;
@@ -660,11 +657,11 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
         v.low_stock_threshold AS variant_low_stock_threshold
       FROM (
         SELECT * FROM products
-        WHERE is_active = true OR is_active IS NULL
+        WHERE is_active = 1 OR is_active = true OR is_active IS NULL
         ORDER BY name ASC, id ASC
         LIMIT ${first}
       ) p
-      LEFT JOIN product_variants v ON v.product_id::text = p.id::text
+      LEFT JOIN product_variants v ON v.product_id = p.id
       ORDER BY p.name ASC, p.id ASC
     `;
 
