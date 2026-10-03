@@ -199,7 +199,7 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="sticky top-16 md:top-20 z-30 mb-8 border-b border-border bg-background/95 py-4 backdrop-blur-xl shadow-xs transition-all">
+        <div className="mb-8 border-b border-border py-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
             {filterLbl}
           </p>
