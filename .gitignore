@@ -18,6 +18,11 @@ dist-ssr
 .env
 .env.*
 !.env.example
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
 
 # Wrangler / Cloudflare
 .wrangler/
