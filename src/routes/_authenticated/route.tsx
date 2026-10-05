@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
-import { decodeToken } from "@/lib/auth";
+import { parseTokenPayload } from "@/lib/auth.types";
 import { ShieldCheck } from "lucide-react";
 
 function AuthenticatedPendingShell() {
@@ -87,7 +87,7 @@ export const Route = createFileRoute("/_authenticated")({
         });
       }
 
-      const user = decodeToken(sessionStr);
+      const user = parseTokenPayload(sessionStr);
       if (!user?.id) {
         if (typeof window !== "undefined") {
           localStorage.removeItem("riotous_session");

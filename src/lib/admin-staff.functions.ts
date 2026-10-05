@@ -12,7 +12,6 @@ import {
   type StaffAction,
 } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { isAdminEmail } from "@/lib/auth";
 
 export type StaffRole = "Super Admin" | "Admin" | "Manager" | "Staff";
 export type StaffStatus = "Active" | "Inactive" | "Suspended";
@@ -159,7 +158,7 @@ export const listStaff = createServerFn({ method: "POST" })
     let staffMembers = 0;
 
     const mappedItems: StaffItem[] = allStaffRows.map((r: any) => {
-      const isSuper = isAdminEmail(r.email) || (r.role && r.role.toLowerCase().includes("super"));
+      const isSuper = r.role && r.role.toLowerCase().includes("super");
       const assignedRole: StaffRole = isSuper ? "Super Admin" : normalizeStaffRole(r.role);
       const assignedStatus: StaffStatus = normalizeStaffStatus(r.status);
 
@@ -283,7 +282,7 @@ export const getStaffDetails = createServerFn({ method: "POST" })
     }
 
     const r = rows[0];
-    const isSuper = isAdminEmail(r.email) || (r.role && r.role.toLowerCase().includes("super"));
+    const isSuper = r.role && r.role.toLowerCase().includes("super");
     const assignedRole: StaffRole = isSuper ? "Super Admin" : normalizeStaffRole(r.role);
     const assignedStatus: StaffStatus = normalizeStaffStatus(r.status);
 
@@ -414,8 +413,8 @@ export const createStaff = createServerFn({ method: "POST" })
       await sql`SELECT id, email, role, status FROM profiles WHERE email = ${data.email} LIMIT 1`;
     if (existing.length > 0) {
       const exUser = existing[0];
-      if (isAdminEmail(exUser.email) && data.role !== "Super Admin") {
-        throw new Error("Primary Super Administrator role cannot be changed.");
+      if (exUser.role === "Super Admin" && data.role !== "Super Admin") {
+        await assertSuperAdmin(ctx);
       }
 
       await sql`
@@ -535,14 +534,9 @@ export const updateStaff = createServerFn({ method: "POST" })
     }
     const targetStaff = existingRows[0];
 
-    // Protect primary admin from role/status modification
-    if (isAdminEmail(targetStaff.email)) {
-      if (data.status !== "Active") {
-        throw new Error("Primary Super Administrator account cannot be deactivated or suspended.");
-      }
-      if (data.role !== "Super Admin") {
-        throw new Error("Primary Super Administrator role cannot be changed.");
-      }
+    // Protect super admin from role/status modification without super admin permission
+    if (targetStaff.role === "Super Admin") {
+      await assertSuperAdmin(context);
     }
 
     // Only Super Admin can change to/from Super Admin role
@@ -607,10 +601,6 @@ export const changeStaffRole = createServerFn({ method: "POST" })
     if (targetRows.length === 0) throw new Error("Staff member not found.");
 
     const target = targetRows[0];
-    if (isAdminEmail(target.email) && data.newRole !== "Super Admin") {
-      throw new Error("Primary Super Administrator role cannot be demoted.");
-    }
-
     if (data.newRole === "Super Admin" || target.role === "Super Admin") {
       await assertSuperAdmin(context);
     }
@@ -663,10 +653,6 @@ export const toggleStaffStatus = createServerFn({ method: "POST" })
     if (targetRows.length === 0) throw new Error("Staff member not found.");
 
     const target = targetRows[0];
-    if (isAdminEmail(target.email) && data.status !== "Active") {
-      throw new Error("Primary Super Administrator account cannot be disabled.");
-    }
-
     if (target.role === "Super Admin") {
       await assertSuperAdmin(context);
     }
@@ -719,7 +705,7 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
     if (targetRows.length === 0) throw new Error("Staff member not found.");
 
     const target = targetRows[0];
-    if (target.role === "Super Admin" && !isAdminEmail((context as any).user?.email)) {
+    if (target.role === "Super Admin") {
       await assertSuperAdmin(context);
     }
 

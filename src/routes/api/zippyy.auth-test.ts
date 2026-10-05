@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { decodeToken, hasAdminPanelAccess } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth.types";
+import { verifyAndDecodeToken } from "@/lib/auth.server";
 import { testZippyyAuthentication } from "@/lib/zippyy/client";
 
 function getSessionTokenFromRequest(request: Request): string | null {
@@ -37,7 +38,7 @@ function isAuthorized(request: Request): boolean {
   // Check 1: User is authenticated as staff/admin via session token/cookie
   const token = getSessionTokenFromRequest(request);
   if (token) {
-    const user = decodeToken(token);
+    const user = verifyAndDecodeToken(token);
     if (user && hasAdminPanelAccess(user)) {
       return true;
     }

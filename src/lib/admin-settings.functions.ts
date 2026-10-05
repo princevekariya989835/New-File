@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib/admin-utils";
 import { getSql } from "@/lib/db";
-import { isAdminEmail } from "@/lib/auth";
 import { invalidatePublicWebsiteConfigCache } from "@/lib/website-config.functions";
 import { invalidateCatalogCache } from "@/lib/catalog";
 

@@ -7,6 +7,9 @@ const distDir = path.join(root, "dist");
 const outputPublicDir = path.join(outputDir, "public");
 
 if (fs.existsSync(outputDir)) {
+  if (fs.existsSync(distDir)) {
+    fs.rmSync(distDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(distDir, { recursive: true });
   fs.cpSync(outputDir, distDir, { recursive: true });
   if (fs.existsSync(outputPublicDir)) {

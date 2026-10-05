@@ -1,5 +1,4 @@
 import { getSql } from "@/lib/db";
-import { isAdminEmail } from "@/lib/auth";
 import type { ProductColorVariant } from "./fallback-products";
 
 export type AdminCtx = {
@@ -118,60 +117,55 @@ export async function assertAdmin(
   module: StaffModule | string = "dashboard",
   action: StaffAction | string = "view",
 ) {
-  if (context?.isAdmin) return;
   const userRole = context?.user?.role;
-  const userEmail = context?.user?.email;
+  if (userRole && (userRole === "Super Admin" || String(userRole).toLowerCase().includes("super"))) {
+    return;
+  }
 
-  if (isAdminEmail(userEmail)) return;
-
-  if (userRole && hasStaffPermission(userRole, context?.user?.permissions, module, action)) {
+  if (context?.isAdmin && userRole && hasStaffPermission(userRole, context?.user?.permissions, module, action)) {
     return;
   }
 
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
+  const userEmail = context?.user?.email;
   if (!userId || !userEmail) {
-    if (isAdminEmail(userEmail)) return;
     throw new Error("Forbidden: Staff access only");
   }
   const rows = await sql`
-    SELECT role, email, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1
+    SELECT role, email, status, permissions FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1
   `;
   if (rows.length === 0) {
-    if (isAdminEmail(userEmail)) return;
     throw new Error("Forbidden: Staff access only");
   }
   const r = rows[0];
   if (r.status === "Inactive" || r.status === "Suspended") {
     throw new Error("Forbidden: Account is inactive or suspended");
   }
-  if (isAdminEmail(r.email) || hasStaffPermission(r.role, null, module, action)) {
+  if (r.role === "Super Admin" || String(r.role).toLowerCase().includes("super") || hasStaffPermission(r.role, r.permissions, module, action)) {
     return;
   }
   throw new Error("Forbidden: Staff access only");
 }
 
 export async function assertSuperAdmin(context: any) {
-  const userEmail = context?.user?.email;
-  if (!userEmail || !isAdminEmail(userEmail)) {
-    throw new Error("Forbidden: Super Admin access required");
-  }
-  await assertAdmin(context, "settings", "manage");
-
-  const userRole = context?.user?.role;
-  if (
-    userRole &&
-    (userRole.toLowerCase() === "super admin" || userRole.toLowerCase() === "super_admin")
-  ) {
-    return;
-  }
-
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
-  if (!userId) throw new Error("Forbidden: Super Administrator access required");
+  const userEmail = context?.user?.email;
+  if (!userId || !userEmail) {
+    throw new Error("Forbidden: Super Administrator access required");
+  }
 
-  const rows = await sql`SELECT role, email FROM profiles WHERE id = ${userId} LIMIT 1`;
-  if (rows.length > 0 && (isAdminEmail(rows[0].email) || rows[0].role === "Super Admin")) {
+  const rows = await sql`SELECT role, email, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1`;
+  if (rows.length === 0) {
+    throw new Error("Forbidden: Super Administrator access required");
+  }
+  const r = rows[0];
+  if (r.status === "Inactive" || r.status === "Suspended") {
+    throw new Error("Forbidden: Account is inactive or suspended");
+  }
+  const roleLower = String(r.role || "").toLowerCase().trim();
+  if (roleLower === "super admin" || roleLower === "super_admin") {
     return;
   }
 
@@ -183,21 +177,23 @@ export async function assertPermission(
   module: StaffModule | string,
   action: StaffAction | string = "view",
 ) {
-  const userEmail = context?.user?.email;
-  if (isAdminEmail(userEmail)) return;
-
   const userRole = context?.user?.role;
+  if (userRole && (userRole === "Super Admin" || String(userRole).toLowerCase().includes("super"))) {
+    return;
+  }
+
   const perms = context?.user?.permissions;
-  if (hasStaffPermission(userRole, perms, module, action)) {
+  if (userRole && hasStaffPermission(userRole, perms, module, action)) {
     return;
   }
 
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
-  if (!userId) throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
+  const userEmail = context?.user?.email;
+  if (!userId || !userEmail) throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
 
   const rows =
-    await sql`SELECT role, email, permissions, status FROM profiles WHERE id = ${userId} LIMIT 1`;
+    await sql`SELECT role, email, permissions, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1`;
   if (rows.length === 0)
     throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
 
@@ -205,7 +201,8 @@ export async function assertPermission(
   if (r.status === "Inactive" || r.status === "Suspended") {
     throw new Error("Forbidden: Account is inactive or suspended");
   }
-  if (isAdminEmail(r.email) || hasStaffPermission(r.role, r.permissions, module, action)) {
+  const dbRoleLower = String(r.role || "").toLowerCase().trim();
+  if (dbRoleLower === "super admin" || dbRoleLower === "super_admin" || hasStaffPermission(r.role, r.permissions, module, action)) {
     return;
   }
 

@@ -19,7 +19,7 @@ import { SearchDialog } from "./search-dialog";
 import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
-import { hasAdminPanelAccess } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { BrandName } from "@/components/brand-name";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import type { WebsiteConfig } from "@/lib/website-config.types";

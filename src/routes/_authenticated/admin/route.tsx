@@ -9,8 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { getAdminNotifications } from "@/lib/admin-dashboard.functions";
 import { Button } from "@/components/ui/button";
@@ -324,7 +323,7 @@ function AdminLayout() {
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                     <span className="inline-block mt-1 w-fit text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand-red/10 text-brand-red">
-                      {user.role || (isAdminEmail(user.email) ? "Super Admin" : "Staff")}
+                      {user.role || "Staff"}
                     </span>
                   </div>
                 </DropdownMenuLabel>
