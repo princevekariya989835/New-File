@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { getAdminNotifications } from "@/lib/admin-dashboard.functions";
