@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { getCloudflareEnv } from "@/lib/db";
 
 export type CreateRazorpayOrderParams = {
   amountInPaise: number;
@@ -21,16 +22,52 @@ export type RazorpayOrderResponse = {
   created_at: number;
 };
 
+
+/**
+ * Resolves environment variables and Cloudflare Worker secrets safely.
+ * Checks request-level Cloudflare Worker env bindings, global scopes, and process.env.
+ */
+function resolveSecret(key: string): string {
+  // 1. Cloudflare request runtime env (set by setCloudflareEnv in server.ts)
+  const cfEnv = getCloudflareEnv();
+  if (cfEnv && typeof cfEnv[key] === "string" && cfEnv[key].trim() !== "") {
+    return cfEnv[key].trim();
+  }
+
+  // 2. Global environment bindings populated by Nitro or Cloudflare Worker module entry
+  if (typeof globalThis !== "undefined") {
+    const g = globalThis as any;
+    if (g.__env__ && typeof g.__env__[key] === "string" && g.__env__[key].trim() !== "") {
+      return g.__env__[key].trim();
+    }
+    if (g.__cf_env__ && typeof g.__cf_env__[key] === "string" && g.__cf_env__[key].trim() !== "") {
+      return g.__cf_env__[key].trim();
+    }
+    if (g.env && typeof g.env[key] === "string" && g.env[key].trim() !== "") {
+      return g.env[key].trim();
+    }
+  }
+
+  // 3. Fallback to process.env (Node.js / Vite dev server)
+  if (typeof process !== "undefined" && process.env) {
+    if (typeof process.env[key] === "string" && process.env[key]!.trim() !== "") {
+      return process.env[key]!.trim();
+    }
+  }
+
+  return "";
+}
+
 export function getRazorpayKeyId(): string {
-  return (process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID || "").trim();
+  return (resolveSecret("RAZORPAY_KEY_ID") || resolveSecret("VITE_RAZORPAY_KEY_ID") || "").trim();
 }
 
 export function getRazorpayKeySecret(): string {
-  return (process.env.RAZORPAY_KEY_SECRET || "").trim();
+  return resolveSecret("RAZORPAY_KEY_SECRET").trim();
 }
 
 export function getRazorpayWebhookSecret(): string {
-  return (process.env.RAZORPAY_WEBHOOK_SECRET || "").trim();
+  return resolveSecret("RAZORPAY_WEBHOOK_SECRET").trim();
 }
 
 export function isRazorpayConfigured(): boolean {

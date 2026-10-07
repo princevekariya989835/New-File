@@ -20,6 +20,14 @@ export function ProductCard({
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const currentImg = images[activeImgIdx]?.node ?? images[0]?.node;
   const price = p.priceRange.minVariantPrice;
+  const sellingPrice = parseFloat(price.amount);
+  const mrpNumber = p.mrp != null ? Number(p.mrp) : null;
+  const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > sellingPrice;
+  const discountPercentage = hasValidMrp
+    ? (p.discountPercentage != null && p.discountPercentage > 0
+        ? p.discountPercentage
+        : Math.round(((mrpNumber - sellingPrice) / mrpNumber) * 100))
+    : null;
   const soldOut = p.variants.edges.every((v) => !v.node.availableForSale);
 
   const { user } = useAuth();
@@ -156,15 +164,29 @@ export function ProductCard({
       </div>
       <div className="mt-3.5 flex flex-col px-1">
         <h2
-          className="line-clamp-2 min-h-[2.6rem] text-sm font-medium leading-snug text-foreground"
+          className="line-clamp-2 h-10 sm:h-11 text-sm font-medium leading-snug text-foreground overflow-hidden"
           title={p.title}
         >
           {p.title}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground leading-normal line-clamp-2">{p.productType || <BrandName />}</p>
-        <p className="mt-1.5 whitespace-nowrap text-sm font-semibold text-foreground">
-          {formatPrice(price.amount, price.currencyCode)}
-        </p>
+        <p className="mt-1 h-4 truncate text-xs text-muted-foreground leading-normal">{p.productType || <BrandName />}</p>
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <div className="flex items-baseline gap-1.5 sm:gap-2">
+            <span className="whitespace-nowrap text-sm font-bold text-foreground sm:text-base">
+              {formatPrice(price.amount, price.currencyCode)}
+            </span>
+            {hasValidMrp && (
+              <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
+                {formatPrice(mrpNumber!, price.currencyCode)}
+              </span>
+            )}
+          </div>
+          {hasValidMrp && discountPercentage != null && discountPercentage > 0 && (
+            <span className="whitespace-nowrap text-xs font-bold text-brand-red">
+              {discountPercentage}% OFF
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

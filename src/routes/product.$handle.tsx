@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ArrowLeft,
   Ruler,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,13 +21,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { fetchProductByHandle } from "@/lib/catalog";
-import { formatPrice } from "@/lib/catalog";
+import { fetchProductByHandle, fetchProducts, formatPrice } from "@/lib/catalog";
+import { ProductRecommendations } from "@/components/product/product-recommendations";
 import { useCartStore } from "@/stores/cart-store";
 import { toast } from "sonner";
 import { BrandName } from "@/components/brand-name";
 import { ProductReviews } from "@/components/reviews/product-reviews";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
+import { ProductHighlights } from "@/components/product/product-highlights";
+import { ProductDetailsUnified, renderMarkdownToHtml } from "@/components/product/product-details-unified";
+import { ProductOffersSection } from "@/components/product/product-offers-section";
+import { ProductSizeGuideModal } from "@/components/product/product-size-guide-modal";
+import { isItemEligibleForB2G1 } from "@/lib/promotions";
 
 const productQuery = (handle: string) => ({
   queryKey: ["product", handle],
@@ -35,8 +41,9 @@ const productQuery = (handle: string) => ({
     if (!p) throw notFound();
     return p;
   },
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
+  staleTime: 1000 * 5,
+  gcTime: 1000 * 60 * 5,
+  refetchOnWindowFocus: true,
 });
 
 function formatProductPageTitle(title: string): string {
@@ -54,7 +61,18 @@ function formatProductPageTitle(title: string): string {
 }
 
 export const Route = createFileRoute("/product/$handle")({
-  loader: ({ context, params }) => context.queryClient.ensureQueryData(productQuery(params.handle)),
+  loader: async ({ context, params }) => {
+    const p = await context.queryClient.ensureQueryData(productQuery(params.handle));
+    // Non-blocking prefetch of catalog for instant recommendations
+    context.queryClient
+      .prefetchQuery({
+        queryKey: ["products", "catalog", 50],
+        queryFn: () => fetchProducts(50),
+        staleTime: 1000 * 60 * 5,
+      })
+      .catch(() => {});
+    return p;
+  },
   head: ({ loaderData }) => {
     if (!loaderData) {
       return {
@@ -102,6 +120,7 @@ export const Route = createFileRoute("/product/$handle")({
             image: p.images.edges.map((e) => e.node.url),
             brand: { "@type": "Brand", name: "RIOTOUS" },
             url: `https://riotous.store/product/${p.handle}`,
+            ...((p as any).updated_at ? { dateModified: new Date((p as any).updated_at).toISOString() } : {}),
             offers: p.variants.edges.map((v) => ({
               "@type": "Offer",
               name: v.node.title,
@@ -124,6 +143,20 @@ export const Route = createFileRoute("/product/$handle")({
   component: ProductPage,
 });
 
+function getColorHex(colorName: string): string {
+  const c = colorName.toLowerCase().trim();
+  if (c.includes("maroon") || c.includes("burgundy") || c.includes("wine")) return "#7B1113";
+  if (c.includes("black")) return "#111111";
+  if (c.includes("white")) return "#F4F4F5";
+  if (c.includes("olive") || c.includes("army") || c.includes("moss")) return "#556B2F";
+  if (c.includes("charcoal") || c.includes("dark gray")) return "#2D2D2D";
+  if (c.includes("gray") || c.includes("grey")) return "#808080";
+  if (c.includes("red") || c.includes("crimson")) return "#E31B23";
+  if (c.includes("beige") || c.includes("sand") || c.includes("cream")) return "#D4C5B9";
+  if (c.includes("navy") || c.includes("blue")) return "#1B2A4A";
+  return "#333333";
+}
+
 function ProductPage() {
   const { handle } = Route.useParams();
   const { data: p } = useQuery({
@@ -141,11 +174,16 @@ function ProductPage() {
     if (sizeOpt && !initial["Size"] && sizeOpt.values.length > 0) {
       initial["Size"] = sizeOpt.values[0];
     }
+    const colorOpt = p.options.find((o) => o.name.toLowerCase() === "color");
+    if (colorOpt && !initial["Color"] && colorOpt.values.length > 0) {
+      initial["Color"] = colorOpt.values[0];
+    }
     return initial;
   });
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
 
   const currentVariant = useMemo(() => {
     const hasUnselectedOption = p.options.some((o) => !selected[o.name]);
@@ -156,6 +194,81 @@ function ProductPage() {
       null
     );
   }, [variants, selected, p.options]);
+
+  const selectedVariant = useMemo(() => {
+    return (
+      currentVariant ??
+      variants.find((v) => {
+        if (selected["Color"]) {
+          return v.selectedOptions.some((o) => o.name.toLowerCase() === "color" && o.value === selected["Color"]);
+        }
+        return v.available > 0;
+      }) ??
+      variants[0] ??
+      null
+    );
+  }, [currentVariant, variants, selected]);
+
+  const selectedColor =
+    selected["Color"] ||
+    selectedVariant?.selectedOptions.find((o) => o.name.toLowerCase() === "color")?.value ||
+    "";
+
+  // Derive human-readable product title that always matches the selected variant/color
+  const displayTitle = useMemo(() => {
+    let title = p.title || "RIOTOUS Streetwear T-Shirt";
+    if (selectedColor) {
+      const knownColors = ["Black", "Maroon", "White", "Olive", "Red", "Blue", "Beige", "Burgundy"];
+      for (const col of knownColors) {
+        if (
+          col.toLowerCase() !== selectedColor.toLowerCase() &&
+          new RegExp(`\\b${col}\\b`, "i").test(title)
+        ) {
+          title = title.replace(new RegExp(`\\b${col}\\b`, "gi"), selectedColor);
+        }
+      }
+    }
+    return title;
+  }, [p.title, selectedColor]);
+
+  // Gallery is derived strictly from the selected variant/color. Only images belonging to this variant appear.
+  const galleryImages = useMemo(() => {
+    // 1. If product has dedicated colorVariants, use ONLY the uploaded images for the selected color
+    if (selectedColor && p.colorVariants && p.colorVariants.length > 0) {
+      const matchCv = p.colorVariants.find(
+        (cv) => cv.name.toLowerCase().trim() === selectedColor.toLowerCase().trim(),
+      );
+      if (matchCv) {
+        const cvImages = (Array.isArray(matchCv.images) && matchCv.images.length > 0)
+          ? matchCv.images
+          : (matchCv.imageUrl ? [matchCv.imageUrl] : []);
+        if (cvImages.length > 0) {
+          return cvImages.map((url, i) => ({
+            node: { url, altText: `${displayTitle} - ${matchCv.name} ${i + 1}` },
+          }));
+        }
+      }
+    }
+    // 2. If the variant has multiple dedicated images, use them
+    if (selectedVariant?.images && selectedVariant.images.length > 1) {
+      return selectedVariant.images.map((img) => ({
+        node: { url: img.url, altText: img.altText ?? displayTitle },
+      }));
+    }
+    // 3. Main product images (uploaded via Admin)
+    if (p.images.edges && p.images.edges.length > 0) {
+      return p.images.edges;
+    }
+    // 4. Single variant image fallback
+    if (selectedVariant?.image?.url) {
+      return [{ node: { url: selectedVariant.image.url, altText: selectedVariant.image.altText ?? displayTitle } }];
+    }
+    return [{ node: { url: "/placeholder-tee.jpg", altText: displayTitle } }];
+  }, [p.colorVariants, selectedVariant, selectedColor, p.images.edges, displayTitle]);
+
+  useEffect(() => {
+    setActiveImage(0);
+  }, [selectedColor, selectedVariant?.id]);
 
   /** Units still buyable for the picked size/colour. */
   const available = currentVariant?.available ?? 0;
@@ -186,7 +299,6 @@ function ProductPage() {
   const addToCartLabel = prodTxt?.addToCartLabel || "Add to Bag";
   const outOfStockLabel = prodTxt?.outOfStockLabel || "Sold out";
   const sizeGuideLabel = prodTxt?.sizeGuideLabel || "Size Guide";
-  const sizeGuideTitle = prodTxt?.sizeGuideLabel || "Oversized Fit Size Guide";
   const selectSizeLabel = prodTxt?.selectSizeLabel || "Select Size";
   const quantityLabel = prodTxt?.quantityLabel || "Quantity";
   const detailsLabel = prodTxt?.descriptionLabel || "Details";
@@ -211,9 +323,9 @@ function ProductPage() {
       variantId: currentVariant.id,
       productId: p.productId,
       productHandle: p.handle,
-      productTitle: p.title,
+      productTitle: displayTitle,
       variantTitle: currentVariant.title,
-      imageUrl: currentVariant.image?.url ?? p.images.edges[0]?.node.url ?? null,
+      imageUrl: currentVariant.image?.url ?? galleryImages[0]?.node.url ?? null,
       price: currentVariant.price,
       quantity: qty,
       selectedOptions: currentVariant.selectedOptions,
@@ -251,9 +363,9 @@ function ProductPage() {
           variantId: currentVariant.id,
           productId: p.productId,
           productHandle: p.handle,
-          productTitle: p.title,
+          productTitle: displayTitle,
           variantTitle: currentVariant.title,
-          imageUrl: currentVariant.image?.url ?? p.images.edges[0]?.node.url ?? null,
+          imageUrl: currentVariant.image?.url ?? galleryImages[0]?.node.url ?? null,
           price: currentVariant.price,
           quantity: qty,
           selectedOptions: currentVariant.selectedOptions,
@@ -268,7 +380,8 @@ function ProductPage() {
     }
   };
 
-  const images = p.images.edges;
+  const images = galleryImages;
+  const safeActiveImage = Math.min(activeImage, Math.max(0, images.length - 1));
 
   const router = useRouter();
   const navigate = useNavigate();
@@ -314,22 +427,24 @@ function ProductPage() {
     <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
       <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
         {/* Gallery */}
-        <div className="flex flex-col gap-4">
-          <button
-            onClick={() => router.history.back()}
-            className="flex h-10 w-10 items-center justify-center self-start rounded-full hover:bg-secondary transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+        <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
+          <div className="pt-1 pb-1">
+            <button
+              onClick={() => router.history.back()}
+              className="flex h-10 w-10 items-center justify-center self-start rounded-full border border-border/60 bg-background/80 hover:bg-secondary text-foreground transition-colors cursor-pointer"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          </div>
 
           <div
-            className="group relative aspect-[4/5] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
+            className="group relative aspect-[4/5] md:max-h-[calc(100vh-16rem)] w-full overflow-hidden rounded-3xl bg-secondary select-none shadow-sm"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
-            {images[activeImage] && (
+            {images[safeActiveImage] && (
               <button
                 type="button"
                 onClick={() => setLightboxOpen(true)}
@@ -337,9 +452,9 @@ function ProductPage() {
                 aria-label="Open full-size image"
               >
                 <img
-                  key={images[activeImage].node.url}
-                  src={images[activeImage].node.url}
-                  alt={images[activeImage].node.altText ?? p.title}
+                  key={images[safeActiveImage].node.url}
+                  src={images[safeActiveImage].node.url}
+                  alt={images[safeActiveImage].node.altText ?? p.title}
                   width={600}
                   height={750}
                   loading="eager"
@@ -382,7 +497,7 @@ function ProductPage() {
                       }}
                       aria-label={`Go to image ${i + 1} of ${images.length}`}
                       className={`h-2 rounded-full transition-all duration-300 ${
-                        activeImage === i
+                        safeActiveImage === i
                           ? "w-6 bg-brand-red"
                           : "w-2 bg-foreground/30 hover:bg-foreground/60"
                       }`}
@@ -396,11 +511,11 @@ function ProductPage() {
             <div className="flex gap-3 overflow-x-auto pb-1">
               {images.map((img, i) => (
                 <button
-                  key={i}
+                  key={`${img.node.url}-${i}`}
                   onClick={() => setActiveImage(i)}
                   aria-label={`Show image ${i + 1} of ${images.length}`}
                   className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-colors ${
-                    activeImage === i ? "border-foreground" : "border-transparent"
+                    safeActiveImage === i ? "border-foreground" : "border-transparent"
                   }`}
                 >
                   <img
@@ -419,28 +534,157 @@ function ProductPage() {
         </div>
 
         {/* Info */}
-        <div className="md:sticky md:top-24 md:self-start">
-          <p className="text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
-            {p.productType || <BrandName />}
-          </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">{p.title}</h1>
-          <p className="mt-4 text-2xl font-semibold">
-            {formatPrice(
-              currentVariant?.price.amount ?? p.priceRange.minVariantPrice.amount,
-              currentVariant?.price.currencyCode ?? p.priceRange.minVariantPrice.currencyCode,
+        <div className="flex flex-col min-w-0">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <span>{p.productType || <BrandName />}</span>
+            {p.sku && (
+              <>
+                <span className="text-border">•</span>
+                <span className="font-mono tracking-normal text-muted-foreground">SKU: {p.sku}</span>
+              </>
             )}
-          </p>
+          </div>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground md:text-4xl lg:text-5xl leading-tight">
+            {displayTitle}
+          </h1>
+          {/* Upgraded Pricing Block (Selling Price, Struck-through MRP, Discount Badge, Tax info) */}
+          {(() => {
+            const sellingPrice = Number(
+              currentVariant?.price.amount ?? p.priceRange.minVariantPrice.amount,
+            );
+            const currency =
+              currentVariant?.price.currencyCode ??
+              p.priceRange.minVariantPrice.currencyCode ??
+              "INR";
+            const mrp = p.mrp && p.mrp > sellingPrice ? p.mrp : null;
+            const discountAmount = mrp ? mrp - sellingPrice : null;
+            const discountPercentage = mrp ? Math.round((discountAmount! / mrp) * 100) : null;
+
+            return (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
+                    {formatPrice(sellingPrice, currency)}
+                  </span>
+
+                  {mrp && (
+                    <span className="text-base font-medium text-muted-foreground line-through md:text-lg">
+                      MRP: {formatPrice(mrp, currency)}
+                    </span>
+                  )}
+
+                  {discountPercentage && discountPercentage > 0 && (
+                    <div className="inline-flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-brand-red/10 border border-brand-red/25 px-2.5 py-0.5 text-xs md:text-sm font-bold text-brand-red tracking-wide">
+                        {discountPercentage}% OFF
+                      </span>
+                      {discountAmount && (
+                        <span className="text-xs md:text-sm font-bold text-brand-red">
+                          (Save {formatPrice(discountAmount, currency)})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs font-medium text-muted-foreground">
+                  {p.isTaxInclusive !== false ? "Inclusive of all Taxes" : "+ Taxes calculated at checkout"}
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Mobile-only Offer Nudge (strictly based on configured product offers in database) */}
+          {(() => {
+            const activeProductOffer = p.offers?.find(
+              (o) =>
+                o.isActive &&
+                (!o.startDate || new Date(o.startDate).getTime() <= Date.now()) &&
+                (!o.endDate || new Date(o.endDate).getTime() >= Date.now()),
+            );
+            if (!activeProductOffer) return null;
+
+            return (
+              <div className="mt-3 block md:hidden">
+                <div className="inline-flex items-center gap-1.5 rounded-lg bg-brand-red/10 border border-brand-red/20 px-2.5 py-1 text-xs text-brand-red">
+                  <Sparkles className="h-3 w-3 shrink-0" />
+                  <span className="font-bold tracking-wider uppercase text-[11px]">
+                    {activeProductOffer.title}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    · {activeProductOffer.description || "Special offer"}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Options & Size Selection */}
           <div className="mt-8 space-y-6">
             {p.options.map((opt) => {
+              const isColor = opt.name.toLowerCase() === "color";
               const isSize = opt.name.toLowerCase() === "size";
+
+              if (isColor) {
+                return (
+                  <div key={opt.name} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold tracking-wide text-foreground">
+                        Colour:
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {selected[opt.name] || opt.values[0] || ""}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2.5">
+                      {opt.values.map((v) => {
+                        const active = (selected[opt.name] || opt.values[0]) === v;
+                        const inStock = optionAvailable(opt.name, v);
+                        const matchCv = p.colorVariants?.find((cv) => cv.name.toLowerCase().trim() === v.toLowerCase().trim());
+                        const colorHex = matchCv?.hex || getColorHex(v);
+
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            disabled={!inStock}
+                            title={inStock ? `Select ${v}` : `${v} (Out of Stock)`}
+                            onClick={() => {
+                              setSelected((s) => ({
+                                ...s,
+                                [opt.name]: v,
+                              }));
+                            }}
+                            className={`group relative flex h-11 items-center gap-2.5 rounded-full px-4 text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                              active
+                                ? "border-2 border-brand-red bg-brand-red/5 text-foreground ring-2 ring-brand-red/25 ring-offset-2 shadow-xs"
+                                : inStock
+                                  ? "border border-border bg-card text-foreground hover:border-foreground/30 hover:bg-secondary/40"
+                                  : "cursor-not-allowed border-border/40 bg-secondary/20 text-muted-foreground line-through opacity-40"
+                            }`}
+                          >
+                            <span
+                              className="h-4 w-4 shrink-0 rounded-full border border-black/15 shadow-2xs"
+                              style={{ backgroundColor: colorHex }}
+                            />
+                            <span>{v}</span>
+                            {active && (
+                              <Check className="h-3.5 w-3.5 shrink-0 text-brand-red stroke-[2.5]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div key={opt.name} className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold tracking-wide">
+                      <span className="text-sm font-semibold tracking-wide text-foreground">
                         {isSize ? selectSizeLabel : opt.name}:
                       </span>
                       <span
@@ -450,80 +694,18 @@ function ProductPage() {
                             : "text-foreground"
                         }`}
                       >
-                        {selected[opt.name] || (isSize ? "None selected" : "")}
+                        {selected[opt.name] || (isSize ? "Select size" : "")}
                       </span>
                     </div>
 
                     {isSize && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <button
-                            type="button"
-                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
-                          >
-                            <Ruler className="h-3.5 w-3.5" /> {sizeGuideLabel}
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="text-lg font-bold">
-                              {sizeGuideTitle}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <p className="text-xs text-muted-foreground">
-                            All measurements are in inches. Designed for a boxy streetwear drape
-                            with dropped shoulders.
-                          </p>
-                          <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-secondary text-foreground font-semibold">
-                                <tr>
-                                  <th className="p-2.5">Size</th>
-                                  <th className="p-2.5">Chest (in)</th>
-                                  <th className="p-2.5">Length (in)</th>
-                                  <th className="p-2.5">Shoulder (in)</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-border">
-                                <tr>
-                                  <td className="p-2.5 font-bold">S</td>
-                                  <td className="p-2.5">42"</td>
-                                  <td className="p-2.5">28"</td>
-                                  <td className="p-2.5">20.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">M</td>
-                                  <td className="p-2.5">44"</td>
-                                  <td className="p-2.5">29"</td>
-                                  <td className="p-2.5">21.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">L</td>
-                                  <td className="p-2.5">46"</td>
-                                  <td className="p-2.5">30"</td>
-                                  <td className="p-2.5">22.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">XL</td>
-                                  <td className="p-2.5">48"</td>
-                                  <td className="p-2.5">31"</td>
-                                  <td className="p-2.5">23.5"</td>
-                                </tr>
-                                <tr>
-                                  <td className="p-2.5 font-bold">XXL</td>
-                                  <td className="p-2.5">50"</td>
-                                  <td className="p-2.5">32"</td>
-                                  <td className="p-2.5">24.5"</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                          <p className="mt-3 text-[11px] text-muted-foreground">
-                            Tip: For a classic regular fit, size down one size. For the intended
-                            boxy oversized streetwear look, choose your regular size.
-                          </p>
-                        </DialogContent>
-                      </Dialog>
+                      <button
+                        type="button"
+                        onClick={() => setIsSizeGuideOpen(true)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors cursor-pointer py-1"
+                      >
+                        <Ruler className="h-3.5 w-3.5 text-brand-red" /> {sizeGuideLabel}
+                      </button>
                     )}
                   </div>
 
@@ -551,9 +733,9 @@ function ProductPage() {
                             }));
                             if (isSize) setSizeError(false);
                           }}
-                          className={`relative flex h-11 min-w-[3.25rem] px-4 items-center justify-center rounded-xl border text-sm font-bold tracking-wider transition-all ${
+                          className={`relative flex h-11 min-w-[3.25rem] px-4 items-center justify-center rounded-xl border text-sm font-bold tracking-wider transition-all cursor-pointer ${
                             active
-                              ? "border-foreground bg-foreground text-background shadow-sm ring-2 ring-foreground/20"
+                              ? "border-foreground bg-foreground text-background shadow-xs ring-2 ring-foreground/20"
                               : inStock
                                 ? `border-border bg-card text-foreground hover:border-foreground hover:bg-secondary/60 ${
                                     isSize && sizeError && !selected[opt.name]
@@ -603,7 +785,7 @@ function ProductPage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions - Standardized Button System (Primary & Secondary) */}
           <div className="mt-8 space-y-3">
             <button
               type="button"
@@ -614,13 +796,13 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex h-13 sm:h-14 w-full items-center justify-center gap-2 rounded-full bg-brand-red text-sm sm:text-base font-bold text-white transition-all hover:bg-brand-red/90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer"
             >
               {isLoading && !isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : justAdded ? (
                 <>
-                  <Check className="h-4 w-4" /> Added
+                  <Check className="h-4 w-4 stroke-[2.5]" /> Added
                 </>
               ) : currentVariant?.availableForSale && available > 0 ? (
                 addToCartLabel
@@ -637,7 +819,7 @@ function ProductPage() {
                 !currentVariant?.availableForSale ||
                 available <= 0
               }
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full border border-border text-sm font-medium hover:bg-secondary disabled:opacity-50 transition-all cursor-pointer disabled:cursor-not-allowed"
+              className="flex h-13 sm:h-14 w-full items-center justify-center gap-2 rounded-full border border-border bg-background text-sm sm:text-base font-bold text-foreground hover:bg-secondary active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
             >
               {isPurchasing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -647,15 +829,40 @@ function ProductPage() {
             </button>
           </div>
 
-          {/* Description */}
-          {p.description && (
-            <div className="mt-10 border-t border-border pt-8">
-              <h2 className="text-sm font-semibold uppercase tracking-widest">{detailsLabel}</h2>
-              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                {p.description}
-              </p>
-            </div>
-          )}
+          {/* AVAILABLE OFFERS (Positioned cleanly below CTAs so configuration is never blocked) */}
+          {(() => {
+            const sellingPrice = Number(
+              currentVariant?.price.amount ?? p.priceRange.minVariantPrice.amount,
+            );
+            const currency =
+              currentVariant?.price.currencyCode ??
+              p.priceRange.minVariantPrice.currencyCode ??
+              "INR";
+            return (
+              <ProductOffersSection
+                offers={p.offers}
+                sellingPrice={sellingPrice}
+                currency={currency}
+                productTitle={displayTitle}
+              />
+            );
+          })()}
+
+          {/* Clean Overview Narrative (Stripped of duplicate wash care/fit/manufacture headers) */}
+          {(() => {
+            const rawDesc = (p.description || "").trim();
+            const storyNarrative = rawDesc.includes("###") ? rawDesc.split("###")[0].trim() : rawDesc;
+            if (!storyNarrative) return null;
+
+            return (
+              <div className="mt-8 border-t border-border pt-6">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{detailsLabel}</p>
+                <div className="mt-3 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                  {renderMarkdownToHtml(storyNarrative)}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
             <div>
@@ -674,12 +881,38 @@ function ProductPage() {
         </div>
       </div>
 
+      {/* Key Highlights (Dynamic per product) */}
+      <ProductHighlights highlights={p.highlights} productTitle={p.title} />
+
+      {/* Authoritative Single Product Details Section (Fit, Material, Manufacturing, Wash Care, Specifications, & Full Story) */}
+      <ProductDetailsUnified
+        description={p.description}
+        detailsHtml={p.detailsHtml}
+        features={p.features}
+        careInstructions={p.careInstructions}
+        manufacturingInfo={p.manufacturingInfo}
+        specifications={p.specifications}
+        productTitle={p.title}
+        category={p.productType}
+      />
+
       <ProductReviews productId={p.productId} productTitle={p.title} />
 
-      {lightboxOpen && images[activeImage] && (
+      {/* Recommended Products: You may also like */}
+      <ProductRecommendations currentProduct={p} />
+
+      {/* Dynamic Size Guide Modal */}
+      <ProductSizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
+        measurements={p.sizeMeasurements}
+        productTitle={p.title}
+      />
+
+      {lightboxOpen && images[safeActiveImage] && (
         <Lightbox
           images={images.map((e) => ({ url: e.node.url, alt: e.node.altText ?? p.title }))}
-          index={activeImage}
+          index={safeActiveImage}
           onIndex={setActiveImage}
           onClose={() => setLightboxOpen(false)}
         />

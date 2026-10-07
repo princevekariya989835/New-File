@@ -5,9 +5,25 @@ import {
   FALLBACK_PRODUCTS,
   type ProductRow,
   type VariantRow,
+  type ProductHighlightRow,
+  type ProductSpecificationRow,
+  type ProductOfferRow,
+  type GarmentMeasurement,
+  type ManufacturingInfo,
+  type ProductColorVariant,
 } from "./fallback-products";
 
-export { FALLBACK_PRODUCTS, type ProductRow, type VariantRow };
+export {
+  FALLBACK_PRODUCTS,
+  type ProductRow,
+  type VariantRow,
+  type ProductHighlightRow,
+  type ProductSpecificationRow,
+  type ProductOfferRow,
+  type GarmentMeasurement,
+  type ManufacturingInfo,
+  type ProductColorVariant,
+};
 
 export interface CatalogImage {
   url: string;
@@ -25,13 +41,68 @@ export interface CatalogVariant {
   availableForSale: boolean;
   selectedOptions: Array<{ name: string; value: string }>;
   image?: CatalogImage | null;
+  images?: CatalogImage[];
+  color?: string | null;
+  size?: string | null;
+  sku?: string | null;
+}
+
+export interface ProductHighlight {
+  id: string;
+  productId: string;
+  imageUrl: string;
+  title: string | null;
+  description: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface ProductSpecification {
+  id: string;
+  productId: string;
+  label: string;
+  value: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface ProductOffer {
+  id: string;
+  productId?: string;
+  title: string;
+  description: string | null;
+  discountType: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
+  discountValue: number;
+  promoCode?: string | null;
+  minimumQuantity: number;
+  maximumQuantity?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  termsAndConditions: string | null;
+  computedLowPrice?: number;
 }
 
 export interface CatalogProductNode {
   id: string;
   productId: string;
+  sku?: string | null;
   title: string;
   description: string;
+  detailsHtml?: string | null;
+  highlights?: ProductHighlight[];
+  specifications?: ProductSpecification[];
+  offers?: ProductOffer[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: ManufacturingInfo | null;
+  sizeMeasurements?: GarmentMeasurement[];
+  colorVariants?: ProductColorVariant[];
+  mrp?: number | null;
+  discountAmount?: number | null;
+  discountPercentage?: number | null;
+  isTaxInclusive?: boolean;
   handle: string;
   tags: string[];
   productType: string;
@@ -81,7 +152,6 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
   const DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"];
   const rawSizes = row.sizes?.length ? row.sizes : DEFAULT_SIZES;
   const sizes = rawSizes.filter(Boolean);
-  const colors = row.colors?.length ? row.colors : [null];
 
   // Optimize images: map base64 data URLs to binary streaming endpoint /api/public/product-image
   const rawImages = row.images && row.images.length > 0 ? row.images : ["/placeholder-tee.jpg"];
@@ -93,6 +163,41 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
     }
     return img || "/placeholder-tee.jpg";
   });
+
+  const rawColorVariants: any[] = Array.isArray(row.color_variants)
+    ? row.color_variants
+    : typeof (row as any).color_variants === "string"
+      ? (() => { try { return JSON.parse((row as any).color_variants); } catch { return []; } })()
+      : [];
+
+  const colorVariants: ProductColorVariant[] = rawColorVariants.map((cv, cvIdx) => {
+    const rawList: string[] = Array.isArray(cv.images) && cv.images.length > 0
+      ? cv.images
+      : (cv.imageUrl ? [cv.imageUrl] : []);
+
+    const optimizedCvImages = rawList.map((img, imgIdx) => {
+      if (typeof img === "string" && img.startsWith("data:image/")) {
+        return `/api/public/product-image?id=${encodeURIComponent(row.id)}&color=${encodeURIComponent(cv.name)}&idx=${imgIdx}&v=${vHash}`;
+      }
+      return img || "/placeholder-tee.jpg";
+    });
+
+    return {
+      id: cv.id || `cv_${cvIdx}`,
+      name: cv.name,
+      hex: cv.hex || undefined,
+      images: optimizedCvImages,
+      imageUrl: optimizedCvImages[0] || "",
+    };
+  });
+
+  const effectiveColors = Array.from(
+    new Set([
+      ...(row.colors ?? []).filter(Boolean),
+      ...colorVariants.map((cv) => cv.name).filter(Boolean),
+    ]),
+  );
+  const colors = effectiveColors.length ? effectiveColors : [null];
 
   const variants: CatalogVariant[] = [];
   for (const color of colors) {
@@ -110,6 +215,34 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
           ? Math.max(0, row.stock_quantity ?? 0)
           : 0;
 
+      // Derive variant-specific images according to color
+      const variantColor = color || match?.color || null;
+      let variantImages: CatalogImage[] = [];
+
+      // Check if this variant color matches an uploaded color variant
+      const matchedCv = variantColor
+        ? colorVariants.find((cv) => cv.name.toLowerCase().trim() === variantColor.toLowerCase().trim())
+        : null;
+
+      if (matchedCv && matchedCv.images && matchedCv.images.length > 0) {
+        variantImages = matchedCv.images.map((url, i) => ({
+          url,
+          altText: `${row.name} - ${variantColor} (${i + 1})`,
+        }));
+      } else if (matchedCv?.imageUrl) {
+        variantImages = [{ url: matchedCv.imageUrl, altText: `${row.name} - ${variantColor}` }];
+      } else if (match?.image_url && optimizedImages.includes(match.image_url)) {
+        const remaining = optimizedImages.filter((u) => u !== match.image_url);
+        variantImages = [
+          { url: match.image_url, altText: `${row.name} - ${variantColor}` },
+          ...remaining.map((url) => ({ url, altText: row.name })),
+        ];
+      }
+
+      if (variantImages.length === 0) {
+        variantImages = optimizedImages.map((url) => ({ url, altText: row.name }));
+      }
+
       variants.push({
         id: makeVariantId(row.id, size, color),
         variantRowId: match?.id ?? null,
@@ -121,7 +254,11 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
           ...(size ? [{ name: "Size", value: size }] : []),
           ...(color ? [{ name: "Color", value: color }] : []),
         ],
-        image: isListing ? null : (optimizedImages[0] ? { url: optimizedImages[0], altText: row.name } : null),
+        image: isListing ? null : (variantImages[0] ?? null),
+        images: isListing ? undefined : variantImages,
+        color: variantColor,
+        size: size || match?.size || null,
+        sku: match?.sku ?? null,
       });
     }
   }
@@ -142,15 +279,139 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 
   const options = [
     { name: "Size", values: sizes },
-    ...(row.colors?.length ? [{ name: "Color", values: row.colors }] : []),
+    ...(effectiveColors.length ? [{ name: "Color", values: effectiveColors }] : []),
   ];
+
+  const rawHighlights = isListing ? [] : (row.highlights ?? []);
+  const highlights: ProductHighlight[] = rawHighlights.map((h, idx) => {
+    let imgUrl = h.image_url;
+    if (typeof imgUrl === "string" && imgUrl.startsWith("data:image/")) {
+      imgUrl = `/api/public/product-image?id=${encodeURIComponent(row.id)}&type=highlight&idx=${idx}&v=${vHash}`;
+    }
+    return {
+      id: String(h.id),
+      productId: String(h.product_id || row.id),
+      imageUrl: imgUrl || "/placeholder-tee.jpg",
+      title: h.title ?? null,
+      description: h.description ?? null,
+      displayOrder: Number(h.display_order ?? 0),
+      isActive: h.is_active !== false,
+    };
+  });
+
+  const rawSpecs = isListing ? [] : (row.specifications ?? []);
+  const specifications: ProductSpecification[] = rawSpecs.map((s) => ({
+    id: String(s.id),
+    productId: String(s.product_id || row.id),
+    label: String(s.label),
+    value: String(s.value),
+    displayOrder: Number(s.display_order ?? 0),
+    isActive: s.is_active !== false,
+  }));
+
+  const sellingPrice = Number(row.price || 0);
+  const mrp = Number(row.mrp || row.compare_at_price || 0) || null;
+  const discountAmount = mrp && mrp > sellingPrice ? mrp - sellingPrice : null;
+  const discountPercentage = mrp && mrp > sellingPrice ? Math.round((discountAmount! / mrp) * 100) : null;
+  const isTaxInclusive = row.is_tax_inclusive !== false;
+
+  const rawOffers = isListing ? [] : (row.offers ?? []);
+  const now = new Date();
+  const offers: ProductOffer[] = rawOffers
+    .filter((o: any) => {
+      const active = o.isActive !== false && o.is_active !== false && o.is_active !== 0 && o.is_active !== "0";
+      if (!active) return false;
+      const sDate = o.startDate || o.start_date;
+      if (sDate && new Date(sDate).getTime() > now.getTime()) return false;
+      const eDate = o.endDate || o.end_date;
+      if (eDate && new Date(eDate).getTime() < now.getTime()) return false;
+      return true;
+    })
+    .map((o: any) => ({
+      id: String(o.id),
+      productId: String(o.productId || o.product_id || row.id),
+      title: String(o.title),
+      description: o.description ?? null,
+      discountType: o.discountType || o.discount_type || "percentage",
+      discountValue: Number(o.discountValue ?? o.discount_value ?? 0),
+      promoCode: o.promoCode || o.promo_code || null,
+      minimumQuantity: Number(o.minimumQuantity ?? o.minimum_quantity ?? 1),
+      maximumQuantity: o.maximumQuantity ?? o.maximum_quantity ?? null,
+      startDate: o.startDate || o.start_date || null,
+      endDate: o.endDate || o.end_date || null,
+      isActive: true,
+      displayOrder: Number(o.displayOrder ?? o.display_order ?? 0),
+      termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
+    }))
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+  const features = isListing ? undefined : (Array.isArray(row.features) ? row.features.filter(Boolean) : []);
+  const careInstructions = isListing ? undefined : (Array.isArray(row.care_instructions) ? row.care_instructions.filter(Boolean) : []);
+  const manufacturingInfo = isListing ? undefined : (row.manufacturing_info || null);
+  const sizeMeasurements = isListing ? undefined : (Array.isArray(row.size_measurements) ? row.size_measurements : []);
+
+  const rawName = String(row.name || "").trim();
+  const isNumericSkuName = /^\d{6,}$/.test(rawName);
+  let resolvedTitle = rawName;
+  let productSku: string | null = (row as any).sku || rows.find((r) => r.sku)?.sku || null;
+
+  if (isNumericSkuName) {
+    if (!productSku) {
+      productSku = rawName;
+    }
+    // Check variant colors first to avoid assigning mismatched colors (e.g. Black to a Maroon shirt)
+    const primaryColor = colors.find(Boolean) || rows.find((r) => r.color)?.color || null;
+    const colorLower = (primaryColor || "").toLowerCase().trim();
+
+    // Check fallback products for matching item by exact slug/id first, or matching category AND color
+    const matchingFallback = FALLBACK_PRODUCTS.find(
+      (f) =>
+        f.id === row.id ||
+        f.slug === row.slug ||
+        (colorLower && f.colors?.some((c) => c.toLowerCase() === colorLower)) ||
+        (Array.isArray(f.tags) && Array.isArray(row.tags) && f.tags.some((t) => row.tags.includes(t))),
+    );
+    if (matchingFallback?.name) {
+      resolvedTitle = matchingFallback.name;
+    } else if (primaryColor) {
+      resolvedTitle = `RIOTOUS ${primaryColor} Oversized T-Shirt`;
+    } else if (row.tags && row.tags.length > 0 && !["Featured", "Trending"].includes(row.tags[0])) {
+      resolvedTitle = `RIOTOUS ${row.tags[0]} Oversized T-Shirt`;
+    } else if (row.category) {
+      resolvedTitle = `RIOTOUS ${row.category.replace(/s$/, "")}`;
+    } else {
+      resolvedTitle = `RIOTOUS Oversized Streetwear T-Shirt`;
+    }
+  } else if (!productSku) {
+    const slugParts = (row.slug || "").split("-");
+    if (/^\d{6,}$/.test(slugParts[0])) {
+      productSku = slugParts[0];
+    } else if (rows.find((r) => r.sku)?.sku) {
+      productSku = rows.find((r) => r.sku)?.sku || null;
+    } else if (row.id) {
+      productSku = row.id.startsWith("prod_") ? row.id.slice(5, 15).toUpperCase() : row.id;
+    }
+  }
 
   return {
     node: {
       id: row.id,
       productId: row.id,
-      title: row.name,
+      sku: productSku,
+      title: resolvedTitle,
       description: isListing ? "" : (row.description ?? ""),
+      detailsHtml: isListing ? null : (row.details_html ?? null),
+      highlights: isListing ? undefined : highlights,
+      specifications: isListing ? undefined : specifications,
+      offers: isListing ? undefined : offers,
+      features,
+      careInstructions,
+      manufacturingInfo,
+      sizeMeasurements,
+      mrp,
+      discountAmount,
+      discountPercentage,
+      isTaxInclusive,
       handle: row.slug,
       tags: row.tags ?? [],
       productType: row.category ?? "",
@@ -163,6 +424,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
         })),
       },
       variants: { edges: variants.map((node) => ({ node })) },
+      colorVariants,
       options,
     },
   };
@@ -173,10 +435,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Micro-cache (60s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
+// Micro-cache (2s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
-const CATALOG_CACHE_TTL = 60_000;
+const CATALOG_CACHE_TTL = 2_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();
@@ -246,12 +508,14 @@ export async function seedInitialProductsIfNeeded() {
         try {
           await sql`
             INSERT INTO products (
-              id, name, slug, description, price, base_price, currency, images, category, sizes, colors, stock_quantity, is_active, tags
+              id, name, slug, description, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, stock_quantity, is_active, tags
             ) VALUES (
-              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.currency},
+              ${p.id}, ${p.name}, ${p.slug}, ${p.description}, ${p.price}, ${p.price}, ${p.mrp ?? null}, ${p.compare_at_price ?? p.mrp ?? null}, ${p.is_tax_inclusive !== false}, ${p.currency},
               ${JSON.stringify(p.images)}::jsonb, ${p.category}, ${JSON.stringify(p.sizes)}::jsonb, ${JSON.stringify(p.colors)}::jsonb,
               ${p.stock_quantity}, ${p.is_active}, ${JSON.stringify(p.tags)}::jsonb
-            ) ON CONFLICT (id) DO NOTHING;
+            ) ON CONFLICT (id) DO UPDATE SET
+              mrp = COALESCE(products.mrp, EXCLUDED.mrp),
+              compare_at_price = COALESCE(products.compare_at_price, EXCLUDED.compare_at_price);
           `;
         } catch {
           await sql`
@@ -309,29 +573,28 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     // Ultra-fast single-roundtrip query: Correlated subquery fetches product + variants together
     const products = await sql`
       SELECT 
-        p.id, p.name, p.slug, p.price, p.currency,
-        CASE 
-          WHEN jsonb_typeof(p.images) = 'array' AND jsonb_array_length(p.images) > 0 THEN jsonb_build_array(p.images->0)
-          ELSE '[]'::jsonb 
-        END AS images,
-        p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
+        p.images,
+        p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         COALESCE(
           (
             SELECT jsonb_agg(jsonb_build_object(
               'id', v.id,
               'size', v.size,
               'color', v.color,
+              'color_hex', v.color_hex,
+              'image_url', v.image_url,
               'stock_quantity', v.stock_quantity,
               'reserved_stock', v.reserved_stock,
               'low_stock_threshold', v.low_stock_threshold
             ))
             FROM product_variants v
-            WHERE v.product_id::text = p.id::text
+            WHERE v.product_id = p.id
           ),
           '[]'::jsonb
         ) AS product_variants
       FROM products p
-      WHERE p.is_active = true OR p.is_active IS NULL
+      WHERE p.is_active = 1 OR p.is_active = true OR p.is_active IS NULL
       ORDER BY p.name ASC, p.id ASC
       LIMIT ${first}
     `;
@@ -346,6 +609,9 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
       slug: p.slug as string,
       description: null,
       price: Number(p.price || 0),
+      mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
+      compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : null,
+      is_tax_inclusive: p.is_tax_inclusive !== false,
       currency: (p.currency as string) || "INR",
       images: Array.isArray(p.images)
         ? p.images
@@ -363,6 +629,11 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
         : typeof p.colors === "string"
           ? JSON.parse(p.colors)
           : [],
+      color_variants: Array.isArray(p.color_variants)
+        ? p.color_variants
+        : typeof p.color_variants === "string"
+          ? JSON.parse(p.color_variants)
+          : [],
       stock_quantity: Number(p.stock_quantity || 0),
       is_active: Boolean(p.is_active),
       tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
@@ -372,6 +643,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
             id: String(v.id),
             size: (v.size as string) || "",
             color: (v.color as string) || "",
+            color_hex: (v.color_hex as string) || null,
+            image_url: (v.image_url as string) || null,
             stock_quantity: Number(v.stock_quantity || 0),
             reserved_stock: Number(v.reserved_stock || 0),
             low_stock_threshold: Number(v.low_stock_threshold || 2),
@@ -387,18 +660,19 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
     // Single query using LEFT JOIN to guarantee 1 roundtrip even in fallback
     const rowsJoined = await sql`
       SELECT 
-        p.id, p.name, p.slug, p.price, p.currency,
-        p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
+        p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         v.id AS variant_id, v.size AS variant_size, v.color AS variant_color,
+        v.color_hex AS variant_color_hex, v.image_url AS variant_image_url,
         v.stock_quantity AS variant_stock_quantity, v.reserved_stock AS variant_reserved_stock,
         v.low_stock_threshold AS variant_low_stock_threshold
       FROM (
         SELECT * FROM products
-        WHERE is_active = true OR is_active IS NULL
+        WHERE is_active = 1 OR is_active = true OR is_active IS NULL
         ORDER BY name ASC, id ASC
         LIMIT ${first}
       ) p
-      LEFT JOIN product_variants v ON v.product_id::text = p.id::text
+      LEFT JOIN product_variants v ON v.product_id = p.id
       ORDER BY p.name ASC, p.id ASC
     `;
 
@@ -416,6 +690,9 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           slug: row.slug as string,
           description: null,
           price: Number(row.price || 0),
+          mrp: row.mrp != null ? Number(row.mrp) : row.compare_at_price != null ? Number(row.compare_at_price) : null,
+          compare_at_price: row.compare_at_price != null ? Number(row.compare_at_price) : null,
+          is_tax_inclusive: row.is_tax_inclusive !== false,
           currency: (row.currency as string) || "INR",
           images: Array.isArray(row.images)
             ? row.images
@@ -433,6 +710,11 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
             : typeof row.colors === "string"
               ? JSON.parse(row.colors)
               : [],
+          color_variants: Array.isArray(row.color_variants)
+            ? row.color_variants
+            : typeof row.color_variants === "string"
+              ? JSON.parse(row.color_variants)
+              : [],
           stock_quantity: Number(row.stock_quantity || 0),
           is_active: Boolean(row.is_active),
           tags: Array.isArray(row.tags) ? row.tags : typeof row.tags === "string" ? JSON.parse(row.tags) : [],
@@ -446,6 +728,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           id: String(row.variant_id),
           size: (row.variant_size as string) || "",
           color: (row.variant_color as string) || "",
+          color_hex: (row.variant_color_hex as string) || undefined,
+          image_url: (row.variant_image_url as string) || undefined,
           stock_quantity: Number(row.variant_stock_quantity || 0),
           reserved_stock: Number(row.variant_reserved_stock || 0),
           low_stock_threshold: Number(row.variant_low_stock_threshold || 2),
@@ -493,43 +777,130 @@ export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
   }
 }
 
-export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
-  .handler(async ({ data }): Promise<CatalogProductNode | null> => {
-    const handleKey = String(data.handle).toLowerCase().trim();
+export async function getProductByHandleDirect(handle: string): Promise<CatalogProductNode | null> {
+  const handleKey = String(handle).toLowerCase().trim();
 
-    // Check burst debounce cache first
-    const cached = _productHandleCache.get(handleKey);
-    if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
-      return cached.data;
-    }
+  // Check burst debounce cache first
+  const cached = _productHandleCache.get(handleKey);
+  if (cached && Date.now() - cached.timestamp < CATALOG_CACHE_TTL) {
+    return cached.data;
+  }
 
-    try {
-      const sql = getSql();
+  try {
+    const sql = getSql();
 
-      // Read directly from database - single query with correlated variants
-      const products = await sql`
-        SELECT 
-          p.id, p.name, p.slug, p.description, p.price, p.currency, p.images, p.category, p.sizes, p.colors, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-          COALESCE(
-            (
-              SELECT jsonb_agg(jsonb_build_object(
-                'id', v.id,
-                'size', v.size,
-                'color', v.color,
-                'stock_quantity', v.stock_quantity,
-                'reserved_stock', v.reserved_stock,
-                'low_stock_threshold', v.low_stock_threshold
-              ))
-              FROM product_variants v
-              WHERE v.product_id::text = p.id::text
-            ),
-            '[]'::jsonb
-          ) AS product_variants
-        FROM products p
-        WHERE (p.slug = ${data.handle} OR p.id::text = ${data.handle}) AND (p.is_active = true OR p.is_active IS NULL)
-        LIMIT 1
-      `;
+      // Read directly from database - single query with correlated variants, highlights, specifications, offers
+      let products: any[] = [];
+      try {
+        products = await sql`
+          SELECT 
+            p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
+            p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
+            p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', v.id,
+                  'size', v.size,
+                  'color', v.color,
+                  'color_hex', v.color_hex,
+                  'image_url', v.image_url,
+                  'sku', v.sku,
+                  'stock_quantity', v.stock_quantity,
+                  'reserved_stock', v.reserved_stock,
+                  'low_stock_threshold', v.low_stock_threshold
+                ))
+                FROM product_variants v
+                WHERE v.product_id::text = p.id::text
+              ),
+              '[]'::jsonb
+            ) AS product_variants,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', h.id,
+                  'product_id', h.product_id,
+                  'image_url', h.image_url,
+                  'title', h.title,
+                  'description', h.description,
+                  'display_order', h.display_order,
+                  'is_active', h.is_active
+                ) ORDER BY h.display_order ASC, h.created_at ASC)
+                FROM product_highlights h
+                WHERE h.product_id::text = p.id::text AND (h.is_active = true OR h.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS highlights,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', s.id,
+                  'product_id', s.product_id,
+                  'label', s.label,
+                  'value', s.value,
+                  'display_order', s.display_order,
+                  'is_active', s.is_active
+                ) ORDER BY s.display_order ASC, s.created_at ASC)
+                FROM product_specifications s
+                WHERE s.product_id::text = p.id::text AND (s.is_active = true OR s.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS specifications,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', o.id,
+                  'product_id', o.product_id,
+                  'title', o.title,
+                  'description', o.description,
+                  'discount_type', o.discount_type,
+                  'discount_value', o.discount_value,
+                  'promo_code', o.promo_code,
+                  'minimum_quantity', o.minimum_quantity,
+                  'maximum_quantity', o.maximum_quantity,
+                  'start_date', o.start_date,
+                  'end_date', o.end_date,
+                  'display_order', o.display_order,
+                  'is_active', o.is_active,
+                  'terms_and_conditions', o.terms_and_conditions
+                ) ORDER BY o.display_order ASC, o.created_at ASC)
+                FROM product_offers o
+                WHERE o.product_id::text = p.id::text AND (o.is_active = true OR o.is_active IS NULL)
+              ),
+              '[]'::jsonb
+            ) AS offers
+          FROM products p
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
+          LIMIT 1
+        `;
+      } catch (queryErr) {
+        // Fallback query if new columns or tables are resolving
+        products = await sql`
+          SELECT 
+            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            COALESCE(
+              (
+                SELECT jsonb_agg(jsonb_build_object(
+                  'id', v.id,
+                  'size', v.size,
+                  'color', v.color,
+                  'color_hex', v.color_hex,
+                  'image_url', v.image_url,
+                  'sku', v.sku,
+                  'stock_quantity', v.stock_quantity,
+                  'reserved_stock', v.reserved_stock,
+                  'low_stock_threshold', v.low_stock_threshold
+                ))
+                FROM product_variants v
+                WHERE v.product_id::text = p.id::text
+              ),
+              '[]'::jsonb
+            ) AS product_variants
+          FROM products p
+          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
+          LIMIT 1
+        `;
+      }
 
       if (!products || products.length === 0) {
         _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
@@ -542,6 +913,9 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
             id: String(v.id),
             size: (v.size as string) || "",
             color: (v.color as string) || "",
+            color_hex: (v.color_hex as string) || null,
+            image_url: (v.image_url as string) || null,
+            sku: (v.sku as string) || null,
             stock_quantity: Number(v.stock_quantity || 0),
             reserved_stock: Number(v.reserved_stock || 0),
             low_stock_threshold: Number(v.low_stock_threshold || 2),
@@ -550,12 +924,64 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
           ? JSON.parse(p.product_variants)
           : [];
 
+      const highlightRows: ProductHighlightRow[] = Array.isArray(p.highlights)
+        ? p.highlights.map((h: any) => ({
+            id: String(h.id),
+            product_id: String(h.product_id || p.id),
+            image_url: String(h.image_url),
+            title: h.title ?? null,
+            description: h.description ?? null,
+            display_order: Number(h.display_order ?? 0),
+            is_active: h.is_active !== false,
+          }))
+        : typeof p.highlights === "string"
+          ? JSON.parse(p.highlights)
+          : [];
+
+      const specRows: ProductSpecificationRow[] = Array.isArray(p.specifications)
+        ? p.specifications.map((s: any) => ({
+            id: String(s.id),
+            product_id: String(s.product_id || p.id),
+            label: String(s.label),
+            value: String(s.value),
+            display_order: Number(s.display_order ?? 0),
+            is_active: s.is_active !== false,
+          }))
+        : typeof p.specifications === "string"
+          ? JSON.parse(p.specifications)
+          : [];
+
+      const offerRows: ProductOfferRow[] = Array.isArray(p.offers)
+        ? p.offers.map((o: any) => ({
+            id: String(o.id),
+            product_id: String(o.product_id || p.id),
+            title: String(o.title),
+            description: o.description ?? null,
+            discount_type: o.discount_type,
+            discount_value: Number(o.discount_value || 0),
+            promo_code: o.promo_code ?? null,
+            minimum_quantity: Number(o.minimum_quantity || 1),
+            maximum_quantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+            start_date: o.start_date ?? null,
+            end_date: o.end_date ?? null,
+            is_active: o.is_active !== false,
+            display_order: Number(o.display_order ?? 0),
+            terms_and_conditions: o.terms_and_conditions ?? null,
+          }))
+        : typeof p.offers === "string"
+          ? JSON.parse(p.offers)
+          : [];
+
       const row: ProductRow = {
         id: String(p.id),
         name: p.name as string,
         slug: p.slug as string,
         description: (p.description as string) || null,
+        details_html: (p.details_html as string) || null,
         price: Number(p.price || 0),
+        mrp: p.mrp != null ? Number(p.mrp) : p.compare_at_price != null ? Number(p.compare_at_price) : null,
+        compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : null,
+        is_tax_inclusive: p.is_tax_inclusive !== false,
         currency: (p.currency as string) || "INR",
         images: Array.isArray(p.images)
           ? p.images
@@ -573,11 +999,23 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
           : typeof p.colors === "string"
             ? JSON.parse(p.colors)
             : [],
+        color_variants: Array.isArray(p.color_variants)
+          ? p.color_variants
+          : typeof p.color_variants === "string"
+            ? JSON.parse(p.color_variants)
+            : [],
         stock_quantity: Number(p.stock_quantity || 0),
         is_active: Boolean(p.is_active),
         tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
         updated_at: p.updated_at,
         product_variants: variantRows,
+        highlights: highlightRows,
+        specifications: specRows,
+        offers: offerRows,
+        features: Array.isArray(p.features) ? p.features : typeof p.features === "string" ? JSON.parse(p.features) : [],
+        care_instructions: Array.isArray(p.care_instructions) ? p.care_instructions : typeof p.care_instructions === "string" ? JSON.parse(p.care_instructions) : [],
+        manufacturing_info: p.manufacturing_info ? (typeof p.manufacturing_info === "string" ? JSON.parse(p.manufacturing_info) : p.manufacturing_info) : null,
+        size_measurements: Array.isArray(p.size_measurements) ? p.size_measurements : typeof p.size_measurements === "string" ? JSON.parse(p.size_measurements) : [],
       };
 
       const result = toCatalogProduct(row).node;
@@ -586,13 +1024,19 @@ export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "fetchProductByHandle",
-        productId: data.handle,
+        productId: handle,
         status: "FAILED",
         error: err?.message || String(err),
       });
       console.warn("fetchProductByHandle error:", err);
       return cached?.data || null;
     }
+}
+
+export const fetchProductByHandleServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { handle: string }) => ({ handle: String(d.handle) }))
+  .handler(async ({ data }): Promise<CatalogProductNode | null> => {
+    return getProductByHandleDirect(data.handle);
   });
 
 export async function fetchProductByHandle(handle: string): Promise<CatalogProductNode | null> {

@@ -37,20 +37,6 @@ export const adminListCustomers = createServerFn({ method: "GET" })
     await ensureDbSchema();
     const sql = getSql();
 
-    // Ensure profile columns exist
-    try {
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active'`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS state TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS postal_code TEXT`;
-      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country TEXT`;
-    } catch {
-      // ignore if already present or mocked
-    }
-
     const profiles = await sql`
       SELECT id, email, full_name, role, status, phone, avatar, address, city, state, postal_code, country, created_at
       FROM profiles

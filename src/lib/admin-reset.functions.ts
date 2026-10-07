@@ -50,7 +50,7 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
         SELECT password_hash FROM profiles WHERE id::text = ${userId} LIMIT 1
       `;
       if (authRows.length > 0) {
-        const { hashPassword } = await import("@/lib/auth");
+        const { hashPassword } = await import("@/lib/auth.server");
         const enteredHash = await hashPassword(data.password);
         if (enteredHash === authRows[0].password_hash) {
           isAuthorized = true;
@@ -117,10 +117,10 @@ export const adminResetSectionData = createServerFn({ method: "POST" })
 
       case "customers": {
         // Erase non-admin customers, keeping the active admin accounts intact
-        await sql`DELETE FROM addresses WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin')`;
-        await sql`DELETE FROM carts WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin')`;
-        await sql`DELETE FROM favorites WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin')`;
-        await sql`DELETE FROM profiles WHERE role != 'admin' AND email NOT IN ('princevekariya9898@gmail.com')`;
+        await sql`DELETE FROM addresses WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin' AND role != 'Super Admin')`;
+        await sql`DELETE FROM carts WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin' AND role != 'Super Admin')`;
+        await sql`DELETE FROM favorites WHERE user_id IN (SELECT id FROM profiles WHERE role != 'admin' AND role != 'Super Admin')`;
+        await sql`DELETE FROM profiles WHERE role NOT IN ('admin', 'Super Admin', 'Manager', 'Staff')`;
         break;
       }
 

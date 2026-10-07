@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import {
   Menu,
   Search,
@@ -11,13 +11,15 @@ import {
   RotateCcw,
   ShieldCheck,
   Star,
+  ArrowLeft,
+  ShoppingBag,
 } from "lucide-react";
 import { CartDrawer } from "./cart-drawer";
 import { SearchDialog } from "./search-dialog";
 import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
-import { hasAdminPanelAccess } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { BrandName } from "@/components/brand-name";
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 import type { WebsiteConfig } from "@/lib/website-config.types";
@@ -44,11 +46,14 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCheckoutPage = location.pathname === "/checkout";
   const isAdmin = hasAdminPanelAccess(user);
   const { config: publishedConfig, isLoading } = usePublishedWebsiteConfig();
   const config = customConfig || publishedConfig;
 
-  useCartStore((s) => s.items.length); // subscribe so header re-renders
+  const cartItems = useCartStore((s) => s.items);
+  const totalCartItems = cartItems.reduce((s, i) => s + (Number(i?.quantity) || 0), 0);
 
   const rawNavItems: any[] = Array.isArray(config?.navigation)
     ? config.navigation
@@ -97,11 +102,77 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
 
   return (
     <>
-      <AnnouncementBar config={config?.announcement || (config as any)?.announcementBar} />
+      {!isCheckoutPage ? (
+        <AnnouncementBar config={config?.announcement || (config as any)?.announcementBar} />
+      ) : (
+        <div className="hidden md:block">
+          <AnnouncementBar config={config?.announcement || (config as any)?.announcementBar} />
+        </div>
+      )}
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
 
+      {/* Dedicated Mobile Checkout Header (approx 64px, mobile-only, solid dark #111111 for high logo contrast) */}
+      {isCheckoutPage && (
+        <header className="fixed inset-x-0 top-0 z-50 flex md:hidden h-16 w-full items-center justify-between border-b border-zinc-800 bg-[#111111] px-3.5 sm:px-4 shadow-md">
+          {/* Left: Back arrow */}
+          <div className="flex w-12 items-center justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  navigate({ to: "/shop" });
+                }
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5 text-white" />
+            </button>
+          </div>
+
+          {/* Center: RIOTOUS Logo (high contrast on dark background) */}
+          <div className="flex flex-1 items-center justify-center">
+            <Link to="/" className="flex items-center justify-center py-1" aria-label="RIOTOUS home">
+              <img
+                src="/assets/riotous-logo.png"
+                alt="RIOTOUS"
+                width={130}
+                height={32}
+                loading="eager"
+                decoding="async"
+                className="h-7 sm:h-8 w-auto max-w-[140px] object-contain drop-shadow-sm select-none"
+                draggable={false}
+              />
+            </Link>
+          </div>
+
+          {/* Right: Cart icon + badge */}
+          <div className="flex w-12 items-center justify-end">
+            <CartDrawer
+              trigger={
+                <button
+                  type="button"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer"
+                  aria-label={`Cart, ${totalCartItems} items`}
+                >
+                  <ShoppingBag className="h-5 w-5 text-white" />
+                  {totalCartItems > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#f00b11] px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#111111]">
+                      {totalCartItems}
+                    </span>
+                  )}
+                </button>
+              }
+            />
+          </div>
+        </header>
+      )}
+
+      {/* Standard Header (preserved on desktop always, and on mobile when not checkout) */}
       <header
-        className={`fixed inset-x-0 top-0 z-50 flex justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`${isCheckoutPage ? "hidden md:flex" : "flex"} fixed inset-x-0 top-0 z-50 justify-center pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           scrolled
             ? "pt-3 px-3 sm:px-4 bg-transparent pb-0"
             : "pt-0 px-0 bg-gradient-to-b from-black/90 via-black/60 to-transparent pb-8"
@@ -114,13 +185,15 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
               : "h-[72px] md:h-20 w-full max-w-[1400px] rounded-none bg-transparent px-3.5 sm:px-6 md:px-10 gap-2 sm:gap-4"
           }`}
         >
-          <button
-            className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          {!mobileOpen && (
+            <button
+              className="flex h-9 w-9 md:h-10 md:w-10 shrink-0 items-center justify-center rounded-full text-white transition-colors duration-200 hover:bg-brand-red hover:text-white md:hidden cursor-pointer"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
 
           <Link to="/" className="flex shrink-0 items-center" aria-label="RIOTOUS home">
             <img

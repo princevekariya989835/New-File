@@ -45,6 +45,7 @@ import { Route as AuthenticatedAdminDesignsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminHealthRouteImport } from './routes/_authenticated/admin/health'
 import { Route as AuthenticatedAdminInventoryRouteImport } from './routes/_authenticated/admin/inventory'
 import { Route as AuthenticatedAdminMarketingRouteImport } from './routes/_authenticated/admin/marketing'
+import { Route as AuthenticatedAdminOffersRouteImport } from './routes/_authenticated/admin/offers'
 import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenticated/admin/orders'
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin/payments'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin/products'
@@ -63,6 +64,7 @@ import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay.we
 import { Route as ApiStorefrontContentRouteImport } from './routes/api/storefront/content'
 import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storefront/navigation'
 import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
+import { Route as ApiZippyyAuthTestRouteImport } from './routes/api/zippyy.auth-test'
 import { Route as ApiZippyyWebhookRouteImport } from './routes/api/zippyy.webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -278,6 +280,14 @@ const AuthenticatedAdminMarketingRoute =
   } as any).lazy(() =>
     import('./routes/_authenticated/admin/marketing.lazy').then((d) => d.Route),
   )
+const AuthenticatedAdminOffersRoute =
+  AuthenticatedAdminOffersRouteImport.update({
+    id: '/offers',
+    path: '/offers',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/offers.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminOrdersRoute =
   AuthenticatedAdminOrdersRouteImport.update({
     id: '/orders',
@@ -395,6 +405,11 @@ const ApiStorefrontSettingsRoute = ApiStorefrontSettingsRouteImport.update({
   path: '/api/storefront/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiZippyyAuthTestRoute = ApiZippyyAuthTestRouteImport.update({
+  id: '/api/zippyy/auth-test',
+  path: '/api/zippyy/auth-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiZippyyWebhookRoute = ApiZippyyWebhookRouteImport.update({
   id: '/api/zippyy/webhook',
   path: '/api/zippyy/webhook',
@@ -436,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/admin/health': typeof AuthenticatedAdminHealthRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
+  '/admin/offers': typeof AuthenticatedAdminOffersRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
@@ -454,6 +470,7 @@ export interface FileRoutesByFullPath {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -491,6 +508,7 @@ export interface FileRoutesByTo {
   '/admin/health': typeof AuthenticatedAdminHealthRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
+  '/admin/offers': typeof AuthenticatedAdminOffersRoute
   '/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
@@ -509,6 +527,7 @@ export interface FileRoutesByTo {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -549,6 +568,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/health': typeof AuthenticatedAdminHealthRoute
   '/_authenticated/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/_authenticated/admin/marketing': typeof AuthenticatedAdminMarketingRoute
+  '/_authenticated/admin/offers': typeof AuthenticatedAdminOffersRoute
   '/_authenticated/admin/orders': typeof AuthenticatedAdminOrdersRoute
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
@@ -567,6 +587,7 @@ export interface FileRoutesById {
   '/api/storefront/content': typeof ApiStorefrontContentRoute
   '/api/storefront/navigation': typeof ApiStorefrontNavigationRoute
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
+  '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -607,6 +628,7 @@ export interface FileRouteTypes {
     | '/admin/health'
     | '/admin/inventory'
     | '/admin/marketing'
+    | '/admin/offers'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -625,6 +647,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -662,6 +685,7 @@ export interface FileRouteTypes {
     | '/admin/health'
     | '/admin/inventory'
     | '/admin/marketing'
+    | '/admin/offers'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -680,6 +704,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/admin'
   id:
@@ -719,6 +744,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/health'
     | '/_authenticated/admin/inventory'
     | '/_authenticated/admin/marketing'
+    | '/_authenticated/admin/offers'
     | '/_authenticated/admin/orders'
     | '/_authenticated/admin/payments'
     | '/_authenticated/admin/products'
@@ -737,6 +763,7 @@ export interface FileRouteTypes {
     | '/api/storefront/content'
     | '/api/storefront/navigation'
     | '/api/storefront/settings'
+    | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -772,6 +799,7 @@ export interface RootRouteChildren {
   ApiStorefrontContentRoute: typeof ApiStorefrontContentRoute
   ApiStorefrontNavigationRoute: typeof ApiStorefrontNavigationRoute
   ApiStorefrontSettingsRoute: typeof ApiStorefrontSettingsRoute
+  ApiZippyyAuthTestRoute: typeof ApiZippyyAuthTestRoute
   ApiZippyyWebhookRoute: typeof ApiZippyyWebhookRoute
 }
 
@@ -1029,6 +1057,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMarketingRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/offers': {
+      id: '/_authenticated/admin/offers'
+      path: '/offers'
+      fullPath: '/admin/offers'
+      preLoaderRoute: typeof AuthenticatedAdminOffersRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/orders': {
       id: '/_authenticated/admin/orders'
       path: '/orders'
@@ -1155,6 +1190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStorefrontSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/zippyy/auth-test': {
+      id: '/api/zippyy/auth-test'
+      path: '/api/zippyy/auth-test'
+      fullPath: '/api/zippyy/auth-test'
+      preLoaderRoute: typeof ApiZippyyAuthTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/zippyy/webhook': {
       id: '/api/zippyy/webhook'
       path: '/api/zippyy/webhook'
@@ -1174,6 +1216,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminHealthRoute: typeof AuthenticatedAdminHealthRoute
   AuthenticatedAdminInventoryRoute: typeof AuthenticatedAdminInventoryRoute
   AuthenticatedAdminMarketingRoute: typeof AuthenticatedAdminMarketingRoute
+  AuthenticatedAdminOffersRoute: typeof AuthenticatedAdminOffersRoute
   AuthenticatedAdminOrdersRoute: typeof AuthenticatedAdminOrdersRoute
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
@@ -1197,6 +1240,7 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminHealthRoute: AuthenticatedAdminHealthRoute,
     AuthenticatedAdminInventoryRoute: AuthenticatedAdminInventoryRoute,
     AuthenticatedAdminMarketingRoute: AuthenticatedAdminMarketingRoute,
+    AuthenticatedAdminOffersRoute: AuthenticatedAdminOffersRoute,
     AuthenticatedAdminOrdersRoute: AuthenticatedAdminOrdersRoute,
     AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
     AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
@@ -1265,6 +1309,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStorefrontContentRoute: ApiStorefrontContentRoute,
   ApiStorefrontNavigationRoute: ApiStorefrontNavigationRoute,
   ApiStorefrontSettingsRoute: ApiStorefrontSettingsRoute,
+  ApiZippyyAuthTestRoute: ApiZippyyAuthTestRoute,
   ApiZippyyWebhookRoute: ApiZippyyWebhookRoute,
 }
 export const routeTree = rootRouteImport

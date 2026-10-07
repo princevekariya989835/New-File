@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib/admin-utils";
 import { getSql } from "@/lib/db";
-import { isAdminEmail } from "@/lib/auth";
 import { invalidatePublicWebsiteConfigCache } from "@/lib/website-config.functions";
 import { invalidateCatalogCache } from "@/lib/catalog";
 
@@ -100,7 +99,7 @@ function mapRowToSettings(r: any): StoreSettings {
     storeName: r.store_name || "RIOTOUS",
     storeLogo: r.store_logo || "",
     storeEmail: r.store_email || "support@riotous.store",
-    storePhone: r.store_phone || "+91 98765 43210",
+    storePhone: r.store_phone || "+91 90998 66791",
     storeAddress: r.store_address || "Plot 42, Streetwear District, Surat, Gujarat 395006, India",
     businessGstin: r.business_gstin || "24AAAAA0000A1Z5",
     currencySymbol: r.currency_symbol || "₹",
@@ -197,7 +196,7 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
         ${data.storeName ?? "RIOTOUS"},
         ${data.storeLogo ?? ""},
         ${data.storeEmail ?? "support@riotous.store"},
-        ${data.storePhone ?? "+91 98765 43210"},
+        ${data.storePhone ?? "+91 90998 66791"},
         ${data.storeAddress ?? "Plot 42, Streetwear District, Surat, Gujarat 395006, India"},
         ${data.businessGstin ?? "24AAAAA0000A1Z5"},
         ${data.currencySymbol ?? "₹"},

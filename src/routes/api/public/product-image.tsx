@@ -17,13 +17,14 @@ export const Route = createFileRoute("/api/public/product-image")({
         try {
           const url = new URL(request.url);
           const productId = url.searchParams.get("id");
+          const colorParam = url.searchParams.get("color");
           const idx = Math.max(0, parseInt(url.searchParams.get("idx") || "0", 10));
           const designId = url.searchParams.get("designId");
           const side = url.searchParams.get("side");
           const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
 
           const cacheKey = productId
-            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
+            ? `prod_${productId}_${colorParam ? `col_${encodeURIComponent(colorParam)}_` : ""}${idx}${widthParam ? `_w${widthParam}` : ""}`
             : designId
               ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
               : null;
@@ -66,6 +67,7 @@ export const Route = createFileRoute("/api/public/product-image")({
         try {
           const url = new URL(request.url);
           const productId = url.searchParams.get("id");
+          const colorParam = url.searchParams.get("color");
           const idx = Math.max(0, parseInt(url.searchParams.get("idx") || "0", 10));
           const designId = url.searchParams.get("designId");
           const side = url.searchParams.get("side");
@@ -73,7 +75,7 @@ export const Route = createFileRoute("/api/public/product-image")({
           const widthParam = url.searchParams.get("w") || url.searchParams.get("width");
 
           const cacheKey = productId
-            ? `prod_${productId}_${idx}${widthParam ? `_w${widthParam}` : ""}`
+            ? `prod_${productId}_${colorParam ? `col_${encodeURIComponent(colorParam)}_` : ""}${idx}${widthParam ? `_w${widthParam}` : ""}`
             : designId
               ? `design_${designId}_${side || "default"}${widthParam ? `_w${widthParam}` : ""}`
               : rawPath
@@ -109,15 +111,34 @@ export const Route = createFileRoute("/api/public/product-image")({
 
           if (productId) {
             const rows = await sql`
-              SELECT images FROM products WHERE id::text = ${productId} LIMIT 1
+              SELECT images, color_variants FROM products WHERE id::text = ${productId} LIMIT 1
             `;
             if (rows && rows.length > 0) {
-              const images = Array.isArray(rows[0].images)
-                ? rows[0].images
-                : typeof rows[0].images === "string"
-                  ? JSON.parse(rows[0].images)
-                  : [];
-              dataUrl = images[idx] || images[0] || null;
+              if (colorParam) {
+                const cvList = Array.isArray(rows[0].color_variants)
+                  ? rows[0].color_variants
+                  : typeof rows[0].color_variants === "string"
+                    ? JSON.parse(rows[0].color_variants)
+                    : [];
+                const matchCv = cvList.find(
+                  (c: any) =>
+                    String(c?.name || "").trim().toLowerCase() === colorParam.trim().toLowerCase(),
+                );
+                if (matchCv) {
+                  const cvImages = Array.isArray(matchCv.images) && matchCv.images.length > 0
+                    ? matchCv.images
+                    : (matchCv.imageUrl ? [matchCv.imageUrl] : []);
+                  dataUrl = cvImages[idx] || cvImages[0] || null;
+                }
+              }
+              if (!dataUrl) {
+                const images = Array.isArray(rows[0].images)
+                  ? rows[0].images
+                  : typeof rows[0].images === "string"
+                    ? JSON.parse(rows[0].images)
+                    : [];
+                dataUrl = images[idx] || images[0] || null;
+              }
             }
           } else if (designId) {
             const rows = await sql`
@@ -140,6 +161,31 @@ export const Route = createFileRoute("/api/public/product-image")({
 
           if (!dataUrl) {
             return new Response("Image not found", { status: 404 });
+          }
+
+          // If the dataUrl recursively refers to /api/public/product-image, resolve or fall back to images[0]
+          if (dataUrl.startsWith("/api/public/product-image")) {
+            if (productId && idx !== 0) {
+              // Try fallback to image 0
+              const rows = await sql`SELECT images FROM products WHERE id::text = ${productId} LIMIT 1`;
+              const images = Array.isArray(rows?.[0]?.images)
+                ? rows[0].images
+                : typeof rows?.[0]?.images === "string"
+                  ? JSON.parse(rows[0].images)
+                  : [];
+              const firstImg = images[0];
+              if (firstImg && firstImg !== dataUrl && !firstImg.startsWith("/api/public/product-image")) {
+                dataUrl = firstImg;
+              } else {
+                return Response.redirect("/placeholder-tee.jpg", 302);
+              }
+            } else {
+              return Response.redirect("/placeholder-tee.jpg", 302);
+            }
+          }
+
+          if (!dataUrl) {
+            return Response.redirect("/placeholder-tee.jpg", 302);
           }
 
           // If the dataUrl is a local relative asset path, redirect safely
@@ -186,40 +232,44 @@ export const Route = createFileRoute("/api/public/product-image")({
               return new Response("Unsupported or unsafe image format", { status: 400 });
             }
 
-            const base64Data = match[2];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
+            try {
+              const base64Data = match[2].replace(/[\r\n\s]/g, "");
+              const binaryString = atob(base64Data);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
 
-            const etag = `"${(cacheKey || "img").replace(/[^a-zA-Z0-9_-]/g, "_")}-${bytes.byteLength}"`;
+              const etag = `"${(cacheKey || "img").replace(/[^a-zA-Z0-9_-]/g, "_")}-${bytes.byteLength}"`;
 
-            if (cacheKey) {
-              setCachedImage(cacheKey, { bytes, contentType, etag });
-            }
+              if (cacheKey) {
+                setCachedImage(cacheKey, { bytes, contentType, etag });
+              }
 
-            if (checkNoneMatch(request, etag)) {
-              return new Response(null, {
-                status: 304,
+              if (checkNoneMatch(request, etag)) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    ETag: etag,
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "X-Content-Type-Options": "nosniff",
+                  },
+                });
+              }
+
+              return new Response(bytes as unknown as BodyInit, {
+                status: 200,
                 headers: {
-                  ETag: etag,
+                  "Content-Type": contentType,
                   "Cache-Control": "public, max-age=31536000, immutable",
+                  "Content-Length": String(bytes.byteLength),
                   "X-Content-Type-Options": "nosniff",
+                  ETag: etag,
                 },
               });
+            } catch {
+              return new Response("Invalid base64 payload", { status: 400 });
             }
-
-            return new Response(bytes as unknown as BodyInit, {
-              status: 200,
-              headers: {
-                "Content-Type": contentType,
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "Content-Length": String(bytes.byteLength),
-                "X-Content-Type-Options": "nosniff",
-                ETag: etag,
-              },
-            });
           }
 
           return new Response("Invalid image data", { status: 400 });

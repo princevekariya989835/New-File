@@ -92,6 +92,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
               }
             }}
             placeholder="Search hoodies, oversized tees, drops…"
+            aria-label="Search products"
             className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground text-foreground"
           />
           {query ? (
@@ -151,6 +152,13 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                   {filteredProducts.map((p) => {
                     const img = p.node.images?.edges?.[0]?.node?.url;
                     const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
+                    const mrpNumber = p.node.mrp != null ? Number(p.node.mrp) : null;
+                    const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > price;
+                    const discountPercentage = hasValidMrp
+                      ? (p.node.discountPercentage != null && p.node.discountPercentage > 0
+                          ? p.node.discountPercentage
+                          : Math.round(((mrpNumber - price) / mrpNumber) * 100))
+                      : null;
                     return (
                       <button
                         key={p.node.id}
@@ -181,6 +189,18 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-foreground">{money(price)}</p>
+                          {hasValidMrp && (
+                            <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                              <span className="text-xs text-muted-foreground line-through">
+                                {money(mrpNumber!)}
+                              </span>
+                              {discountPercentage != null && discountPercentage > 0 && (
+                                <span className="text-xs font-bold text-brand-red">
+                                  {discountPercentage}% OFF
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </button>
                     );
@@ -221,6 +241,13 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                     {products.slice(0, 3).map((p) => {
                       const img = p.node.images?.edges?.[0]?.node?.url;
                       const price = parseFloat(p.node.priceRange.minVariantPrice.amount);
+                      const mrpNumber = p.node.mrp != null ? Number(p.node.mrp) : null;
+                      const hasValidMrp = mrpNumber != null && !isNaN(mrpNumber) && mrpNumber > price;
+                      const discountPercentage = hasValidMrp
+                        ? (p.node.discountPercentage != null && p.node.discountPercentage > 0
+                            ? p.node.discountPercentage
+                            : Math.round(((mrpNumber - price) / mrpNumber) * 100))
+                        : null;
                       return (
                         <button
                           key={p.node.id}
@@ -240,7 +267,19 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                           <p className="text-xs font-semibold line-clamp-2 leading-snug min-h-[2rem] text-foreground">
                             {p.node.title}
                           </p>
-                          <p className="text-xs font-bold text-brand-red mt-1">{money(price)}</p>
+                          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 mt-1">
+                            <span className="text-xs font-bold text-foreground">{money(price)}</span>
+                            {hasValidMrp && (
+                              <span className="text-[11px] text-muted-foreground line-through">
+                                {money(mrpNumber!)}
+                              </span>
+                            )}
+                            {hasValidMrp && discountPercentage != null && discountPercentage > 0 && (
+                              <span className="text-[11px] font-bold text-brand-red">
+                                {discountPercentage}% OFF
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}

@@ -14,6 +14,8 @@ import appCss from "../styles.css?url";
 import "../styles.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { MobileBottomOfferBar } from "@/components/home/mobile-bottom-offer-bar";
+import { FloatingWhatsApp } from "@/components/floating-whatsapp";
 import { useCartSync } from "@/hooks/use-cart-sync";
 import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
@@ -107,13 +109,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { rel: "icon", href: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "icon", href: "/favicon.png", sizes: "192x192", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
+        media: "print",
+        onLoad: "this.media='all'",
       },
       {
         rel: "preload",
@@ -197,14 +201,24 @@ function AppShell() {
   useCatalogSync(queryClient);
   const location = useLocation();
   const isAuthPage = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
+  const isAdminPage = location.pathname.startsWith("/admin");
+  const isCheckoutPage = location.pathname === "/checkout";
+  const isDesignPage = location.pathname === "/design" || location.pathname.startsWith("/design/");
+  const showMobileOfferBar = !isAuthPage && !isAdminPage && !isCheckoutPage && !isDesignPage;
 
   return (
-    <div className="flex min-h-screen flex-col relative">
+    <div className="flex min-h-screen flex-col relative w-full max-w-full overflow-x-hidden md:overflow-x-visible">
       <SiteHeader />
-      <main className={isAuthPage ? "flex-1 flex flex-col" : "flex-1 pt-16 md:pt-20"}>
+      <main className={isAuthPage ? "flex-1 flex flex-col w-full max-w-full" : isCheckoutPage ? "flex-1 pt-16 md:pt-20 w-full max-w-full" : "flex-1 pt-16 md:pt-20 w-full max-w-full"}>
         <Outlet />
       </main>
-      {!isAuthPage && <SiteFooter />}
+      {!isAuthPage && (
+        <div className={isCheckoutPage ? "hidden md:block" : ""}>
+          <SiteFooter />
+        </div>
+      )}
+      {showMobileOfferBar && <MobileBottomOfferBar />}
+      <FloatingWhatsApp />
       <Toaster position="top-center" />
     </div>
   );

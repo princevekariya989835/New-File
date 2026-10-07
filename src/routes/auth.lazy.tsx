@@ -1,7 +1,7 @@
 import { createLazyFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { hasAdminPanelAccess } from "@/lib/auth";
+import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { toast } from "sonner";
 import {
   Loader2,

@@ -9,6 +9,7 @@ interface SitemapEntry {
   path: string;
   changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
   priority?: string;
+  lastmod?: string;
 }
 
 async function fetchPublicPaths(): Promise<SitemapEntry[]> {
@@ -18,20 +19,22 @@ async function fetchPublicPaths(): Promise<SitemapEntry[]> {
   try {
     const sql = getSql();
     const rows = await sql`
-      SELECT slug, category FROM products WHERE is_active = true LIMIT 1000
+      SELECT slug, category, updated_at FROM products WHERE is_active = true LIMIT 1000
     `;
 
     const productList =
       Array.isArray(rows) && rows.length > 0
-        ? (rows as Array<{ slug: string; category: string | null }>)
-        : FALLBACK_PRODUCTS.map((p) => ({ slug: p.slug, category: p.category }));
+        ? (rows as Array<{ slug: string; category: string | null; updated_at?: string | null }>)
+        : FALLBACK_PRODUCTS.map((p) => ({ slug: p.slug, category: p.category, updated_at: (p as any).updated_at }));
 
     for (const row of productList) {
       if (row.slug) {
+        const lastmod = row.updated_at ? new Date(row.updated_at).toISOString().split("T")[0] : undefined;
         entries.push({
           path: `/product/${encodeURIComponent(row.slug)}`,
           changefreq: "weekly",
           priority: "0.8",
+          ...(lastmod ? { lastmod } : {}),
         });
       }
       if (row.category) categories.add(row.category);
@@ -50,10 +53,12 @@ async function fetchPublicPaths(): Promise<SitemapEntry[]> {
     // If database is offline, generate sitemap from fallback catalog
     for (const p of FALLBACK_PRODUCTS) {
       if (p.slug) {
+        const lastmod = (p as any).updated_at ? new Date((p as any).updated_at).toISOString().split("T")[0] : undefined;
         entries.push({
           path: `/product/${encodeURIComponent(p.slug)}`,
           changefreq: "weekly",
           priority: "0.8",
+          ...(lastmod ? { lastmod } : {}),
         });
       }
       if (p.category) categories.add(p.category);
@@ -96,6 +101,7 @@ export const Route = createFileRoute("/sitemap.xml")({
             [
               `  <url>`,
               `    <loc>${BASE_URL}${e.path.replace(/&/g, "&amp;")}</loc>`,
+              e.lastmod ? `    <lastmod>${e.lastmod}</lastmod>` : null,
               e.changefreq ? `    <changefreq>${e.changefreq}</changefreq>` : null,
               e.priority ? `    <priority>${e.priority}</priority>` : null,
               `  </url>`,
@@ -115,6 +121,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
             "Cache-Control": "public, max-age=3600",
+            "Last-Modified": new Date().toUTCString(),
           },
         });
       },

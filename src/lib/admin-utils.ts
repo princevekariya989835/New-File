@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import { isAdminEmail } from "@/lib/auth";
+import type { ProductColorVariant } from "./fallback-products";
 
 export type AdminCtx = {
   userId?: string;
@@ -117,60 +117,55 @@ export async function assertAdmin(
   module: StaffModule | string = "dashboard",
   action: StaffAction | string = "view",
 ) {
-  if (context?.isAdmin) return;
   const userRole = context?.user?.role;
-  const userEmail = context?.user?.email;
+  if (userRole && (userRole === "Super Admin" || String(userRole).toLowerCase().includes("super"))) {
+    return;
+  }
 
-  if (isAdminEmail(userEmail)) return;
-
-  if (userRole && hasStaffPermission(userRole, context?.user?.permissions, module, action)) {
+  if (context?.isAdmin && userRole && hasStaffPermission(userRole, context?.user?.permissions, module, action)) {
     return;
   }
 
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
+  const userEmail = context?.user?.email;
   if (!userId || !userEmail) {
-    if (isAdminEmail(userEmail)) return;
     throw new Error("Forbidden: Staff access only");
   }
   const rows = await sql`
-    SELECT role, email, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1
+    SELECT role, email, status, permissions FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1
   `;
   if (rows.length === 0) {
-    if (isAdminEmail(userEmail)) return;
     throw new Error("Forbidden: Staff access only");
   }
   const r = rows[0];
   if (r.status === "Inactive" || r.status === "Suspended") {
     throw new Error("Forbidden: Account is inactive or suspended");
   }
-  if (isAdminEmail(r.email) || hasStaffPermission(r.role, null, module, action)) {
+  if (r.role === "Super Admin" || String(r.role).toLowerCase().includes("super") || hasStaffPermission(r.role, r.permissions, module, action)) {
     return;
   }
   throw new Error("Forbidden: Staff access only");
 }
 
 export async function assertSuperAdmin(context: any) {
-  const userEmail = context?.user?.email;
-  if (!userEmail || !isAdminEmail(userEmail)) {
-    throw new Error("Forbidden: Super Admin access required");
-  }
-  await assertAdmin(context, "settings", "manage");
-
-  const userRole = context?.user?.role;
-  if (
-    userRole &&
-    (userRole.toLowerCase() === "super admin" || userRole.toLowerCase() === "super_admin")
-  ) {
-    return;
-  }
-
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
-  if (!userId) throw new Error("Forbidden: Super Administrator access required");
+  const userEmail = context?.user?.email;
+  if (!userId || !userEmail) {
+    throw new Error("Forbidden: Super Administrator access required");
+  }
 
-  const rows = await sql`SELECT role, email FROM profiles WHERE id = ${userId} LIMIT 1`;
-  if (rows.length > 0 && (isAdminEmail(rows[0].email) || rows[0].role === "Super Admin")) {
+  const rows = await sql`SELECT role, email, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1`;
+  if (rows.length === 0) {
+    throw new Error("Forbidden: Super Administrator access required");
+  }
+  const r = rows[0];
+  if (r.status === "Inactive" || r.status === "Suspended") {
+    throw new Error("Forbidden: Account is inactive or suspended");
+  }
+  const roleLower = String(r.role || "").toLowerCase().trim();
+  if (roleLower === "super admin" || roleLower === "super_admin") {
     return;
   }
 
@@ -182,21 +177,23 @@ export async function assertPermission(
   module: StaffModule | string,
   action: StaffAction | string = "view",
 ) {
-  const userEmail = context?.user?.email;
-  if (isAdminEmail(userEmail)) return;
-
   const userRole = context?.user?.role;
+  if (userRole && (userRole === "Super Admin" || String(userRole).toLowerCase().includes("super"))) {
+    return;
+  }
+
   const perms = context?.user?.permissions;
-  if (hasStaffPermission(userRole, perms, module, action)) {
+  if (userRole && hasStaffPermission(userRole, perms, module, action)) {
     return;
   }
 
   const sql = getSql();
   const userId = context?.userId || context?.user?.id;
-  if (!userId) throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
+  const userEmail = context?.user?.email;
+  if (!userId || !userEmail) throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
 
   const rows =
-    await sql`SELECT role, email, permissions, status FROM profiles WHERE id = ${userId} LIMIT 1`;
+    await sql`SELECT role, email, permissions, status FROM profiles WHERE id::text = ${userId} AND LOWER(email) = LOWER(${userEmail}) LIMIT 1`;
   if (rows.length === 0)
     throw new Error(`Forbidden: Insufficient permissions for ${module}:${action}`);
 
@@ -204,7 +201,8 @@ export async function assertPermission(
   if (r.status === "Inactive" || r.status === "Suspended") {
     throw new Error("Forbidden: Account is inactive or suspended");
   }
-  if (isAdminEmail(r.email) || hasStaffPermission(r.role, r.permissions, module, action)) {
+  const dbRoleLower = String(r.role || "").toLowerCase().trim();
+  if (dbRoleLower === "super admin" || dbRoleLower === "super_admin" || hasStaffPermission(r.role, r.permissions, module, action)) {
     return;
   }
 
@@ -221,18 +219,80 @@ export function slugify(value: string) {
 
 export const ARCHIVED_TAG = "__archived";
 
+export type ProductHighlightInput = {
+  id?: string;
+  imageUrl: string;
+  title?: string | null;
+  description?: string | null;
+  displayOrder?: number;
+  isActive?: boolean;
+};
+
+export type ProductSpecificationInput = {
+  id?: string;
+  label: string;
+  value: string;
+  displayOrder?: number;
+  isActive?: boolean;
+};
+
+export type ProductOfferInput = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  discountType?: "percentage" | "fixed_amount" | "buy_x_get_y" | "flat_price" | "coupon";
+  discountValue?: number;
+  promoCode?: string | null;
+  minimumQuantity?: number;
+  maximumQuantity?: number | null;
+  eligibleProducts?: string[];
+  eligibleCategories?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  isActive?: boolean;
+  displayOrder?: number;
+  termsAndConditions?: string | null;
+};
+
 export type ProductInput = {
   title: string;
   description?: string;
+  detailsHtml?: string | null;
   price: string | number;
+  mrp?: string | number | null;
+  compareAtPrice?: string | number | null;
+  isTaxInclusive?: boolean;
   sizes?: string[];
   colors?: string[];
+  colorVariants?: ProductColorVariant[];
   tags?: string[];
   category?: string;
   stock?: number;
   sizeStock?: Record<string, number>;
   images?: string[];
   isActive?: boolean;
+  highlights?: ProductHighlightInput[];
+  specifications?: ProductSpecificationInput[];
+  offers?: ProductOfferInput[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: {
+    countryOfOrigin?: string;
+    manufacturer?: string;
+    marketedBy?: string;
+    customerCare?: string;
+    country_of_origin?: string;
+    marketed_by?: string;
+    customer_care?: string;
+  };
+  sizeMeasurements?: Array<{
+    size: string;
+    chest: string | number;
+    shoulder: string | number;
+    length: string | number;
+    sleeve: string | number;
+    toFitChest?: string | number;
+  }>;
 };
 
 function cleanList(list?: string[]) {
@@ -248,6 +308,18 @@ export function normalizeProductInput(d: ProductInput) {
   const price = Number(d.price);
   if (!Number.isFinite(price) || price < 0)
     throw new Error("Invalid product data: price must be a number ≥ 0");
+
+  // Validate MRP / compare_at_price
+  let mrp: number | null = null;
+  const rawMrp = d.mrp !== undefined && d.mrp !== null && d.mrp !== "" ? Number(d.mrp) : d.compareAtPrice !== undefined && d.compareAtPrice !== null && d.compareAtPrice !== "" ? Number(d.compareAtPrice) : null;
+  if (rawMrp !== null && Number.isFinite(rawMrp) && rawMrp > 0) {
+    if (price > rawMrp) {
+      throw new Error(`Invalid pricing: Selling price (₹${price}) cannot exceed MRP (₹${rawMrp})`);
+    }
+    mrp = rawMrp;
+  }
+
+  const isTaxInclusive = d.isTaxInclusive !== false;
 
   let sizes = cleanList(d.sizes);
   if (sizes.length === 0) {
@@ -291,18 +363,145 @@ export function normalizeProductInput(d: ProductInput) {
     .map((img) => String(img || "").trim())
     .filter((img) => img.length > 0);
 
+  // Sanitize and validate highlights
+  const rawHighlights = Array.isArray(d.highlights) ? d.highlights : [];
+  const highlights = rawHighlights
+    .filter((h) => h && typeof h === "object" && typeof h.imageUrl === "string" && h.imageUrl.trim().length > 0)
+    .map((h, idx) => ({
+      id: h.id ? String(h.id) : `hl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      imageUrl: String(h.imageUrl).trim(),
+      title: h.title ? String(h.title).trim() : null,
+      description: h.description ? String(h.description).trim() : null,
+      displayOrder: typeof h.displayOrder === "number" && Number.isFinite(h.displayOrder) ? h.displayOrder : idx + 1,
+      isActive: h.isActive !== false,
+    }));
+
+  // Sanitize and validate specifications
+  const rawSpecs = Array.isArray(d.specifications) ? d.specifications : [];
+  const specifications = rawSpecs
+    .filter((s) => s && typeof s === "object" && String(s.label ?? "").trim().length > 0)
+    .map((s, idx) => ({
+      id: s.id ? String(s.id) : `sp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      label: String(s.label).trim(),
+      value: String(s.value ?? "").trim(),
+      displayOrder: typeof s.displayOrder === "number" && Number.isFinite(s.displayOrder) ? s.displayOrder : idx + 1,
+      isActive: s.isActive !== false,
+    }));
+
+  // Sanitize and validate offers
+  const rawOffers = Array.isArray(d.offers) ? d.offers : [];
+  const offers = rawOffers
+    .filter((o) => o && typeof o === "object" && String(o.title ?? "").trim().length > 0)
+    .map((o, idx) => ({
+      id: o.id ? String(o.id) : `po_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      title: String(o.title).trim(),
+      description: o.description ? String(o.description).trim() : null,
+      discountType: o.discountType || "percentage",
+      discountValue: Math.max(0, Number(o.discountValue) || 0),
+      promoCode: o.promoCode ? String(o.promoCode).trim().toUpperCase() : null,
+      minimumQuantity: Math.max(1, Number(o.minimumQuantity) || 1),
+      maximumQuantity: o.maximumQuantity ? Math.max(1, Number(o.maximumQuantity)) : null,
+      eligibleProducts: Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+      eligibleCategories: Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+      startDate: o.startDate ? String(o.startDate) : null,
+      endDate: o.endDate ? String(o.endDate) : null,
+      isActive: o.isActive !== false,
+      displayOrder: typeof o.displayOrder === "number" && Number.isFinite(o.displayOrder) ? o.displayOrder : idx + 1,
+      termsAndConditions: o.termsAndConditions ? String(o.termsAndConditions).trim() : null,
+    }));
+
+  // Sanitize features
+  const features = Array.isArray(d.features)
+    ? d.features.map((f) => String(f).trim()).filter(Boolean)
+    : [];
+
+  // Sanitize care instructions
+  const careInstructions = Array.isArray(d.careInstructions)
+    ? d.careInstructions.map((c) => String(c).trim()).filter(Boolean)
+    : [];
+
+  // Sanitize manufacturing info
+  const mInfo = (d.manufacturingInfo || {}) as any;
+  const countryOrigin = mInfo.country_of_origin || mInfo.countryOfOrigin;
+  const manufacturer = mInfo.manufacturer;
+  const marketedBy = mInfo.marketed_by || mInfo.marketedBy;
+  const customerCare = mInfo.customer_care || mInfo.customerCare;
+  const manufacturingInfo = {
+    country_of_origin: countryOrigin ? String(countryOrigin).trim() : undefined,
+    manufacturer: manufacturer ? String(manufacturer).trim() : undefined,
+    marketed_by: marketedBy ? String(marketedBy).trim() : undefined,
+    customer_care: customerCare ? String(customerCare).trim() : undefined,
+  };
+
+  // Sanitize size measurements
+  const rawMeasurements = Array.isArray(d.sizeMeasurements) ? d.sizeMeasurements : [];
+  const sizeMeasurements = rawMeasurements
+    .filter((m) => m && typeof m === "object" && String(m.size ?? "").trim().length > 0)
+    .map((m) => ({
+      size: String(m.size).trim().toUpperCase(),
+      chest: m.chest !== undefined && m.chest !== null ? String(m.chest).trim() : "",
+      shoulder: m.shoulder !== undefined && m.shoulder !== null ? String(m.shoulder).trim() : "",
+      length: m.length !== undefined && m.length !== null ? String(m.length).trim() : "",
+      sleeve: m.sleeve !== undefined && m.sleeve !== null ? String(m.sleeve).trim() : "",
+      toFitChest: m.toFitChest !== undefined && m.toFitChest !== null ? String(m.toFitChest).trim() : undefined,
+    }));
+
+  // Sanitize color variants
+  const rawColorVariants = Array.isArray(d.colorVariants) ? d.colorVariants : [];
+  const colorVariants: ProductColorVariant[] = rawColorVariants
+    .filter((cv) => cv && typeof cv === "object" && String(cv.name ?? "").trim().length > 0)
+    .map((cv, idx) => {
+      const rawImgs = Array.isArray(cv.images) && cv.images.length > 0
+        ? cv.images
+        : (cv.imageUrl ? [cv.imageUrl] : []);
+      const cvImages: string[] = rawImgs
+        .map((img) => String(img || "").trim())
+        .filter(Boolean);
+      return {
+        id: cv.id ? String(cv.id) : `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: String(cv.name).trim(),
+        hex: cv.hex ? String(cv.hex).trim() : undefined,
+        images: cvImages,
+        imageUrl: cvImages[0] || "",
+      };
+    });
+
+  const variantColorNames = colorVariants.map((cv) => cv.name);
+  const rawColors = cleanList([...(d.colors ?? []), ...variantColorNames]);
+  const colors = rawColors.length > 0 ? rawColors : ["Black"];
+
+  let finalImages = images;
+  if (finalImages.length === 0) {
+    const allCvImages = colorVariants.flatMap((cv) => cv.images || (cv.imageUrl ? [cv.imageUrl] : []));
+    if (allCvImages.length > 0) {
+      finalImages = allCvImages;
+    }
+  }
+
   return {
     name: title,
     description: d.description?.trim() ? d.description.trim() : null,
+    details_html: d.detailsHtml?.trim() ? d.detailsHtml.trim() : null,
     price,
-    images: images.length > 0 ? images : ["/placeholder-tee.jpg"],
+    mrp,
+    compare_at_price: mrp,
+    is_tax_inclusive: isTaxInclusive,
+    images: finalImages.length > 0 ? finalImages : ["/placeholder-tee.jpg"],
     sizes,
-    colors: cleanList(d.colors).length > 0 ? cleanList(d.colors) : ["Black"],
+    colors,
+    color_variants: colorVariants,
     tags: cleanList(d.tags),
     category: d.category?.trim() ? d.category.trim() : "Oversized Tees",
     stock_quantity: totalStock,
     sizeStock,
     is_active: d.isActive !== false,
+    highlights,
+    specifications,
+    offers,
+    features,
+    care_instructions: careInstructions,
+    manufacturing_info: manufacturingInfo,
+    size_measurements: sizeMeasurements,
   };
 }
 
@@ -362,6 +561,8 @@ export async function syncProductVariants(
   colors: string[],
   distributeTotal?: number,
   sizeStock?: Record<string, number>,
+  colorVariants?: ProductColorVariant[],
+  defaultImageUrl?: string | null,
 ) {
   const sql = getSql();
   const s = sizes.length ? sizes : [""];
@@ -388,23 +589,38 @@ export async function syncProductVariants(
     Object.values(sizeStock).some((val) => val > 0),
   );
 
+  const getCvData = (colorName: string) => {
+    const cv = colorVariants?.find(
+      (c) => c.name.toLowerCase() === (colorName || "").toLowerCase().trim(),
+    );
+    const cvImg = cv?.images?.[0] || cv?.imageUrl || null;
+    return {
+      colorHex: cv?.hex || null,
+      imageUrl: cvImg || defaultImageUrl || null,
+    };
+  };
+
   if (hasExplicitSizeStock) {
     // 1. Explicit per-size allocation
     for (const item of desired) {
       const k = key(item);
       const targetQty = Math.max(0, Math.round(Number(sizeStock![item.size]) || 0));
       const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
       if (ex) {
         await sql`
           UPDATE product_variants
-          SET stock_quantity = ${targetQty}, updated_at = NOW()
+          SET stock_quantity = ${targetQty},
+              color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = ${imageUrl},
+              updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty}, ${colorHex}, ${imageUrl});
         `;
       }
     }
@@ -419,29 +635,43 @@ export async function syncProductVariants(
       const k = key(item);
       const targetQty = base + (i < rem ? 1 : 0);
       const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
       if (ex) {
         await sql`
           UPDATE product_variants
-          SET stock_quantity = ${targetQty}, updated_at = NOW()
+          SET stock_quantity = ${targetQty},
+              color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = ${imageUrl},
+              updated_at = NOW()
           WHERE id::text = ${String(ex.id)}
         `;
       } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty});
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, ${targetQty}, ${colorHex}, ${imageUrl});
         `;
       }
     }
   } else {
-    // 3. Make sure any missing variants exist
+    // 3. Make sure any missing variants exist and existing variants have their image and color kept up-to-date
     for (const item of desired) {
       const k = key(item);
-      if (!existingMap.has(k)) {
+      const ex = existingMap.get(k);
+      const { colorHex, imageUrl } = getCvData(item.color);
+      if (ex) {
+        await sql`
+          UPDATE product_variants
+          SET color_hex = COALESCE(${colorHex}, color_hex),
+              image_url = ${imageUrl},
+              updated_at = NOW()
+          WHERE id::text = ${String(ex.id)}
+        `;
+      } else {
         const varId = `var_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
         await sql`
-          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity)
-          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0);
+          INSERT INTO product_variants (id, product_id, size, color, sku, stock_quantity, color_hex, image_url)
+          VALUES (${varId}, ${String(productId)}, ${item.size}, ${item.color}, ${varId}, 0, ${colorHex}, ${imageUrl});
         `;
       }
     }

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { decodeToken, isAdminEmail, hasAdminPanelAccess } from "@/lib/auth";
+import { isStaffRole } from "@/lib/auth.types";
+import { verifyAndDecodeToken } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/api/media/upload")({
   server: {
@@ -32,10 +33,25 @@ export const Route = createFileRoute("/api/media/upload")({
           let isAdmin = false;
           let userEmail = "Admin";
           if (token) {
-            const user = decodeToken(token);
-            if (user && hasAdminPanelAccess(user)) {
-              isAdmin = true;
-              userEmail = user.email;
+            const user = verifyAndDecodeToken(token);
+            if (user) {
+              try {
+                const rows = await sql`
+                  SELECT role, email, status FROM profiles 
+                  WHERE id::text = ${user.id} AND LOWER(email) = LOWER(${user.email}) LIMIT 1
+                `;
+                if (rows && rows.length > 0) {
+                  const r = rows[0];
+                  if (r.status !== "Inactive" && r.status !== "Suspended") {
+                    if (isStaffRole(r.role)) {
+                      isAdmin = true;
+                      userEmail = r.email;
+                    }
+                  }
+                }
+              } catch {
+                // ignore
+              }
             }
           }
 

@@ -18,8 +18,9 @@ import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 const productsQuery = {
   queryKey: ["products", "catalog", 50],
   queryFn: () => fetchProducts(50),
-  staleTime: 1000 * 60 * 5,
-  gcTime: 1000 * 60 * 30,
+  staleTime: 1000 * 5,
+  gcTime: 1000 * 60 * 5,
+  refetchOnWindowFocus: true,
 };
 
 type ShopSearch = {
@@ -198,20 +199,21 @@ function ShopPage() {
       </div>
 
       {products.length > 0 && (
-        <div className="sticky top-16 md:top-20 z-30 mb-8 border-b border-border bg-background/95 py-4 backdrop-blur-xl shadow-xs transition-all">
+        <div className="mb-8 border-b border-border py-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
             {filterLbl}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-[280px]">
               <div className="relative w-full max-w-xs sm:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/65 transition-colors" />
                 <input
                   type="text"
                   value={q}
                   onChange={(e) => handleQueryChange(e.target.value)}
                   placeholder="Search products by keyword…"
-                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-9 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background"
+                  aria-label="Search products by keyword"
+                  className="h-10 w-full rounded-full border border-border bg-card/60 pl-10 pr-8 text-sm outline-none transition-colors focus:border-brand-red focus:bg-background placeholder:text-muted-foreground"
                 />
                 {q && (
                   <button

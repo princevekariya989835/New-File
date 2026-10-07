@@ -1,5 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { decodeToken, isAdminEmail, type AuthUser } from "@/lib/auth";
+import { isStaffRole, type AuthUser } from "@/lib/auth.types";
+import { verifyAndDecodeToken } from "@/lib/auth.server";
 import { getSql } from "@/lib/db";
 
 export type AuthenticatedContext = {
@@ -177,27 +178,15 @@ export const requireAuth = createMiddleware({ type: "function" })
       }
     }
 
-    // Fallback / decode user from token
+    // Server cryptographic verification of token
     let user: AuthUser | null = null;
     if (token) {
-      user = decodeToken(token);
+      user = verifyAndDecodeToken(token);
     }
 
     if (!user) {
       throw new Error("Unauthorized: Please sign in to perform this action.");
     }
-
-    const isStaffRole = (r?: string | null) => {
-      if (!r) return false;
-      const lower = r.toLowerCase();
-      return (
-        lower === "admin" ||
-        lower === "super admin" ||
-        lower === "manager" ||
-        lower === "staff" ||
-        lower === "administrator"
-      );
-    };
 
     let isAdmin = false;
     try {
@@ -209,10 +198,7 @@ export const requireAuth = createMiddleware({ type: "function" })
         const dbRole = rows[0].role;
         const dbStatus = String(rows[0].status || "Active").toLowerCase();
         if (dbStatus !== "inactive" && dbStatus !== "suspended") {
-          if (isAdminEmail(rows[0].email)) {
-            isAdmin = true;
-            user.role = "Super Admin";
-          } else if (isStaffRole(dbRole)) {
+          if (isStaffRole(dbRole)) {
             isAdmin = true;
             user.role = dbRole;
           } else {
@@ -222,15 +208,14 @@ export const requireAuth = createMiddleware({ type: "function" })
           user.status = rows[0].status || "Active";
           user.permissions = rows[0].permissions || {};
         } else {
-          isAdmin = false;
-          user.status = rows[0].status;
+          throw new Error("Unauthorized: Account is inactive or suspended.");
         }
-      } else if (isAdminEmail(user.email)) {
-        isAdmin = true;
-        user.role = "Super Admin";
+      } else {
+        throw new Error("Unauthorized: User account not found.");
       }
-    } catch {
-      isAdmin = isAdminEmail(user.email);
+    } catch (err: any) {
+      if (err?.message?.startsWith("Unauthorized")) throw err;
+      isAdmin = false;
     }
 
     return next({

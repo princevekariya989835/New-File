@@ -9,17 +9,20 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // 1. Primary
         primary:
           "bg-foreground text-background shadow-sm hover:bg-brand hover:text-brand-foreground font-bold uppercase tracking-wider",
         default:
           "bg-foreground text-background shadow-sm hover:bg-brand hover:text-brand-foreground font-bold uppercase tracking-wider",
+        // 2. Secondary (consolidated with outline)
         secondary:
           "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30",
+        outline:
+          "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30",
+        // 3. Ghost / Outline
         ghost:
           "text-muted-foreground hover:text-foreground hover:bg-secondary/70",
         destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        outline:
-          "border border-border bg-background shadow-xs hover:bg-secondary hover:text-foreground",
         link: "text-brand-red underline-offset-4 hover:underline active:scale-100",
       },
       size: {

@@ -69,6 +69,19 @@ export interface WebsiteWhyUsItem {
   description: string;
 }
 
+export interface WebsiteBuy2Get1OfferConfig {
+  enabled?: boolean;
+  title?: string;
+  subtitle?: string;
+  supportingText?: string;
+  appliesTo?: "all" | "categories" | "products";
+  categoryNames?: string[];
+  productIds?: string[];
+  maxFreeItemsPerOrder?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
 export interface WebsitePromoBannerConfig {
   enabled: boolean;
   badge: string;
@@ -238,6 +251,7 @@ export interface WebsiteConfig {
   shopContent?: WebsiteShopContent;
   productContent?: WebsiteProductContent;
   contactContent?: WebsiteContactContent;
+  buy2get1Offer?: WebsiteBuy2Get1OfferConfig;
 }
 
 export interface WebsiteVersion {
@@ -275,7 +289,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMessage: "We are currently updating the store. Please check back shortly.",
     currencySymbol: "₹",
     contactEmail: "support@riotous.store",
-    contactPhone: "+91 98765 43211",
+    contactPhone: "+91 90998 66791",
     freeShippingThreshold: 1499,
   },
   settings: {
@@ -284,7 +298,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     maintenanceMode: false,
     currency: "INR",
     storeEmail: "support@riotous.store",
-    storePhone: "+91 98765 43211",
+    storePhone: "+91 90998 66791",
   },
   seo: {
     metaTitle: "RIOTOUS — We Don't Follow Trends. We Print Them.",
@@ -300,7 +314,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       "Premium DTF printed streetwear made in India. Custom apparel for creators, dreamers, and streetwear lovers.",
     shopTitle: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS",
     shopDescription: "Browse the full RIOTOUS collection. DTF printed tees, oversized fits, and limited drops.",
-    ogImageUrl: "/assets/riotous-hero-graphic-clean.jpg",
+    ogImageUrl: "/assets/hero-model.jpg",
     googleSearchConsoleCode: "",
   },
   announcement: {
@@ -323,8 +337,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     secondaryCtaText: "Design Your Own",
     secondaryCtaLink: "/design",
     mediaType: "image",
-    mediaUrl: "/assets/riotous-hero-graphic-clean.jpg",
-    imageUrl: "/assets/riotous-hero-graphic-clean.jpg",
+    mediaUrl: "/assets/hero-model.jpg",
+    imageUrl: "/assets/hero-model.jpg",
     videoUrl: "",
     alignment: "left",
     animationSettings: {
@@ -353,7 +367,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "DTF Printed Tees",
       tag: "Signature",
       link: "/shop",
-      imageUrl: "/products/zoro-black-1.jpg",
+      imageUrl: "/assets/collections/collection-printed-tees.jpg",
       bgColor: "bg-neutral-900",
       enabled: true,
     },
@@ -362,7 +376,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Custom Printing",
       tag: "Design your own",
       link: "/design",
-      imageUrl: "/assets/hero-model.jpg",
+      imageUrl: "/assets/collections/collection-custom-printing.jpg",
       bgColor: "bg-neutral-900",
       enabled: true,
     },
@@ -371,7 +385,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Oversized",
       tag: "New silhouettes",
       link: "/shop",
-      imageUrl: "/products/zoro-olive-1.jpg",
+      imageUrl: "/assets/collections/collection-oversized.jpg",
       bgColor: "bg-neutral-900",
       enabled: true,
     },
@@ -380,7 +394,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       title: "Best Sellers",
       tag: "Community favorites",
       link: "/shop",
-      imageUrl: "/products/zenitsu-maroon-1.jpg",
+      imageUrl: "/assets/collections/collection-best-sellers.jpg",
       bgColor: "bg-neutral-900",
       enabled: true,
     },
@@ -550,11 +564,21 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     description:
       "Custom prints, wholesale, press, or you just want to nerd out about fabric — reach out.",
     email: "support@riotous.store",
-    phone: "+91 98765 43211",
+    phone: "+91 90998 66791",
     address: "Studio RIOTOUS, Surat, Gujarat, India",
     businessHours: "Mon — Sat · 10:00 — 19:00 IST",
     instagram: "@riotous_store",
     wholesaleText:
       "Looking for custom runs, band merch, or wholesale orders? Let's talk.",
+  },
+  buy2get1Offer: {
+    enabled: true,
+    title: "BUY 2 GET 1 FREE",
+    subtitle: "OVERSIZED PRINTED T-SHIRTS",
+    supportingText: "Add 3 eligible T-shirts to unlock your free item",
+    appliesTo: "all",
+    categoryNames: ["t-shirt", "tees", "oversized", "hoodie", "polo", "apparel"],
+    productIds: [],
+    maxFreeItemsPerOrder: 1,
   },
 };

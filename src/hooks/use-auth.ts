@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import {
-  decodeToken,
+  parseTokenPayload,
+  type AuthSession,
+  type AuthUser,
+} from "@/lib/auth.types";
+import {
   getCurrentUserServerFn,
   loginServerFn,
   registerServerFn,
   sendOtpServerFn,
   verifyAndRegisterServerFn,
   verifyAndResetPasswordServerFn,
-  type AuthSession,
-  type AuthUser,
 } from "@/lib/auth";
 
 type UserWithMeta = (AuthUser & { user_metadata?: { full_name?: string | null } }) | null;
@@ -65,8 +67,8 @@ async function getOrVerifyUser(): Promise<UserWithMeta> {
     return _inFlightUserPromise;
   }
 
-  // Optimistically populate from decoded JWT token so UI isn't blocked
-  const decoded = decodeToken(token);
+  // Optimistically populate from parsed token claims so UI isn't blocked
+  const decoded = parseTokenPayload(token);
   if (decoded && !_moduleUser) {
     _moduleUser = {
       ...decoded,

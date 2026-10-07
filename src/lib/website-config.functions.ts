@@ -49,7 +49,7 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
         ? savedConfig.collections.map((c: any, i: number) => ({
             ...(def.collections[i] || {}),
             ...c,
-            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/products/zoro-black-1.jpg",
+            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/assets/collections/collection-printed-tees.jpg",
           }))
         : def.collections,
     featuredProducts: {
@@ -109,6 +109,16 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
     contactContent: {
       ...def.contactContent!,
       ...(savedConfig.contactContent || {}),
+    },
+    buy2get1Offer: {
+      ...def.buy2get1Offer!,
+      ...(savedConfig.buy2get1Offer || {}),
+      categoryNames: Array.isArray(savedConfig.buy2get1Offer?.categoryNames)
+        ? savedConfig.buy2get1Offer.categoryNames
+        : def.buy2get1Offer?.categoryNames,
+      productIds: Array.isArray(savedConfig.buy2get1Offer?.productIds)
+        ? savedConfig.buy2get1Offer.productIds
+        : def.buy2get1Offer?.productIds,
     },
   };
 }

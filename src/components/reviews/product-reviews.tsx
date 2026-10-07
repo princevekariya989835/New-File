@@ -213,7 +213,7 @@ export function ProductReviews({
               {!user ? (
                 <Link
                   to="/auth"
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-border px-5 text-sm font-medium hover:bg-secondary"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-background px-6 text-sm font-semibold text-foreground hover:bg-secondary transition-all shadow-2xs"
                 >
                   Sign in to write a review
                 </Link>
@@ -229,14 +229,22 @@ export function ProductReviews({
                   {existing.admin_note && (
                     <p className="mt-2 text-xs text-destructive">{existing.admin_note}</p>
                   )}
-                  <Button variant="outline" size="sm" className="mt-3" onClick={startEditing}>
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="mt-3 inline-flex h-9 items-center justify-center rounded-full border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-secondary transition-all cursor-pointer"
+                  >
                     Edit review
-                  </Button>
+                  </button>
                 </div>
               ) : (
-                <Button className="h-11 rounded-full px-5" onClick={startEditing}>
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-brand-red px-6 text-sm font-semibold text-white hover:bg-brand-red/90 transition-all shadow-sm cursor-pointer"
+                >
                   Write a review
-                </Button>
+                </button>
               )}
             </div>
           </div>

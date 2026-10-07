@@ -1,255 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSql } from "@/lib/db";
-import { sendLoginOtp, sendForgotPasswordOtp, sendWelcomeEmail } from "@/lib/email";
+import type { AuthSession, AuthUser, StaffRole, StaffStatus } from "@/lib/auth.types";
 
-function getAuthSecret(): string {
-  return (
-    process.env.AUTH_SECRET ||
-    process.env.RAZORPAY_KEY_SECRET ||
-    "riotous_super_secure_auth_secret_2026_jwt"
-  );
-}
-
-function computeHmac(data: string): string {
-  try {
-    if (typeof process !== "undefined" && process.versions?.node) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const crypto = require("node:crypto");
-      return crypto.createHmac("sha256", getAuthSecret()).update(data).digest("hex");
-    }
-  } catch {
-    // client or edge fallback
-  }
-  return "";
-}
-
-function timingSafeEqualStr(a: string, b: string): boolean {
-  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) {
-    return false;
-  }
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
-// In-memory sliding-window rate limiter for sensitive authentication operations
-type RateLimitRecord = { count: number; resetTime: number };
-const rateLimitMap = new Map<string, RateLimitRecord>();
-
-function checkRateLimit(
-  key: string,
-  maxAttempts: number,
-  windowMs: number,
-): { allowed: boolean; retryAfterSeconds?: number } {
-  const now = Date.now();
-  const record = rateLimitMap.get(key);
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
-    return { allowed: true };
-  }
-  if (record.count >= maxAttempts) {
-    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
-    return { allowed: false, retryAfterSeconds: retryAfter };
-  }
-  record.count++;
-  return { allowed: true };
-}
-
-export type StaffRole = "Super Admin" | "Admin" | "Manager" | "Staff";
-export type StaffStatus = "Active" | "Inactive" | "Suspended";
-
-export type AuthUser = {
-  id: string;
-  email: string;
-  fullName: string | null;
-  role: "admin" | "customer" | StaffRole | string;
-  phone?: string | null;
-  avatar?: string | null;
-  status?: StaffStatus | string;
-  permissions?: Record<string, string[]>;
-  lastLoginAt?: string | null;
-};
-
-export type AuthSession = {
-  token: string;
-  user: AuthUser;
-};
-
-// Cross-runtime SHA-256 password hashing with consistent salt
-export async function hashPassword(password: string): Promise<string> {
-  try {
-    if (typeof process !== "undefined" && process.versions?.node) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const crypto = require("node:crypto");
-      return crypto.createHash("sha256").update(password + "_riotous_salt_2026").digest("hex");
-    }
-  } catch {
-    // Fallback using global Web Crypto API
-  }
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + "_riotous_salt_2026");
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  } catch {
-    return password;
-  }
-}
-
-export function isAdminEmail(email?: string | null): boolean {
-  if (!email) return false;
-  const normalized = email.trim().toLowerCase();
-  return normalized === "princevekariya9898@gmail.com";
-}
-
-export function isStaffRole(r?: string | null): boolean {
-  if (!r) return false;
-  const lower = r.toLowerCase().trim();
-  return (
-    lower === "admin" ||
-    lower === "super admin" ||
-    lower === "super_admin" ||
-    lower === "manager" ||
-    lower === "staff" ||
-    lower === "administrator"
-  );
-}
-
-export function isStaffMember(user?: AuthUser | null): boolean {
-  if (!user) return false;
-  if (isAdminEmail(user.email)) return true;
-  const status = String(user.status || "Active")
-    .toLowerCase()
-    .trim();
-  if (status === "inactive" || status === "suspended") return false;
-  return isStaffRole(user.role);
-}
-
-export function hasAdminPanelAccess(user?: AuthUser | null): boolean {
-  return isStaffMember(user);
-}
-
-function toBase64(str: string): string {
-  try {
-    if (typeof Buffer !== "undefined") {
-      return Buffer.from(str, "utf8").toString("base64");
-    }
-    return btoa(unescape(encodeURIComponent(str)));
-  } catch {
-    return btoa(str);
-  }
-}
-
-function fromBase64(str: string): string {
-  try {
-    if (typeof Buffer !== "undefined") {
-      return Buffer.from(str, "base64").toString("utf8");
-    }
-    return decodeURIComponent(escape(atob(str)));
-  } catch {
-    return atob(str);
-  }
-}
-
-// Generate cryptographically signed token containing user identity and 30-day expiration
-export function signToken(
-  userId: string,
-  email: string,
-  role: string,
-  fullName?: string | null,
-): string {
-  const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-  const effectiveRole = isAdminEmail(email) ? "Super Admin" : role || "customer";
-  const payload = JSON.stringify({
-    id: userId,
-    email: email.toLowerCase().trim(),
-    role: effectiveRole,
-    fullName: fullName || null,
-    exp: expiresAt,
-  });
-  const b64 = toBase64(payload);
-  const signature = computeHmac(b64);
-  return `${b64}.${signature}`;
-}
-
-export function decodeToken(token: string): AuthUser | null {
-  if (!token || typeof token !== "string") return null;
-  try {
-    const trimmed = token.trim();
-    let b64 = trimmed;
-    let isSigned = false;
-
-    // Verify cryptographic signature if present
-    if (trimmed.includes(".")) {
-      const parts = trimmed.split(".");
-      if (parts.length === 2) {
-        const [payloadB64, sig] = parts;
-        // On server side where secrets exist, strictly verify HMAC
-        if (typeof window === "undefined") {
-          const expectedSig = computeHmac(payloadB64);
-          if (expectedSig && timingSafeEqualStr(sig, expectedSig)) {
-            b64 = payloadB64;
-            isSigned = true;
-          } else {
-            // Tampered or invalid signature - reject on server
-            return null;
-          }
-        } else {
-          // On client, extract payload for optimistic UI state
-          b64 = payloadB64;
-          isSigned = true;
-        }
-      }
-    }
-
-    const raw = fromBase64(b64);
-
-    // JSON format
-    if (raw.startsWith("{") && raw.endsWith("}")) {
-      const parsed = JSON.parse(raw);
-      if (!parsed.id || !parsed.email) return null;
-      if (parsed.exp && Date.now() > Number(parsed.exp)) return null;
-
-      // Unsigned tokens cannot claim elevated privileges
-      let role = parsed.role;
-      if (!isSigned) {
-        role = "customer";
-      } else if (isAdminEmail(parsed.email)) {
-        role = "Super Admin";
-      }
-
-      return {
-        id: String(parsed.id),
-        email: String(parsed.email).toLowerCase().trim(),
-        fullName: parsed.fullName ? String(parsed.fullName) : null,
-        role: role || "customer",
-        status: "Active",
-      };
-    }
-
-    // Legacy colon-delimited format (id:email:role:expiresAt)
-    const [id, email, , expiresAtStr] = raw.split(":");
-    if (!id || !email || !expiresAtStr) return null;
-    const expiresAt = Number(expiresAtStr);
-    if (Date.now() > expiresAt) return null;
-
-    // Legacy unsigned format is only ever granted customer role
-    const role = "customer";
-
-    return {
-      id,
-      email: email.toLowerCase().trim(),
-      fullName: null,
-      role,
-      status: "Active",
-    };
-  } catch {
-    return null;
-  }
-}
+export type { AuthUser, AuthSession, StaffRole, StaffStatus };
+export { isStaffRole, hasAdminPanelAccess, parseTokenPayload } from "@/lib/auth.types";
 
 function logAuthDebug(data: {
   route: string;
@@ -282,17 +35,15 @@ export const registerServerFn = createServerFn({ method: "POST" })
     const startTime = performance.now();
     let dbQueries = 0;
     try {
+      const { getSql } = await import("@/lib/db");
+      const { hashPassword, signToken, checkRateLimit } = await import("@/lib/auth.server");
+
       const sql = getSql();
       if (!data.email || !data.password) {
         return { ok: false, error: "Email and password are required." };
       }
       if (data.password.length < 6) {
         return { ok: false, error: "Password must be at least 6 characters." };
-      }
-
-      // Prevent unauthorized public registration of administrative accounts
-      if (isAdminEmail(data.email)) {
-        return { ok: false, error: "Administrative accounts cannot be registered publicly." };
       }
 
       // Rate limit registration attempts: max 5 per 15 minutes per email
@@ -317,7 +68,8 @@ export const registerServerFn = createServerFn({ method: "POST" })
 
       const userId = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const passwordHash = await hashPassword(data.password);
-      const role = isAdminEmail(data.email) ? "Super Admin" : "customer";
+      // Public registrations are strictly created as regular customers
+      const role = "customer";
 
       // Query 2: Insert new user
       dbQueries++;
@@ -368,6 +120,9 @@ export const loginServerFn = createServerFn({ method: "POST" })
     const startTime = performance.now();
     let dbQueries = 0;
     try {
+      const { getSql } = await import("@/lib/db");
+      const { hashPassword, signToken } = await import("@/lib/auth.server");
+
       const sql = getSql();
 
       if (!data.email || !data.password) {
@@ -384,42 +139,6 @@ export const loginServerFn = createServerFn({ method: "POST" })
       `;
 
       if (rows.length === 0) {
-        // Auto-provision Super Admin on initial sign in if database is empty/new
-        if (isAdminEmail(data.email)) {
-          const userId = `usr_admin_${Date.now().toString(36)}`;
-          const passwordHash = await hashPassword(data.password);
-          dbQueries++;
-          try {
-            await sql`
-              INSERT INTO profiles (id, email, password_hash, full_name, role, status)
-              VALUES (${userId}, ${data.email}, ${passwordHash}, 'Super Admin', 'Super Admin', 'Active')
-              ON CONFLICT (email) DO UPDATE SET password_hash = ${passwordHash}, role = 'Super Admin', status = 'Active', updated_at = NOW()
-            `;
-          } catch (insertErr) {
-            console.warn("[Auth] Super admin auto-provisioning note:", insertErr);
-          }
-
-          const user: AuthUser = {
-            id: userId,
-            email: data.email,
-            fullName: "Super Admin",
-            role: "Super Admin",
-            status: "Active",
-            lastLoginAt: new Date().toISOString(),
-          };
-          const token = signToken(user.id, user.email, user.role, user.fullName);
-
-          logAuthDebug({
-            route: "loginServerFn",
-            databaseQueries: dbQueries,
-            externalFetches: 0,
-            sessionChecks: 1,
-            durationMs: performance.now() - startTime,
-          });
-
-          return { ok: true, session: { token, user } };
-        }
-
         logAuthDebug({
           route: "loginServerFn",
           databaseQueries: dbQueries,
@@ -458,22 +177,15 @@ export const loginServerFn = createServerFn({ method: "POST" })
         };
       }
 
-      let role = userRow.role || "customer";
-      // Query 2: Single update for last_login_at (and role sync if super admin)
+      // User role is strictly retrieved from the database record
+      const role = userRow.role || "customer";
+
+      // Query 2: Update last_login_at
       dbQueries++;
-      if (isAdminEmail(userRow.email)) {
-        role = "Super Admin";
-        try {
-          await sql`UPDATE profiles SET role = 'Super Admin', status = 'Active', last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
-        } catch {
-          /* non-fatal */
-        }
-      } else {
-        try {
-          await sql`UPDATE profiles SET last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
-        } catch {
-          /* non-fatal */
-        }
+      try {
+        await sql`UPDATE profiles SET last_login_at = NOW() WHERE LOWER(email) = LOWER(${userRow.email})`;
+      } catch {
+        /* non-fatal */
       }
 
       const user: AuthUser = {
@@ -518,19 +230,23 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => ({ token: String(d.token ?? "") }))
   .handler(async ({ data }): Promise<AuthUser | null> => {
     if (!data.token) return null;
-    const decoded = decodeToken(data.token);
+    const { getSql } = await import("@/lib/db");
+    const { verifyAndDecodeToken } = await import("@/lib/auth.server");
+
+    // Strict cryptographic signature verification using server AUTH_SECRET
+    const decoded = verifyAndDecodeToken(data.token);
     if (!decoded) return null;
 
     const startTime = performance.now();
     let dbQueries = 0;
     try {
       const sql = getSql();
-      // Single query to verify user against database
+      // Verify user directly against profiles database record
       dbQueries++;
       const rows = await sql`
         SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at
         FROM profiles
-        WHERE id::text = ${decoded.id} OR LOWER(email) = LOWER(${decoded.email})
+        WHERE id::text = ${decoded.id} AND LOWER(email) = LOWER(${decoded.email})
         LIMIT 1
       `;
 
@@ -543,16 +259,17 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
       });
 
       if (rows.length === 0) {
-        if (isAdminEmail(decoded.email)) {
-          return { ...decoded, role: "Super Admin", status: "Active" };
-        }
-        return decoded;
+        return null;
       }
+
       const r = rows[0];
-      let role = r.role || "customer";
-      if (isAdminEmail(r.email)) {
-        role = "Super Admin";
+      const status = String(r.status || "Active");
+      if (status === "Inactive" || status === "Suspended") {
+        return null;
       }
+
+      const role = r.role || "customer";
+
       return {
         id: String(r.id),
         email: String(r.email).toLowerCase().trim(),
@@ -560,7 +277,7 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
         role,
         phone: (r.phone as string) || null,
         avatar: (r.avatar as string) || null,
-        status: (r.status as string) || "Active",
+        status,
         permissions: (r.permissions as Record<string, string[]>) || {},
         lastLoginAt: r.last_login_at ? new Date(r.last_login_at).toISOString() : null,
       };
@@ -572,7 +289,7 @@ export const getCurrentUserServerFn = createServerFn({ method: "POST" })
         sessionChecks: 1,
         durationMs: performance.now() - startTime,
       });
-      return decoded;
+      return null;
     }
   });
 
@@ -588,13 +305,13 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
     let dbQueries = 0;
     let externalFetches = 0;
     try {
+      const { getSql } = await import("@/lib/db");
+      const { checkRateLimit } = await import("@/lib/auth.server");
+      const { sendLoginOtp, sendForgotPasswordOtp } = await import("@/lib/email");
+
       const sql = getSql();
       if (!data.email) {
         return { ok: false, error: "Email address is required." };
-      }
-
-      if (data.purpose === "signup" && isAdminEmail(data.email)) {
-        return { ok: false, error: "Administrative accounts cannot be registered." };
       }
 
       // Rate limit OTP requests: max 5 requests per 15 minutes per email
@@ -692,16 +409,16 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
     const startTime = performance.now();
     let dbQueries = 0;
     try {
+      const { getSql } = await import("@/lib/db");
+      const { hashPassword, signToken, checkRateLimit } = await import("@/lib/auth.server");
+      const { sendWelcomeEmail } = await import("@/lib/email");
+
       const sql = getSql();
       if (!data.email || !data.password || !data.otp) {
         return { ok: false, error: "All fields including OTP are required." };
       }
       if (data.password.length < 6) {
         return { ok: false, error: "Password must be at least 6 characters." };
-      }
-
-      if (isAdminEmail(data.email)) {
-        return { ok: false, error: "Administrative accounts cannot be registered publicly." };
       }
 
       // Rate limit OTP verification attempts: max 8 attempts per 15 minutes per email
@@ -756,7 +473,7 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
 
       const userId = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const passwordHash = await hashPassword(data.password);
-      const role = isAdminEmail(data.email) ? "Super Admin" : "customer";
+      const role = "customer";
 
       // Query 3: Insert new profile
       dbQueries++;
@@ -821,6 +538,9 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
     const startTime = performance.now();
     let dbQueries = 0;
     try {
+      const { getSql } = await import("@/lib/db");
+      const { hashPassword, signToken, checkRateLimit } = await import("@/lib/auth.server");
+
       const sql = getSql();
       if (!data.email || !data.otp || !data.newPassword) {
         return { ok: false, error: "Email, OTP and new password are required." };
@@ -893,7 +613,7 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       }
 
       const r = userRows[0];
-      const role = isAdminEmail(r.email) ? "Super Admin" : (r.role as "admin" | "customer") || "customer";
+      const role = (r.role as string) || "customer";
       const user: AuthUser = {
         id: String(r.id),
         email: String(r.email).toLowerCase().trim(),
@@ -924,4 +644,3 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       return { ok: false, error: err?.message || "Password reset failed." };
     }
   });
-

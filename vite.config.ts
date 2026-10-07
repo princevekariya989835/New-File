@@ -69,16 +69,23 @@ export default defineConfig({
     }),
     nitro({
       preset:
-        process.env.NITRO_PRESET || (process.env.CF_PAGES ? "cloudflare-pages" : "node-server"),
+        process.env.NITRO_PRESET || (process.env.CF_PAGES ? "cloudflare-pages" : "cloudflare_module"),
       compressPublicAssets: true,
       routeRules: {
-        "/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-        "/videos/**": { headers: { "cache-control": "public, max-age=86400, stale-while-revalidate=86400" } },
-        "/favicon*": { headers: { "cache-control": "public, max-age=86400" } },
+        "/**": {
+          headers: {
+            "strict-transport-security": "max-age=31536000; includeSubDomains",
+            "x-content-type-options": "nosniff",
+          },
+        },
+        "/assets/**": { headers: { "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } },
+        "/products/**": { headers: { "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } },
+        "/videos/**": { headers: { "cache-control": "public, max-age=86400, stale-while-revalidate=86400", "x-content-type-options": "nosniff" } },
+        "/favicon*": { headers: { "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } },
         "/_server/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
         "/_serverFn/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
-        "/api/media/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
-        "/api/public/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+        "/api/media/**": { headers: { "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } },
+        "/api/public/**": { headers: { "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } },
         "/api/**": { headers: { "cache-control": "no-store, no-cache, must-revalidate, max-age=0" } },
       },
     }),

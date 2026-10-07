@@ -33,6 +33,7 @@ import type { CatalogProduct } from "@/lib/catalog";
 import type { WebsiteConfig, WebsiteSectionType } from "@/lib/website-config.types";
 import { StreetwearHero } from "@/components/ui/streetwear-hero";
 import { ImageStreamHero, type StreamImage } from "@/components/ui/image-stream-hero";
+import { MobileCategoryNavigation } from "@/components/home/mobile-category-navigation";
 
 interface WebsiteHomepageContentProps {
   config: WebsiteConfig;
@@ -187,6 +188,41 @@ function FeaturedProductsSection({
   );
 }
 
+const COLLECTION_CARD_PRESETS = [
+  {
+    key: "printed",
+    eyebrow: "SIGNATURE",
+    title: "Printed Tees",
+    description: "Statement prints. Limited runs.",
+    fallbackImg: "/assets/collections/collection-printed-tees.jpg",
+    objectPosition: "object-top",
+  },
+  {
+    key: "custom",
+    eyebrow: "DESIGN YOUR OWN",
+    title: "Custom Printing",
+    description: "Your design. Our canvas.",
+    fallbackImg: "/assets/collections/collection-custom-printing.jpg",
+    objectPosition: "object-top",
+  },
+  {
+    key: "oversized",
+    eyebrow: "NEW SILHOUETTES",
+    title: "Oversized",
+    description: "Relaxed fit. Everyday style.",
+    fallbackImg: "/assets/collections/collection-oversized.jpg",
+    objectPosition: "object-top",
+  },
+  {
+    key: "bestsellers",
+    eyebrow: "COMMUNITY FAVORITES",
+    title: "Best Sellers",
+    description: "Most loved. Always in rotation.",
+    fallbackImg: "/assets/collections/collection-best-sellers.jpg",
+    objectPosition: "object-top",
+  },
+];
+
 export function WebsiteHomepageContent({
   config,
   products,
@@ -251,75 +287,102 @@ export function WebsiteHomepageContent({
             const enabledCollections = (collections || []).filter((c) => c.enabled !== false);
             if (enabledCollections.length === 0) return null;
 
-            const fallbackImgs = [
-              "/products/zoro-black-1.jpg",
-              "/assets/hero-model.jpg",
-              "/products/zoro-olive-1.jpg",
-              "/products/zenitsu-maroon-1.jpg",
-            ];
-
             return (
               <section
                 key="sec-collections"
-                className="mx-auto w-full max-w-[1400px] px-6 py-16 md:px-10 md:py-24"
+                className="mx-auto w-full max-w-[1400px] px-6 py-12 sm:py-16 md:px-10 md:py-24"
               >
-                {/* Standardized 3-tier section header: label, heading + View All, description (Issue 2, 3) */}
-                <div className="mb-8 md:mb-10">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-                    Collections
-                  </p>
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h2 className="text-3xl font-bold tracking-tight md:text-5xl leading-none">
-                      Shop the drop.
-                    </h2>
+                {/* Section Header matching reference */}
+                <div className="mb-8 md:mb-12">
+                  <div className="flex items-center gap-2.5 mb-2.5 sm:mb-3">
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.25em] text-brand-red">
+                      COLLECTIONS
+                    </span>
+                    <div className="h-px w-10 sm:w-14 bg-border/80" />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                      <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-[3.25rem] leading-[1.08]">
+                        More than just <span className="text-brand-red">Tees.</span>
+                      </h2>
+                      <p className="mt-2 sm:mt-2.5 text-sm sm:text-base text-muted-foreground font-normal">
+                        Iconic designs, everyday fits, made for your story.
+                      </p>
+                    </div>
+
                     <a
                       href="/shop"
-                      className="group inline-flex h-9 min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-background px-4 text-xs sm:text-sm font-semibold text-foreground transition-all hover:bg-secondary hover:border-foreground/30 active:scale-98"
+                      className="group inline-flex h-9 sm:h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-background px-4 sm:px-5 text-xs sm:text-sm font-semibold text-foreground transition-all duration-200 hover:bg-secondary hover:border-foreground/30 active:scale-95 shadow-2xs self-start sm:self-center"
                     >
                       <span>View All</span>
-                      <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      <ArrowUpRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     </a>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Signature silhouettes and limited-run graphic capsules.
-                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+                {/* Mobile View (< md): Compact Horizontal Category Selector matching reference */}
+                <div className="block md:hidden">
+                  <MobileCategoryNavigation collections={enabledCollections} />
+                </div>
+
+                {/* Desktop View (>= md): Existing 4-Column Design UNCHANGED */}
+                <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6">
                   {enabledCollections.map((c, idx) => {
-                    const imgUrl = c.imageUrl || fallbackImgs[idx % fallbackImgs.length];
+                    const preset = COLLECTION_CARD_PRESETS[idx % COLLECTION_CARD_PRESETS.length];
+                    const imgUrl = c.imageUrl || preset.fallbackImg;
+                    const rawTitle = c.title || preset.title;
+                    const displayTitle = rawTitle.replace(/\bDTF\s*/i, "").trim() || preset.title;
+                    const eyebrow = preset.eyebrow;
+                    const description = (c as any).description || preset.description;
+                    const link = c.link || (idx === 1 ? "/design" : "/shop");
+
                     return (
-                      <a
-                        key={c.id}
-                        href={c.link || "/shop"}
-                        className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl bg-neutral-900 p-5 text-white md:p-6 transition-transform hover:scale-[1.01]"
+                      <div
+                        key={c.id || idx}
+                        className="w-auto max-w-none shrink-0"
                       >
-                        {imgUrl && (
-                          <img
-                            src={imgUrl}
-                            alt={c.title}
-                            width={360}
-                            height={480}
-                            loading="lazy"
-                            decoding="async"
-                            className="absolute inset-0 h-full w-full object-cover opacity-75 transition-transform duration-700 group-hover:scale-105"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-                        
-                        {/* Grouped sub-label & title at bottom with small cohesive gap (Issue 7) and sentence/title case (Issue 4) */}
-                        <div className="relative z-10 flex flex-col items-start gap-1">
-                          <span className="text-xs font-semibold tracking-wide text-white/80">
-                            {c.tag}
-                          </span>
-                          <div className="flex w-full items-center justify-between gap-2">
-                            <h3 className="text-base font-semibold tracking-tight md:text-xl">
-                              {c.title}
-                            </h3>
-                            <ArrowUpRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                        <a
+                          href={link}
+                          className="group relative flex aspect-[3/4] w-full flex-col justify-end overflow-hidden rounded-2xl md:rounded-3xl bg-neutral-900 p-5 sm:p-6 text-white border border-border/40 shadow-xs transition-transform duration-300 hover:scale-[1.01]"
+                        >
+                          {imgUrl && (
+                            <img
+                              src={imgUrl}
+                              alt={displayTitle}
+                              width={400}
+                              height={533}
+                              loading="lazy"
+                              decoding="async"
+                              className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 ${preset.objectPosition}`}
+                            />
+                          )}
+
+                          {/* Dark gradient overlay making bottom text readable without dimming entire image */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent pointer-events-none" />
+
+                          {/* Content at bottom: Labels on left, circular arrow button on right */}
+                          <div className="relative z-10 flex w-full items-end justify-between gap-3">
+                            <div className="flex flex-col min-w-0 pr-1">
+                              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 mb-1 line-clamp-1">
+                                {eyebrow}
+                              </span>
+                              <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight line-clamp-1">
+                                {displayTitle}
+                              </h3>
+                              <p className="mt-1 text-xs sm:text-sm text-white/80 font-normal leading-snug line-clamp-2">
+                                {description}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 mb-0.5">
+                              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white transition-all duration-300 group-hover:bg-white group-hover:text-black group-hover:scale-110 shadow-sm">
+                                <ArrowUpRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </a>
+                        </a>
+                      </div>
                     );
                   })}
                 </div>
@@ -368,7 +431,17 @@ export function WebsiteHomepageContent({
                             <IconComp className="h-5 w-5" />
                           </div>
                           <h3 className="text-base font-semibold tracking-tight leading-snug">{f.title}</h3>
-                          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{f.description}</p>
+                          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+                            {f.description}
+                            {f.title.toLowerCase().includes("return") && (
+                              <Link
+                                to="/refund-policy"
+                                className="ml-1.5 inline-flex items-center text-xs font-semibold text-foreground underline hover:text-brand-red transition-colors"
+                              >
+                                Read policy
+                              </Link>
+                            )}
+                          </p>
                         </div>
                       );
                     })}

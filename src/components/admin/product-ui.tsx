@@ -14,22 +14,63 @@ import {
   Trash2,
   Loader2,
   Link as LinkIcon,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
 } from "lucide-react";
+import {
+  KeyHighlightsEditor,
+  ProductSpecificationsEditor,
+  ProductDescriptionEditor,
+  ProductOffersEditor,
+  ProductMeasurementsEditor,
+  ProductFeaturesEditor,
+  ProductCareEditor,
+  ProductManufacturingEditor,
+  type ProductHighlightItem,
+  type ProductSpecificationItem,
+} from "./product-details-editor";
+import type { ProductOfferInput } from "@/lib/admin-utils";
+import type { GarmentMeasurement, ManufacturingInfo, ProductColorVariant } from "@/lib/fallback-products";
+
+export {
+  KeyHighlightsEditor,
+  ProductSpecificationsEditor,
+  ProductDescriptionEditor,
+  ProductOffersEditor,
+  ProductMeasurementsEditor,
+  ProductFeaturesEditor,
+  ProductCareEditor,
+  ProductManufacturingEditor,
+};
+export type { ProductHighlightItem, ProductSpecificationItem, ProductColorVariant };
 
 export const ARCHIVED_TAG = "__archived";
 
 export type ProductFormValues = {
   title: string;
   description: string;
+  detailsHtml?: string;
   price: string;
+  mrp?: string;
+  isTaxInclusive?: boolean;
   category: string;
   images: string[];
   colors: string[];
+  colorVariants?: ProductColorVariant[];
   sizes: string[];
   sizeStock?: Record<string, number>;
   tags: string[];
   stock: string;
   isActive: boolean;
+  highlights?: ProductHighlightItem[];
+  specifications?: ProductSpecificationItem[];
+  offers?: ProductOfferInput[];
+  features?: string[];
+  careInstructions?: string[];
+  manufacturingInfo?: ManufacturingInfo;
+  sizeMeasurements?: GarmentMeasurement[];
 };
 
 export function StatCard({ label, value }: { label: string; value: number }) {
@@ -351,17 +392,783 @@ export function ImageManager({
   );
 }
 
+const COLOR_PRESETS = [
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Red", hex: "#E31B23" },
+  { name: "Maroon", hex: "#7B1113" },
+  { name: "Navy Blue", hex: "#1B2A4A" },
+  { name: "Olive Green", hex: "#556B2F" },
+  { name: "Charcoal", hex: "#2D2D2D" },
+  { name: "Beige", hex: "#D4C5B9" },
+];
+
+function getVariantImages(v: ProductColorVariant): string[] {
+  if (Array.isArray(v.images) && v.images.length > 0) return v.images;
+  if (v.imageUrl) return [v.imageUrl];
+  return [];
+}
+
+export function ProductColorVariantsEditor({
+  colorVariants = [],
+  onChange,
+}: {
+  colorVariants: ProductColorVariant[];
+  onChange: (next: ProductColorVariant[]) => void;
+}) {
+  const [draftName, setDraftName] = useState("");
+  const [draftHex, setDraftHex] = useState("#000000");
+  const [draftImages, setDraftImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+
+  const draftFileInputRef = useRef<HTMLInputElement>(null);
+  const directFileInputRef = useRef<HTMLInputElement>(null);
+  const [directTargetId, setDirectTargetId] = useState<string | null>(null);
+
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTarget, setReplaceTarget] = useState<{ variantId: string; imageIndex: number } | null>(null);
+
+  // Upload multiple files for the draft color variant
+  const handleDraftFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    const newUploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const res = await uploadProductImage(file);
+        if (res) newUploaded.push(res);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to upload photo");
+      }
+    }
+    setUploading(false);
+    if (newUploaded.length > 0) {
+      setDraftImages((prev) => [...prev, ...newUploaded]);
+      toast.success(`${newUploaded.length} photo(s) added to color`);
+    }
+    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
+  };
+
+  const handleAddDraftUrl = () => {
+    const trimmed = urlDraft.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/")) {
+      toast.error("Please enter a valid image URL");
+      return;
+    }
+    setDraftImages((prev) => [...prev, trimmed]);
+    setUrlDraft("");
+    setShowUrlInput(false);
+    toast.success("Image URL added");
+  };
+
+  const handleDraftRemoveImage = (index: number) => {
+    setDraftImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleDraftMakeCover = (index: number) => {
+    setDraftImages((prev) => {
+      const next = [...prev];
+      const [target] = next.splice(index, 1);
+      return [target, ...next];
+    });
+  };
+
+  const handleDraftMove = (fromIndex: number, toIndex: number) => {
+    setDraftImages((prev) => {
+      if (toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [target] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, target);
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    const name = draftName.trim();
+    if (!name) {
+      toast.error("Please enter a color name (e.g. Black, White, Red, Blue)");
+      return;
+    }
+    const hex = draftHex.trim() || "#000000";
+    if (draftImages.length === 0) {
+      toast.error("Please upload at least one image for this color");
+      return;
+    }
+
+    if (editingId) {
+      onChange(
+        colorVariants.map((v) => {
+          if ((v.id || v.name) === editingId) {
+            return {
+              ...v,
+              name,
+              hex,
+              images: draftImages,
+              imageUrl: draftImages[0] || "",
+            };
+          }
+          return v;
+        }),
+      );
+      toast.success(`Updated color "${name}"`);
+      setEditingId(null);
+    } else {
+      const newVariant: ProductColorVariant = {
+        id: `cv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        hex,
+        images: draftImages,
+        imageUrl: draftImages[0] || "",
+      };
+      onChange([...colorVariants, newVariant]);
+      toast.success(`Added color "${name}" with ${draftImages.length} photo(s)`);
+    }
+
+    setDraftName("");
+    setDraftHex("#000000");
+    setDraftImages([]);
+    setShowUrlInput(false);
+    setUrlDraft("");
+  };
+
+  const startEdit = (v: ProductColorVariant) => {
+    setEditingId(v.id || v.name);
+    setDraftName(v.name);
+    setDraftHex(v.hex || "#000000");
+    setDraftImages(getVariantImages(v));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraftName("");
+    setDraftHex("#000000");
+    setDraftImages([]);
+    setShowUrlInput(false);
+    setUrlDraft("");
+  };
+
+  const handleDelete = (idOrName: string) => {
+    onChange(colorVariants.filter((v) => (v.id || v.name) !== idOrName));
+    toast.success("Color variant removed");
+    if (editingId === idOrName) {
+      cancelEdit();
+    }
+  };
+
+  // Direct upload photos for an existing configured variant
+  const handleDirectFiles = async (files: FileList | null) => {
+    if (!files?.length || !directTargetId) return;
+    setUploading(true);
+    const newUploaded: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const res = await uploadProductImage(file);
+        if (res) newUploaded.push(res);
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to upload photo");
+      }
+    }
+    setUploading(false);
+    if (newUploaded.length > 0) {
+      onChange(
+        colorVariants.map((v) => {
+          if ((v.id || v.name) === directTargetId) {
+            const currentImgs = getVariantImages(v);
+            const combined = [...currentImgs, ...newUploaded];
+            return {
+              ...v,
+              images: combined,
+              imageUrl: combined[0] || "",
+            };
+          }
+          return v;
+        }),
+      );
+      toast.success(`Added ${newUploaded.length} photo(s) to color`);
+    }
+    if (directFileInputRef.current) directFileInputRef.current.value = "";
+    setDirectTargetId(null);
+  };
+
+  const triggerDirectUpload = (variantId: string) => {
+    setDirectTargetId(variantId);
+    directFileInputRef.current?.click();
+  };
+
+  const handleRemovePhoto = (variantId: string, imageIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = getVariantImages(v);
+          const filtered = currentImgs.filter((_, idx) => idx !== imageIndex);
+          return {
+            ...v,
+            images: filtered,
+            imageUrl: filtered[0] || "",
+          };
+        }
+        return v;
+      }),
+    );
+    toast.success("Photo removed");
+  };
+
+  const triggerReplacePhoto = (variantId: string, imageIndex: number) => {
+    setReplaceTarget({ variantId, imageIndex });
+    replaceFileInputRef.current?.click();
+  };
+
+  const handleReplaceFile = async (file: File) => {
+    if (!replaceTarget) return;
+    try {
+      setUploading(true);
+      const res = await uploadProductImage(file);
+      if (res) {
+        onChange(
+          colorVariants.map((v) => {
+            if ((v.id || v.name) === replaceTarget.variantId) {
+              const currentImgs = [...getVariantImages(v)];
+              currentImgs[replaceTarget.imageIndex] = res;
+              return {
+                ...v,
+                images: currentImgs,
+                imageUrl: currentImgs[0] || "",
+              };
+            }
+            return v;
+          }),
+        );
+        toast.success("Photo replaced successfully");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to replace photo");
+    } finally {
+      setUploading(false);
+      if (replaceFileInputRef.current) replaceFileInputRef.current.value = "";
+      setReplaceTarget(null);
+    }
+  };
+
+  const handleMakeCoverPhoto = (variantId: string, imageIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = [...getVariantImages(v)];
+          const [target] = currentImgs.splice(imageIndex, 1);
+          const updated = [target, ...currentImgs];
+          return {
+            ...v,
+            images: updated,
+            imageUrl: updated[0] || "",
+          };
+        }
+        return v;
+      }),
+    );
+    toast.success("Cover photo updated");
+  };
+
+  const handleMovePhoto = (variantId: string, fromIndex: number, toIndex: number) => {
+    onChange(
+      colorVariants.map((v) => {
+        if ((v.id || v.name) === variantId) {
+          const currentImgs = [...getVariantImages(v)];
+          if (toIndex < 0 || toIndex >= currentImgs.length) return v;
+          const [target] = currentImgs.splice(fromIndex, 1);
+          currentImgs.splice(toIndex, 0, target);
+          return {
+            ...v,
+            images: currentImgs,
+            imageUrl: currentImgs[0] || "",
+          };
+        }
+        return v;
+      }),
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Hidden file input for direct photo addition to an existing color card */}
+      <input
+        ref={directFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        multiple
+        className="hidden"
+        onChange={(e) => handleDirectFiles(e.target.files)}
+      />
+
+      {/* Hidden file input for replacing an individual photo */}
+      <input
+        ref={replaceFileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleReplaceFile(file);
+        }}
+      />
+
+      {/* 1. Add / Edit Color Variant Builder */}
+      <div className="rounded-2xl border border-border/80 bg-secondary/15 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-4 w-4 rounded-full border border-black/20 shadow-2xs"
+              style={{ backgroundColor: draftHex }}
+            />
+            <h5 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              {editingId ? "Edit Color Variant" : "Add Color Variant"}
+            </h5>
+          </div>
+          {editingId && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={cancelEdit}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              Cancel Edit
+            </Button>
+          )}
+        </div>
+
+        {/* Color Name + Hex Picker */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Color Name</Label>
+            <Input
+              placeholder="e.g. Black, Blue, Red, White"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              className="h-9 text-xs"
+            />
+            {/* Quick preset buttons */}
+            <div className="flex flex-wrap gap-1 pt-1">
+              {COLOR_PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => {
+                    setDraftName(p.name);
+                    setDraftHex(p.hex);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full border border-black/20 shadow-2xs shrink-0"
+                    style={{ backgroundColor: p.hex }}
+                  />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Color Swatch (Hex)</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={draftHex}
+                onChange={(e) => setDraftHex(e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-background p-1"
+                title="Pick swatch color"
+              />
+              <Input
+                placeholder="#000000"
+                value={draftHex}
+                onChange={(e) => setDraftHex(e.target.value)}
+                className="h-9 font-mono text-xs uppercase"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Photos Upload Zone for Draft */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-foreground">
+              Photos for this Color ({draftImages.length})
+            </Label>
+            <button
+              type="button"
+              onClick={() => setShowUrlInput((v) => !v)}
+              className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium"
+            >
+              <LinkIcon className="h-3 w-3" />
+              {showUrlInput ? "Hide URL input" : "Add photo via URL"}
+            </button>
+          </div>
+
+          {showUrlInput && (
+            <div className="flex gap-2 pb-1">
+              <Input
+                placeholder="Paste direct photo link (https://...)"
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddDraftUrl();
+                  }
+                }}
+                className="h-8 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddDraftUrl}
+                className="h-8 shrink-0 text-xs gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add
+              </Button>
+            </div>
+          )}
+
+          {/* Hidden file input for draft */}
+          <input
+            ref={draftFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            multiple
+            className="hidden"
+            onChange={(e) => handleDraftFiles(e.target.files)}
+          />
+
+          {/* Drag & Drop Upload Zone */}
+          <div
+            onClick={() => !uploading && draftFileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              handleDraftFiles(e.dataTransfer.files);
+            }}
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/50 p-5 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/30"
+          >
+            {uploading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Processing uploaded photos…
+              </div>
+            ) : (
+              <>
+                <Upload className="h-6 w-6 text-muted-foreground/80 mb-1" />
+                <span className="text-xs font-semibold text-foreground">
+                  Upload photos for {draftName.trim() || "this color"}
+                </span>
+                <span className="text-[11px] text-muted-foreground mt-0.5">
+                  Select multiple photos (Front, Back, Side, Model, Close-up) — PNG, JPG, or WebP
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Draft Image Previews */}
+          {draftImages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pt-2">
+              {draftImages.map((imgUrl, i) => (
+                <div
+                  key={`${imgUrl.slice(0, 30)}-${i}`}
+                  className="group relative aspect-square rounded-xl border bg-secondary/30 overflow-hidden shadow-xs"
+                >
+                  <img
+                    src={imgUrl}
+                    alt={`Color photo ${i + 1}`}
+                    className="h-full w-full object-contain p-1"
+                  />
+
+                  {i === 0 ? (
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-brand-red px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                      Cover
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      title="Make cover photo"
+                      className="absolute left-1.5 top-1.5 rounded-full bg-background/90 p-1 text-muted-foreground opacity-90 transition-opacity hover:opacity-100 hover:text-amber-500 shadow-xs cursor-pointer"
+                      onClick={() => handleDraftMakeCover(i)}
+                    >
+                      <Star className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    title="Remove photo"
+                    className="absolute right-1.5 top-1.5 rounded-full bg-background/90 p-1 text-destructive opacity-90 transition-opacity hover:opacity-100 hover:bg-destructive/10 shadow-xs cursor-pointer"
+                    onClick={() => handleDraftRemoveImage(i)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+
+                  {draftImages.length > 1 && (
+                    <div className="absolute inset-x-1 bottom-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        title="Move left"
+                        onClick={() => handleDraftMove(i, i - 1)}
+                        className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === draftImages.length - 1}
+                        title="Move right"
+                        onClick={() => handleDraftMove(i, i + 1)}
+                        className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add/Update Button */}
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={uploading}
+            className="gap-1.5 font-medium text-xs bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
+          >
+            {editingId ? (
+              <>Update Color Variant</>
+            ) : (
+              <>
+                <Plus className="h-3.5 w-3.5" /> Add Color Variant
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. List of Configured Color Variants */}
+      <div className="space-y-3">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+          <span>Configured Color Variants ({colorVariants.length})</span>
+          <span className="text-[11px] normal-case text-muted-foreground font-normal">
+            Each color has its own complete photo gallery
+          </span>
+        </Label>
+
+        {colorVariants.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/80 bg-secondary/10 p-6 text-center text-xs text-muted-foreground">
+            No color variants added yet. Add colors above with their dedicated uploaded photos.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {colorVariants.map((v) => {
+              const itemKey = v.id || v.name;
+              const vImages = getVariantImages(v);
+              const isBeingEdited = editingId === itemKey;
+
+              return (
+                <div
+                  key={itemKey}
+                  className={`rounded-2xl border transition-all shadow-xs ${
+                    isBeingEdited
+                      ? "border-primary/80 bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border/80 bg-card/80 hover:border-border"
+                  } p-4 md:p-5 space-y-3.5`}
+                >
+                  {/* Top Bar of Color Variant Card */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-8 w-8 rounded-full border border-black/20 shadow-xs shrink-0"
+                        style={{ backgroundColor: v.hex || "#333333" }}
+                        title={v.hex || v.name}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-base text-foreground tracking-wide">
+                            {v.name}
+                          </span>
+                          {v.hex && (
+                            <span className="text-[11px] font-mono uppercase rounded-md bg-secondary px-2 py-0.5 text-muted-foreground">
+                              {v.hex}
+                            </span>
+                          )}
+                          <span className="text-xs rounded-full bg-secondary/80 px-2.5 py-0.5 font-medium text-foreground">
+                            {vImages.length} {vImages.length === 1 ? "photo" : "photos"}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Dedicated photos displayed when {v.name} is selected on storefront
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEdit(v)}
+                        className="h-8 px-2.5 text-xs gap-1.5 cursor-pointer hover:bg-secondary"
+                        title="Edit name, hex or photos in builder"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit Color
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(itemKey)}
+                        className="h-8 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                        title="Delete this color variant"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Photo Gallery for this Color Variant */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {v.name} Photos ({vImages.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => triggerDirectUpload(itemKey)}
+                        disabled={uploading}
+                        className="text-xs text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add more photos
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 pt-1">
+                      {vImages.map((imgUrl, imgIdx) => (
+                        <div
+                          key={`${imgUrl.slice(0, 30)}-${imgIdx}`}
+                          className="group relative aspect-square rounded-xl border bg-secondary/30 overflow-hidden shadow-xs"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`${v.name} photo ${imgIdx + 1}`}
+                            className="h-full w-full object-contain p-1"
+                          />
+
+                          {imgIdx === 0 ? (
+                            <span className="absolute left-1.5 top-1.5 rounded-full bg-brand-red px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+                              Cover
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Make cover photo for this color"
+                              className="absolute left-1.5 top-1.5 rounded-full bg-background/90 p-1 text-muted-foreground opacity-90 transition-opacity hover:opacity-100 hover:text-amber-500 shadow-xs cursor-pointer"
+                              onClick={() => handleMakeCoverPhoto(itemKey, imgIdx)}
+                            >
+                              <Star className="h-3 w-3" />
+                            </button>
+                          )}
+
+                          <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              title="Replace photo"
+                              className="rounded-full bg-background/90 p-1 text-foreground hover:bg-background shadow-xs cursor-pointer"
+                              onClick={() => triggerReplacePhoto(itemKey, imgIdx)}
+                            >
+                              <Upload className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Remove photo"
+                              className="rounded-full bg-background/90 p-1 text-destructive hover:bg-destructive/10 shadow-xs cursor-pointer"
+                              onClick={() => handleRemovePhoto(itemKey, imgIdx)}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+
+                          {/* Reorder arrows on hover */}
+                          {vImages.length > 1 && (
+                            <div className="absolute inset-x-1 bottom-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                              <button
+                                type="button"
+                                disabled={imgIdx === 0}
+                                title="Move left"
+                                onClick={() => handleMovePhoto(itemKey, imgIdx, imgIdx - 1)}
+                                className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                              >
+                                <ChevronLeft className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={imgIdx === vImages.length - 1}
+                                title="Move right"
+                                onClick={() => handleMovePhoto(itemKey, imgIdx, imgIdx + 1)}
+                                className="rounded-md bg-background/90 p-1 text-foreground hover:bg-background disabled:opacity-30 shadow-xs cursor-pointer"
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Direct "+ Add Photo" card button */}
+                      <div
+                        onClick={() => !uploading && triggerDirectUpload(itemKey)}
+                        className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border/80 bg-secondary/15 p-2 text-center transition-colors hover:border-foreground/40 hover:bg-secondary/35"
+                        title={`Upload more photos for ${v.name}`}
+                      >
+                        <Plus className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-[11px] font-medium text-muted-foreground">Add Photo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const EMPTY_FORM: ProductFormValues = {
   title: "",
   description: "",
+  detailsHtml: "",
   price: "",
+  mrp: "",
+  isTaxInclusive: true,
   category: "Oversized Tees",
   images: [],
   colors: ["Black"],
+  colorVariants: [],
   sizes: ["S", "M", "L", "XL", "XXL"],
   tags: ["Featured"],
   stock: "25",
   isActive: true,
+  highlights: [],
+  specifications: [],
+  offers: [],
+  features: [],
+  careInstructions: [],
+  manufacturingInfo: { country_of_origin: "India", manufacturer: "", marketed_by: "", customer_care: "" },
+  sizeMeasurements: [],
 };
 
 export function ProductForm({
@@ -377,7 +1184,25 @@ export function ProductForm({
   onSubmit: (values: ProductFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState<ProductFormValues>(initial ?? EMPTY_FORM);
+  const [values, setValues] = useState<ProductFormValues>(() => ({
+    ...(initial ?? EMPTY_FORM),
+    colorVariants: initial?.colorVariants ?? [],
+    mrp: initial?.mrp ?? "",
+    isTaxInclusive: initial?.isTaxInclusive !== false,
+    highlights: initial?.highlights ?? [],
+    specifications: initial?.specifications ?? [],
+    offers: initial?.offers ?? [],
+    features: initial?.features ?? [],
+    careInstructions: initial?.careInstructions ?? [],
+    manufacturingInfo: initial?.manufacturingInfo ?? {
+      country_of_origin: "India",
+      manufacturer: "",
+      marketed_by: "",
+      customer_care: "",
+    },
+    sizeMeasurements: initial?.sizeMeasurements ?? [],
+    detailsHtml: initial?.detailsHtml ?? "",
+  }));
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
     if (initial?.sizeStock) return initial.sizeStock;
     const initialSizes = initial?.sizes || ["S", "M", "L", "XL", "XXL"];
@@ -430,9 +1255,17 @@ export function ProductForm({
     setSizeStock(next);
   };
 
+  // Pricing calculations
+  const sellingPriceNum = Number(values.price) || 0;
+  const mrpNum = values.mrp ? Number(values.mrp) : 0;
+  const hasMrp = mrpNum > 0;
+  const isPriceHigherThanMrp = hasMrp && sellingPriceNum > mrpNum;
+  const discountAmt = hasMrp && sellingPriceNum <= mrpNum ? mrpNum - sellingPriceNum : 0;
+  const discountPct = hasMrp && mrpNum > 0 ? Math.round((discountAmt / mrpNum) * 100) : 0;
+
   return (
     <form
-      className="space-y-4 rounded-lg border bg-card p-4 shadow-xs"
+      className="space-y-6 rounded-2xl border border-border/80 bg-card p-5 md:p-6 shadow-sm animate-in fade-in-50 duration-200"
       onSubmit={async (e) => {
         e.preventDefault();
         if (!values.title.trim()) {
@@ -444,6 +1277,17 @@ export function ProductForm({
           toast.error("Price is required and must be a number ≥ 0");
           return;
         }
+        if (values.mrp && values.mrp.trim()) {
+          const mrp = Number(values.mrp);
+          if (!Number.isFinite(mrp) || mrp < 0) {
+            toast.error("MRP must be a valid positive number");
+            return;
+          }
+          if (price > mrp) {
+            toast.error(`Selling price (₹${price}) cannot exceed MRP (₹${mrp})`);
+            return;
+          }
+        }
         const stock = Number(values.stock);
         if (!Number.isFinite(stock) || stock < 0) {
           toast.error("Stock must be a number ≥ 0");
@@ -454,6 +1298,17 @@ export function ProductForm({
           await onSubmit({
             ...values,
             title: values.title.trim(),
+            description: values.description.trim(),
+            detailsHtml: values.detailsHtml?.trim() || "",
+            mrp: values.mrp ? values.mrp.trim() : undefined,
+            isTaxInclusive: values.isTaxInclusive !== false,
+            highlights: values.highlights ?? [],
+            specifications: values.specifications ?? [],
+            offers: values.offers ?? [],
+            features: values.features ?? [],
+            careInstructions: values.careInstructions ?? [],
+            manufacturingInfo: values.manufacturingInfo,
+            sizeMeasurements: values.sizeMeasurements ?? [],
             sizeStock,
           });
         } catch (err) {
@@ -463,57 +1318,250 @@ export function ProductForm({
         }
       }}
     >
-      <h3 className="font-semibold text-lg">{heading}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
         <div>
-          <Label>Product name *</Label>
-          <Input value={values.title} onChange={(e) => set("title", e.target.value)} required />
+          <h3 className="font-bold text-xl tracking-tight">{heading}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure product catalog data, media, pricing, offers, technical specifications, and size measurements.
+          </p>
         </div>
-        <div>
-          <Label>Price (INR) *</Label>
-          <Input
-            type="number"
-            min={0}
-            step="1"
-            value={values.price}
-            onChange={(e) => set("price", e.target.value)}
-            required
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" disabled={busy} className="bg-foreground text-background hover:bg-foreground/90 font-medium">
+            {busy ? "Saving…" : submitLabel}
+          </Button>
+        </div>
+      </div>
+
+      {/* 1. BASIC PRODUCT INFORMATION */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            1
+          </span>
+          Basic Product Information
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs font-semibold">Product Name *</Label>
+            <Input
+              value={values.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="e.g. Oversized Graphic Streetwear Tee"
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Category</Label>
+            <Input
+              value={values.category}
+              onChange={(e) => set("category", e.target.value)}
+              placeholder="e.g. Oversized Tees, Hoodies, Graphic Tees"
+              className="mt-1"
+            />
+          </div>
+          <div className="flex items-center pt-2 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
+              <input
+                type="checkbox"
+                checked={values.isActive}
+                onChange={(e) => set("isActive", e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-foreground"
+              />
+              <span>Active (visible on storefront)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. PRICING & MRP SYSTEM */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            2
+          </span>
+          Pricing & MRP System
+        </h4>
+
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div>
+            <Label className="text-xs font-semibold">Selling / Offer Price (INR) *</Label>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={values.price}
+              onChange={(e) => set("price", e.target.value)}
+              placeholder="e.g. 1199"
+              className="mt-1"
+              required
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Final selling price charged to customer
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Original MRP (INR)</Label>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={values.mrp ?? ""}
+              onChange={(e) => set("mrp", e.target.value)}
+              placeholder="e.g. 1999"
+              className={`mt-1 ${isPriceHigherThanMrp ? "border-destructive ring-1 ring-destructive" : ""}`}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Struck-through price on product page
+            </p>
+          </div>
+
+          {/* Auto-calculated Discount Card */}
+          <div className="rounded-xl border border-border/80 bg-secondary/30 p-3.5 flex flex-col justify-center">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Auto-Calculated Discount
+            </span>
+            {isPriceHigherThanMrp ? (
+              <span className="text-xs font-bold text-destructive mt-1">
+                ⚠️ Selling Price exceeds MRP!
+              </span>
+            ) : hasMrp && discountAmt > 0 ? (
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-base font-extrabold text-emerald-500">
+                  {discountPct}% OFF
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  (Save ₹{discountAmt})
+                </span>
+              </div>
+            ) : hasMrp && discountAmt === 0 ? (
+              <span className="text-xs font-medium text-muted-foreground mt-1">
+                Selling price equals MRP (0% discount)
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground mt-1">
+                Enter MRP to auto-calculate discount
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/50">
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none font-medium">
+            <input
+              type="checkbox"
+              checked={values.isTaxInclusive !== false}
+              onChange={(e) => set("isTaxInclusive", e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-foreground"
+            />
+            <span>Inclusive of all Taxes (displays "Inclusive of all Taxes" on product page)</span>
+          </label>
+        </div>
+      </div>
+
+      {/* 3. OFFERS */}
+      <ProductOffersEditor
+        offers={values.offers ?? []}
+        onChange={(next) => set("offers", next)}
+      />
+
+      {/* 4. PRODUCT IMAGES */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            4
+          </span>
+          Product Photos & Media
+        </h4>
+        <ImageManager images={values.images} onChange={(v) => set("images", v)} />
+      </div>
+
+      {/* 5. PRODUCT COLORS / COLOR VARIANTS */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+              5
+            </span>
+            Product Colors / Color Variants
+          </h4>
+          <span className="text-xs text-muted-foreground">
+            Each color has its own actual uploaded image for storefront swatches.
+          </span>
+        </div>
+        <ProductColorVariantsEditor
+          colorVariants={values.colorVariants ?? []}
+          onChange={(nextCv) => {
+            set("colorVariants", nextCv);
+            const cvNames = nextCv.map((c) => c.name.trim()).filter(Boolean);
+            if (cvNames.length > 0) {
+              set("colors", Array.from(new Set([...values.colors, ...cvNames])));
+            }
+          }}
+        />
+      </div>
+
+      {/* 6. VARIANTS / SIZES */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            6
+          </span>
+          Variants & Options
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <ChipInput
+              label="Available sizes"
+              values={values.sizes}
+              onChange={handleSizesChange}
+              placeholder="S, M, L, XL, XXL…"
+              suggestions={["S", "M", "L", "XL", "XXL"]}
+            />
+          </div>
+
+          <ChipInput
+            label="Colors"
+            values={values.colors}
+            onChange={(v) => set("colors", v)}
+            placeholder="Black, Maroon…"
+            suggestions={["Black", "White", "Maroon", "Olive Green"]}
+          />
+          <ChipInput
+            label="Tags & Search Keywords"
+            values={values.tags}
+            onChange={(v) => set("tags", v)}
+            placeholder="anime, streetwear, dtf, bestseller…"
           />
         </div>
-        <div className="sm:col-span-2">
-          <Label>Description</Label>
-          <Textarea
-            value={values.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label>Category</Label>
-          <Input value={values.category} onChange={(e) => set("category", e.target.value)} />
-        </div>
-        <div>
-          <Label>Total stock quantity</Label>
+      </div>
+
+      {/* 6. INVENTORY */}
+      <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
+            6
+          </span>
+          Inventory & Stock Allocation
+        </h4>
+        <div className="max-w-xs">
+          <Label className="text-xs font-semibold">Total Stock Quantity</Label>
           <Input
             type="number"
             min={0}
             value={values.stock}
             onChange={(e) => handleTotalStockChange(e.target.value)}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <ChipInput
-            label="Available sizes"
-            values={values.sizes}
-            onChange={handleSizesChange}
-            placeholder="S, M, L, XL, XXL…"
-            suggestions={["S", "M", "L", "XL", "XXL"]}
+            className="mt-1"
           />
         </div>
 
         {/* Per-size stock breakdown */}
         {values.sizes.length > 0 && (
-          <div className="sm:col-span-2 rounded-lg border bg-muted/20 p-3 space-y-2">
+          <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
             <Label className="text-xs font-semibold uppercase text-muted-foreground">
               Stock Breakdown per Size (Total: {values.stock})
             </Label>
@@ -533,40 +1581,63 @@ export function ProductForm({
             </div>
           </div>
         )}
-
-        <ChipInput
-          label="Colors"
-          values={values.colors}
-          onChange={(v) => set("colors", v)}
-          placeholder="Black, Maroon…"
-          suggestions={["Black", "White", "Maroon", "Olive Green"]}
-        />
-        <ChipInput
-          label="Tags"
-          values={values.tags}
-          onChange={(v) => set("tags", v)}
-          placeholder="anime, dtf…"
-        />
-        <div className="flex items-end">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={values.isActive}
-              onChange={(e) => set("isActive", e.target.checked)}
-            />
-            Active (visible on the storefront)
-          </label>
-        </div>
-        <div className="sm:col-span-2">
-          <ImageManager images={values.images} onChange={(v) => set("images", v)} />
-        </div>
       </div>
-      <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : submitLabel}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
+
+      {/* 7. SIZE MEASUREMENTS */}
+      <ProductMeasurementsEditor
+        measurements={values.sizeMeasurements ?? []}
+        onChange={(next) => set("sizeMeasurements", next)}
+      />
+
+      {/* 8. KEY HIGHLIGHTS */}
+      <KeyHighlightsEditor
+        highlights={values.highlights ?? []}
+        onChange={(next) => set("highlights", next)}
+      />
+
+      {/* 9. PRODUCT SPECIFICATIONS */}
+      <ProductSpecificationsEditor
+        specifications={values.specifications ?? []}
+        onChange={(next) => set("specifications", next)}
+      />
+
+      {/* 10. PRODUCT DESCRIPTION */}
+      <ProductDescriptionEditor
+        description={values.description}
+        detailsHtml={values.detailsHtml}
+        onChangeDescription={(next) => set("description", next)}
+        onChangeDetailsHtml={(next) => set("detailsHtml", next)}
+      />
+
+      {/* 11. KEY FEATURES */}
+      <ProductFeaturesEditor
+        features={values.features ?? []}
+        onChange={(next) => set("features", next)}
+      />
+
+      {/* 12. CARE INSTRUCTIONS */}
+      <ProductCareEditor
+        careInstructions={values.careInstructions ?? []}
+        onChange={(next) => set("careInstructions", next)}
+      />
+
+      {/* 13. MANUFACTURING INFORMATION */}
+      <ProductManufacturingEditor
+        manufacturingInfo={values.manufacturingInfo}
+        onChange={(next) => set("manufacturingInfo", next)}
+      />
+
+      {/* 14. BOTTOM ACTIONS */}
+      <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
           Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={busy}
+          className="bg-foreground text-background hover:bg-foreground/90 px-6 font-semibold"
+        >
+          {busy ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>

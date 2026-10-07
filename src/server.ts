@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { setCloudflareEnv } from "./lib/db";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -70,14 +71,19 @@ function applySecurityHeaders(response: Response, request: Request): Response {
     );
   }
 
-  // Strict-Transport-Security on HTTPS
+  // Strict-Transport-Security (1 year, includeSubDomains) on HTTPS/production
   try {
-    const url = new URL(request.url);
-    if (url.protocol === "https:" && !headers.has("strict-transport-security")) {
+    const isLocalHttp = request.url.includes("localhost:") || request.url.includes("127.0.0.1:");
+    if (!isLocalHttp && !headers.has("strict-transport-security")) {
       headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
   } catch {
     // ignore
+  }
+
+  // Last-Modified header for appropriate public GET pages
+  if (request.method === "GET" && response.status === 200 && !headers.has("last-modified")) {
+    headers.set("Last-Modified", new Date().toUTCString());
   }
 
   // Content-Security-Policy for HTML responses
@@ -110,6 +116,7 @@ function applySecurityHeaders(response: Response, request: Request): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      setCloudflareEnv(env);
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);

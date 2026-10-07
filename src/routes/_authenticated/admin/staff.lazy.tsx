@@ -554,7 +554,7 @@ function AdminStaffPage() {
                         <div>
                           <div className="font-semibold text-foreground flex items-center gap-1.5">
                             {staff.name}
-                            {staff.email === "princevekariya9898@gmail.com" && (
+                            {staff.role === "Super Admin" && (
                               <span
                                 title="Primary Store Owner"
                                 className="text-[10px] bg-purple-500/20 text-purple-400 px-1 rounded"
@@ -635,7 +635,7 @@ function AdminStaffPage() {
                                 })
                               }
                               className="cursor-pointer text-amber-500 focus:text-amber-500"
-                              disabled={staff.email === "princevekariya9898@gmail.com"}
+                              disabled={staff.role === "Super Admin"}
                             >
                               <UserX className="mr-2 h-4 w-4" /> Deactivate Account
                             </DropdownMenuItem>
@@ -658,7 +658,7 @@ function AdminStaffPage() {
                             }
                             className="cursor-pointer text-destructive focus:text-destructive"
                             disabled={
-                              staff.email === "princevekariya9898@gmail.com" ||
+                              staff.role === "Super Admin" ||
                               staff.status === "Suspended"
                             }
                           >
