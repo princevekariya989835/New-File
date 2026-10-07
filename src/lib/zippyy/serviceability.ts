@@ -39,48 +39,83 @@ export async function checkCourierServiceabilityAndQuote(
   // If live Zippyy credentials exist, call API
   if (isZippyyConfigured()) {
     try {
-      const response = await zippyyRequest<any>("/v1/external/courier/serviceability", {
+      // 1. Check Carrier Serviceability via official GET endpoint
+      const serviceabilityList = await zippyyRequest<any>(
+        `/v1/external/carrier/serviceability?origin_pin=${encodeURIComponent(pickupPincode)}&destination_pin=${encodeURIComponent(deliveryPincode)}`,
+        { method: "GET" }
+      ).catch(() => null);
+
+      // 2. Fetch live Rates via official POST endpoint
+      const quoteRes = await zippyyRequest<any>("/v1/external/shipments/rates", {
         method: "POST",
         body: JSON.stringify({
-          pickup_pincode: pickupPincode,
-          delivery_pincode: deliveryPincode,
-          weight: Math.max((req.weightGrams || 500) / 1000, 0.5), // in kg
-          is_cod: Boolean(req.isCod),
-          order_value: req.orderValue || 500,
+          height: req.heightCm || 5,
           length: req.lengthCm || 15,
           breadth: req.breadthCm || 10,
-          height: req.heightCm || 5,
+          weight: String(Math.max((req.weightGrams || 500) / 1000, 0.5)),
+          delivery_type: "FORWARD",
+          order_type: req.isCod ? "COD" : "PREPAID",
+          pickup_pincode: pickupPincode,
+          drop_pincode: deliveryPincode,
+          invoice_value: String(req.orderValue || 500),
         }),
-      });
+      }).catch(() => null);
 
-      const rawCouriers = response.couriers || response.data || [];
-      const couriers: ZippyyCourierServiceability[] = rawCouriers.map((c: any) => ({
-        courierId: String(c.courier_id || c.id || "c_delhivery"),
-        courierName: c.courier_name || c.name || "Delhivery",
-        mode: c.mode === "Air" ? "Air" : c.mode === "Express" ? "Express" : "Surface",
-        isServiceable: Boolean(c.serviceable ?? true),
-        estimatedDeliveryDays: Number(c.etd_days || c.transit_days || 3),
-        estimatedDeliveryDate: c.etd_date || calculateEstimatedDeliveryDate(Number(c.etd_days || 3)),
-        rate: Number(c.rate || c.freight_charge || 70),
-        codAvailable: Boolean(c.cod_available ?? true),
-        minWeightKg: Number(c.min_weight || 0.5),
-        maxWeightKg: Number(c.max_weight || 20),
-      }));
+      const rawRates = quoteRes?.rates || quoteRes?.data || [];
+      const rawCarriers = Array.isArray(serviceabilityList) ? serviceabilityList : [];
 
-      const serviceableCouriers = couriers.filter((c) => c.isServiceable);
-      if (serviceableCouriers.length > 0) {
-        const sortedByRate = [...serviceableCouriers].sort((a, b) => a.rate - b.rate);
-        const sortedByDays = [...serviceableCouriers].sort((a, b) => a.estimatedDeliveryDays - b.estimatedDeliveryDays);
+      if (rawRates.length > 0) {
+        const couriers: ZippyyCourierServiceability[] = rawRates.map((r: any) => ({
+          courierId: String(r.id || r.carrier_account_id || "c_delhivery"),
+          courierName: r.carrier || r.carrierService || "Delhivery",
+          mode: r.service === "Air" ? "Air" : r.service === "Express" ? "Express" : "Surface",
+          isServiceable: true,
+          estimatedDeliveryDays: Number(r.est_delivery_days || r.delivery_days || 3),
+          estimatedDeliveryDate: calculateEstimatedDeliveryDate(Number(r.est_delivery_days || 3)),
+          rate: Number(r.rate || r.forwardFreightCharges || 70),
+          codAvailable: Boolean(req.isCod ? true : true),
+          minWeightKg: Number(r.min_chargeable_weight || 0.5),
+          maxWeightKg: 20,
+        }));
+
+        const sortedByRate = [...couriers].sort((a, b) => a.rate - b.rate);
+        const sortedByDays = [...couriers].sort((a, b) => a.estimatedDeliveryDays - b.estimatedDeliveryDays);
 
         return {
           isServiceable: true,
           pickupPincode,
           deliveryPincode,
-          availableCouriers: serviceableCouriers,
+          availableCouriers: couriers,
           cheapestRate: sortedByRate[0].rate,
           fastestDays: sortedByDays[0].estimatedDeliveryDays,
           recommendedCourier: sortedByRate[0],
         };
+      } else if (rawCarriers.length > 0) {
+        const couriers: ZippyyCourierServiceability[] = rawCarriers.map((c: any) => ({
+          courierId: String(c.carrier || "c_delhivery"),
+          courierName: c.carrier || "Delhivery",
+          mode: "Surface",
+          isServiceable: Boolean(req.isCod ? c.codActive : c.prepaidActive),
+          estimatedDeliveryDays: 3,
+          estimatedDeliveryDate: calculateEstimatedDeliveryDate(3),
+          rate: 70,
+          codAvailable: Boolean(c.codActive),
+          minWeightKg: 0.5,
+          maxWeightKg: 20,
+        }));
+
+        const serviceable = couriers.filter((c) => c.isServiceable);
+        if (serviceable.length > 0) {
+          return {
+            isServiceable: true,
+            pickupPincode,
+            deliveryPincode,
+            availableCouriers: serviceable,
+            cheapestRate: 70,
+            fastestDays: 3,
+            recommendedCourier: serviceable[0],
+          };
+        }
       }
     } catch (err) {
       console.warn("[Zippyy Serviceability] API call failed or in sandbox, using fallback dynamic calculator:", err);

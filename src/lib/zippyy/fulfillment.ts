@@ -20,70 +20,82 @@ export async function createForwardShipmentV2(
   if (isZippyyConfigured()) {
     try {
       const payload = {
-        order_id: req.orderId,
-        order_number: req.orderNumber || req.orderId,
-        order_date: req.orderDate || new Date().toISOString(),
-        pickup_warehouse_id: warehouseId,
-        payment_type: req.paymentType,
-        order_value: req.orderValue,
-        collectable_amount: req.paymentType === "COD" ? req.collectableAmount || req.orderValue : 0,
-        customer_name: req.customerName,
-        customer_email: req.customerEmail,
-        customer_phone: req.customerPhone,
-        shipping_address: {
-          address_line1: req.shippingAddress.address1,
-          address_line2: req.shippingAddress.address2 || "",
+        orderNumber: req.orderNumber || req.orderId,
+        orderCreatedAt: String(Date.now()),
+        channelId: "External",
+        warehouseId: warehouseId,
+        returnAddressId: warehouseId,
+        receiver: {
+          firstName: req.customerName?.split(" ")[0] || "Customer",
+          lastName: req.customerName?.split(" ").slice(1).join(" ") || "",
+          email: req.customerEmail || "customer@example.com",
+          phoneNumber: req.customerPhone?.replace(/\D/g, "") || "9876543210",
+          companyName: "",
+        },
+        destination: {
+          addressLine1: req.shippingAddress.address1,
+          addressLine2: req.shippingAddress.address2 || "",
           city: req.shippingAddress.city,
           state: req.shippingAddress.state,
-          pincode: req.shippingAddress.pincode,
           country: req.shippingAddress.country || "India",
+          countryCode: "IN",
+          pinCode: req.shippingAddress.pincode,
+          type: "Residential",
         },
-        billing_address: req.billingAddress
-          ? {
-              address_line1: req.billingAddress.address1,
-              address_line2: req.billingAddress.address2 || "",
-              city: req.billingAddress.city,
-              state: req.billingAddress.state,
-              pincode: req.billingAddress.pincode,
-              country: req.billingAddress.country || "India",
-            }
-          : undefined,
-        items: req.items.map((item) => ({
-          name: item.name,
+        type: "Zippyy",
+        sellerNote: "RIOTOUS Streetwear - Handle with care",
+        parcelAttributes: {
+          dimension: {
+            length: req.packageDetails?.lengthCm || 15,
+            width: req.packageDetails?.breadthCm || 10,
+            height: req.packageDetails?.heightCm || 5,
+            unit: "cm",
+          },
+          weight: {
+            weight: Math.max((req.packageDetails?.weightGrams || 500) / 1000, 0.5),
+            unit: "kg",
+          },
+        },
+        tags: "Apparel",
+        productRequestsList: req.items.map((item) => ({
+          productName: item.name,
+          price: Number(item.sellingPrice || 0),
+          quantity: item.units || 1,
           sku: item.sku || "SKU-ITEM",
-          units: item.units,
-          selling_price: item.sellingPrice,
-          discount: item.discount || 0,
-          tax: item.tax || 0,
-          hsn: item.hsn || "",
+          taxRate: "0",
+          discount: "0",
+          currencyCode: "INR",
+          taxesIncluded: true,
         })),
-        package_details: {
-          weight_grams: req.packageDetails?.weightGrams || 500,
-          length_cm: req.packageDetails?.lengthCm || 15,
-          breadth_cm: req.packageDetails?.breadthCm || 10,
-          height_cm: req.packageDetails?.heightCm || 5,
+        shippingProperties: {
+          orderType: req.paymentType === "COD" ? "COD" : "PREPAID",
+          subTotal: Number(req.orderValue || 0),
+          shippingCharges: 0,
+          otherCharges: 0,
+          discount: 0,
         },
-        courier_id: req.preferredCourierId,
+        carrier: req.preferredCourierName || "Delhivery",
+        service: "Surface",
       };
 
-      const res = await zippyyRequest<any>("/v1/external/shipments/forward/v2", {
+      const res = await zippyyRequest<any>("/v2/external/shipments/forward-shipment", {
         method: "POST",
         body: JSON.stringify(payload),
       });
 
-      const shipmentId = String(res.shipment_id || res.id || `shp_zp_${Date.now()}`);
-      const awb = String(res.awb_number || res.awb || `ZP${Math.floor(100000000 + Math.random() * 900000000)}`);
-      const courier = res.courier_name || "Delhivery";
+      const zippyyOrderId = String(res.orderId || res.order_id || req.orderId);
+      const awb = String(res.awb || res.awb_number || `ZP${Math.floor(100000000 + Math.random() * 900000000)}`);
+      const carrier = res.carrier || res.courier_name || "Delhivery";
 
       return {
         success: true,
         orderId: req.orderId,
-        zippyyOrderId: String(res.order_id || res.zippyy_order_id || req.orderId),
-        zippyyShipmentId: shipmentId,
+        zippyyOrderId: zippyyOrderId,
+        zippyyShipmentId: zippyyOrderId,
         awbNumber: awb,
-        courierName: courier,
-        courierId: String(res.courier_id || "c_delhivery"),
-        shippingLabelUrl: res.label_url || `/api/public/shipping-label/${shipmentId}`,
+        courierName: carrier,
+        courierId: String(res.carrier_id || "c_delhivery"),
+        shippingLabelUrl: res.label_url || `/api/public/shipping-label/${zippyyOrderId}`,
         manifestUrl: res.manifest_url,
         status: "PROCESSING",
         estimatedDeliveryDate: res.estimated_delivery_date,

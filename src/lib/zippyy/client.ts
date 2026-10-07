@@ -57,6 +57,7 @@ export async function getZippyyAccessToken(forceRefresh = false): Promise<string
         Accept: "application/json",
       },
       body: JSON.stringify({
+        emailAddress: config.email,
         email: config.email,
         password: config.password,
       }),

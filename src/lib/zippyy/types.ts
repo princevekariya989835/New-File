@@ -100,6 +100,7 @@ export interface ZippyyForwardShipmentV2Request {
     heightCm: number;
   };
   preferredCourierId?: string;
+  preferredCourierName?: string;
 }
 
 export interface ZippyyForwardShipmentResponse {
