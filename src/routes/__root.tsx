@@ -116,8 +116,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
-        media: "print",
-        onLoad: "this.media='all'",
       },
       {
         rel: "preload",

@@ -150,8 +150,9 @@ async function executeZippyyLogin(config: ZippyyAuthConfig): Promise<string> {
         "x-api-version": "1",
       },
       body: JSON.stringify({
-        email: config.email,
-        password: config.password,
+        emailAddress: emailAddress,
+        email: emailAddress,
+        password: password,
       }),
     });
   } catch (netErr: any) {
