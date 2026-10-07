@@ -1702,6 +1702,68 @@ export type OrderPatchInput = {
   adminNotes?: string | null;
 };
 
+export async function executeOrderShippedTransition(
+  orderId: string,
+  context: any,
+  shippingDetails?: {
+    courierName?: string | null;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+  },
+) {
+  const sql = getSql();
+
+  if (shippingDetails?.courierName || shippingDetails?.trackingNumber || shippingDetails?.trackingUrl) {
+    await sql`
+      UPDATE orders
+      SET status = 'Shipped',
+          shipped_at = COALESCE(shipped_at, NOW()),
+          courier_name = COALESCE(${shippingDetails.courierName || null}, courier_name),
+          tracking_number = COALESCE(${shippingDetails.trackingNumber || null}, tracking_number),
+          tracking_url = COALESCE(${shippingDetails.trackingUrl || null}, tracking_url),
+          updated_at = NOW()
+      WHERE id::text = ${String(orderId)}
+    `;
+  } else {
+    await sql`
+      UPDATE orders
+      SET status = 'Shipped',
+          shipped_at = COALESCE(shipped_at, NOW()),
+          updated_at = NOW()
+      WHERE id::text = ${String(orderId)}
+    `;
+  }
+
+  await logAudit(context as any, "order.update", "order", orderId, {
+    status: "Shipped",
+    courierName: shippingDetails?.courierName,
+    trackingNumber: shippingDetails?.trackingNumber,
+  });
+
+  try {
+    const orderRow = await sql`
+      SELECT id, order_number, shipping_email, shipping_name, user_id,
+             courier_name, tracking_number, tracking_url
+      FROM orders WHERE id::text = ${String(orderId)} LIMIT 1
+    `;
+    if (orderRow.length > 0) {
+      const o = orderRow[0] as any;
+      sendOrderShipped({
+        to: String(o.shipping_email || ""),
+        orderNumber: String(o.order_number || ""),
+        orderId: String(o.id || ""),
+        customerName: String(o.shipping_name || "Customer"),
+        userId: o.user_id ? String(o.user_id) : null,
+        courierName: shippingDetails?.courierName ?? (o.courier_name || null),
+        trackingNumber: shippingDetails?.trackingNumber ?? (o.tracking_number || null),
+        trackingUrl: shippingDetails?.trackingUrl ?? (o.tracking_url || null),
+      }).catch((e) => console.warn("[Admin] Shipped email failed:", e));
+    }
+  } catch (emailErr) {
+    console.warn("[Admin] Shipped email dispatch lookup failed (non-fatal):", emailErr);
+  }
+}
+
 export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: OrderPatchInput) => d)
@@ -1725,7 +1787,11 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
           await sql`UPDATE orders SET status = 'Cancelled', cancelled_at = COALESCE(cancelled_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
         }
       } else if (data.status === "Shipped") {
-        await sql`UPDATE orders SET status = 'Shipped', shipped_at = COALESCE(shipped_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+        await executeOrderShippedTransition(data.orderId, context, {
+          courierName: data.courierName,
+          trackingNumber: data.trackingNumber,
+          trackingUrl: data.trackingUrl,
+        });
       } else if (data.status === "Delivered") {
         await sql`UPDATE orders SET status = 'Delivered', delivered_at = COALESCE(delivered_at, NOW()), updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
       } else {
@@ -1735,27 +1801,30 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     if (data.paymentStatus) {
       await sql`UPDATE orders SET payment_status = ${data.paymentStatus}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
     }
-    if (data.courierName !== undefined) {
-      await sql`UPDATE orders SET courier_name = ${data.courierName}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
-    }
-    if (data.trackingNumber !== undefined) {
-      await sql`UPDATE orders SET tracking_number = ${data.trackingNumber}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
-    }
-    if (data.trackingUrl !== undefined) {
-      await sql`UPDATE orders SET tracking_url = ${data.trackingUrl}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+    if (data.status !== "Shipped") {
+      if (data.courierName !== undefined) {
+        await sql`UPDATE orders SET courier_name = ${data.courierName}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+      }
+      if (data.trackingNumber !== undefined) {
+        await sql`UPDATE orders SET tracking_number = ${data.trackingNumber}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+      }
+      if (data.trackingUrl !== undefined) {
+        await sql`UPDATE orders SET tracking_url = ${data.trackingUrl}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
+      }
     }
     if (data.adminNotes !== undefined) {
       await sql`UPDATE orders SET admin_notes = ${data.adminNotes}, updated_at = NOW() WHERE id::text = ${String(data.orderId)}`;
     }
 
-    await logAudit(context as any, "order.update", "order", data.orderId, { status: data.status });
+    if (data.status !== "Shipped") {
+      await logAudit(context as any, "order.update", "order", data.orderId, { status: data.status });
+    }
 
-    // Fire transactional emails on key status transitions (fire and forget, idempotent)
-    if (data.status === "Shipped" || data.status === "Delivered" || data.paymentStatus === "Paid") {
+    // Fire transactional emails on non-Shipped key status transitions (Delivered, Paid)
+    if (data.status === "Delivered" || data.paymentStatus === "Paid") {
       try {
         const orderRow = await sql`
-          SELECT id, order_number, shipping_email, shipping_name, user_id,
-                 courier_name, tracking_number, tracking_url, total_amount, currency, payment_method
+          SELECT id, order_number, shipping_email, shipping_name, user_id, total_amount, currency, payment_method
           FROM orders WHERE id::text = ${String(data.orderId)} LIMIT 1
         `;
         if (orderRow.length > 0) {
@@ -1767,14 +1836,7 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
             customerName: String(o.shipping_name || "Customer"),
             userId: o.user_id ? String(o.user_id) : null,
           };
-          if (data.status === "Shipped") {
-            sendOrderShipped({
-              ...baseOpts,
-              courierName: data.courierName ?? (o.courier_name || null),
-              trackingNumber: data.trackingNumber ?? (o.tracking_number || null),
-              trackingUrl: data.trackingUrl ?? (o.tracking_url || null),
-            }).catch((e) => console.warn("[Admin] Shipped email failed:", e));
-          } else if (data.status === "Delivered") {
+          if (data.status === "Delivered") {
             sendOrderDelivered(baseOpts).catch((e) =>
               console.warn("[Admin] Delivered email failed:", e),
             );
@@ -1810,12 +1872,11 @@ export const adminDispatchZippyyShipment = createServerFn({ method: "POST" })
       throw new Error(result?.message || "Failed to dispatch shipment with Zippyy.");
     }
 
-    const sql = getSql();
-    await sql`
-      UPDATE orders
-      SET status = 'Shipped', shipped_at = COALESCE(shipped_at, NOW())
-      WHERE id::text = ${data.orderId}
-    `;
+    await executeOrderShippedTransition(data.orderId, context, {
+      courierName: result.courierName,
+      trackingNumber: result.awbNumber,
+      trackingUrl: result.awbNumber ? `https://zippyy.in/track/${result.awbNumber}` : null,
+    });
 
     logServerSyncEvent("ADMIN_MUTATION", {
       operation: "adminDispatchZippyyShipment",
@@ -1832,6 +1893,7 @@ export const adminDispatchZippyyShipment = createServerFn({ method: "POST" })
       awbNumber: result.awbNumber,
       courierName: result.courierName,
       shippingLabelUrl: result.shippingLabelUrl,
+      trackingUrl: result.awbNumber ? `https://zippyy.in/track/${result.awbNumber}` : undefined,
       status: "Shipped",
     };
   });

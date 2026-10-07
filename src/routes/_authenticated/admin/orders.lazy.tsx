@@ -1141,13 +1141,21 @@ function OrderControls({
       toast.success(`Dispatched via ${res.courierName}! AWB: ${res.awbNumber}`);
       setCourier(res.courierName);
       setTracking(res.awbNumber);
+      if (res.trackingUrl) {
+        setTrackingUrl(res.trackingUrl);
+      }
       setStatus("Shipped");
-      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      qc.invalidateQueries({ queryKey: ["admin", "orders"] });
+      qc.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     },
     onError: (err: any) => {
       toast.error(err?.message || "Failed to dispatch with Zippyy.");
     },
   });
+
+  const isZippyyAllocated = Boolean(
+    order.tracking_number || order.zippyy_order_id || dispatchMutation.data?.awbNumber,
+  );
 
   return (
     <div className="space-y-4">
@@ -1160,7 +1168,7 @@ function OrderControls({
               Zippyy Logistics Fulfillment
             </span>
           </div>
-          {order.tracking_number || tracking ? (
+          {isZippyyAllocated ? (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
               ● AWB Allocated
             </span>
@@ -1171,18 +1179,18 @@ function OrderControls({
           )}
         </div>
 
-        {order.tracking_number || tracking ? (
+        {isZippyyAllocated ? (
           <div className="space-y-2 text-xs">
             <div className="flex justify-between items-center bg-card p-2.5 rounded-lg border">
               <span className="text-muted-foreground">
-                Courier: <strong className="text-foreground">{order.courier_name || courier || "Delhivery"}</strong>
+                Courier: <strong className="text-foreground">{order.courier_name || dispatchMutation.data?.courierName || "Assigned Carrier"}</strong>
               </span>
-              <span className="font-mono font-medium text-foreground">AWB: {order.tracking_number || tracking}</span>
+              <span className="font-mono font-medium text-foreground">AWB: {order.tracking_number || dispatchMutation.data?.awbNumber || order.zippyy_order_id}</span>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
-              {order.shipping_label_url ? (
+              {(order.shipping_label_url || dispatchMutation.data?.shippingLabelUrl) ? (
                 <a
-                  href={order.shipping_label_url}
+                  href={order.shipping_label_url || dispatchMutation.data?.shippingLabelUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-foreground text-background px-3 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
@@ -1190,9 +1198,9 @@ function OrderControls({
                   <Printer className="h-3.5 w-3.5" /> Print Zippyy Label
                 </a>
               ) : null}
-              {(order.tracking_url || trackingUrl) && (
+              {(order.tracking_url || trackingUrl || dispatchMutation.data?.trackingUrl) && (
                 <a
-                  href={order.tracking_url || trackingUrl}
+                  href={order.tracking_url || trackingUrl || dispatchMutation.data?.trackingUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-xs font-medium hover:bg-muted transition-colors"
