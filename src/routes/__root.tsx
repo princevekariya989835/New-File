@@ -137,19 +137,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         type: "text/javascript",
         children: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-1KHJNXYQ2E');
 
 (function() {
   function loadGtag() {
-    if (window.__gtagLoaded) return;
+    if (typeof window === 'undefined' || window.__gtagLoaded) return;
+    var match = document.cookie.match(/(?:^|;\\s*)riotous_cookie_consent=([^;]+)/);
+    if (!match || match[1] !== 'all') return;
     window.__gtagLoaded = true;
+    gtag('js', new Date());
+    gtag('config', 'G-1KHJNXYQ2E');
     var s = document.createElement('script');
     s.src = 'https://www.googletagmanager.com/gtag/js?id=G-1KHJNXYQ2E';
     s.async = true;
     s.fetchPriority = 'low';
     document.head.appendChild(s);
   }
+  window.__triggerAnalyticsConsent = loadGtag;
   if (typeof window !== 'undefined') {
     if ('requestIdleCallback' in window) {
       requestIdleCallback(function() { setTimeout(loadGtag, 2000); });
@@ -159,6 +162,7 @@ gtag('config', 'G-1KHJNXYQ2E');
     ['pointerdown', 'touchstart', 'scroll', 'keydown'].forEach(function(ev) {
       window.addEventListener(ev, loadGtag, { once: true, passive: true });
     });
+    window.addEventListener('cookie_consent_accepted', loadGtag);
   }
 })();`,
       },

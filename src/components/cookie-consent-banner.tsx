@@ -22,6 +22,12 @@ export function CookieConsentBanner() {
 
   const handleAcceptAll = () => {
     setSecureCookie(CONSENT_COOKIE_KEY, "all", { maxAge: 365 * 24 * 60 * 60 });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("cookie_consent_accepted"));
+      if (typeof (window as any).__triggerAnalyticsConsent === "function") {
+        (window as any).__triggerAnalyticsConsent();
+      }
+    }
     setIsVisible(false);
   };
 

@@ -91,12 +91,12 @@ function applySecurityHeaders(response: Response, request: Request): Response {
   if (contentType.includes("text/html") && !headers.has("content-security-policy")) {
     const csp = [
       "default-src 'self'",
-      "script-src 'self' https://checkout.razorpay.com https://api.razorpay.com https://cdn.jsdelivr.net",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://api.razorpay.com https://cdn.jsdelivr.net https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
       "media-src 'self' data: blob: https:",
-      "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.zippyy.in https://sellingpartnerapi-in.zippyy.ai https://api.brevo.com https://*.neon.tech https://*.workers.dev data: blob:",
+      "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://api.zippyy.in https://sellingpartnerapi-in.zippyy.ai https://api.brevo.com https://*.neon.tech https://*.workers.dev https://www.google-analytics.com https://analytics.google.com data: blob:",
       "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
       "object-src 'none'",
       "base-uri 'self'",
