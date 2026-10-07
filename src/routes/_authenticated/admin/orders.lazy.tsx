@@ -8,6 +8,7 @@ import {
   adminListOrders,
   adminUpdateOrderStatus,
   adminBulkUpdateOrderStatus,
+  adminDispatchZippyyShipment,
   adminGetOrderDesignPreview,
   adminExportOrdersCsv,
   ORDER_STATUSES,
@@ -1122,6 +1123,9 @@ function OrderControls({
   }) => void;
   busy: boolean;
 }) {
+  const qc = useQueryClient();
+  const dispatchZippyyFn = useServerFn(adminDispatchZippyyShipment);
+
   const [status, setStatus] = useState(order.status);
   const [payment, setPayment] = useState(order.payment_status);
   const [courier, setCourier] = useState(order.courier_name ?? "");
@@ -1129,75 +1133,162 @@ function OrderControls({
   const [trackingUrl, setTrackingUrl] = useState(order.tracking_url ?? "");
   const [notes, setNotes] = useState(order.admin_notes ?? "");
 
+  const dispatchMutation = useMutation({
+    mutationFn: async () => {
+      return await dispatchZippyyFn({ data: { orderId: order.id } });
+    },
+    onSuccess: (res) => {
+      toast.success(`Dispatched via ${res.courierName}! AWB: ${res.awbNumber}`);
+      setCourier(res.courierName);
+      setTracking(res.awbNumber);
+      setStatus("Shipped");
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to dispatch with Zippyy.");
+    },
+  });
+
   return (
-    <div className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase text-muted-foreground">Manage order</h3>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label>Order status</Label>
-          <select
-            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+    <div className="space-y-4">
+      {/* 🚀 Zippyy Automated Dispatch Card */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-primary" />
+            <span className="font-bold text-xs uppercase tracking-wider text-foreground">
+              Zippyy Logistics Fulfillment
+            </span>
+          </div>
+          {order.tracking_number || tracking ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              ● AWB Allocated
+            </span>
+          ) : (
+            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              Ready for Dispatch
+            </span>
+          )}
         </div>
-        <div>
-          <Label>Payment status</Label>
-          <select
-            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-            value={payment}
-            onChange={(e) => setPayment(e.target.value)}
-          >
-            {PAYMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label>Courier</Label>
-          <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
-        </div>
-        <div>
-          <Label>Tracking number</Label>
-          <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
-        </div>
-        <div className="sm:col-span-2">
-          <Label>Tracking URL</Label>
-          <Input value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} />
-        </div>
-        <div className="sm:col-span-2">
-          <Label>Internal notes</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-        </div>
+
+        {order.tracking_number || tracking ? (
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between items-center bg-card p-2.5 rounded-lg border">
+              <span className="text-muted-foreground">
+                Courier: <strong className="text-foreground">{order.courier_name || courier || "Delhivery"}</strong>
+              </span>
+              <span className="font-mono font-medium text-foreground">AWB: {order.tracking_number || tracking}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {order.shipping_label_url ? (
+                <a
+                  href={order.shipping_label_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-foreground text-background px-3 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Print Zippyy Label
+                </a>
+              ) : null}
+              {(order.tracking_url || trackingUrl) && (
+                <a
+                  href={order.tracking_url || trackingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Live Tracking
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Instantly book forward shipment with Zippyy, assign courier (Delhivery/DTDC/Xpressbees), and generate printable shipping label.
+            </p>
+            <Button
+              size="sm"
+              className="w-full gap-2 bg-primary text-primary-foreground font-semibold shadow-sm hover:opacity-95"
+              disabled={dispatchMutation.isPending || busy}
+              onClick={() => dispatchMutation.mutate()}
+            >
+              <Truck className="h-4 w-4" />
+              {dispatchMutation.isPending ? "Booking with Zippyy..." : "Dispatch via Zippyy"}
+            </Button>
+          </div>
+        )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Marking an order Shipped deducts the reserved stock. Cancelling, returning or refunding it
-        puts the stock back automatically.
-      </p>
-      <Button
-        disabled={busy}
-        onClick={() =>
-          onSave({
-            orderId: order.id,
-            status,
-            paymentStatus: payment,
-            courierName: courier.trim() || null,
-            trackingNumber: tracking.trim() || null,
-            trackingUrl: trackingUrl.trim() || null,
-            adminNotes: notes.trim() || null,
-          })
-        }
-      >
-        {busy ? "Saving…" : "Save order"}
-      </Button>
+
+      <div className="border-t pt-3 space-y-3">
+        <h3 className="text-xs font-semibold uppercase text-muted-foreground">Manual Override Controls</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label className="text-xs">Order status</Label>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Payment status</Label>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={payment}
+              onChange={(e) => setPayment(e.target.value)}
+            >
+              {PAYMENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Courier</Label>
+            <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Tracking number</Label>
+            <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs">Tracking URL</Label>
+            <Input value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs">Internal notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Marking an order Shipped deducts reserved stock. Cancelling, returning or refunding it restores inventory.
+        </p>
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() =>
+            onSave({
+              orderId: order.id,
+              status,
+              paymentStatus: payment,
+              courierName: courier.trim() || null,
+              trackingNumber: tracking.trim() || null,
+              trackingUrl: trackingUrl.trim() || null,
+              adminNotes: notes.trim() || null,
+            })
+          }
+        >
+          {busy ? "Saving…" : "Save order"}
+        </Button>
+      </div>
     </div>
   );
 }

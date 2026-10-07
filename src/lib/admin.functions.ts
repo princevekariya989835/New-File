@@ -101,6 +101,8 @@ export type AdminOrder = {
   razorpay_order_id?: string | null;
   razorpay_payment_id?: string | null;
   paid_at?: string | null;
+  zippyy_order_id?: string | null;
+  shipping_label_url?: string | null;
   items: AdminOrderItem[];
 };
 
@@ -1393,7 +1395,8 @@ export const adminListOrders = createServerFn({ method: "POST" })
               shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
               shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
               courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
-              razorpay_order_id, razorpay_payment_id, paid_at
+              razorpay_order_id, razorpay_payment_id, paid_at,
+              zippyy_order_id, shipping_label_url
             FROM orders
             WHERE (${data.status} = '' OR status = ${data.status})
               AND (${data.paymentStatus} = '' OR payment_status = ${data.paymentStatus})
@@ -1535,6 +1538,8 @@ export const adminListOrders = createServerFn({ method: "POST" })
         razorpay_order_id: o.razorpay_order_id || null,
         razorpay_payment_id: o.razorpay_payment_id || null,
         paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
+        zippyy_order_id: o.zippyy_order_id || null,
+        shipping_label_url: o.shipping_label_url || null,
         items: itemsByOrderId.get(String(o.id)) || [],
       }));
 
@@ -1789,6 +1794,46 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     }
 
     return { ok: true };
+  });
+
+export const adminDispatchZippyyShipment = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { orderId: string; preferredCourierName?: string }) => ({
+    orderId: String(d.orderId ?? "").trim(),
+    preferredCourierName: d.preferredCourierName ? String(d.preferredCourierName).trim() : undefined,
+  }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any);
+    const { syncOrderToZippyy } = await import("@/lib/zippyy/order-sync");
+    const result = await syncOrderToZippyy(data.orderId);
+    if (!result || !result.success) {
+      throw new Error(result?.message || "Failed to dispatch shipment with Zippyy.");
+    }
+
+    const sql = getSql();
+    await sql`
+      UPDATE orders
+      SET status = 'Shipped', shipped_at = COALESCE(shipped_at, NOW())
+      WHERE id::text = ${data.orderId}
+    `;
+
+    logServerSyncEvent("ADMIN_MUTATION", {
+      operation: "adminDispatchZippyyShipment",
+      status: "SUCCESS",
+      details: {
+        orderId: data.orderId,
+        awb: result.awbNumber,
+        carrier: result.courierName,
+      },
+    });
+
+    return {
+      success: true,
+      awbNumber: result.awbNumber,
+      courierName: result.courierName,
+      shippingLabelUrl: result.shippingLabelUrl,
+      status: "Shipped",
+    };
   });
 
 export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
