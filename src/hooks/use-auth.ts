@@ -12,6 +12,7 @@ import {
   verifyAndRegisterServerFn,
   verifyAndResetPasswordServerFn,
 } from "@/lib/auth";
+import { setSecureCookie, removeSecureCookie } from "@/lib/cookie";
 
 type UserWithMeta = (AuthUser & { user_metadata?: { full_name?: string | null } }) | null;
 
@@ -32,11 +33,6 @@ function notifyAuthListeners(user: UserWithMeta, loading: boolean) {
   });
 }
 
-function getSessionCookieAttributes(maxAge: number): string {
-  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
-  return `path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
-}
-
 /**
  * Deduplicated user session retriever and background verifier.
  * Ensures that even if 50+ components mount simultaneously, only 1 request
@@ -55,7 +51,7 @@ async function getOrVerifyUser(): Promise<UserWithMeta> {
   }
 
   // Keep cookie synchronized with localStorage session token
-  document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;
+  setSecureCookie("riotous_session", token, { maxAge: 2592000 });
 
   // If token unchanged and verified within the last 60 seconds, return the fresh cached user
   if (_moduleUser && _moduleToken === token && Date.now() - _lastVerifiedAt < 60_000) {
@@ -93,7 +89,7 @@ async function getOrVerifyUser(): Promise<UserWithMeta> {
         return _moduleUser;
       } else {
         localStorage.removeItem("riotous_session");
-        document.cookie = `riotous_session=; ${getSessionCookieAttributes(0)}`;
+        removeSecureCookie("riotous_session");
         _moduleUser = null;
         _moduleToken = null;
         _lastVerifiedAt = 0;
@@ -152,7 +148,7 @@ export function useAuth() {
     if (res.ok && res.session) {
       const token = res.session.token;
       localStorage.setItem("riotous_session", token);
-      document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;
+      setSecureCookie("riotous_session", token, { maxAge: 2592000 });
       const newUser: UserWithMeta = {
         ...res.session.user,
         user_metadata: { full_name: res.session.user.fullName },
@@ -172,7 +168,7 @@ export function useAuth() {
     if (res.ok && res.session) {
       const token = res.session.token;
       localStorage.setItem("riotous_session", token);
-      document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;
+      setSecureCookie("riotous_session", token, { maxAge: 2592000 });
       const newUser: UserWithMeta = {
         ...res.session.user,
         user_metadata: { full_name: res.session.user.fullName },
@@ -189,7 +185,7 @@ export function useAuth() {
 
   const logout = () => {
     localStorage.removeItem("riotous_session");
-    document.cookie = `riotous_session=; ${getSessionCookieAttributes(0)}`;
+    removeSecureCookie("riotous_session");
     _moduleUser = null;
     _moduleToken = null;
     _lastVerifiedAt = 0;
@@ -212,7 +208,7 @@ export function useAuth() {
     if (res.ok && res.session) {
       const token = res.session.token;
       localStorage.setItem("riotous_session", token);
-      document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;
+      setSecureCookie("riotous_session", token, { maxAge: 2592000 });
       const newUser: UserWithMeta = {
         ...res.session.user,
         user_metadata: { full_name: res.session.user.fullName },
@@ -232,7 +228,7 @@ export function useAuth() {
     if (res.ok && res.session) {
       const token = res.session.token;
       localStorage.setItem("riotous_session", token);
-      document.cookie = `riotous_session=${encodeURIComponent(token)}; ${getSessionCookieAttributes(2592000)}`;
+      setSecureCookie("riotous_session", token, { maxAge: 2592000 });
       const newUser: UserWithMeta = {
         ...res.session.user,
         user_metadata: { full_name: res.session.user.fullName },

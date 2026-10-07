@@ -16,6 +16,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { MobileBottomOfferBar } from "@/components/home/mobile-bottom-offer-bar";
 import { FloatingWhatsApp } from "@/components/floating-whatsapp";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { useCartSync } from "@/hooks/use-cart-sync";
 import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
@@ -217,6 +218,7 @@ function AppShell() {
       )}
       {showMobileOfferBar && <MobileBottomOfferBar />}
       <FloatingWhatsApp />
+      <CookieConsentBanner />
       <Toaster position="top-center" />
     </div>
   );
