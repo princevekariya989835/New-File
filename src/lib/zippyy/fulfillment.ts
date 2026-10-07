@@ -101,11 +101,12 @@ export async function createForwardShipmentV2(
         estimatedDeliveryDate: res.estimated_delivery_date,
       };
     } catch (err: any) {
-      console.error("[Zippyy Fulfillment] Forward Shipment API failed, falling back to mock AWB:", err);
+      console.error("[Zippyy Fulfillment] Forward Shipment API failed:", err);
+      throw new Error(err?.message || "Failed to book shipment with Zippyy.");
     }
   }
 
-  // Fallback for Development / Sandbox / Offline simulation
+  // Fallback for Development / Offline simulation when credentials are NOT configured
   const randomAwb = `ZP${Math.floor(100000000 + Math.random() * 900000000)}`;
   const mockShipmentId = `shp_zp_${Math.random().toString(36).slice(2, 10)}`;
 

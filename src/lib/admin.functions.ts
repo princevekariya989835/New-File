@@ -1391,12 +1391,7 @@ export const adminListOrders = createServerFn({ method: "POST" })
       try {
         const [ordersRes, aggregatesRes] = await Promise.all([
           sql`
-            SELECT id, order_number, created_at, total_amount, subtotal, discount_amount, discount_code,
-              shipping_charge, tax_amount, currency, status, payment_status, payment_method, stock_state,
-              shipping_name, shipping_email, shipping_phone, shipping_address, billing_address,
-              courier_name, tracking_number, tracking_url, shipped_at, delivered_at, cancelled_at, admin_notes,
-              razorpay_order_id, razorpay_payment_id, paid_at,
-              zippyy_order_id, shipping_label_url
+            SELECT *
             FROM orders
             WHERE (${data.status} = '' OR status = ${data.status})
               AND (${data.paymentStatus} = '' OR payment_status = ${data.paymentStatus})
