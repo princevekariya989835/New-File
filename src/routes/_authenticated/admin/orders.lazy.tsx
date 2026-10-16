@@ -47,6 +47,7 @@ import {
   ChevronRight,
   FileText,
 } from "lucide-react";
+import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 import { getAdminInvoicePdf, adminRetryGenerateInvoice } from "@/lib/invoice.functions";
 
 type Search = {
@@ -164,13 +165,7 @@ function csvExport(orders: AdminOrder[]) {
   URL.revokeObjectURL(url);
 }
 
-function OrderLineItemsList({
-  order,
-  isExpanded,
-}: {
-  order: AdminOrder;
-  isExpanded: boolean;
-}) {
+function OrderLineItemsList({ order, isExpanded }: { order: AdminOrder; isExpanded: boolean }) {
   const getPreviewFn = useServerFn(adminGetOrderDesignPreview);
   const hasCustomItems = useMemo(
     () => (order.items ?? []).some((item) => Boolean(item.design_submission_id)),
@@ -192,18 +187,15 @@ function OrderLineItemsList({
         const itemPreview = previews[String(i.id)];
         const sides = Object.entries(itemPreview?.designPreviewImages ?? {}).filter(
           ([, url]) =>
-            typeof url === "string" &&
-            (url.startsWith("data:image/") || url.startsWith("http")),
+            typeof url === "string" && (url.startsWith("data:image/") || url.startsWith("http")),
         );
         if (sides.length === 0 && itemPreview?.designPreview) {
           sides.push(["Design", itemPreview.designPreview]);
         }
 
         // Exact priority: custom design preview → stored order product image / primary image fallback → clean placeholder
-        const customPreview =
-          itemPreview?.designPreview || (sides.length > 0 ? sides[0][1] : null);
-        const resolvedImage =
-          customPreview || i.product_image || "/placeholder-tee.jpg";
+        const customPreview = itemPreview?.designPreview || (sides.length > 0 ? sides[0][1] : null);
+        const resolvedImage = customPreview || i.product_image || "/placeholder-tee.jpg";
 
         return (
           <div key={i.id} className="rounded-lg border bg-card p-3 space-y-2">
@@ -384,12 +376,13 @@ function OrdersPage() {
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
 
   const handleAdminDownloadPdf = async (orderId: string, orderNumber: string) => {
+    if (downloadingInvoiceId) return;
     try {
       setDownloadingInvoiceId(orderId);
       const res = await adminInvoicePdfFn({ data: { orderId } });
       const rawBase64 = res.base64 || res.pdfBase64;
       if (!res.success || !rawBase64) {
-        throw new Error(res.error || "Failed to generate invoice PDF");
+        throw new Error((res as any).error || "Failed to generate invoice PDF");
       }
       const byteChars = atob(rawBase64);
       const byteArr = new Uint8Array(byteChars.length);
@@ -412,11 +405,12 @@ function OrdersPage() {
   };
 
   const handleAdminRetryInvoice = async (orderId: string) => {
+    if (retryingInvoiceId) return;
     try {
       setRetryingInvoiceId(orderId);
       const res = await adminRetryInvoiceFn({ data: { orderId } });
       if (!res.success) {
-        throw new Error(res.error || "Retry failed");
+        throw new Error((res as any).error || "Retry failed");
       }
       toast.success(`Invoice ${res.invoiceNumber} generated!`);
       refresh();
@@ -434,7 +428,15 @@ function OrdersPage() {
     queryKey: [
       "admin",
       "orders",
-      { page, limit, q: search.q, status: search.status, payment: search.payment, from: search.from, to: search.to },
+      {
+        page,
+        limit,
+        q: search.q,
+        status: search.status,
+        payment: search.payment,
+        from: search.from,
+        to: search.to,
+      },
     ],
     queryFn: () =>
       listFn({
@@ -494,7 +496,8 @@ function OrdersPage() {
     return ordersData.orders || [];
   }, [ordersData]);
 
-  const totalCount = ordersData && !Array.isArray(ordersData) ? ordersData.totalCount : orders.length;
+  const totalCount =
+    ordersData && !Array.isArray(ordersData) ? ordersData.totalCount : orders.length;
   const totalPages = ordersData && !Array.isArray(ordersData) ? ordersData.totalPages : 1;
   const revenue = ordersData && !Array.isArray(ordersData) ? ordersData.totalRevenue : 0;
 
@@ -527,604 +530,668 @@ function OrdersPage() {
 
   return (
     <React.Fragment>
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalCount} order(s) · {money(revenue)} net revenue
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Export Dropdown */}
-          <div className="relative" ref={exportMenuRef}>
-            <Button
-              variant="outline"
-              className="gap-2"
-              disabled={exportingCsv}
-              onClick={() => setExportMenuOpen((v) => !v)}
-            >
-              <Download className="h-4 w-4" /> {exportingCsv ? "Exporting..." : "Export"}
-              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-            </Button>
-            {exportMenuOpen && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover shadow-lg py-1">
-                <button
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
-                  disabled={exportingCsv}
-                  onClick={() => {
-                    handleExportCsv();
-                    setExportMenuOpen(false);
-                  }}
-                >
-                  <Download className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium">
-                      {exportingCsv ? "Exporting RIOTOUS CSV..." : "Export RIOTOUS CSV"}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">Server-side filtered export</div>
-                  </div>
-                </button>
-                <div className="h-px bg-border mx-2 my-1" />
-                {amazonTemplates.length === 0 ? (
-                  <Link
-                    to="/admin/settings"
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+            <p className="text-sm text-muted-foreground">
+              {totalCount} order(s) · {money(revenue)} net revenue
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Export Dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={exportingCsv}
+                onClick={() => setExportMenuOpen((v) => !v)}
+              >
+                <Download className="h-4 w-4" /> {exportingCsv ? "Exporting..." : "Export"}
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </Button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover shadow-lg py-1">
+                  <button
                     className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
-                    onClick={() => setExportMenuOpen(false)}
+                    disabled={exportingCsv}
+                    onClick={() => {
+                      handleExportCsv();
+                      setExportMenuOpen(false);
+                    }}
                   >
-                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <Download className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <div className="font-medium">Amazon Export</div>
-                      <div className="text-[11px] text-muted-foreground">Configure templates first →</div>
+                      <div className="font-medium">
+                        {exportingCsv ? "Exporting RIOTOUS CSV..." : "Export RIOTOUS CSV"}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Server-side filtered export
+                      </div>
                     </div>
-                  </Link>
-                ) : (
-                  amazonTemplates.map((tmpl) => (
-                    <button
-                      key={tmpl.id}
+                  </button>
+                  <div className="h-px bg-border mx-2 my-1" />
+                  {amazonTemplates.length === 0 ? (
+                    <Link
+                      to="/admin/settings"
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
-                      onClick={() => {
-                        setSelectedTemplateId(tmpl.id);
-                        setAmazonModalOpen(true);
-                        setExportMenuOpen(false);
-                      }}
+                      onClick={() => setExportMenuOpen(false)}
                     >
                       <Package className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">{tmpl.name}</div>
+                        <div className="font-medium">Amazon Export</div>
                         <div className="text-[11px] text-muted-foreground">
-                          {tmpl.purpose} · {tmpl.headers.length} cols
+                          Configure templates first →
                         </div>
                       </div>
-                    </button>
-                  ))
-                )}
-                <div className="h-px bg-border mx-2 my-1" />
-                <Link
-                  to="/admin/settings"
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/60"
-                  onClick={() => setExportMenuOpen(false)}
-                >
-                  <ExternalLink className="h-3 w-3" /> Manage Amazon Templates
-                </Link>
-              </div>
-            )}
+                    </Link>
+                  ) : (
+                    amazonTemplates.map((tmpl) => (
+                      <button
+                        key={tmpl.id}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted/60 text-left"
+                        onClick={() => {
+                          setSelectedTemplateId(tmpl.id);
+                          setAmazonModalOpen(true);
+                          setExportMenuOpen(false);
+                        }}
+                      >
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">{tmpl.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {tmpl.purpose} · {tmpl.headers.length} cols
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                  <div className="h-px bg-border mx-2 my-1" />
+                  <Link
+                    to="/admin/settings"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/60"
+                    onClick={() => setExportMenuOpen(false)}
+                  >
+                    <ExternalLink className="h-3 w-3" /> Manage Amazon Templates
+                  </Link>
+                </div>
+              )}
+            </div>
+            <AdminEraseDataButton
+              section="orders"
+              sectionLabel="Orders"
+              onSuccess={() => refresh()}
+            />
           </div>
-          <AdminEraseDataButton
-            section="orders"
-            sectionLabel="Orders"
-            onSuccess={() => refresh()}
-          />
         </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input
-          placeholder="Search order, invoice #, name, email, tracking…"
-          value={search.q ?? ""}
-          onChange={(e) => setSearchKey("q", e.target.value)}
-          className="h-9 w-full sm:w-72"
-        />
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
-          value={search.status ?? ""}
-          onChange={(e) => setSearchKey("status", e.target.value)}
-        >
-          <option value="">All statuses</option>
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-9 rounded-md border bg-background px-2 text-sm"
-          value={search.payment ?? ""}
-          onChange={(e) => setSearchKey("payment", e.target.value)}
-        >
-          <option value="">All payments</option>
-          {PAYMENT_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <Input
-          type="date"
-          value={search.from ?? ""}
-          onChange={(e) => setSearchKey("from", e.target.value)}
-          className="h-9 w-auto"
-        />
-        <Input
-          type="date"
-          value={search.to ?? ""}
-          onChange={(e) => setSearchKey("to", e.target.value)}
-          className="h-9 w-auto"
-        />
-      </div>
-
-      {selected.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 text-sm">
-          <span>{selected.length} selected</span>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Search order, invoice #, name, email, tracking…"
+            value={search.q ?? ""}
+            onChange={(e) => setSearchKey("q", e.target.value)}
+            className="h-9 w-full sm:w-72"
+          />
           <select
-            className="h-8 rounded-md border bg-background px-2 text-xs"
-            value={bulkStatus}
-            onChange={(e) => setBulkStatus(e.target.value)}
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            value={search.status ?? ""}
+            onChange={(e) => setSearchKey("status", e.target.value)}
           >
+            <option value="">All statuses</option>
             {ORDER_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
           </select>
-          <Button
-            size="sm"
-            disabled={bulk.isPending}
-            onClick={() => bulk.mutate({ orderIds: selected, status: bulkStatus })}
+          <select
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            value={search.payment ?? ""}
+            onChange={(e) => setSearchKey("payment", e.target.value)}
           >
-            Apply status
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-            Clear
-          </Button>
+            <option value="">All payments</option>
+            {PAYMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <Input
+            type="date"
+            value={search.from ?? ""}
+            onChange={(e) => setSearchKey("from", e.target.value)}
+            className="h-9 w-auto"
+          />
+          <Input
+            type="date"
+            value={search.to ?? ""}
+            onChange={(e) => setSearchKey("to", e.target.value)}
+            className="h-9 w-auto"
+          />
         </div>
-      )}
 
-      {ordersQ.isError ? (
-        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-8 text-center space-y-3">
-          <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-          <h3 className="font-semibold text-lg text-destructive">Failed to load orders from database</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {(ordersQ.error as Error)?.message || "A database query or authorization error occurred while fetching orders."}
-          </p>
-          <Button variant="outline" className="gap-2" onClick={() => ordersQ.refetch()}>
-            <RefreshCw className="h-4 w-4" /> Retry loading orders
-          </Button>
-        </div>
-      ) : ordersQ.isLoading ? (
-        <div className="space-y-3 animate-pulse">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="rounded-xl border bg-card p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs"
+        {selected.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 text-sm">
+            <span>{selected.length} selected</span>
+            <select
+              className="h-8 rounded-md border bg-background px-2 text-xs"
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <Skeleton className="h-4 w-4 rounded" />
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-5 w-24 rounded" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3.5 w-64 max-w-full rounded" />
-                </div>
-              </div>
-              <div className="text-right space-y-1">
-                <Skeleton className="h-5 w-20 ml-auto rounded" />
-                <Skeleton className="h-3 w-14 ml-auto rounded" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-8 w-20 rounded-md" />
-                <Skeleton className="h-8 w-8 rounded-md" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : orders.length === 0 ? (
-        search.q || search.status || search.payment || search.from || search.to ? (
-          <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
-            <p className="font-medium text-foreground">No orders match these filters.</p>
-            <p className="text-xs text-muted-foreground">Try clearing your search query or selecting a different status filter.</p>
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => navigate({ search: {}, replace: true })}
+              disabled={bulk.isPending}
+              onClick={() => bulk.mutate({ orderIds: selected, status: bulkStatus })}
             >
-              Clear all filters
+              Apply status
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+              Clear
             </Button>
           </div>
-        ) : (
-          <div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
-            <Package className="h-12 w-12 text-muted-foreground/40 mx-auto" />
-            <h3 className="font-semibold text-lg">No orders yet</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              When customer purchases are made on the live RIOTOUS storefront, orders will be recorded and displayed here in real time.
+        )}
+
+        {ordersQ.isError ? (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-8 text-center space-y-3">
+            <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
+            <h3 className="font-semibold text-lg text-destructive">
+              Failed to load orders from database
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {(ordersQ.error as Error)?.message ||
+                "A database query or authorization error occurred while fetching orders."}
             </p>
+            <Button variant="outline" className="gap-2" onClick={() => ordersQ.refetch()}>
+              <RefreshCw className="h-4 w-4" /> Retry loading orders
+            </Button>
           </div>
-        )
-      ) : (
-        <div className="space-y-3">
-          {orders.map((o) => {
-            const d = new Date(o.created_at);
-            const dateStr = !isNaN(d.getTime())
-              ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-              : o.created_at;
-            const timeStr = !isNaN(d.getTime())
-              ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-              : "";
-            const totalQuantity = (o.items ?? []).reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
-            const shippingStatusLabel = o.courier_name && o.tracking_number
-              ? `${o.courier_name} (${o.tracking_number})`
-              : o.status === "Delivered"
-                ? "Delivered to Customer"
-                : o.status === "Shipped"
-                  ? "In Transit / Dispatched"
-                  : o.status === "Cancelled"
-                    ? "Order Cancelled"
-                    : o.status === "Returned"
-                      ? "Item Returned"
-                      : o.status === "Refunded"
-                        ? "Refund Completed"
-                        : "Pending Dispatch";
-
-            return (
-              <div key={o.id} className="rounded-xl border bg-card overflow-hidden shadow-xs">
-                <div className="p-4 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${o.order_number}`}
-                        checked={selected.includes(o.id)}
-                        onChange={(e) =>
-                          setSelected((s) =>
-                            e.target.checked ? [...s, o.id] : s.filter((x) => x !== o.id),
-                          )
-                        }
-                      />
-                      <span className="font-mono font-bold text-base tracking-tight">{o.order_number}</span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.status] ?? "bg-muted text-foreground"}`}>
-                        {o.status}
-                      </span>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.payment_status] ?? "bg-muted text-foreground"}`}>
-                        {o.payment_status}
-                      </span>
-                      {o.invoice_number && (
-                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-semibold text-brand-red bg-brand-red/10 border border-brand-red/20 px-2 py-0.5 rounded-md">
-                          <FileText className="h-3 w-3" /> {o.invoice_number}
-                        </span>
-                      )}
-                      <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
-                        <Truck className="h-3 w-3" /> {shippingStatusLabel}
-                      </span>
-                    </div>
-
+        ) : ordersQ.isLoading ? (
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="rounded-xl border bg-card p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="text-right mr-2">
-                        <div className="font-bold text-base text-foreground">{money(o.total_amount, o.currency)}</div>
-                        <div className="text-[11px] text-muted-foreground">{totalQuantity} item(s)</div>
-                      </div>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 h-8 text-xs font-semibold"
-                        disabled={downloadingInvoiceId === o.id}
-                        onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
-                        title="Download PDF Tax Invoice"
-                      >
-                        {downloadingInvoiceId === o.id ? (
-                          <>
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" /> PDF...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-3.5 w-3.5 text-brand-red" />
-                            <span>{o.invoice_number ? o.invoice_number : "PDF Invoice"}</span>
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setExpanded(expanded === o.id ? null : o.id)}
-                      >
-                        {expanded === o.id ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <Skeleton className="h-5 w-24 rounded" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
                     </div>
-                  </div>
-
-                  {/* Customer, Date, Time, and Products Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-medium text-foreground flex items-center gap-1">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" /> {o.shipping_name}
-                      </span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" /> {o.shipping_email}
-                      </span>
-                      {o.shipping_phone && (
-                        <>
-                          <span>·</span>
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" /> {o.shipping_phone}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> {dateStr}
-                      </span>
-                      {timeStr && (
-                        <>
-                          <span>·</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {timeStr}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Products, Quantity, Size, Color summary */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(o.items ?? []).map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1 text-xs"
-                      >
-                        <span className="font-medium text-foreground">{item.product_name}</span>
-                        <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-semibold border">
-                          Qty: {item.quantity}
-                        </span>
-                        {item.selected_size && (
-                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
-                            Size: {item.selected_size}
-                          </span>
-                        )}
-                        {item.selected_color && (
-                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
-                            Color: {item.selected_color}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                    <Skeleton className="h-3.5 w-64 max-w-full rounded" />
                   </div>
                 </div>
-
-                {expanded === o.id && (
-                  <div className="grid gap-6 border-t p-5 lg:grid-cols-2 bg-muted/10">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                          Order Line Items
-                        </h3>
-                        <OrderLineItemsList order={o} isExpanded={expanded === o.id} />
-                      </div>
-
-                      {/* Financial Totals */}
-                      <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">
-                        <Row label="Subtotal" value={money(o.subtotal || o.total_amount, o.currency)} />
-                        {o.discount_amount > 0 && (
-                          <Row
-                            label={`Discount${o.discount_code ? ` (${o.discount_code})` : ""}`}
-                            value={`-${money(o.discount_amount, o.currency)}`}
-                          />
-                        )}
-                        <Row label="Shipping" value={o.shipping_charge > 0 ? money(o.shipping_charge, o.currency) : "FREE"} />
-                        <Row label="Tax" value={money(o.tax_amount, o.currency)} />
-                        <div className="border-t pt-2">
-                          <Row label="Grand Total" value={money(o.total_amount, o.currency)} bold />
-                        </div>
-                      </div>
-
-                      {/* Official Tax Invoice & Compliance Card */}
-                      <div className="rounded-lg border bg-card p-4 space-y-3 text-xs">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-brand-red" />
-                            <span className="font-bold text-xs uppercase tracking-wider text-foreground">
-                              GST Tax Invoice &amp; Receipt
-                            </span>
-                          </div>
-                          {o.invoice_number ? (
-                            <span className="font-mono text-xs font-bold text-foreground bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
-                              {o.invoice_number}
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                              Not generated yet
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="space-y-1 text-muted-foreground">
-                          {o.invoice_date && (
-                            <div>
-                              Invoice Date: <strong className="text-foreground">{new Date(o.invoice_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</strong>
-                            </div>
-                          )}
-                          <div>
-                            Format: <strong>A4 PDF (Amazon India standard structure, RIOTOUS branding)</strong>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1.5 bg-foreground text-background text-xs font-semibold hover:opacity-90"
-                            disabled={downloadingInvoiceId === o.id}
-                            onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
-                          >
-                            {downloadingInvoiceId === o.id ? (
-                              <>
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Generating PDF...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="h-3.5 w-3.5" /> Download PDF Invoice
-                              </>
-                            )}
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5 text-xs"
-                            disabled={retryingInvoiceId === o.id}
-                            onClick={() => handleAdminRetryInvoice(o.id)}
-                            title="Generate or re-sync invoice snapshot"
-                          >
-                            <RefreshCw className={`h-3.5 w-3.5 ${retryingInvoiceId === o.id ? "animate-spin" : ""}`} />
-                            {retryingInvoiceId === o.id ? "Regenerating..." : "Regenerate / Sync"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Customer Addresses */}
-                      <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                        <div className="rounded-lg border bg-card p-3 space-y-1">
-                          <div className="font-semibold text-foreground flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5 text-brand-red" /> Shipping Address
-                          </div>
-                          <div className="font-medium text-foreground">{o.shipping_name}</div>
-                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
-                            {o.shipping_address}
-                          </div>
-                          {o.shipping_phone && <div className="text-muted-foreground pt-1">{o.shipping_phone}</div>}
-                        </div>
-
-                        <div className="rounded-lg border bg-card p-3 space-y-1">
-                          <div className="font-semibold text-foreground flex items-center gap-1">
-                            <CreditCard className="h-3.5 w-3.5 text-brand-red" /> Billing Address
-                          </div>
-                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
-                            {o.billing_address || o.shipping_address}
-                          </div>
-                          <div className="pt-1 text-muted-foreground space-y-0.5">
-                            <div>Payment Method: <strong>{o.payment_method}</strong></div>
-                            <div>Payment Status: <strong className={o.payment_status === "Paid" ? "text-emerald-500" : ""}>{o.payment_status}</strong></div>
-                            {o.razorpay_order_id && (
-                              <div className="font-mono text-[11px] text-muted-foreground">
-                                Razorpay Order: <span className="text-foreground">{o.razorpay_order_id}</span>
-                              </div>
-                            )}
-                            {o.razorpay_payment_id && (
-                              <div className="font-mono text-[11px] text-muted-foreground">
-                                Razorpay Txn: <span className="text-foreground font-semibold">{o.razorpay_payment_id}</span>
-                              </div>
-                            )}
-                            {o.paid_at && (
-                              <div className="text-[11px] text-emerald-500">
-                                Paid At: {new Date(o.paid_at).toLocaleString("en-IN")}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <OrderControls
-                      order={o}
-                      onSave={(p) => update.mutate(p)}
-                      busy={update.isPending}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t text-sm">
-              <div className="text-xs text-muted-foreground">
-                Showing {Math.min((page - 1) * limit + 1, totalCount)}–
-                {Math.min(page * limit, totalCount)} of {totalCount} order(s)
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1"
-                  disabled={page <= 1}
-                  onClick={() => setSearchKey("page", Math.max(1, page - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </Button>
-                <div className="text-xs font-medium px-2">
-                  Page {page} of {totalPages}
+                <div className="text-right space-y-1">
+                  <Skeleton className="h-5 w-20 ml-auto rounded" />
+                  <Skeleton className="h-3 w-14 ml-auto rounded" />
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1"
-                  disabled={page >= totalPages}
-                  onClick={() => setSearchKey("page", Math.min(totalPages, page + 1))}
-                >
-                  Next <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-8 w-20 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <span>Per page:</span>
-                {[25, 50, 100].map((sz) => (
-                  <button
-                    key={sz}
-                    className={`px-2 py-1 rounded border text-xs ${
-                      limit === sz
-                        ? "bg-primary text-primary-foreground font-semibold border-primary"
-                        : "bg-background hover:bg-muted text-foreground"
-                    }`}
-                    onClick={() => {
-                      navigate({
-                        search: (prev: any) => ({ ...prev, limit: sz, page: 1 }),
-                        replace: true,
-                      });
-                    }}
-                  >
-                    {sz}
-                  </button>
-                ))}
-              </div>
+            ))}
+          </div>
+        ) : orders.length === 0 ? (
+          search.q || search.status || search.payment || search.from || search.to ? (
+            <div className="rounded-2xl border bg-card p-8 text-center space-y-3">
+              <p className="font-medium text-foreground">No orders match these filters.</p>
+              <p className="text-xs text-muted-foreground">
+                Try clearing your search query or selecting a different status filter.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate({ search: {}, replace: true })}
+              >
+                Clear all filters
+              </Button>
             </div>
-          )}
-        </div>
-      )}
-    </div>
+          ) : (
+            <div className="rounded-2xl border bg-card p-12 text-center space-y-3 shadow-xs">
+              <Package className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+              <h3 className="font-semibold text-lg">No orders yet</h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                When customer purchases are made on the live RIOTOUS storefront, orders will be
+                recorded and displayed here in real time.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            {orders.map((o) => {
+              const d = new Date(o.created_at);
+              const dateStr = !isNaN(d.getTime())
+                ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                : o.created_at;
+              const timeStr = !isNaN(d.getTime())
+                ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                : "";
+              const totalQuantity = (o.items ?? []).reduce(
+                (acc, item) => acc + (Number(item.quantity) || 1),
+                0,
+              );
+              const shippingStatusLabel =
+                o.courier_name && o.tracking_number
+                  ? `${o.courier_name} (${o.tracking_number})`
+                  : o.status === "Delivered"
+                    ? "Delivered to Customer"
+                    : o.status === "Shipped"
+                      ? "In Transit / Dispatched"
+                      : o.status === "Cancelled"
+                        ? "Order Cancelled"
+                        : o.status === "Returned"
+                          ? "Item Returned"
+                          : o.status === "Refunded"
+                            ? "Refund Completed"
+                            : "Pending Dispatch";
 
-    {/* Amazon Export Confirmation Modal */}
-    {amazonModalOpen && (
-      <AmazonExportModal
-        template={amazonTemplates.find((t) => t.id === selectedTemplateId) ?? null}
-        exportScope={
-          selected.length > 0
-            ? `${selected.length} selected order(s)`
-            : `${totalCount} order(s)`
-        }
-        exporting={amazonExporting}
-        onClose={() => setAmazonModalOpen(false)}
-        onConfirm={handleAmazonExport}
-      />
-    )}
+              return (
+                <div key={o.id} className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                  <div className="p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${o.order_number}`}
+                          checked={selected.includes(o.id)}
+                          onChange={(e) =>
+                            setSelected((s) =>
+                              e.target.checked ? [...s, o.id] : s.filter((x) => x !== o.id),
+                            )
+                          }
+                        />
+                        <span className="font-mono font-bold text-base tracking-tight">
+                          {o.order_number}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.status] ?? "bg-muted text-foreground"}`}
+                        >
+                          {o.status}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.payment_status] ?? "bg-muted text-foreground"}`}
+                        >
+                          {o.payment_status}
+                        </span>
+                        {o.invoice_number && (
+                          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-semibold text-brand-red bg-brand-red/10 border border-brand-red/20 px-2 py-0.5 rounded-md">
+                            <FileText className="h-3 w-3" /> {o.invoice_number}
+                          </span>
+                        )}
+                        <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+                          <Truck className="h-3 w-3" /> {shippingStatusLabel}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="text-right mr-2">
+                          <div className="font-bold text-base text-foreground">
+                            {money(o.total_amount, o.currency)}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {totalQuantity} item(s)
+                          </div>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 h-8 text-xs font-semibold"
+                          disabled={downloadingInvoiceId === o.id}
+                          onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
+                          title="Download PDF Tax Invoice"
+                        >
+                          {downloadingInvoiceId === o.id ? (
+                            <>
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" /> PDF...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3.5 w-3.5 text-brand-red" />
+                              <span>{o.invoice_number ? o.invoice_number : "PDF Invoice"}</span>
+                            </>
+                          )}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setExpanded(expanded === o.id ? null : o.id)}
+                        >
+                          {expanded === o.id ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Customer, Date, Time, and Products Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="font-medium text-foreground flex items-center gap-1">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" /> {o.shipping_name}
+                        </span>
+                        <span>·</span>
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {o.shipping_email}
+                        </span>
+                        {o.shipping_phone && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" /> {o.shipping_phone}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" /> {dateStr}
+                        </span>
+                        {timeStr && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {timeStr}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Products, Quantity, Size, Color summary */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(o.items ?? []).map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1 text-xs"
+                        >
+                          <span className="font-medium text-foreground">{item.product_name}</span>
+                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-semibold border">
+                            Qty: {item.quantity}
+                          </span>
+                          {item.selected_size && (
+                            <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
+                              Size: {item.selected_size}
+                            </span>
+                          )}
+                          {item.selected_color && (
+                            <span className="rounded bg-background px-1.5 py-0.5 text-[10px] border">
+                              Color: {item.selected_color}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {expanded === o.id && (
+                    <div className="grid gap-6 border-t p-5 lg:grid-cols-2 bg-muted/10">
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                            Order Line Items
+                          </h3>
+                          <OrderLineItemsList order={o} isExpanded={expanded === o.id} />
+                        </div>
+
+                        {/* Financial Totals */}
+                        <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">
+                          <Row
+                            label="Subtotal"
+                            value={money(o.subtotal || o.total_amount, o.currency)}
+                          />
+                          {o.discount_amount > 0 && (
+                            <Row
+                              label={`Discount${o.discount_code ? ` (${o.discount_code})` : ""}`}
+                              value={`-${money(o.discount_amount, o.currency)}`}
+                            />
+                          )}
+                          <Row
+                            label="Shipping"
+                            value={
+                              o.shipping_charge > 0 ? money(o.shipping_charge, o.currency) : "FREE"
+                            }
+                          />
+                          <Row label="Tax" value={money(o.tax_amount, o.currency)} />
+                          <div className="border-t pt-2">
+                            <Row
+                              label="Grand Total"
+                              value={money(o.total_amount, o.currency)}
+                              bold
+                            />
+                          </div>
+                        </div>
+
+                        {/* Official Tax Invoice & Compliance Card */}
+                        <div className="rounded-lg border bg-card p-4 space-y-3 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-brand-red" />
+                              <span className="font-bold text-xs uppercase tracking-wider text-foreground">
+                                GST Tax Invoice &amp; Receipt
+                              </span>
+                            </div>
+                            {o.invoice_number ? (
+                              <span className="font-mono text-xs font-bold text-foreground bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+                                {o.invoice_number}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                Not generated yet
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-1 text-muted-foreground">
+                            {o.invoice_date && (
+                              <div>
+                                Invoice Date:{" "}
+                                <strong className="text-foreground">
+                                  {new Date(o.invoice_date).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </strong>
+                              </div>
+                            )}
+                            <div>
+                              Format:{" "}
+                              <strong>
+                                A4 PDF (Amazon India standard structure, RIOTOUS branding)
+                              </strong>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              className="flex-1 gap-1.5 bg-foreground text-background text-xs font-semibold hover:opacity-90"
+                              disabled={downloadingInvoiceId === o.id}
+                              onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
+                            >
+                              {downloadingInvoiceId === o.id ? (
+                                <>
+                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Generating
+                                  PDF...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-3.5 w-3.5" /> Download PDF Invoice
+                                </>
+                              )}
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs"
+                              disabled={retryingInvoiceId === o.id}
+                              onClick={() => handleAdminRetryInvoice(o.id)}
+                              title="Generate or re-sync invoice snapshot"
+                            >
+                              <RefreshCw
+                                className={`h-3.5 w-3.5 ${retryingInvoiceId === o.id ? "animate-spin" : ""}`}
+                              />
+                              {retryingInvoiceId === o.id ? "Regenerating..." : "Regenerate / Sync"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Customer Addresses */}
+                        <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                          <div className="rounded-lg border bg-card p-3 space-y-1">
+                            <div className="font-semibold text-foreground flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5 text-brand-red" /> Shipping Address
+                            </div>
+                            <div className="font-medium text-foreground">{o.shipping_name}</div>
+                            <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
+                              {o.shipping_address}
+                            </div>
+                            {o.shipping_phone && (
+                              <div className="text-muted-foreground pt-1">{o.shipping_phone}</div>
+                            )}
+                          </div>
+
+                          <div className="rounded-lg border bg-card p-3 space-y-1">
+                            <div className="font-semibold text-foreground flex items-center gap-1">
+                              <CreditCard className="h-3.5 w-3.5 text-brand-red" /> Billing Address
+                            </div>
+                            <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
+                              {o.billing_address || o.shipping_address}
+                            </div>
+                            <div className="pt-1 text-muted-foreground space-y-0.5">
+                              <div>
+                                Payment Method: <strong>{o.payment_method}</strong>
+                              </div>
+                              <div>
+                                Payment Status:{" "}
+                                <strong
+                                  className={o.payment_status === "Paid" ? "text-emerald-500" : ""}
+                                >
+                                  {o.payment_status}
+                                </strong>
+                              </div>
+                              {o.razorpay_order_id && (
+                                <div className="font-mono text-[11px] text-muted-foreground">
+                                  Razorpay Order:{" "}
+                                  <span className="text-foreground">{o.razorpay_order_id}</span>
+                                </div>
+                              )}
+                              {o.razorpay_payment_id && (
+                                <div className="font-mono text-[11px] text-muted-foreground">
+                                  Razorpay Txn:{" "}
+                                  <span className="text-foreground font-semibold">
+                                    {o.razorpay_payment_id}
+                                  </span>
+                                </div>
+                              )}
+                              {o.paid_at && (
+                                <div className="text-[11px] text-emerald-500">
+                                  Paid At: {new Date(o.paid_at).toLocaleString("en-IN")}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <OrderControls
+                        order={o}
+                        onSave={(p) => update.mutate(p)}
+                        busy={update.isPending}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t text-sm">
+                <div className="text-xs text-muted-foreground">
+                  Showing {Math.min((page - 1) * limit + 1, totalCount)}–
+                  {Math.min(page * limit, totalCount)} of {totalCount} order(s)
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1"
+                    disabled={page <= 1}
+                    onClick={() => setSearchKey("page", Math.max(1, page - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </Button>
+                  <div className="text-xs font-medium px-2">
+                    Page {page} of {totalPages}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1"
+                    disabled={page >= totalPages}
+                    onClick={() => setSearchKey("page", Math.min(totalPages, page + 1))}
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Per page:</span>
+                  {[25, 50, 100].map((sz) => (
+                    <button
+                      key={sz}
+                      className={`px-2 py-1 rounded border text-xs ${
+                        limit === sz
+                          ? "bg-primary text-primary-foreground font-semibold border-primary"
+                          : "bg-background hover:bg-muted text-foreground"
+                      }`}
+                      onClick={() => {
+                        navigate({
+                          search: (prev: any) => ({ ...prev, limit: sz, page: 1 }),
+                          replace: true,
+                        });
+                      }}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Amazon Export Confirmation Modal */}
+      {amazonModalOpen && (
+        <AmazonExportModal
+          template={amazonTemplates.find((t) => t.id === selectedTemplateId) ?? null}
+          exportScope={
+            selected.length > 0 ? `${selected.length} selected order(s)` : `${totalCount} order(s)`
+          }
+          exporting={amazonExporting}
+          onClose={() => setAmazonModalOpen(false)}
+          onConfirm={handleAmazonExport}
+        />
+      )}
     </React.Fragment>
   );
 }
@@ -1142,9 +1209,7 @@ function AmazonExportModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const unmappedCount = template
-    ? template.headers.filter((h) => !template.mapping[h]).length
-    : 0;
+  const unmappedCount = template ? template.headers.filter((h) => !template.mapping[h]).length : 0;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-md rounded-2xl border bg-card shadow-2xl">
@@ -1184,9 +1249,11 @@ function AmazonExportModal({
             <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                {unmappedCount} column{unmappedCount > 1 ? "s" : ""} are not mapped
-                and will be blank in the output. Go to{" "}
-                <Link to="/admin/settings" className="underline">Settings → Amazon Export</Link>{" "}
+                {unmappedCount} column{unmappedCount > 1 ? "s" : ""} are not mapped and will be
+                blank in the output. Go to{" "}
+                <Link to="/admin/settings" className="underline">
+                  Settings → Amazon Export
+                </Link>{" "}
                 to complete the mapping.
               </span>
             </div>
@@ -1198,12 +1265,7 @@ function AmazonExportModal({
           </p>
 
           <div className="flex gap-2 pt-1">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-              disabled={exporting}
-            >
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={exporting}>
               Cancel
             </Button>
             <Button
@@ -1219,8 +1281,6 @@ function AmazonExportModal({
     </div>
   );
 }
-
-
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
@@ -1308,12 +1368,18 @@ function OrderControls({
           <div className="space-y-2 text-xs">
             <div className="flex justify-between items-center bg-card p-2.5 rounded-lg border">
               <span className="text-muted-foreground">
-                Courier: <strong className="text-foreground">{order.courier_name || dispatchMutation.data?.courierName || "Assigned Carrier"}</strong>
+                Courier:{" "}
+                <strong className="text-foreground">
+                  {order.courier_name || dispatchMutation.data?.courierName || "Assigned Carrier"}
+                </strong>
               </span>
-              <span className="font-mono font-medium text-foreground">AWB: {order.tracking_number || dispatchMutation.data?.awbNumber || order.zippyy_order_id}</span>
+              <span className="font-mono font-medium text-foreground">
+                AWB:{" "}
+                {order.tracking_number || dispatchMutation.data?.awbNumber || order.zippyy_order_id}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
-              {(order.shipping_label_url || dispatchMutation.data?.shippingLabelUrl) ? (
+              {order.shipping_label_url || dispatchMutation.data?.shippingLabelUrl ? (
                 <a
                   href={order.shipping_label_url || dispatchMutation.data?.shippingLabelUrl}
                   target="_blank"
@@ -1338,7 +1404,8 @@ function OrderControls({
         ) : (
           <div className="space-y-2 pt-1">
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Instantly book forward shipment with Zippyy, assign courier (Delhivery/DTDC/Xpressbees), and generate printable shipping label.
+              Instantly book forward shipment with Zippyy, assign courier
+              (Delhivery/DTDC/Xpressbees), and generate printable shipping label.
             </p>
             <Button
               size="sm"
@@ -1354,7 +1421,9 @@ function OrderControls({
       </div>
 
       <div className="border-t pt-3 space-y-3">
-        <h3 className="text-xs font-semibold uppercase text-muted-foreground">Manual Override Controls</h3>
+        <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+          Manual Override Controls
+        </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label className="text-xs">Order status</Label>
@@ -1402,7 +1471,8 @@ function OrderControls({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Marking an order Shipped deducts reserved stock. Cancelling, returning or refunding it restores inventory.
+          Marking an order Shipped deducts reserved stock. Cancelling, returning or refunding it
+          restores inventory.
         </p>
         <Button
           variant="outline"

@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { getSql } from "@/lib/db";
 import { generateInvoicePdf } from "@/lib/invoice/pdf-generator";
-import { getOrCreateInvoiceForOrder } from "@/lib/invoice/invoice.server";
 
 // Helper: Assert admin access
 async function assertAdmin(context: any) {
@@ -12,18 +11,25 @@ async function assertAdmin(context: any) {
   }
   const role = String(user.role || "").toLowerCase();
   const isAdmin =
-    role === "super admin" ||
-    role === "admin" ||
-    role === "administrator" ||
-    role === "staff";
+    role === "super admin" || role === "admin" || role === "administrator" || role === "staff";
   if (!isAdmin) {
     throw new Error("Admin privileges required.");
   }
 }
 
+export type InvoiceDownloadResponse = {
+  success: boolean;
+  filename?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  pdfBase64?: string;
+  base64?: string;
+  error?: string;
+};
+
 /**
  * Downloads invoice PDF for the authenticated customer.
- * Security: Validates that the order belongs to the authenticated user.
+ * Security: Validates that the order belongs to the authenticated user or user is staff/admin.
  */
 export const getCustomerInvoicePdf = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -33,34 +39,43 @@ export const getCustomerInvoicePdf = createServerFn({ method: "POST" })
     }
     return data;
   })
-  .handler(async ({ context, data }) => {
-    const authUser = context.user;
-    if (!authUser) {
+  .handler(async ({ context, data }): Promise<InvoiceDownloadResponse> => {
+    const authCtx = context as any;
+    const authUser = authCtx?.user;
+    if (!authUser || !authUser.id) {
       throw new Error("You must be logged in to access invoices.");
     }
 
     const sql = getSql();
-    const rows = await sql`SELECT * FROM orders WHERE id = ${data.orderId} LIMIT 1`;
+    const rows = await sql`SELECT * FROM orders WHERE id::text = ${data.orderId} LIMIT 1`;
     if (!rows || rows.length === 0) {
       throw new Error("Order not found.");
     }
     const order = rows[0];
 
     // Authorization check: User must own the order or be an admin
-    const isOwner =
-      (order.user_id && String(order.user_id) === String(authUser.id)) ||
-      (order.shipping_email && order.shipping_email.toLowerCase() === authUser.email.toLowerCase());
+    const orderUserId = order.user_id ? String(order.user_id).trim() : "";
+    const authUserId = String(authUser.id || "").trim();
+    const orderEmail = order.shipping_email
+      ? String(order.shipping_email).toLowerCase().trim()
+      : "";
+    const authEmail = authUser.email ? String(authUser.email).toLowerCase().trim() : "";
 
+    const isOwner =
+      Boolean(
+        orderUserId && (orderUserId === authUserId || (authEmail && orderUserId === authEmail)),
+      ) || Boolean(orderEmail && authEmail && orderEmail === authEmail);
+
+    const role = String(authUser.role || "").toLowerCase();
     const isAdmin =
-      authUser.role === "Super Admin" ||
-      authUser.role === "Admin" ||
-      authUser.role === "Staff";
+      role === "super admin" || role === "admin" || role === "administrator" || role === "staff";
 
     if (!isOwner && !isAdmin) {
       throw new Error("Access denied: You are not authorized to download this invoice.");
     }
 
-    // Retrieve or generate invoice
+    // Retrieve or generate invoice via dynamic server-only module
+    const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
     const invoice = await getOrCreateInvoiceForOrder(data.orderId);
 
     // Generate PDF
@@ -102,10 +117,11 @@ export const getAdminInvoicePdf = createServerFn({ method: "POST" })
     }
     return data;
   })
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context, data }): Promise<InvoiceDownloadResponse> => {
     await assertAdmin(context);
 
     // Retrieve or generate invoice
+    const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
     const invoice = await getOrCreateInvoiceForOrder(data.orderId, {
       forceRegenerate: data.forceRegenerate,
     });
@@ -151,6 +167,7 @@ export const adminRetryGenerateInvoice = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
 
+    const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
     const invoice = await getOrCreateInvoiceForOrder(data.orderId, {
       forceRegenerate: true,
     });

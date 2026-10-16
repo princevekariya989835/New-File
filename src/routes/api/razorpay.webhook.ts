@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { verifyRazorpayWebhookSignature } from "@/lib/razorpay.server";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { deductOrderInventory } from "@/lib/inventory.service";
 import { sendOrderConfirmation } from "@/lib/email";
@@ -21,6 +20,7 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             });
           }
 
+          const { verifyRazorpayWebhookSignature } = await import("@/lib/razorpay.server");
           const isValid = verifyRazorpayWebhookSignature({
             rawBody,
             signature,
@@ -67,7 +67,9 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
 
                 if (order.payment_status !== "Paid") {
                   const expectedPaise = Math.round(Number(order.total_amount || 0) * 100);
-                  const actualPaise = paymentEntity?.amount ? Number(paymentEntity.amount) : expectedPaise;
+                  const actualPaise = paymentEntity?.amount
+                    ? Number(paymentEntity.amount)
+                    : expectedPaise;
                   if (actualPaise < expectedPaise) {
                     console.error("[Razorpay Webhook] Captured amount is less than order total:", {
                       expectedPaise,
@@ -160,8 +162,13 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                       color: i.selected_color ?? null,
                       price: Number(i.price || 0).toLocaleString("en-IN"),
                     })),
-                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-                    discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString(
+                      "en-IN",
+                    ),
+                    discountAmount:
+                      Number(order.discount_amount || 0) > 0
+                        ? Number(order.discount_amount).toLocaleString("en-IN")
+                        : null,
                     discountCode: order.discount_code || null,
                     shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
                     total: Number(order.total_amount || 0).toLocaleString("en-IN"),
@@ -180,8 +187,13 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                     customerPhone: order.shipping_phone || null,
                     shippingAddress: String(order.shipping_address),
                     paymentMethod: "Online Payment (Razorpay)",
-                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-                    discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString(
+                      "en-IN",
+                    ),
+                    discountAmount:
+                      Number(order.discount_amount || 0) > 0
+                        ? Number(order.discount_amount).toLocaleString("en-IN")
+                        : null,
                     couponCode: order.discount_code || null,
                     shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
                     total: Number(order.total_amount || 0).toLocaleString("en-IN"),
@@ -231,10 +243,13 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           });
         } catch (error: any) {
           console.error("[Razorpay Webhook] Error processing webhook:", error);
-          return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ error: error?.message || "Internal server error" }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
       },
     },

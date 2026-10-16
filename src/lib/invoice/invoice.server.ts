@@ -1,26 +1,7 @@
-import { createServerFn } from "@tanstack/react-start";
-import { requireAuth } from "@/lib/auth-middleware";
 import { getSql, ensureDbSchema } from "@/lib/db";
 import { InvoiceRecord, SellerInvoiceConfig } from "./types";
 import { buildInvoiceSnapshot } from "./tax-calculator";
 import { generateInvoicePdf } from "./pdf-generator";
-
-// Helper: Assert admin access
-async function assertAdmin(context: any) {
-  const user = context?.user;
-  if (!user) {
-    throw new Error("Authentication required.");
-  }
-  const role = String(user.role || "").toLowerCase();
-  const isAdmin =
-    role === "super admin" ||
-    role === "admin" ||
-    role === "administrator" ||
-    role === "staff";
-  if (!isAdmin) {
-    throw new Error("Admin privileges required.");
-  }
-}
 
 /**
  * In-memory fallback stores for local offline development
@@ -80,7 +61,9 @@ async function getSellerConfig(): Promise<SellerInvoiceConfig> {
   }
 
   const isGstRegistered = Boolean(row?.is_gst_registered);
-  const businessGstin = String(row?.business_gstin || "").trim().toUpperCase();
+  const businessGstin = String(row?.business_gstin || "")
+    .trim()
+    .toUpperCase();
 
   return {
     legalBusinessName: row?.legal_business_name || row?.store_name || "RIOTOUS Brandworks",
@@ -168,11 +151,26 @@ export async function getOrCreateInvoiceForOrder(
 
     if (existing && existing.length > 0 && !options.forceRegenerate) {
       const row = existing[0];
-      const seller = typeof row.seller_details === "string" ? JSON.parse(row.seller_details) : (row.seller_details || {});
-      const customer = typeof row.customer_details === "string" ? JSON.parse(row.customer_details) : (row.customer_details || {});
-      const items = typeof row.items_snapshot === "string" ? JSON.parse(row.items_snapshot) : (row.items_snapshot || []);
-      const totals = typeof row.totals_snapshot === "string" ? JSON.parse(row.totals_snapshot) : (row.totals_snapshot || {});
-      const notes = (seller.invoiceNotes || "").split("\n").map((n: string) => n.trim()).filter(Boolean);
+      const seller =
+        typeof row.seller_details === "string"
+          ? JSON.parse(row.seller_details)
+          : row.seller_details || {};
+      const customer =
+        typeof row.customer_details === "string"
+          ? JSON.parse(row.customer_details)
+          : row.customer_details || {};
+      const items =
+        typeof row.items_snapshot === "string"
+          ? JSON.parse(row.items_snapshot)
+          : row.items_snapshot || [];
+      const totals =
+        typeof row.totals_snapshot === "string"
+          ? JSON.parse(row.totals_snapshot)
+          : row.totals_snapshot || {};
+      const notes = (seller.invoiceNotes || "")
+        .split("\n")
+        .map((n: string) => n.trim())
+        .filter(Boolean);
 
       return {
         id: row.id,
@@ -232,7 +230,9 @@ export async function getOrCreateInvoiceForOrder(
   const sellerConfig = await getSellerConfig();
 
   // 6. Generate Unique Concurrency-Safe Invoice Number
-  const orderYear = order.created_at ? new Date(order.created_at).getFullYear() : new Date().getFullYear();
+  const orderYear = order.created_at
+    ? new Date(order.created_at).getFullYear()
+    : new Date().getFullYear();
   const invoiceNumber = await getNextInvoiceNumber(orderYear, sellerConfig.invoicePrefix);
   const invoiceDate = new Date().toISOString();
 
@@ -290,11 +290,3 @@ export async function getOrCreateInvoiceForOrder(
 
   return invoiceSnapshot;
 }
-
-// Re-export public server functions
-export {
-  getCustomerInvoicePdf,
-  getAdminInvoicePdf,
-  adminRetryGenerateInvoice,
-} from "@/lib/invoice.functions";
-

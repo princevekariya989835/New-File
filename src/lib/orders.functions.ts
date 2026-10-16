@@ -11,14 +11,8 @@ import {
 import { validateAndCalculateCoupon } from "@/lib/coupons.functions";
 import { calculateBuy2Get1Discount } from "@/lib/promotions";
 import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
-import {
-  createRazorpayOrder,
-  verifyRazorpayPaymentSignature,
-  getRazorpayKeyId,
-} from "@/lib/razorpay.server";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
-import { getOrCreateInvoiceForOrder } from "@/lib/invoice/invoice.server";
 
 export function extractPrimaryImage(images: unknown): string | null {
   if (!images) return null;
@@ -100,7 +94,16 @@ export function getFallbackProductImageByName(name: string | null): string | nul
   if (fb?.images?.[0]) return fb.images[0];
 
   // 2. Score by matching distinctive words
-  const GENERIC = new Set(["tee", "shirt", "t-shirt", "graphic", "oversized", "tee-shirt", "cotton", "printed"]);
+  const GENERIC = new Set([
+    "tee",
+    "shirt",
+    "t-shirt",
+    "graphic",
+    "oversized",
+    "tee-shirt",
+    "cotton",
+    "printed",
+  ]);
   const words = cleanName
     .split(/[\s\-_]+/)
     .map((w) => w.trim())
@@ -150,10 +153,7 @@ export function resolveOrderItemImage(options: {
 
   // Priority 2: Stored order product image snapshot (historical snapshot)
   // Must NOT be a broken placeholder, numeric corrupted count, or object string
-  if (
-    options.orderProductImage &&
-    typeof options.orderProductImage === "string"
-  ) {
+  if (options.orderProductImage && typeof options.orderProductImage === "string") {
     const trimmed = options.orderProductImage.trim();
     const isCorrupted =
       trimmed.length < 4 ||
@@ -264,7 +264,9 @@ export const getMyOrders = createServerFn({ method: "GET" })
       const sql = getSql();
       const authCtx = context as any;
       const userId = String(authCtx.userId || "");
-      const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+      const userEmail = String(authCtx.user?.email || "")
+        .toLowerCase()
+        .trim();
 
       // Opportunistic safe link: if legacy orders exist with matching verified email but unassigned user_id, associate them
       if (userId && userEmail) {
@@ -385,14 +387,23 @@ export const placeOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
-    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
+    if (d.items.length > 50)
+      throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
+      shippingPhone: d.shippingPhone
+        ? String(d.shippingPhone)
+            .replace(/[^\d+\-\s()]/g, "")
+            .slice(0, 20)
+        : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      shipping: Number.isFinite(d.shipping)
+        ? Number(d.shipping)
+        : d?.shipping !== undefined && Number.isFinite(Number(d.shipping))
+          ? Number(d.shipping)
+          : undefined,
       discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
       subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
       taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
@@ -541,8 +552,15 @@ export const placeOrder = createServerFn({ method: "POST" })
     const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
 
     // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
-    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const clientShipping = Number.isFinite(Number(data.shipping))
+      ? Number(data.shipping)
+      : undefined;
+    const shipping =
+      finalSubtotal >= 1999 || finalSubtotal === 0
+        ? 0
+        : clientShipping !== undefined && clientShipping >= 0
+          ? clientShipping
+          : 79;
     const taxAmount = 0;
     const total = Math.max(0, finalSubtotal + shipping + taxAmount);
     const finalAmount = total;
@@ -594,7 +612,11 @@ export const placeOrder = createServerFn({ method: "POST" })
 
       if (!updateRes || updateRes.length === 0) {
         // Rollback inventory reservation if coupon slot was snatched concurrently
-        await restoreOrderInventory(orderId, "Coupon limit reached during checkout", authCtx.userId).catch(() => {});
+        await restoreOrderInventory(
+          orderId,
+          "Coupon limit reached during checkout",
+          authCtx.userId,
+        ).catch(() => {});
         throw new Error("The coupon has reached its maximum usage limit or has expired.");
       }
     }
@@ -607,7 +629,7 @@ export const placeOrder = createServerFn({ method: "POST" })
         payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
         ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount}, ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
-        ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)}, ${eligibleAmount}, ${subtotal}, ${finalSubtotal},
+        ${appliedCoupon ? appliedCoupon.discountType : b2g1Discount > 0 ? "B2G1" : null}, ${appliedCoupon ? appliedCoupon.discountValue : b2g1Discount > 0 ? b2g1Discount : null}, ${eligibleAmount}, ${subtotal}, ${finalSubtotal},
         ${shipping}, ${taxAmount}, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
         ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
@@ -675,6 +697,7 @@ export const placeOrder = createServerFn({ method: "POST" })
     let invoiceNumber: string | null = null;
     let invoiceDate: string | null = null;
     try {
+      const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
       const inv = await getOrCreateInvoiceForOrder(orderId);
       invoiceNumber = inv.invoiceNumber;
       invoiceDate = inv.invoiceDate;
@@ -768,14 +791,23 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
-    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
+    if (d.items.length > 50)
+      throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
+      shippingPhone: d.shippingPhone
+        ? String(d.shippingPhone)
+            .replace(/[^\d+\-\s()]/g, "")
+            .slice(0, 20)
+        : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      shipping: Number.isFinite(d.shipping)
+        ? Number(d.shipping)
+        : d?.shipping !== undefined && Number.isFinite(Number(d.shipping))
+          ? Number(d.shipping)
+          : undefined,
       discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
       subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
       taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
@@ -924,8 +956,15 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
 
     // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
-    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const clientShipping = Number.isFinite(Number(data.shipping))
+      ? Number(data.shipping)
+      : undefined;
+    const shipping =
+      finalSubtotal >= 1999 || finalSubtotal === 0
+        ? 0
+        : clientShipping !== undefined && clientShipping >= 0
+          ? clientShipping
+          : 79;
     const taxAmount = 0;
     const total = Math.max(0, finalSubtotal + shipping + taxAmount);
     const finalAmount = total;
@@ -945,7 +984,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
 
     // Create Razorpay Order via official API
     let razorpayOrder: any;
+    let activeRazorpayKeyId = "";
     try {
+      const { createRazorpayOrder, getRazorpayKeyId } = await import("@/lib/razorpay.server");
+      activeRazorpayKeyId = getRazorpayKeyId();
       razorpayOrder = await createRazorpayOrder({
         amountInPaise,
         currency: "INR",
@@ -959,7 +1001,9 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       });
     } catch (rzpErr: any) {
       console.error("[Orders] Failed to create Razorpay order:", rzpErr);
-      throw new Error(rzpErr.message || "Failed to initialize payment with Razorpay. Please try again.");
+      throw new Error(
+        rzpErr.message || "Failed to initialize payment with Razorpay. Please try again.",
+      );
     }
 
     // Record order in database in Pending payment state
@@ -974,15 +1018,22 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         ) VALUES (
           ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount},
           ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
-          ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)},
+          ${appliedCoupon ? appliedCoupon.discountType : b2g1Discount > 0 ? "B2G1" : null}, ${appliedCoupon ? appliedCoupon.discountValue : b2g1Discount > 0 ? b2g1Discount : null},
           ${eligibleAmount}, ${subtotal}, ${finalSubtotal}, ${shipping}, ${taxAmount}, ${total}, ${data.currency},
           'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
           ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
         );
       `;
     } catch (insertErr: any) {
-      if (insertErr?.message?.includes("payment_gateway") || insertErr?.message?.includes("razorpay") || insertErr?.message?.includes("column")) {
-        console.warn("[Orders] Adding missing columns to orders relation dynamically:", insertErr?.message);
+      if (
+        insertErr?.message?.includes("payment_gateway") ||
+        insertErr?.message?.includes("razorpay") ||
+        insertErr?.message?.includes("column")
+      ) {
+        console.warn(
+          "[Orders] Adding missing columns to orders relation dynamically:",
+          insertErr?.message,
+        );
         try {
           await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'Razorpay'`;
           await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`;
@@ -1031,7 +1082,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       orderId,
       orderNumber,
       razorpayOrderId: razorpayOrder.id,
-      razorpayKeyId: getRazorpayKeyId(),
+      razorpayKeyId: activeRazorpayKeyId,
       amount: amountInPaise,
       currency: "INR",
       customerName: data.shippingName,
@@ -1064,10 +1115,16 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     razorpaySignature: String(d?.razorpaySignature || "").trim(),
   }))
   .handler(async ({ data, context }) => {
-    if (!data.orderId || !data.razorpayOrderId || !data.razorpayPaymentId || !data.razorpaySignature) {
+    if (
+      !data.orderId ||
+      !data.razorpayOrderId ||
+      !data.razorpayPaymentId ||
+      !data.razorpaySignature
+    ) {
       throw new Error("Missing required payment verification parameters.");
     }
 
+    const { verifyRazorpayPaymentSignature } = await import("@/lib/razorpay.server");
     const isValid = verifyRazorpayPaymentSignature({
       razorpayOrderId: data.razorpayOrderId,
       razorpayPaymentId: data.razorpayPaymentId,
@@ -1076,7 +1133,9 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
 
     if (!isValid) {
       console.error("[Orders] Invalid Razorpay signature:", data);
-      throw new Error("Payment signature verification failed. Please contact support if your money was debited.");
+      throw new Error(
+        "Payment signature verification failed. Please contact support if your money was debited.",
+      );
     }
 
     await ensureDbSchema();
@@ -1103,11 +1162,16 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     }
 
     // IDOR check: verify that the user verifying the payment owns the order (or has matching email for guest checkout)
-    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+    const userEmail = String(authCtx.user?.email || "")
+      .toLowerCase()
+      .trim();
     if (
       order.user_id &&
       String(order.user_id) !== String(authCtx.userId) &&
-      (!userEmail || String(order.shipping_email || "").toLowerCase().trim() !== userEmail)
+      (!userEmail ||
+        String(order.shipping_email || "")
+          .toLowerCase()
+          .trim() !== userEmail)
     ) {
       throw new Error("Unauthorized: You do not have permission to verify this order.");
     }
@@ -1208,6 +1272,7 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     // Automatically generate invoice for the paid online order
     let invoiceNumber: string | null = null;
     try {
+      const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
       const inv = await getOrCreateInvoiceForOrder(String(order.id));
       invoiceNumber = inv.invoiceNumber;
     } catch (invErr) {
@@ -1230,7 +1295,10 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
         price: Number(i.price || 0).toLocaleString("en-IN"),
       })),
       subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+      discountAmount:
+        Number(order.discount_amount || 0) > 0
+          ? Number(order.discount_amount).toLocaleString("en-IN")
+          : null,
       discountCode: order.discount_code || null,
       shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
       total: Number(order.total_amount || 0).toLocaleString("en-IN"),
@@ -1238,7 +1306,9 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       paymentMethod: "Online Payment (Razorpay)",
       paymentStatus: "Paid",
       userId: String(authCtx.userId),
-    }).catch((err) => console.warn("[Order Service] Customer email notice on online payment:", err));
+    }).catch((err) =>
+      console.warn("[Order Service] Customer email notice on online payment:", err),
+    );
 
     // Send store owner / admin notification
     const adminTemplateData = {
@@ -1250,7 +1320,10 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       shippingAddress: String(order.shipping_address),
       paymentMethod: "Online Payment (Razorpay)",
       subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
+      discountAmount:
+        Number(order.discount_amount || 0) > 0
+          ? Number(order.discount_amount).toLocaleString("en-IN")
+          : null,
       couponCode: order.discount_code || null,
       shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
       total: Number(order.total_amount || 0).toLocaleString("en-IN"),
@@ -1318,7 +1391,9 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
     const authCtx = context as any;
-    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+    const userEmail = String(authCtx.user?.email || "")
+      .toLowerCase()
+      .trim();
     const rows = await sql`
       SELECT id, user_id, status, order_number FROM orders
       WHERE id::text = ${data.orderId}
@@ -1327,7 +1402,8 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
           OR user_id::text = ${userEmail})
       LIMIT 1
     `;
-    if (rows.length === 0) throw new Error("Order not found or you are not authorized to cancel it");
+    if (rows.length === 0)
+      throw new Error("Order not found or you are not authorized to cancel it");
     if (["Shipped", "Delivered", "Cancelled", "Returned"].includes(rows[0].status)) {
       throw new Error(
         `Order cannot be cancelled because it is already ${rows[0].status.toLowerCase()}`,
@@ -1336,4 +1412,3 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     const res = await restoreOrderInventory(data.orderId, data.reason, authCtx.userId);
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });
-

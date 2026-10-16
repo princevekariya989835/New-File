@@ -13,7 +13,7 @@ export type ShippingEstimateInput = {
 };
 
 export const getShippingEstimate = createServerFn({ method: "POST" })
-  .inputValidator((d: ShippingEstimateInput) => ({
+  .validator((d: ShippingEstimateInput) => ({
     pincode: String(d?.pincode || "").trim().slice(0, 10),
     weightGrams: Number(d?.weightGrams || 500),
     isCod: Boolean(d?.isCod),

@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getOrCreateInvoiceForOrder } from "@/lib/invoice/invoice.server";
 import { generateInvoicePdf } from "@/lib/invoice/pdf-generator";
-import { verifyAndDecodeToken } from "@/lib/auth.server";
 import { getSql } from "@/lib/db";
 
 export const Route = createFileRoute("/api/invoices/$orderId")({
@@ -16,7 +14,8 @@ export const Route = createFileRoute("/api/invoices/$orderId")({
 
           // 1. Authenticate user from cookie or Authorization header
           let token: string | null = null;
-          const authH = request.headers.get("authorization") || request.headers.get("Authorization");
+          const authH =
+            request.headers.get("authorization") || request.headers.get("Authorization");
           if (authH && authH.startsWith("Bearer ")) {
             token = authH.substring(7).trim();
           }
@@ -42,27 +41,36 @@ export const Route = createFileRoute("/api/invoices/$orderId")({
             });
           }
 
+          const { verifyAndDecodeToken } = await import("@/lib/auth.server");
           const decoded = await verifyAndDecodeToken(token);
-          if (!decoded || !decoded.userId) {
+          if (!decoded || !decoded.id) {
             return new Response("Invalid or expired session token.", { status: 401 });
           }
 
           // 2. Fetch the order to verify authorization
           const sql = getSql();
-          const rows = await sql`SELECT * FROM orders WHERE id = ${orderId} LIMIT 1`;
+          const rows = await sql`SELECT * FROM orders WHERE id::text = ${orderId} LIMIT 1`;
           if (!rows || rows.length === 0) {
             return new Response("Order not found.", { status: 404 });
           }
           const order = rows[0];
 
           // 3. Verify user is owner or admin
+          const orderUserId = order.user_id ? String(order.user_id).trim() : "";
+          const authUserId = String(decoded.id || "").trim();
+          const orderEmail = order.shipping_email
+            ? String(order.shipping_email).toLowerCase().trim()
+            : "";
+          const authEmail = decoded.email ? String(decoded.email).toLowerCase().trim() : "";
+
           const isOwner =
-            (order.user_id && String(order.user_id) === String(decoded.userId)) ||
-            (order.shipping_email && order.shipping_email.toLowerCase() === decoded.email?.toLowerCase());
+            Boolean(
+              orderUserId &&
+              (orderUserId === authUserId || (authEmail && orderUserId === authEmail)),
+            ) || Boolean(orderEmail && authEmail && orderEmail === authEmail);
 
           const role = String(decoded.role || "").toLowerCase();
-          const isAdmin =
-            role === "super admin" || role === "admin" || role === "staff";
+          const isAdmin = role === "super admin" || role === "admin" || role === "staff";
 
           if (!isOwner && !isAdmin) {
             return new Response("Forbidden. You are not authorized to view this invoice.", {
@@ -71,6 +79,7 @@ export const Route = createFileRoute("/api/invoices/$orderId")({
           }
 
           // 4. Retrieve or generate the invoice
+          const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
           const invoice = await getOrCreateInvoiceForOrder(orderId);
 
           // 5. Generate PDF
@@ -88,9 +97,12 @@ export const Route = createFileRoute("/api/invoices/$orderId")({
           });
         } catch (err: any) {
           console.error("[API /api/invoices/$orderId] Error generating invoice:", err);
-          return new Response(`Error generating invoice: ${err?.message || "Internal server error"}`, {
-            status: 500,
-          });
+          return new Response(
+            `Error generating invoice: ${err?.message || "Internal server error"}`,
+            {
+              status: 500,
+            },
+          );
         }
       },
     },

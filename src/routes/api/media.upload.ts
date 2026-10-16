@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { isStaffRole } from "@/lib/auth.types";
-import { verifyAndDecodeToken } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/api/media/upload")({
   server: {
@@ -33,6 +32,7 @@ export const Route = createFileRoute("/api/media/upload")({
           let isAdmin = false;
           let userEmail = "Admin";
           if (token) {
+            const { verifyAndDecodeToken } = await import("@/lib/auth.server");
             const user = verifyAndDecodeToken(token);
             if (user) {
               try {
@@ -180,7 +180,11 @@ export const Route = createFileRoute("/api/media/upload")({
           const cleanBase64 = dataBase64.replace(/^data:[^;]+;base64,/, "");
           if (mimeType === "image/svg+xml") {
             const rawSvg = Buffer.from(cleanBase64, "base64").toString("utf-8");
-            if (/<script/i.test(rawSvg) || /on\w+\s*=/i.test(rawSvg) || /javascript:/i.test(rawSvg)) {
+            if (
+              /<script/i.test(rawSvg) ||
+              /on\w+\s*=/i.test(rawSvg) ||
+              /javascript:/i.test(rawSvg)
+            ) {
               return new Response(
                 JSON.stringify({ error: "SVG contains unsafe scripts or executable attributes." }),
                 { status: 400, headers: { "Content-Type": "application/json" } },

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SiteLoader } from "@/components/site-loader";
 import { toast } from "sonner";
+import { getMyOrders, cancelMyOrder, type CustomerOrder } from "@/lib/orders.functions";
 import { getCustomerInvoicePdf } from "@/lib/invoice.functions";
 import { formatPrice } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,9 @@ import {
 } from "@/components/ui/dialog";
 import { CancelOrderModal } from "@/components/orders/cancel-order-modal";
 
-export const Route = createLazyFileRoute("/_authenticated/account/orders")({ component: OrdersPage });
+export const Route = createLazyFileRoute("/_authenticated/account/orders")({
+  component: OrdersPage,
+});
 
 const STATUS_STEPS = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered"];
 
@@ -61,12 +64,13 @@ function OrdersPage() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
   const handleDownloadInvoice = async (orderId: string, orderNumber: string) => {
+    if (downloadingInvoiceId) return;
     try {
       setDownloadingInvoiceId(orderId);
       const res = await downloadInvoiceFn({ data: { orderId } });
       const rawBase64 = res.base64 || res.pdfBase64;
       if (!res.success || !rawBase64) {
-        throw new Error(res.error || "Unable to generate invoice. Please try again.");
+        throw new Error((res as any).error || "Unable to generate invoice. Please try again.");
       }
       const byteChars = atob(rawBase64);
       const byteArr = new Uint8Array(byteChars.length);
@@ -103,7 +107,7 @@ function OrdersPage() {
       setCancellingId(null);
       setOrderToCancel(null);
       if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) =>
+        setSelectedOrder((prev: CustomerOrder | null) =>
           prev
             ? {
                 ...prev,
@@ -201,7 +205,9 @@ function OrdersPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
             <Package className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="mt-5 text-xl font-bold text-foreground">You haven't placed any orders yet</h2>
+          <h2 className="mt-5 text-xl font-bold text-foreground">
+            You haven't placed any orders yet
+          </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Explore our latest oversized streetwear collection and start crafting your look.
           </p>
@@ -328,7 +334,9 @@ function OrdersPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{li.title}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {li.title}
+                          </p>
                           <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {li.size && (
                               <span className="rounded bg-secondary px-1.5 py-0.5 font-medium">
@@ -387,7 +395,9 @@ function OrdersPage() {
                       ) : (
                         <>
                           <Download className="h-3.5 w-3.5 text-brand-red" />
-                          <span>{o.invoiceNumber ? `Invoice (${o.invoiceNumber})` : "Download Invoice"}</span>
+                          <span>
+                            {o.invoiceNumber ? `Invoice (${o.invoiceNumber})` : "Download Invoice"}
+                          </span>
                         </>
                       )}
                     </Button>
@@ -528,8 +538,9 @@ function OrdersPage() {
                     <Truck className="h-4 w-4" /> Shipment In Transit
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Courier: <strong>{selectedOrder.courierName || "Standard Delivery"}</strong> · Tracking
-                    No: <strong className="font-mono">{selectedOrder.trackingNumber}</strong>
+                    Courier: <strong>{selectedOrder.courierName || "Standard Delivery"}</strong> ·
+                    Tracking No:{" "}
+                    <strong className="font-mono">{selectedOrder.trackingNumber}</strong>
                   </p>
                 </div>
                 {selectedOrder.trackingUrl && (
@@ -576,9 +587,19 @@ function OrdersPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{item.title}</p>
                       <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {item.size && <span>Size: <strong>{item.size}</strong></span>}
-                        {item.color && <span>Color: <strong>{item.color}</strong></span>}
-                        <span>Qty: <strong>{item.quantity}</strong></span>
+                        {item.size && (
+                          <span>
+                            Size: <strong>{item.size}</strong>
+                          </span>
+                        )}
+                        {item.color && (
+                          <span>
+                            Color: <strong>{item.color}</strong>
+                          </span>
+                        )}
+                        <span>
+                          Qty: <strong>{item.quantity}</strong>
+                        </span>
                       </div>
                     </div>
                     <div className="text-right text-sm">
@@ -600,16 +621,24 @@ function OrdersPage() {
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span>
-                    {formatPrice(selectedOrder.subtotal.amount, selectedOrder.subtotal.currencyCode)}
+                    {formatPrice(
+                      selectedOrder.subtotal.amount,
+                      selectedOrder.subtotal.currencyCode,
+                    )}
                   </span>
                 </div>
                 {parseFloat(selectedOrder.discount.amount) > 0 && (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
                     <span>
-                      Discount {selectedOrder.discount.code ? `(${selectedOrder.discount.code})` : ""}
+                      Discount{" "}
+                      {selectedOrder.discount.code ? `(${selectedOrder.discount.code})` : ""}
                     </span>
                     <span>
-                      -{formatPrice(selectedOrder.discount.amount, selectedOrder.discount.currencyCode)}
+                      -
+                      {formatPrice(
+                        selectedOrder.discount.amount,
+                        selectedOrder.discount.currencyCode,
+                      )}
                     </span>
                   </div>
                 )}
@@ -628,13 +657,18 @@ function OrdersPage() {
                   <div className="flex justify-between text-muted-foreground">
                     <span>Estimated Tax</span>
                     <span>
-                      {formatPrice(selectedOrder.taxAmount.amount, selectedOrder.taxAmount.currencyCode)}
+                      {formatPrice(
+                        selectedOrder.taxAmount.amount,
+                        selectedOrder.taxAmount.currencyCode,
+                      )}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-border pt-2 text-base font-black text-foreground">
                   <span>Total Paid</span>
-                  <span>{formatPrice(selectedOrder.total.amount, selectedOrder.total.currencyCode)}</span>
+                  <span>
+                    {formatPrice(selectedOrder.total.amount, selectedOrder.total.currencyCode)}
+                  </span>
                 </div>
                 {selectedOrder.paymentMethod && (
                   <p className="text-xs text-muted-foreground pt-1 flex items-center gap-1.5">

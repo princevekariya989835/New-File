@@ -12,7 +12,6 @@ import {
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
 import { logServerSyncEvent } from "@/lib/server-logger";
-import { removeProductFromFile } from "@/lib/fallback-products-manager.server";
 import { sendOrderShipped, sendOrderDelivered, sendPaymentConfirmation } from "@/lib/email";
 import {
   addInventory,
@@ -25,7 +24,13 @@ import {
 import { resolveOrderItemImage } from "@/lib/orders.functions";
 import type { ProductHighlight, ProductSpecification, ProductColorVariant } from "@/lib/catalog";
 
-export type { ProductInput, InventoryTransactionRecord, ProductHighlight, ProductSpecification, ProductColorVariant };
+export type {
+  ProductInput,
+  InventoryTransactionRecord,
+  ProductHighlight,
+  ProductSpecification,
+  ProductColorVariant,
+};
 
 export type AdminProduct = {
   id: string;
@@ -269,16 +274,26 @@ export const adminListProducts = createServerFn({ method: "GET" })
       const rawImgs = Array.isArray(p.images)
         ? p.images
         : typeof p.images === "string"
-          ? (() => { try { return JSON.parse(p.images); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(p.images);
+              } catch {
+                return [];
+              }
+            })()
           : [];
-      const cleanImgs = rawImgs
-        .map((img: any) => String(img || "").trim())
-        .filter(Boolean);
+      const cleanImgs = rawImgs.map((img: any) => String(img || "").trim()).filter(Boolean);
 
       const rawHighlights = Array.isArray(p.highlights)
         ? p.highlights
         : typeof p.highlights === "string"
-          ? (() => { try { return JSON.parse(p.highlights); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(p.highlights);
+              } catch {
+                return [];
+              }
+            })()
           : [];
       const highlights = rawHighlights.map((h: any) => ({
         id: String(h.id),
@@ -293,7 +308,13 @@ export const adminListProducts = createServerFn({ method: "GET" })
       const rawSpecs = Array.isArray(p.specifications)
         ? p.specifications
         : typeof p.specifications === "string"
-          ? (() => { try { return JSON.parse(p.specifications); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(p.specifications);
+              } catch {
+                return [];
+              }
+            })()
           : [];
       const specifications = rawSpecs.map((s: any) => ({
         id: String(s.id),
@@ -307,7 +328,13 @@ export const adminListProducts = createServerFn({ method: "GET" })
       const rawOffers = Array.isArray(p.offers)
         ? p.offers
         : typeof p.offers === "string"
-          ? (() => { try { return JSON.parse(p.offers); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(p.offers);
+              } catch {
+                return [];
+              }
+            })()
           : [];
       const offers = rawOffers.map((o: any) => ({
         id: String(o.id),
@@ -327,7 +354,12 @@ export const adminListProducts = createServerFn({ method: "GET" })
         termsAndConditions: o.termsAndConditions || o.terms_and_conditions || null,
       }));
 
-      const mrpVal = p.mrp != null ? String(p.mrp) : p.compare_at_price != null ? String(p.compare_at_price) : null;
+      const mrpVal =
+        p.mrp != null
+          ? String(p.mrp)
+          : p.compare_at_price != null
+            ? String(p.compare_at_price)
+            : null;
 
       return {
         id: String(p.id),
@@ -362,9 +394,12 @@ export const adminListProducts = createServerFn({ method: "GET" })
               ? JSON.parse(p.color_variants)
               : [];
           return raw.map((cv: any) => {
-            const rawImgs = Array.isArray(cv.images) && cv.images.length > 0
-              ? cv.images
-              : (cv.imageUrl ? [cv.imageUrl] : []);
+            const rawImgs =
+              Array.isArray(cv.images) && cv.images.length > 0
+                ? cv.images
+                : cv.imageUrl
+                  ? [cv.imageUrl]
+                  : [];
             const cvImages: string[] = rawImgs
               .map((img: any) => String(img || "").trim())
               .filter(Boolean);
@@ -471,7 +506,10 @@ export async function persistBase64ImagesToMedia(
         `;
         result.push(`/api/media/${mediaId}`);
       } catch (err) {
-        console.warn("[persistBase64ImagesToMedia] Failed to persist data URL to website_media:", err);
+        console.warn(
+          "[persistBase64ImagesToMedia] Failed to persist data URL to website_media:",
+          err,
+        );
         result.push(trimmed);
       }
     } else {
@@ -487,7 +525,9 @@ export const adminUploadProductMedia = createServerFn({ method: "POST" })
     const raw = unwrapInput(d);
     return {
       fileName: String(raw?.fileName || "product-image").slice(0, 150),
-      mimeType: String(raw?.mimeType || "image/jpeg").toLowerCase().slice(0, 50),
+      mimeType: String(raw?.mimeType || "image/jpeg")
+        .toLowerCase()
+        .slice(0, 50),
       dataBase64: String(raw?.dataBase64 || ""),
     };
   })
@@ -571,17 +611,23 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
     }
 
     // 1. Permanently remove from fallback source file (src/lib/fallback-products.ts) on disk & memory
+    const { removeProductFromFile } = await import("@/lib/fallback-products-manager.server");
     await removeProductFromFile(data.productId);
 
     // 2. Persist deletion in store_settings tombstones and update catalog timestamp
     try {
-      const currentSettings = await sql`SELECT deleted_product_ids FROM store_settings WHERE id = 'default' LIMIT 1`;
+      const currentSettings =
+        await sql`SELECT deleted_product_ids FROM store_settings WHERE id = 'default' LIMIT 1`;
       let deletedIds: string[] = [];
       if (currentSettings && currentSettings.length > 0) {
         const raw = currentSettings[0].deleted_product_ids;
         if (Array.isArray(raw)) deletedIds = raw;
         else if (typeof raw === "string") {
-          try { deletedIds = JSON.parse(raw); } catch { deletedIds = []; }
+          try {
+            deletedIds = JSON.parse(raw);
+          } catch {
+            deletedIds = [];
+          }
         }
       }
       if (!deletedIds.includes(data.productId)) {
@@ -601,7 +647,8 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
 
     try {
       // Clean up featured products reference in website configs
-      const configs = await sql`SELECT id, config FROM website_published UNION ALL SELECT id, config FROM website_draft`;
+      const configs =
+        await sql`SELECT id, config FROM website_published UNION ALL SELECT id, config FROM website_draft`;
       for (const row of configs ?? []) {
         if (row?.config && typeof row.config === "object") {
           const cfg = row.config;
@@ -742,7 +789,12 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
         `;
       } catch (colErr: any) {
         const msg = String(colErr?.message || "").toLowerCase();
-        if (msg.includes("details_html") || msg.includes("base_price") || msg.includes("mrp") || msg.includes("features")) {
+        if (
+          msg.includes("details_html") ||
+          msg.includes("base_price") ||
+          msg.includes("mrp") ||
+          msg.includes("features")
+        ) {
           await sql`
             INSERT INTO products (
               id, name, slug, description, price, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags
@@ -844,17 +896,22 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     if (Array.isArray(values.offers) && values.offers.length > 0) {
       for (const o of values.offers) {
         try {
-          const offId = o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
-            ? o.id
-            : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const offId =
+            o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
+              ? o.id
+              : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
           const isActive = o.isActive !== false ? 1 : 0;
-          const eligProds = JSON.stringify(Array.isArray(o.eligibleProducts) ? o.eligibleProducts : []);
-          const eligCats = JSON.stringify(Array.isArray(o.eligibleCategories) ? o.eligibleCategories : []);
+          const eligProds = JSON.stringify(
+            Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+          );
+          const eligCats = JSON.stringify(
+            Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+          );
           await sql`
             INSERT INTO product_offers (
               id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
             ) VALUES (
-              ${offId}, ${productId}, ${o.title}, ${o.description || null}, ${o.discountType || 'percentage'}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
+              ${offId}, ${productId}, ${o.title}, ${o.description || null}, ${o.discountType || "percentage"}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
             )
           `;
         } catch (oErr) {
@@ -1045,17 +1102,22 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       try {
         await sql`DELETE FROM product_offers WHERE product_id::text = ${canonicalId}`;
         for (const o of values.offers) {
-          const offId = o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
-            ? o.id
-            : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const offId =
+            o.id && !o.id.startsWith("offer-") && !o.id.startsWith("temp-")
+              ? o.id
+              : `off_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
           const isActive = o.isActive !== false ? 1 : 0;
-          const eligProds = JSON.stringify(Array.isArray(o.eligibleProducts) ? o.eligibleProducts : []);
-          const eligCats = JSON.stringify(Array.isArray(o.eligibleCategories) ? o.eligibleCategories : []);
+          const eligProds = JSON.stringify(
+            Array.isArray(o.eligibleProducts) ? o.eligibleProducts : [],
+          );
+          const eligCats = JSON.stringify(
+            Array.isArray(o.eligibleCategories) ? o.eligibleCategories : [],
+          );
           await sql`
             INSERT INTO product_offers (
               id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, eligible_products, eligible_categories, start_date, end_date, is_active, display_order, terms_and_conditions
             ) VALUES (
-              ${offId}, ${canonicalId}, ${o.title}, ${o.description || null}, ${o.discountType || 'percentage'}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
+              ${offId}, ${canonicalId}, ${o.title}, ${o.description || null}, ${o.discountType || "percentage"}, ${Number(o.discountValue || 0)}, ${o.promoCode ? o.promoCode.toUpperCase() : null}, ${Number(o.minimumQuantity || 1)}, ${o.maximumQuantity ? Number(o.maximumQuantity) : null}, ${eligProds}, ${eligCats}, ${o.startDate || null}, ${o.endDate || null}, ${isActive}, ${Number(o.displayOrder || 0)}, ${o.termsAndConditions || null}
             )
           `;
         }
@@ -1080,7 +1142,12 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       operation: "adminUpdateProduct",
       productId: canonicalId,
       status: "SUCCESS",
-      details: { name: values.name, price: values.price, stock: values.stock_quantity, is_active: values.is_active },
+      details: {
+        name: values.name,
+        price: values.price,
+        stock: values.stock_quantity,
+        is_active: values.is_active,
+      },
     });
 
     return { ok: true, product: updatedRows[0] };
@@ -1384,7 +1451,9 @@ export const adminListOrders = createServerFn({ method: "POST" })
 
       const qFilter = data.q ? `%${data.q.toLowerCase()}%` : null;
       const fromDate = data.from ? new Date(data.from).toISOString() : null;
-      const toDate = data.to ? new Date(new Date(data.to).getTime() + 86400000).toISOString() : null;
+      const toDate = data.to
+        ? new Date(new Date(data.to).getTime() + 86400000).toISOString()
+        : null;
 
       let orders: any[] = [];
       let totalCount = 0;
@@ -1439,9 +1508,13 @@ export const adminListOrders = createServerFn({ method: "POST" })
           totalRevenue = Number(aggregatesRes[0].net_revenue || 0);
         }
       } catch (orderErr: any) {
-        console.warn("[Admin] Primary orders query warning, falling back to base select:", orderErr?.message);
+        console.warn(
+          "[Admin] Primary orders query warning, falling back to base select:",
+          orderErr?.message,
+        );
         try {
-          orders = await sql`SELECT * FROM orders ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+          orders =
+            await sql`SELECT * FROM orders ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
           totalCount = orders.length;
         } catch (fbErr) {
           console.error("[Admin] Critical orders query error:", fbErr);
@@ -1450,7 +1523,14 @@ export const adminListOrders = createServerFn({ method: "POST" })
       }
 
       if (orders.length === 0) {
-        return { orders: [], totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) || 1, totalRevenue };
+        return {
+          orders: [],
+          totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit) || 1,
+          totalRevenue,
+        };
       }
 
       const orderIds = orders.map((o) => String(o.id));
@@ -1467,7 +1547,10 @@ export const adminListOrders = createServerFn({ method: "POST" })
           WHERE i.order_id IN (${orderIds})
         `;
       } catch (itemErr: any) {
-        console.warn("[Admin] Extended order_items query warning, using direct query:", itemErr?.message);
+        console.warn(
+          "[Admin] Extended order_items query warning, using direct query:",
+          itemErr?.message,
+        );
         try {
           items = await sql`
             SELECT * FROM order_items
@@ -1714,7 +1797,11 @@ export async function executeOrderShippedTransition(
 ) {
   const sql = getSql();
 
-  if (shippingDetails?.courierName || shippingDetails?.trackingNumber || shippingDetails?.trackingUrl) {
+  if (
+    shippingDetails?.courierName ||
+    shippingDetails?.trackingNumber ||
+    shippingDetails?.trackingUrl
+  ) {
     await sql`
       UPDATE orders
       SET status = 'Shipped',
@@ -1818,7 +1905,9 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
     }
 
     if (data.status !== "Shipped") {
-      await logAudit(context as any, "order.update", "order", data.orderId, { status: data.status });
+      await logAudit(context as any, "order.update", "order", data.orderId, {
+        status: data.status,
+      });
     }
 
     // Fire transactional emails on non-Shipped key status transitions (Delivered, Paid)
@@ -1863,7 +1952,9 @@ export const adminDispatchZippyyShipment = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: { orderId: string; preferredCourierName?: string }) => ({
     orderId: String(d.orderId ?? "").trim(),
-    preferredCourierName: d.preferredCourierName ? String(d.preferredCourierName).trim() : undefined,
+    preferredCourierName: d.preferredCourierName
+      ? String(d.preferredCourierName).trim()
+      : undefined,
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any);
@@ -2037,12 +2128,24 @@ export const adminListAllOffers = createServerFn({ method: "GET" })
       eligibleProducts: Array.isArray(o.eligible_products)
         ? o.eligible_products
         : typeof o.eligible_products === "string"
-          ? (() => { try { return JSON.parse(o.eligible_products); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(o.eligible_products);
+              } catch {
+                return [];
+              }
+            })()
           : [],
       eligibleCategories: Array.isArray(o.eligible_categories)
         ? o.eligible_categories
         : typeof o.eligible_categories === "string"
-          ? (() => { try { return JSON.parse(o.eligible_categories); } catch { return []; } })()
+          ? (() => {
+              try {
+                return JSON.parse(o.eligible_categories);
+              } catch {
+                return [];
+              }
+            })()
           : [],
       startDate: o.start_date ?? null,
       endDate: o.end_date ?? null,
@@ -2077,13 +2180,19 @@ export const adminSaveOffer = createServerFn({ method: "POST" })
     const promoCode = data.promoCode ? String(data.promoCode).trim().toUpperCase() : null;
     const minimumQuantity = Number(data.minimumQuantity ?? 1);
     const maximumQuantity = data.maximumQuantity ? Number(data.maximumQuantity) : null;
-    const eligibleProducts = JSON.stringify(Array.isArray(data.eligibleProducts) ? data.eligibleProducts : []);
-    const eligibleCategories = JSON.stringify(Array.isArray(data.eligibleCategories) ? data.eligibleCategories : []);
+    const eligibleProducts = JSON.stringify(
+      Array.isArray(data.eligibleProducts) ? data.eligibleProducts : [],
+    );
+    const eligibleCategories = JSON.stringify(
+      Array.isArray(data.eligibleCategories) ? data.eligibleCategories : [],
+    );
     const startDate = data.startDate ? String(data.startDate) : null;
     const endDate = data.endDate ? String(data.endDate) : null;
     const isActive = data.isActive !== false ? 1 : 0;
     const displayOrder = Number(data.displayOrder ?? 0);
-    const termsAndConditions = data.termsAndConditions ? String(data.termsAndConditions).trim() : null;
+    const termsAndConditions = data.termsAndConditions
+      ? String(data.termsAndConditions).trim()
+      : null;
 
     const existing = await sql`SELECT id FROM product_offers WHERE id = ${id} LIMIT 1`;
     if (existing && existing.length > 0) {
