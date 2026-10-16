@@ -39,6 +39,17 @@ export type StoreSettings = {
   cardEnabled: boolean;
   netbankingEnabled: boolean;
   walletEnabled: boolean;
+  legalBusinessName?: string;
+  sellerPan?: string;
+  sellerState?: string;
+  sellerStateCode?: string;
+  sellerPincode?: string;
+  isGstRegistered?: boolean;
+  defaultHsnCode?: string;
+  defaultGstRate?: number;
+  authorizedSignatoryName?: string;
+  invoicePrefix?: string;
+  invoiceNotes?: string;
   updatedAt: string;
   updatedBy: string;
 };
@@ -129,6 +140,19 @@ function mapRowToSettings(r: any): StoreSettings {
     cardEnabled: r.card_enabled !== false,
     netbankingEnabled: r.netbanking_enabled !== false,
     walletEnabled: r.wallet_enabled !== false,
+    legalBusinessName: r.legal_business_name || r.store_name || "RIOTOUS Brandworks",
+    sellerPan: r.seller_pan || "",
+    sellerState: r.seller_state || "Gujarat",
+    sellerStateCode: r.seller_state_code || "24",
+    sellerPincode: r.seller_pincode || "395006",
+    isGstRegistered: Boolean(r.is_gst_registered),
+    defaultHsnCode: r.default_hsn_code || "6109",
+    defaultGstRate: Number(r.default_gst_rate ?? 5),
+    authorizedSignatoryName: r.authorized_signatory_name || "Authorized Signatory",
+    invoicePrefix: r.invoice_prefix || "RIO",
+    invoiceNotes:
+      r.invoice_notes ||
+      "1. Goods once sold are eligible for return/exchange within 7 days as per RIOTOUS policy.\n2. Subject to Surat jurisdiction.",
     updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
     updatedBy: r.updated_by || "Admin",
   };
@@ -189,6 +213,17 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
         card_enabled,
         netbanking_enabled,
         wallet_enabled,
+        legal_business_name,
+        seller_pan,
+        seller_state,
+        seller_state_code,
+        seller_pincode,
+        is_gst_registered,
+        default_hsn_code,
+        default_gst_rate,
+        authorized_signatory_name,
+        invoice_prefix,
+        invoice_notes,
         updated_at,
         updated_by
       ) VALUES (
@@ -225,6 +260,17 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
         ${data.cardEnabled !== false},
         ${data.netbankingEnabled !== false},
         ${data.walletEnabled !== false},
+        ${data.legalBusinessName ?? "RIOTOUS Brandworks"},
+        ${data.sellerPan ?? ""},
+        ${data.sellerState ?? "Gujarat"},
+        ${data.sellerStateCode ?? "24"},
+        ${data.sellerPincode ?? "395006"},
+        ${data.isGstRegistered ? 1 : 0},
+        ${data.defaultHsnCode ?? "6109"},
+        ${Number(data.defaultGstRate ?? 5)},
+        ${data.authorizedSignatoryName ?? "Authorized Signatory"},
+        ${data.invoicePrefix ?? "RIO"},
+        ${data.invoiceNotes ?? "1. Goods once sold are eligible for return/exchange within 7 days as per RIOTOUS policy.\n2. Subject to Surat jurisdiction."},
         NOW(),
         ${actorName}
       )
@@ -261,6 +307,17 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
         card_enabled = EXCLUDED.card_enabled,
         netbanking_enabled = EXCLUDED.netbanking_enabled,
         wallet_enabled = EXCLUDED.wallet_enabled,
+        legal_business_name = EXCLUDED.legal_business_name,
+        seller_pan = EXCLUDED.seller_pan,
+        seller_state = EXCLUDED.seller_state,
+        seller_state_code = EXCLUDED.seller_state_code,
+        seller_pincode = EXCLUDED.seller_pincode,
+        is_gst_registered = EXCLUDED.is_gst_registered,
+        default_hsn_code = EXCLUDED.default_hsn_code,
+        default_gst_rate = EXCLUDED.default_gst_rate,
+        authorized_signatory_name = EXCLUDED.authorized_signatory_name,
+        invoice_prefix = EXCLUDED.invoice_prefix,
+        invoice_notes = EXCLUDED.invoice_notes,
         updated_at = NOW(),
         updated_by = EXCLUDED.updated_by
     `;

@@ -49,6 +49,7 @@ import {
   MapPin,
   FileSpreadsheet,
   FileCode,
+  FileText,
   ExternalLink,
   Layers,
   Lock,
@@ -72,6 +73,7 @@ import {
 } from "@/lib/amazon-export.functions";
 import { toast } from "sonner";
 import { useRouteContext } from "@tanstack/react-router";
+import { INDIAN_STATES } from "@/lib/invoice/indian-states";
 
 export const Route = createLazyFileRoute("/_authenticated/admin/settings")({
   component: AdminSettingsPage,
@@ -79,6 +81,7 @@ export const Route = createLazyFileRoute("/_authenticated/admin/settings")({
 
 type SettingsTab =
   | "store"
+  | "tax_invoice"
   | "account"
   | "security"
   | "notifications"
@@ -221,6 +224,7 @@ function AdminSettingsPage() {
     icon: React.ComponentType<{ className?: string }>;
   }> = [
     { id: "store", label: "Store Profile", icon: Store },
+    { id: "tax_invoice", label: "Tax & Invoicing (GST)", icon: FileText },
     { id: "account", label: "My Account", icon: User },
     { id: "security", label: "Security & Access", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
@@ -379,6 +383,251 @@ function AdminSettingsPage() {
                     className="bg-brand-red text-white hover:bg-brand-red/90"
                   >
                     Save Store Profile
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB: TAX & INVOICING (INDIAN GST) */}
+          {activeTab === "tax_invoice" && (
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-brand-red" /> Tax Compliance &amp; Invoice Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure legal business details, GSTIN, place-of-supply rules, HSN codes, and invoice serial formatting for RIOTOUS order invoices.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* GST Registration Status */}
+                <div className="rounded-xl border p-4 bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="is-gst-registered" className="text-sm font-bold text-foreground cursor-pointer">
+                        GST Registered Business in India
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Toggle on if RIOTOUS is registered with the Indian GST Department.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="is-gst-registered"
+                      checked={!!form.isGstRegistered}
+                      onChange={(e) => setForm({ ...form, isGstRegistered: e.target.checked })}
+                      className="h-5 w-5 rounded border-border text-brand-red focus:ring-brand-red cursor-pointer"
+                    />
+                  </div>
+
+                  {form.isGstRegistered ? (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Tax Invoices Active:</strong> Issued with legal title <strong>TAX INVOICE</strong>. Intra-state orders (same state as seller) will have tax split into <strong>CGST (Central Tax)</strong> and <strong>SGST (State Tax)</strong>. Inter-state orders will show <strong>IGST (Integrated Tax)</strong>.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Bill of Supply Active:</strong> Issued with legal title <strong>BILL OF SUPPLY</strong> pursuant to Section 31(3)(c) of CGST Act. No GST will be charged or collected from buyers.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Legal Entity Details */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Legal Business Entity
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="legal-name">Legal Registered Business Name</Label>
+                      <Input
+                        id="legal-name"
+                        value={form.legalBusinessName || ""}
+                        onChange={(e) => setForm({ ...form, legalBusinessName: e.target.value })}
+                        placeholder="e.g. RIOTOUS APPAREL LLP"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Official registered company or firm name on PAN/GST certificate.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="gstin-input">GSTIN (15-Digit GST Identification Number)</Label>
+                      <Input
+                        id="gstin-input"
+                        value={form.businessGstin || ""}
+                        onChange={(e) => setForm({ ...form, businessGstin: e.target.value.toUpperCase() })}
+                        placeholder="e.g. 24AAAAA0000A1Z5"
+                        disabled={!form.isGstRegistered}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        First 2 digits represent the state code (e.g. 24 for Gujarat).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="seller-pan">Permanent Account Number (PAN)</Label>
+                      <Input
+                        id="seller-pan"
+                        value={form.sellerPan || ""}
+                        onChange={(e) => setForm({ ...form, sellerPan: e.target.value.toUpperCase() })}
+                        placeholder="e.g. AAAAA0000A"
+                        maxLength={10}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="signatory-name">Authorized Signatory Name / Title</Label>
+                      <Input
+                        id="signatory-name"
+                        value={form.authorizedSignatoryName || ""}
+                        onChange={(e) => setForm({ ...form, authorizedSignatoryName: e.target.value })}
+                        placeholder="Authorized Signatory - RIOTOUS"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Place of Supply / Dispatch Origin */}
+                <div className="space-y-3 border-t pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Seller Origin &amp; Place of Supply (Dispatch Location)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="seller-state">Seller State (Origin)</Label>
+                      <select
+                        id="seller-state"
+                        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                        value={form.sellerStateCode || "24"}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          const stateObj = INDIAN_STATES[code];
+                          setForm({
+                            ...form,
+                            sellerStateCode: code,
+                            sellerState: stateObj ? stateObj.name : (form.sellerState || "Gujarat"),
+                          });
+                        }}
+                      >
+                        {Object.values(INDIAN_STATES).map((st) => (
+                          <option key={st.code} value={st.code}>
+                            {st.name} ({st.code})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Used to calculate Intra-state (CGST+SGST) vs Inter-state (IGST).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="state-code">State Code</Label>
+                      <Input
+                        id="state-code"
+                        value={form.sellerStateCode || "24"}
+                        readOnly
+                        className="bg-muted text-muted-foreground font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="seller-pincode">Pincode</Label>
+                      <Input
+                        id="seller-pincode"
+                        value={form.sellerPincode || ""}
+                        onChange={(e) => setForm({ ...form, sellerPincode: e.target.value })}
+                        placeholder="e.g. 395006"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tax Rates & Classifications */}
+                <div className="space-y-3 border-t pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Tax Rates &amp; Harmonized System (HSN)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default-hsn">Default HSN / SAC Code</Label>
+                      <Input
+                        id="default-hsn"
+                        value={form.defaultHsnCode || ""}
+                        onChange={(e) => setForm({ ...form, defaultHsnCode: e.target.value })}
+                        placeholder="6109 (Apparel / T-Shirts)"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Harmonized System of Nomenclature code printed on the invoice table.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="default-gst-rate">Default GST Rate (%)</Label>
+                      <select
+                        id="default-gst-rate"
+                        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                        value={String(form.defaultGstRate ?? 5)}
+                        onChange={(e) => setForm({ ...form, defaultGstRate: Number(e.target.value) })}
+                      >
+                        <option value="0">0% (Nil / Exempt)</option>
+                        <option value="5">5% (Standard Apparel &lt; ₹1,000)</option>
+                        <option value="12">12% (Standard Apparel &gt; ₹1,000)</option>
+                        <option value="18">18% (Accessories / Premium)</option>
+                        <option value="28">28% (Luxury items)</option>
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Product prices are tax-inclusive; the engine extracts the net amount without double-taxation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invoice Serial Numbering & Terms */}
+                <div className="space-y-3 border-t pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Invoice Numbering &amp; Legal Terms
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="invoice-prefix">Invoice Serial Prefix</Label>
+                      <Input
+                        id="invoice-prefix"
+                        value={form.invoicePrefix || "RIO"}
+                        onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value.toUpperCase() })}
+                        placeholder="RIO"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Format: <strong>{form.invoicePrefix || "RIO"}-{new Date().getFullYear()}-000001</strong> (Atomic sequence per calendar year).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="invoice-notes">Invoice Notes &amp; Legal Declaration</Label>
+                      <Input
+                        id="invoice-notes"
+                        value={form.invoiceNotes || ""}
+                        onChange={(e) => setForm({ ...form, invoiceNotes: e.target.value })}
+                        placeholder="Whether tax is payable under reverse charge: No"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <Button
+                    onClick={() => saveSettingsMutation.mutate(form)}
+                    disabled={saveSettingsMutation.isPending}
+                    className="bg-brand-red text-white hover:bg-brand-red/90"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {saveSettingsMutation.isPending ? "Saving..." : "Save Tax & Invoice Settings"}
                   </Button>
                 </div>
               </CardContent>

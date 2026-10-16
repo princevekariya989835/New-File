@@ -109,6 +109,7 @@ export async function sendOrderConfirmation(opts: {
   currency?: string;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
+  invoiceNumber?: string | null;
   userId?: string | null;
 }) {
   if (await hasEmailBeenSent(opts.orderId, "ORDER_CONFIRMATION")) return { sent: true };

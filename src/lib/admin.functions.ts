@@ -103,6 +103,8 @@ export type AdminOrder = {
   paid_at?: string | null;
   zippyy_order_id?: string | null;
   shipping_label_url?: string | null;
+  invoice_number?: string | null;
+  invoice_date?: string | null;
   items: AdminOrderItem[];
 };
 
@@ -1400,6 +1402,7 @@ export const adminListOrders = createServerFn({ method: "POST" })
               AND (
                 ${qFilter} IS NULL OR
                 LOWER(order_number) LIKE ${qFilter} OR
+                LOWER(COALESCE(invoice_number, '')) LIKE ${qFilter} OR
                 LOWER(shipping_name) LIKE ${qFilter} OR
                 LOWER(shipping_email) LIKE ${qFilter} OR
                 LOWER(shipping_phone) LIKE ${qFilter} OR
@@ -1421,6 +1424,7 @@ export const adminListOrders = createServerFn({ method: "POST" })
               AND (
                 ${qFilter} IS NULL OR
                 LOWER(order_number) LIKE ${qFilter} OR
+                LOWER(COALESCE(invoice_number, '')) LIKE ${qFilter} OR
                 LOWER(shipping_name) LIKE ${qFilter} OR
                 LOWER(shipping_email) LIKE ${qFilter} OR
                 LOWER(shipping_phone) LIKE ${qFilter} OR
@@ -1535,6 +1539,8 @@ export const adminListOrders = createServerFn({ method: "POST" })
         paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
         zippyy_order_id: o.zippyy_order_id || null,
         shipping_label_url: o.shipping_label_url || null,
+        invoice_number: o.invoice_number || null,
+        invoice_date: o.invoice_date ? new Date(o.invoice_date).toISOString() : null,
         items: itemsByOrderId.get(String(o.id)) || [],
       }));
 

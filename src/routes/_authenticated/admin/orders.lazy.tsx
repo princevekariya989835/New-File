@@ -45,8 +45,10 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
+import { getAdminInvoicePdf, adminRetryGenerateInvoice } from "@/lib/invoice/invoice.server";
 
 type Search = {
   q?: string;
@@ -377,6 +379,54 @@ function OrdersPage() {
   const exportCsvFn = useServerFn(adminExportOrdersCsv);
   const [exportingCsv, setExportingCsv] = useState(false);
 
+  const adminInvoicePdfFn = useServerFn(getAdminInvoicePdf);
+  const adminRetryInvoiceFn = useServerFn(adminRetryGenerateInvoice);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
+
+  const handleAdminDownloadPdf = async (orderId: string, orderNumber: string) => {
+    try {
+      setDownloadingInvoiceId(orderId);
+      const rawBase64 = res.base64 || res.pdfBase64;
+      if (!res.success || !rawBase64) {
+        throw new Error(res.error || "Failed to generate invoice PDF");
+      }
+      const byteChars = atob(rawBase64);
+      const byteArr = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename || `RIOTOUS-Invoice-${orderNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded invoice ${res.invoiceNumber}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to download invoice");
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const handleAdminRetryInvoice = async (orderId: string) => {
+    try {
+      setRetryingInvoiceId(orderId);
+      const res = await adminRetryInvoiceFn({ data: { orderId } });
+      if (!res.success) {
+        throw new Error(res.error || "Retry failed");
+      }
+      toast.success(`Invoice ${res.invoiceNumber} generated!`);
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to generate invoice");
+    } finally {
+      setRetryingInvoiceId(null);
+    }
+  };
+
   const page = search.page || 1;
   const limit = search.limit || 25;
 
@@ -570,7 +620,7 @@ function OrdersPage() {
 
       <div className="flex flex-wrap gap-2">
         <Input
-          placeholder="Search order, name, email, tracking…"
+          placeholder="Search order, invoice #, name, email, tracking…"
           value={search.q ?? ""}
           onChange={(e) => setSearchKey("q", e.target.value)}
           className="h-9 w-full sm:w-72"
@@ -749,6 +799,11 @@ function OrdersPage() {
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[o.payment_status] ?? "bg-muted text-foreground"}`}>
                         {o.payment_status}
                       </span>
+                      {o.invoice_number && (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono font-semibold text-brand-red bg-brand-red/10 border border-brand-red/20 px-2 py-0.5 rounded-md">
+                          <FileText className="h-3 w-3" /> {o.invoice_number}
+                        </span>
+                      )}
                       <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
                         <Truck className="h-3 w-3" /> {shippingStatusLabel}
                       </span>
@@ -763,16 +818,23 @@ function OrdersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="gap-1 h-8 text-xs"
-                        onClick={() => {
-                          const w = window.open("", "_blank", "width=820,height=900");
-                          if (!w) return toast.error("Allow pop-ups to print invoices");
-                          w.document.write(invoiceHtml(o));
-                          w.document.close();
-                        }}
+                        className="gap-1.5 h-8 text-xs font-semibold"
+                        disabled={downloadingInvoiceId === o.id}
+                        onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
+                        title="Download PDF Tax Invoice"
                       >
-                        <Printer className="h-3.5 w-3.5" /> Invoice
+                        {downloadingInvoiceId === o.id ? (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" /> PDF...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5 text-brand-red" />
+                            <span>{o.invoice_number ? o.invoice_number : "PDF Invoice"}</span>
+                          </>
+                        )}
                       </Button>
+
                       <Button
                         size="sm"
                         variant="ghost"
@@ -872,6 +934,69 @@ function OrdersPage() {
                         <Row label="Tax" value={money(o.tax_amount, o.currency)} />
                         <div className="border-t pt-2">
                           <Row label="Grand Total" value={money(o.total_amount, o.currency)} bold />
+                        </div>
+                      </div>
+
+                      {/* Official Tax Invoice & Compliance Card */}
+                      <div className="rounded-lg border bg-card p-4 space-y-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-brand-red" />
+                            <span className="font-bold text-xs uppercase tracking-wider text-foreground">
+                              GST Tax Invoice &amp; Receipt
+                            </span>
+                          </div>
+                          {o.invoice_number ? (
+                            <span className="font-mono text-xs font-bold text-foreground bg-primary/10 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+                              {o.invoice_number}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              Not generated yet
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1 text-muted-foreground">
+                          {o.invoice_date && (
+                            <div>
+                              Invoice Date: <strong className="text-foreground">{new Date(o.invoice_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</strong>
+                            </div>
+                          )}
+                          <div>
+                            Format: <strong>A4 PDF (Amazon India standard structure, RIOTOUS branding)</strong>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            className="flex-1 gap-1.5 bg-foreground text-background text-xs font-semibold hover:opacity-90"
+                            disabled={downloadingInvoiceId === o.id}
+                            onClick={() => handleAdminDownloadPdf(o.id, o.order_number)}
+                          >
+                            {downloadingInvoiceId === o.id ? (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Generating PDF...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-3.5 w-3.5" /> Download PDF Invoice
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            disabled={retryingInvoiceId === o.id}
+                            onClick={() => handleAdminRetryInvoice(o.id)}
+                            title="Generate or re-sync invoice snapshot"
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${retryingInvoiceId === o.id ? "animate-spin" : ""}`} />
+                            {retryingInvoiceId === o.id ? "Regenerating..." : "Regenerate / Sync"}
+                          </Button>
                         </div>
                       </div>
 

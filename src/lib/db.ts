@@ -443,6 +443,8 @@ const _mockReturns: any[] = [];
 const _mockReviews: any[] = [];
 const _mockDesignSubmissions: any[] = [];
 const _mockInventoryTransactions: any[] = [];
+const _mockInvoices: any[] = [];
+const _mockInvoiceSequences = new Map<number, number>([[2026, 2]]);
 let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
 let _mockProductOffers: any[] = [];
@@ -487,6 +489,7 @@ const JSON_COLUMNS = new Set([
   "items", "canvases", "preview_images", "product_ids", "category_names",
   "excluded_product_ids", "excluded_category_names", "config", "details",
   "headers", "mapping", "permissions", "eligible_products", "eligible_categories",
+  "seller_details", "customer_details", "items_snapshot", "totals_snapshot", "tax_breakup",
 ]);
 
 function parseJsonFields(row: any): any {
@@ -893,6 +896,87 @@ export function getSql() {
         return [..._mockOrderItems];
       }
 
+      // SELECT from invoices
+      if (lower.includes("from invoices")) {
+        if (lower.includes("where order_id =") || lower.includes("where order_id::text =")) {
+          const oId = values[0] ? String(values[0]) : "";
+          const found = _mockInvoices.find((inv) => inv.order_id === oId);
+          return found ? [parseJsonFields(found)] : [];
+        }
+        return _mockInvoices.map((inv) => parseJsonFields(inv));
+      }
+
+      // INSERT INTO invoices
+      if (lower.includes("insert into invoices")) {
+        const id = values[0] ? String(values[0]) : `inv_${Date.now()}`;
+        const orderId = values[1] ? String(values[1]) : "";
+        const orderNumber = values[2] ? String(values[2]) : "";
+        const invoiceNumber = values[3] ? String(values[3]) : "";
+        const invoiceDate = values[4] ? String(values[4]) : new Date().toISOString();
+        const invoiceTitle = values[5] ? String(values[5]) : "TAX INVOICE";
+        const sellerDetails = values[6] ?? {};
+        const customerDetails = values[7] ?? {};
+        const itemsSnapshot = values[8] ?? [];
+        const totalsSnapshot = values[9] ?? {};
+        const taxBreakup = values[10] ?? {};
+        const currency = values[11] || "INR";
+        const paymentMethod = values[12] || "COD";
+        const paymentStatus = values[13] || "Paid";
+        const placeOfSupply = values[14] || "";
+        const stateCode = values[15] || "";
+
+        const newInv = {
+          id,
+          order_id: orderId,
+          order_number: orderNumber,
+          invoice_number: invoiceNumber,
+          invoice_date: invoiceDate,
+          invoice_title: invoiceTitle,
+          seller_details: sellerDetails,
+          customer_details: customerDetails,
+          items_snapshot: itemsSnapshot,
+          totals_snapshot: totalsSnapshot,
+          tax_breakup: taxBreakup,
+          currency,
+          payment_method: paymentMethod,
+          payment_status: paymentStatus,
+          place_of_supply: placeOfSupply,
+          state_code: stateCode,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const existingIdx = _mockInvoices.findIndex((inv) => inv.order_id === orderId);
+        if (existingIdx !== -1) {
+          _mockInvoices[existingIdx] = newInv;
+        } else {
+          _mockInvoices.push(newInv);
+        }
+
+        const o = _mockOrders.find((ord) => ord.id === orderId);
+        if (o) {
+          o.invoice_number = invoiceNumber;
+          o.invoice_date = invoiceDate;
+        }
+
+        return [{ id }];
+      }
+
+      // SELECT from invoice_sequences
+      if (lower.includes("from invoice_sequences")) {
+        const yr = values[0] ? Number(values[0]) : new Date().getFullYear();
+        const seq = _mockInvoiceSequences.get(yr) || 0;
+        return [{ year: yr, last_seq: seq }];
+      }
+
+      // INSERT INTO invoice_sequences
+      if (lower.includes("insert into invoice_sequences")) {
+        const yr = values[0] ? Number(values[0]) : new Date().getFullYear();
+        const current = (_mockInvoiceSequences.get(yr) || 0) + 1;
+        _mockInvoiceSequences.set(yr, current);
+        return [{ year: yr, last_seq: current }];
+      }
+
       // INSERT INTO website_media
       if (lower.includes("insert into website_media")) {
         const id = values[0] ? String(values[0]) : `med_${Date.now()}`;
@@ -1017,6 +1101,39 @@ export async function ensureDbSchema() {
       try {
         const rows = await sql`SELECT 1 FROM products LIMIT 1`;
         if (rows && rows.length > 0) {
+          // Ensure invoices and invoice_sequences tables exist
+          try {
+            await sql`
+              CREATE TABLE IF NOT EXISTS invoices (
+                id TEXT PRIMARY KEY,
+                order_id TEXT UNIQUE NOT NULL,
+                order_number TEXT NOT NULL,
+                invoice_number TEXT UNIQUE NOT NULL,
+                invoice_date TEXT NOT NULL,
+                invoice_title TEXT NOT NULL DEFAULT 'TAX INVOICE',
+                seller_details TEXT NOT NULL DEFAULT '{}',
+                customer_details TEXT NOT NULL DEFAULT '{}',
+                items_snapshot TEXT NOT NULL DEFAULT '[]',
+                totals_snapshot TEXT NOT NULL DEFAULT '{}',
+                tax_breakup TEXT NOT NULL DEFAULT '{}',
+                currency TEXT NOT NULL DEFAULT 'INR',
+                payment_method TEXT NOT NULL DEFAULT 'COD',
+                payment_status TEXT NOT NULL DEFAULT 'Pending',
+                place_of_supply TEXT,
+                state_code TEXT,
+                pdf_storage_key TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`
+              CREATE TABLE IF NOT EXISTS invoice_sequences (
+                year INTEGER PRIMARY KEY,
+                last_seq INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+          } catch {}
           _schemaInitialized = true;
           return;
         }

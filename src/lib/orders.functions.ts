@@ -18,6 +18,7 @@ import {
 } from "@/lib/razorpay.server";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
+import { getOrCreateInvoiceForOrder } from "@/lib/invoice/invoice.server";
 
 export function extractPrimaryImage(images: unknown): string | null {
   if (!images) return null;
@@ -226,6 +227,8 @@ export type CustomerOrder = {
   shippedAt: string | null;
   deliveredAt: string | null;
   cancelledAt: string | null;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
   lineItems: OrderLineItem[];
 };
 
@@ -282,7 +285,7 @@ export const getMyOrders = createServerFn({ method: "GET" })
           shipping_charge, tax_amount, total_amount, currency, status, payment_status,
           payment_method, shipping_name, shipping_email, shipping_phone, shipping_address,
           billing_address, courier_name, tracking_number, tracking_url,
-          shipped_at, delivered_at, cancelled_at
+          shipped_at, delivered_at, cancelled_at, invoice_number, invoice_date
         FROM orders
         WHERE user_id::text = ${userId}
            OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
@@ -361,6 +364,8 @@ export const getMyOrders = createServerFn({ method: "GET" })
           shippedAt: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
           deliveredAt: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
           cancelledAt: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
+          invoiceNumber: o.invoice_number || null,
+          invoiceDate: o.invoice_date ? new Date(o.invoice_date).toISOString() : null,
           lineItems: itemsByOrderId.get(String(o.id)) || [],
         };
       });
@@ -666,11 +671,23 @@ export const placeOrder = createServerFn({ method: "POST" })
       })),
     };
 
+    // Automatically generate invoice for the order
+    let invoiceNumber: string | null = null;
+    let invoiceDate: string | null = null;
+    try {
+      const inv = await getOrCreateInvoiceForOrder(orderId);
+      invoiceNumber = inv.invoiceNumber;
+      invoiceDate = inv.invoiceDate;
+    } catch (invErr) {
+      console.warn("[Invoice] Auto generation warning on placeOrder:", invErr);
+    }
+
     // Send customer order confirmation via Brevo (fire and forget)
     sendOrderConfirmation({
       to: data.shippingEmail,
       orderNumber,
       orderId,
+      invoiceNumber: invoiceNumber ?? undefined,
       customerName: data.shippingName,
       shippingAddress: data.shippingAddress,
       items: items.map((i) => ({
@@ -730,6 +747,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       ok: true,
       orderId,
       orderNumber,
+      invoiceNumber: invoiceNumber ?? undefined,
+      invoiceDate: invoiceDate ?? undefined,
       subtotal,
       total,
       finalAmount,
@@ -1186,11 +1205,21 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       ON CONFLICT (user_id) DO UPDATE SET items = '[]'::jsonb, updated_at = NOW();
     `;
 
+    // Automatically generate invoice for the paid online order
+    let invoiceNumber: string | null = null;
+    try {
+      const inv = await getOrCreateInvoiceForOrder(String(order.id));
+      invoiceNumber = inv.invoiceNumber;
+    } catch (invErr) {
+      console.warn("[Invoice] Auto generation warning on verifyOnlineOrderPayment:", invErr);
+    }
+
     // Dispatch customer confirmation email via Brevo (fire and forget)
     sendOrderConfirmation({
       to: String(order.shipping_email),
       orderNumber: String(order.order_number),
       orderId: String(order.id),
+      invoiceNumber: invoiceNumber ?? undefined,
       customerName: String(order.shipping_name),
       shippingAddress: String(order.shipping_address),
       items: (orderItems as any[]).map((i) => ({
@@ -1250,6 +1279,7 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       ok: true,
       orderId: String(order.id),
       orderNumber: String(order.order_number),
+      invoiceNumber: invoiceNumber ?? undefined,
       total: Number(order.total_amount || 0),
     };
   });

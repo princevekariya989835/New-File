@@ -158,6 +158,7 @@ export function templateOrderConfirmation(d: {
   currency?: string;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
+  invoiceNumber?: string | null;
 }): EmailTemplateResult {
   const cur = d.currency || "₹";
   const subject = `RIOTOUS Order Confirmed — #${d.orderNumber}`;
@@ -174,6 +175,7 @@ export function templateOrderConfirmation(d: {
     <div class="card">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="font-size:12px;color:#71717a;">Order Number</td><td align="right"><strong>#${esc(d.orderNumber)}</strong></td></tr>
+        ${d.invoiceNumber ? `<tr><td style="font-size:12px;color:#71717a;padding-top:6px;">Invoice Number</td><td align="right" style="padding-top:6px;font-weight:700;color:#e11d48;font-family:monospace;">${esc(d.invoiceNumber)}</td></tr>` : ""}
         <tr><td style="font-size:12px;color:#71717a;padding-top:6px;">Payment</td><td align="right" style="padding-top:6px;font-size:12px;">${esc(d.paymentMethod || "COD")} · <span style="color:#16a34a;font-weight:600;">${esc(d.paymentStatus || "Confirmed")}</span></td></tr>
       </table>
     </div>
