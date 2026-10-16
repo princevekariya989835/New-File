@@ -22,8 +22,7 @@ import {
 } from "lucide-react";
 import { SiteLoader } from "@/components/site-loader";
 import { toast } from "sonner";
-import { getMyOrders, cancelMyOrder, type CustomerOrder } from "@/lib/orders.functions";
-import { getCustomerInvoicePdf } from "@/lib/invoice/invoice.server";
+import { getCustomerInvoicePdf } from "@/lib/invoice.functions";
 import { formatPrice } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +63,7 @@ function OrdersPage() {
   const handleDownloadInvoice = async (orderId: string, orderNumber: string) => {
     try {
       setDownloadingInvoiceId(orderId);
+      const res = await downloadInvoiceFn({ data: { orderId } });
       const rawBase64 = res.base64 || res.pdfBase64;
       if (!res.success || !rawBase64) {
         throw new Error(res.error || "Unable to generate invoice. Please try again.");

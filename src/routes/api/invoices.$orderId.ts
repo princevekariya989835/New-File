@@ -77,7 +77,7 @@ export const Route = createFileRoute("/api/invoices/$orderId")({
           const pdfBytes = generateInvoicePdf(invoice);
           const filename = `RIOTOUS-Invoice-${invoice.invoiceNumber}.pdf`;
 
-          return new Response(pdfBytes, {
+          return new Response(pdfBytes as unknown as BodyInit, {
             status: 200,
             headers: {
               "Content-Type": "application/pdf",

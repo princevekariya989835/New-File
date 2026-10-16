@@ -56,6 +56,7 @@ import { Route as AuthenticatedAdminShippingRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminStaffRouteImport } from './routes/_authenticated/admin/staff'
 import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/admin/storefront'
 import { Route as AuthenticatedAdminWebsiteRouteImport } from './routes/_authenticated/admin/website'
+import { Route as ApiInvoicesOrderIdRouteImport } from './routes/api/invoices.$orderId'
 import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media.upload'
 import { Route as ApiPublicProductImageRouteImport } from './routes/api/public/product-image'
@@ -365,6 +366,11 @@ const AuthenticatedAdminWebsiteRoute =
     path: '/website',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const ApiInvoicesOrderIdRoute = ApiInvoicesOrderIdRouteImport.update({
+  id: '/api/invoices/$orderId',
+  path: '/api/invoices/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaIdRoute = ApiMediaIdRouteImport.update({
   id: '/api/media/$id',
   path: '/api/media/$id',
@@ -462,6 +468,7 @@ export interface FileRoutesByFullPath {
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
@@ -519,6 +526,7 @@ export interface FileRoutesByTo {
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
@@ -579,6 +587,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/_authenticated/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
   '/api/public/product-image': typeof ApiPublicProductImageRoute
@@ -639,6 +648,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/storefront'
     | '/admin/website'
+    | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
@@ -696,6 +706,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/storefront'
     | '/admin/website'
+    | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
@@ -755,6 +766,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/staff'
     | '/_authenticated/admin/storefront'
     | '/_authenticated/admin/website'
+    | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
     | '/api/public/product-image'
@@ -791,6 +803,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   ProductHandleRoute: typeof ProductHandleRoute
   TrackingWebhookRoute: typeof TrackingWebhookRoute
+  ApiInvoicesOrderIdRoute: typeof ApiInvoicesOrderIdRoute
   ApiMediaIdRoute: typeof ApiMediaIdRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiPublicProductImageRoute: typeof ApiPublicProductImageRoute
@@ -1134,6 +1147,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminWebsiteRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/api/invoices/$orderId': {
+      id: '/api/invoices/$orderId'
+      path: '/api/invoices/$orderId'
+      fullPath: '/api/invoices/$orderId'
+      preLoaderRoute: typeof ApiInvoicesOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media/$id': {
       id: '/api/media/$id'
       path: '/api/media/$id'
@@ -1301,6 +1321,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   ProductHandleRoute: ProductHandleRoute,
   TrackingWebhookRoute: TrackingWebhookRoute,
+  ApiInvoicesOrderIdRoute: ApiInvoicesOrderIdRoute,
   ApiMediaIdRoute: ApiMediaIdRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiPublicProductImageRoute: ApiPublicProductImageRoute,

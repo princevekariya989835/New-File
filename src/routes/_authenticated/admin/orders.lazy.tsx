@@ -47,8 +47,7 @@ import {
   ChevronRight,
   FileText,
 } from "lucide-react";
-import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
-import { getAdminInvoicePdf, adminRetryGenerateInvoice } from "@/lib/invoice/invoice.server";
+import { getAdminInvoicePdf, adminRetryGenerateInvoice } from "@/lib/invoice.functions";
 
 type Search = {
   q?: string;
@@ -387,6 +386,7 @@ function OrdersPage() {
   const handleAdminDownloadPdf = async (orderId: string, orderNumber: string) => {
     try {
       setDownloadingInvoiceId(orderId);
+      const res = await adminInvoicePdfFn({ data: { orderId } });
       const rawBase64 = res.base64 || res.pdfBase64;
       if (!res.success || !rawBase64) {
         throw new Error(res.error || "Failed to generate invoice PDF");
