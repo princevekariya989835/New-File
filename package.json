@@ -69,6 +69,10 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16"
   },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "1.2.8",
+    "@rolldown/binding-linux-x64-musl": "1.2.8"
+  },
   "overrides": {
     "entities": "4.5.0"
   }
