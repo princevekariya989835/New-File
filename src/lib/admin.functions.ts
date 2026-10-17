@@ -1590,42 +1590,70 @@ export const adminListOrders = createServerFn({ method: "POST" })
         });
       }
 
-      const mappedOrders: AdminOrder[] = orders.map((o: any) => ({
-        id: String(o.id),
-        order_number: o.order_number,
-        created_at: new Date(o.created_at).toISOString(),
-        total_amount: Number(o.total_amount || 0),
-        subtotal: Number(o.subtotal || 0),
-        discount_amount: Number(o.discount_amount || 0),
-        discount_code: o.discount_code || null,
-        shipping_charge: Number(o.shipping_charge || 0),
-        tax_amount: Number(o.tax_amount || 0),
-        currency: o.currency || "INR",
-        status: o.status || "Pending",
-        payment_status: o.payment_status || "Pending",
-        payment_method: o.payment_method || "COD",
-        stock_state: o.stock_state || "Normal",
-        shipping_name: o.shipping_name || "",
-        shipping_email: o.shipping_email || "",
-        shipping_phone: o.shipping_phone || null,
-        shipping_address: o.shipping_address || "",
-        billing_address: o.billing_address || null,
-        courier_name: o.courier_name || null,
-        tracking_number: o.tracking_number || null,
-        tracking_url: o.tracking_url || null,
-        shipped_at: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
-        delivered_at: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
-        cancelled_at: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
-        admin_notes: o.admin_notes || null,
-        razorpay_order_id: o.razorpay_order_id || null,
-        razorpay_payment_id: o.razorpay_payment_id || null,
-        paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
-        zippyy_order_id: o.zippyy_order_id || null,
-        shipping_label_url: o.shipping_label_url || null,
-        invoice_number: o.invoice_number || null,
-        invoice_date: o.invoice_date ? new Date(o.invoice_date).toISOString() : null,
-        items: itemsByOrderId.get(String(o.id)) || [],
-      }));
+      // Safe lookup for orders that may have invoice records in invoices table
+      const missingInvoiceOrderIds = orders
+        .filter((o) => !o.invoice_number)
+        .map((o) => String(o.id));
+      const invoiceByOrderId = new Map<string, { invoice_number: string; invoice_date: string }>();
+      if (missingInvoiceOrderIds.length > 0) {
+        try {
+          const invRows = await sql`
+            SELECT order_id, invoice_number, invoice_date
+            FROM invoices
+            WHERE order_id::text = ANY(${missingInvoiceOrderIds}::text[])
+          `;
+          for (const inv of invRows as any[]) {
+            invoiceByOrderId.set(String(inv.order_id), {
+              invoice_number: inv.invoice_number,
+              invoice_date: inv.invoice_date,
+            });
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+
+      const mappedOrders: AdminOrder[] = orders.map((o: any) => {
+        const inv = invoiceByOrderId.get(String(o.id));
+        const finalInvoiceNumber = o.invoice_number || inv?.invoice_number || null;
+        const finalInvoiceDate = o.invoice_date || inv?.invoice_date || null;
+        return {
+          id: String(o.id),
+          order_number: o.order_number,
+          created_at: new Date(o.created_at).toISOString(),
+          total_amount: Number(o.total_amount || 0),
+          subtotal: Number(o.subtotal || 0),
+          discount_amount: Number(o.discount_amount || 0),
+          discount_code: o.discount_code || null,
+          shipping_charge: Number(o.shipping_charge || 0),
+          tax_amount: Number(o.tax_amount || 0),
+          currency: o.currency || "INR",
+          status: o.status || "Pending",
+          payment_status: o.payment_status || "Pending",
+          payment_method: o.payment_method || "COD",
+          stock_state: o.stock_state || "Normal",
+          shipping_name: o.shipping_name || "",
+          shipping_email: o.shipping_email || "",
+          shipping_phone: o.shipping_phone || null,
+          shipping_address: o.shipping_address || "",
+          billing_address: o.billing_address || null,
+          courier_name: o.courier_name || null,
+          tracking_number: o.tracking_number || null,
+          tracking_url: o.tracking_url || null,
+          shipped_at: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
+          delivered_at: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
+          cancelled_at: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
+          admin_notes: o.admin_notes || null,
+          razorpay_order_id: o.razorpay_order_id || null,
+          razorpay_payment_id: o.razorpay_payment_id || null,
+          paid_at: o.paid_at ? new Date(o.paid_at).toISOString() : null,
+          zippyy_order_id: o.zippyy_order_id || null,
+          shipping_label_url: o.shipping_label_url || null,
+          invoice_number: finalInvoiceNumber,
+          invoice_date: finalInvoiceDate ? new Date(finalInvoiceDate).toISOString() : null,
+          items: itemsByOrderId.get(String(o.id)) || [],
+        };
+      });
 
       return {
         orders: mappedOrders,

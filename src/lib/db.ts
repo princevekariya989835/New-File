@@ -121,7 +121,7 @@ const _mockProfiles: any[] = [
   },
 ];
 
-let _mockEmailOtps: any[] = [];
+const _mockEmailOtps: any[] = [];
 
 const _mockCoupons: any[] = [
   {
@@ -459,9 +459,15 @@ export function removeMockProduct(productIdOrSlug: string): boolean {
   if (idx !== -1) {
     const [removed] = _mockProducts.splice(idx, 1);
     _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
-    _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
-    _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
-    _mockProductOffers = _mockProductOffers.filter((o) => String(o.product_id) !== String(removed.id));
+    _mockProductHighlights = _mockProductHighlights.filter(
+      (h) => String(h.product_id) !== String(removed.id),
+    );
+    _mockProductSpecifications = _mockProductSpecifications.filter(
+      (s) => String(s.product_id) !== String(removed.id),
+    );
+    _mockProductOffers = _mockProductOffers.filter(
+      (o) => String(o.product_id) !== String(removed.id),
+    );
     return true;
   }
   return false;
@@ -482,14 +488,41 @@ export function getDatabaseUrl(): string | null {
 
 // Known columns containing serialized JSON that should be parsed when returned
 const JSON_COLUMNS = new Set([
-  "images", "sizes", "colors", "color_variants", "tags", "features",
-  "care_instructions", "manufacturing_info", "size_measurements",
-  "product_variants", "variants", "product_images", "sizeStock",
-  "highlights", "specifications", "offers",
-  "items", "canvases", "preview_images", "product_ids", "category_names",
-  "excluded_product_ids", "excluded_category_names", "config", "details",
-  "headers", "mapping", "permissions", "eligible_products", "eligible_categories",
-  "seller_details", "customer_details", "items_snapshot", "totals_snapshot", "tax_breakup",
+  "images",
+  "sizes",
+  "colors",
+  "color_variants",
+  "tags",
+  "features",
+  "care_instructions",
+  "manufacturing_info",
+  "size_measurements",
+  "product_variants",
+  "variants",
+  "product_images",
+  "sizeStock",
+  "highlights",
+  "specifications",
+  "offers",
+  "items",
+  "canvases",
+  "preview_images",
+  "product_ids",
+  "category_names",
+  "excluded_product_ids",
+  "excluded_category_names",
+  "config",
+  "details",
+  "headers",
+  "mapping",
+  "permissions",
+  "eligible_products",
+  "eligible_categories",
+  "seller_details",
+  "customer_details",
+  "items_snapshot",
+  "totals_snapshot",
+  "tax_breakup",
 ]);
 
 function parseJsonFields(row: any): any {
@@ -587,11 +620,26 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
   rawSql = rawSql.replace(/\bNOW\(\)/gi, "CURRENT_TIMESTAMP");
 
   // Date compatibility transformations for SQLite / D1
-  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*CURRENT_DATE\s*\)/gi, "date('now', 'start of month')");
-  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*([^)]+)\s*\)/gi, "date($1, 'start of month')");
-  rawSql = rawSql.replace(/TO_CHAR\s*\(\s*([^,]+)\s*,\s*['"]YYYY-MM-DD['"]\s*\)/gi, "substr($1, 1, 10)");
-  rawSql = rawSql.replace(/CURRENT_DATE\s*-\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '-$1 days')");
-  rawSql = rawSql.replace(/CURRENT_DATE\s*\+\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '+$1 days')");
+  rawSql = rawSql.replace(
+    /DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*CURRENT_DATE\s*\)/gi,
+    "date('now', 'start of month')",
+  );
+  rawSql = rawSql.replace(
+    /DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*([^)]+)\s*\)/gi,
+    "date($1, 'start of month')",
+  );
+  rawSql = rawSql.replace(
+    /TO_CHAR\s*\(\s*([^,]+)\s*,\s*['"]YYYY-MM-DD['"]\s*\)/gi,
+    "substr($1, 1, 10)",
+  );
+  rawSql = rawSql.replace(
+    /CURRENT_DATE\s*-\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi,
+    "date('now', '-$1 days')",
+  );
+  rawSql = rawSql.replace(
+    /CURRENT_DATE\s*\+\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi,
+    "date('now', '+$1 days')",
+  );
   rawSql = rawSql.replace(/\bCURRENT_DATE\b/gi, "date('now')");
 
   // to_regclass -> sqlite_master table check
@@ -619,7 +667,10 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
  * Creates a tagged-template `sql` execution interface wrapping Cloudflare D1.
  */
 function createD1Sql(d1: any) {
-  const d1Sql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+  const d1Sql = async (
+    strings: TemplateStringsArray | string[] | string,
+    ...values: any[]
+  ): Promise<any[]> => {
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) {
       return [];
@@ -631,7 +682,14 @@ function createD1Sql(d1: any) {
       const rows = res.results || [];
       return rows.map((r: any) => parseJsonFields(r));
     } catch (err: any) {
-      console.error("[Cloudflare D1 Query Error]:", err?.message || err, "\nSQL:", sql, "\nBindings:", bindings);
+      console.error(
+        "[Cloudflare D1 Query Error]:",
+        err?.message || err,
+        "\nSQL:",
+        sql,
+        "\nBindings:",
+        bindings,
+      );
       throw err;
     }
   };
@@ -660,15 +718,27 @@ export function getLocalD1Token(forceRefresh: boolean = false): string | null {
       let os: any = null;
 
       if (typeof (process as any).getBuiltinModule === "function") {
-        fs = (process as any).getBuiltinModule("fs") || (process as any).getBuiltinModule("node:fs");
-        path = (process as any).getBuiltinModule("path") || (process as any).getBuiltinModule("node:path");
-        os = (process as any).getBuiltinModule("os") || (process as any).getBuiltinModule("node:os");
+        fs =
+          (process as any).getBuiltinModule("fs") || (process as any).getBuiltinModule("node:fs");
+        path =
+          (process as any).getBuiltinModule("path") ||
+          (process as any).getBuiltinModule("node:path");
+        os =
+          (process as any).getBuiltinModule("os") || (process as any).getBuiltinModule("node:os");
       }
 
       if (fs && path && os) {
         const home = os.homedir();
         const candidatePaths = [
-          path.join(home, "AppData", "Roaming", "xdg.config", ".wrangler", "config", "default.toml"),
+          path.join(
+            home,
+            "AppData",
+            "Roaming",
+            "xdg.config",
+            ".wrangler",
+            "config",
+            "default.toml",
+          ),
           path.join(home, ".config", ".wrangler", "config", "default.toml"),
           path.join(home, ".wrangler", "config", "default.toml"),
         ];
@@ -695,35 +765,47 @@ function createD1RestSql() {
   const accountId = "f243cdf7bf870b1000051f76985db609";
   const databaseId = "7487ac0f-706e-4560-baf8-e79031b2dd5e";
 
-  const restSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+  const restSql = async (
+    strings: TemplateStringsArray | string[] | string,
+    ...values: any[]
+  ): Promise<any[]> => {
     let token = getLocalD1Token();
     if (!token) return [];
 
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) return [];
 
-    let res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    let res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ sql, params: bindings }),
       },
-      body: JSON.stringify({ sql, params: bindings }),
-    });
+    );
 
     let data: any = await res.json();
-    if (res.status === 401 || (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))) {
+    if (
+      res.status === 401 ||
+      (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))
+    ) {
       // Token expired, force re-reading from wrangler config
       token = getLocalD1Token(true);
       if (token) {
-        res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        res = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ sql, params: bindings }),
           },
-          body: JSON.stringify({ sql, params: bindings }),
-        });
+        );
         data = await res.json();
       }
     }
@@ -746,7 +828,7 @@ let _cachedSql: any = null;
 let _cachedSqlMode: string | null = null;
 
 export function getSql() {
-  const useNeon = (typeof process !== "undefined" && process.env?.USE_NEON === "true");
+  const useNeon = typeof process !== "undefined" && process.env?.USE_NEON === "true";
   const localD1Token = getLocalD1Token();
 
   // 1. In local Node.js development, connect to the real Cloudflare D1 database via REST
@@ -829,13 +911,22 @@ export function getSql() {
         const mapProd = (p: any, isActiveOnly = false) => {
           const prodVariants = _mockVariants.filter((v) => String(v.product_id) === String(p.id));
           const prodHighlights = _mockProductHighlights
-            .filter((h) => String(h.product_id) === String(p.id) && (!isActiveOnly || h.is_active !== false))
+            .filter(
+              (h) =>
+                String(h.product_id) === String(p.id) && (!isActiveOnly || h.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
           const prodSpecs = _mockProductSpecifications
-            .filter((s) => String(s.product_id) === String(p.id) && (!isActiveOnly || s.is_active !== false))
+            .filter(
+              (s) =>
+                String(s.product_id) === String(p.id) && (!isActiveOnly || s.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
           const prodOffers = _mockProductOffers
-            .filter((o) => String(o.product_id) === String(p.id) && (!isActiveOnly || o.is_active !== false))
+            .filter(
+              (o) =>
+                String(o.product_id) === String(p.id) && (!isActiveOnly || o.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
 
           return {
@@ -850,10 +941,14 @@ export function getSql() {
           };
         };
 
-        if (lower.includes("where") && (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))) {
+        if (
+          lower.includes("where") &&
+          (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))
+        ) {
           const matchVal = values[0] ? String(values[0]).toLowerCase() : "";
           const found = _mockProducts.find(
-            (p) => String(p.slug).toLowerCase() === matchVal || String(p.id).toLowerCase() === matchVal,
+            (p) =>
+              String(p.slug).toLowerCase() === matchVal || String(p.id).toLowerCase() === matchVal,
           );
           return found ? [mapProd(found, false)] : [];
         }
@@ -866,7 +961,9 @@ export function getSql() {
         if (lower.includes("where")) {
           const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
           if (emailVal) {
-            const found = _mockProfiles.find((p) => p.email.toLowerCase() === String(emailVal).toLowerCase());
+            const found = _mockProfiles.find(
+              (p) => p.email.toLowerCase() === String(emailVal).toLowerCase(),
+            );
             return found ? [found] : [];
           }
           const idVal = values[0] ? String(values[0]) : "";
@@ -880,7 +977,9 @@ export function getSql() {
       if (lower.includes("from coupons")) {
         if (lower.includes("where") && lower.includes("code =")) {
           const codeVal = values[0] ? String(values[0]).toUpperCase() : "";
-          const found = _mockCoupons.find((c) => c.code.toUpperCase() === codeVal && c.is_active && !c.deleted_at);
+          const found = _mockCoupons.find(
+            (c) => c.code.toUpperCase() === codeVal && c.is_active && !c.deleted_at,
+          );
           return found ? [found] : [];
         }
         return _mockCoupons.filter((c) => !c.deleted_at);
@@ -1015,23 +1114,41 @@ export function getSql() {
       // UPDATE products
       if (lower.includes("update products")) {
         const idVal = values[values.length - 1] ?? values[values.length - 2];
-        const matchVal = String(idVal || "").toLowerCase().trim();
+        const matchVal = String(idVal || "")
+          .toLowerCase()
+          .trim();
         const found = _mockProducts.find(
-          (p) => String(p.id).toLowerCase() === matchVal || String(p.slug).toLowerCase() === matchVal,
+          (p) =>
+            String(p.id).toLowerCase() === matchVal || String(p.slug).toLowerCase() === matchVal,
         );
         if (found) {
           for (const v of values) {
             if (Array.isArray(v)) {
-              if (v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
+              if (
+                v.some(
+                  (item) =>
+                    typeof item === "string" &&
+                    (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")),
+                )
+              ) {
                 found.images = [...v];
               }
             } else if (typeof v === "string" && v.startsWith("[")) {
               try {
                 const parsed = JSON.parse(v);
-                if (Array.isArray(parsed) && parsed.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
+                if (
+                  Array.isArray(parsed) &&
+                  parsed.some(
+                    (item) =>
+                      typeof item === "string" &&
+                      (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")),
+                  )
+                ) {
                   found.images = [...parsed];
                 }
-              } catch {}
+              } catch {
+                /* non-fatal */
+              }
             }
           }
           if (values[0] !== undefined && typeof values[0] === "string") found.name = values[0];
@@ -1048,17 +1165,31 @@ export function getSql() {
         const slug = values[2] ? String(values[2]) : id;
         let images: string[] = [];
         for (const v of values) {
-          if (Array.isArray(v) && v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+          if (
+            Array.isArray(v) &&
+            v.some(
+              (item) =>
+                typeof item === "string" && (item.startsWith("/") || item.startsWith("http")),
+            )
+          ) {
             images = [...v];
             break;
           } else if (typeof v === "string" && v.startsWith("[")) {
             try {
               const p = JSON.parse(v);
-              if (Array.isArray(p) && p.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+              if (
+                Array.isArray(p) &&
+                p.some(
+                  (item) =>
+                    typeof item === "string" && (item.startsWith("/") || item.startsWith("http")),
+                )
+              ) {
                 images = [...p];
                 break;
               }
-            } catch {}
+            } catch {
+              /* non-fatal */
+            }
           }
         }
         const newProd = {
@@ -1133,7 +1264,26 @@ export async function ensureDbSchema() {
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
               )
             `;
-          } catch {}
+
+            // Ensure orders table has invoice fields for fast query lookup
+            try {
+              await sql`ALTER TABLE orders ADD COLUMN invoice_number TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE orders ADD COLUMN invoice_date TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`CREATE INDEX IF NOT EXISTS idx_orders_invoice_number ON orders (invoice_number)`;
+            } catch {
+              /* index may already exist */
+            }
+          } catch {
+            /* tables or columns setup handled */
+          }
           _schemaInitialized = true;
           return;
         }

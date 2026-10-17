@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 3000",
-    "build": "vite build && node scripts/copy-dist.mjs",
+    "prebuild": "node scripts/ensure-build-deps.mjs",
+    "build": "node scripts/ensure-build-deps.mjs && vite build && node scripts/copy-dist.mjs",
     "start": "node .output/server/index.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",

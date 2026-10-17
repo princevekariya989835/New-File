@@ -87,7 +87,7 @@ export function getFallbackProductImageByName(name: string | null): string | nul
   if (!name) return null;
   const cleanName = name.toLowerCase().trim();
   // 1. Exact or substring match
-  let fb = FALLBACK_PRODUCTS.find((p) => {
+  const fb = FALLBACK_PRODUCTS.find((p) => {
     const pName = p.name.toLowerCase().trim();
     return pName === cleanName || cleanName.includes(pName) || pName.includes(cleanName);
   });
@@ -282,34 +282,99 @@ export const getMyOrders = createServerFn({ method: "GET" })
         }
       }
 
-      const orders = await sql`
-        SELECT id, order_number, created_at, subtotal, discount_amount, discount_code,
-          shipping_charge, tax_amount, total_amount, currency, status, payment_status,
-          payment_method, shipping_name, shipping_email, shipping_phone, shipping_address,
-          billing_address, courier_name, tracking_number, tracking_url,
-          shipped_at, delivered_at, cancelled_at, invoice_number, invoice_date
-        FROM orders
-        WHERE user_id::text = ${userId}
-           OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
-           OR (user_id::text = ${userEmail})
-        ORDER BY created_at DESC
-      `;
+      let orders: any[] = [];
+      try {
+        // Primary query: loads orders and joins invoices table to ensure invoice data is always available
+        orders = await sql`
+          SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+            o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+            o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+            o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+            o.shipped_at, o.delivered_at, o.cancelled_at, o.invoice_number, o.invoice_date,
+            inv.invoice_number as inv_table_invoice_number, inv.invoice_date as inv_table_invoice_date
+          FROM orders o
+          LEFT JOIN invoices inv ON o.id::text = inv.order_id::text
+          WHERE o.user_id::text = ${userId}
+             OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+             OR (o.user_id::text = ${userEmail})
+          ORDER BY o.created_at DESC
+        `;
+      } catch (colErr: any) {
+        console.warn(
+          "[Orders] Primary orders query with invoice columns failed, falling back to base columns + invoices join:",
+          colErr?.message,
+        );
+        try {
+          // Fallback 1: If orders table does not yet have invoice_number/invoice_date columns,
+          // retrieve base fields and join invoices table so invoice details are still populated seamlessly
+          orders = await sql`
+            SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+              o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+              o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+              o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+              o.shipped_at, o.delivered_at, o.cancelled_at,
+              inv.invoice_number as inv_table_invoice_number, inv.invoice_date as inv_table_invoice_date
+            FROM orders o
+            LEFT JOIN invoices inv ON o.id::text = inv.order_id::text
+            WHERE o.user_id::text = ${userId}
+               OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+               OR (o.user_id::text = ${userEmail})
+            ORDER BY o.created_at DESC
+          `;
+        } catch (joinErr: any) {
+          console.warn(
+            "[Orders] Invoices join query failed, falling back to basic orders select:",
+            joinErr?.message,
+          );
+          // Fallback 2: Base columns only without joining invoices
+          orders = await sql`
+            SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+              o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+              o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+              o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+              o.shipped_at, o.delivered_at, o.cancelled_at
+            FROM orders o
+            WHERE o.user_id::text = ${userId}
+               OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+               OR (o.user_id::text = ${userEmail})
+            ORDER BY o.created_at DESC
+          `;
+        }
+      }
 
-      if (orders.length === 0) return [];
+      if (!orders || orders.length === 0) return [];
 
-      const items = await sql`
-        SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
-          i.design_submission_id, d.preview_data_url, p.images as product_images_json
-        FROM order_items i
-        LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
-        LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
-        WHERE i.order_id IN (
-          SELECT id FROM orders
-          WHERE user_id::text = ${userId}
-             OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
-             OR (user_id::text = ${userEmail})
-        )
-      `;
+      const orderIds = orders.map((o: any) => String(o.id));
+      let items: any[] = [];
+      try {
+        items = await sql`
+          SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
+            i.design_submission_id, d.preview_data_url, p.images as product_images_json
+          FROM order_items i
+          LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+          LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
+          WHERE i.order_id::text = ANY(${orderIds}::text[])
+        `;
+      } catch (itemErr: any) {
+        console.warn("[Orders] Items by ANY failed, falling back to IN query:", itemErr?.message);
+        try {
+          items = await sql`
+            SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
+              i.design_submission_id, d.preview_data_url, p.images as product_images_json
+            FROM order_items i
+            LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+            LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
+            WHERE i.order_id IN (
+              SELECT id FROM orders
+              WHERE user_id::text = ${userId}
+                 OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
+                 OR (user_id::text = ${userEmail})
+            )
+          `;
+        } catch {
+          items = [];
+        }
+      }
 
       const itemsByOrderId = new Map<string, OrderLineItem[]>();
       for (const item of items as any[]) {
@@ -337,6 +402,8 @@ export const getMyOrders = createServerFn({ method: "GET" })
 
       return orders.map((o: any) => {
         const currency = o.currency || "INR";
+        const invNumber = o.invoice_number || o.inv_table_invoice_number || null;
+        const invDate = o.invoice_date || o.inv_table_invoice_date || null;
         return {
           id: String(o.id),
           name: o.order_number,
@@ -366,8 +433,8 @@ export const getMyOrders = createServerFn({ method: "GET" })
           shippedAt: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
           deliveredAt: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
           cancelledAt: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
-          invoiceNumber: o.invoice_number || null,
-          invoiceDate: o.invoice_date ? new Date(o.invoice_date).toISOString() : null,
+          invoiceNumber: invNumber,
+          invoiceDate: invDate ? new Date(invDate).toISOString() : null,
           lineItems: itemsByOrderId.get(String(o.id)) || [],
         };
       });
