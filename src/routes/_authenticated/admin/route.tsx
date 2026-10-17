@@ -1,4 +1,4 @@
-import {
+x import {
   createFileRoute,
   Link,
   Outlet,
@@ -57,7 +57,11 @@ function AdminPendingShell() {
       {/* Dark Sidebar Skeleton */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#0c0c0e] border-r border-zinc-800/60 h-screen sticky top-0 p-4">
         <div className="px-2 pt-2 pb-4">
-          <img src="/assets/riotous-logo.png" alt="RIOTOUS" className="h-6 w-auto object-contain" />
+          <img
+            src="/assets/riotous-logo.png"
+            alt="RIOTOUS"
+            className="h-6 w-auto object-contain"
+          />
           <span className="block text-[9px] font-bold tracking-[0.25em] text-zinc-500 uppercase mt-1">
             ADMIN PANEL
           </span>
@@ -240,7 +244,9 @@ function AdminLayout() {
         </div>
 
         {/* Scrollable Nav Items */}
-        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">{renderNavLinks()}</div>
+        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+          {renderNavLinks()}
+        </div>
 
         {/* Bottom Streetwear Branded Card */}
         <div className="p-3 pt-2 mt-auto">
@@ -260,10 +266,7 @@ function AdminLayout() {
       {/* Mobile Drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-[70] md:hidden">
-          <div
-            className="absolute inset-0 bg-black/75 backdrop-blur-xs"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-xs" onClick={() => setSidebarOpen(false)} />
           <div className="absolute left-0 top-0 h-full w-64 bg-[#0c0c0e] border-r border-zinc-800/80 flex flex-col overflow-y-auto">
             <div className="flex items-center justify-between px-5 py-5 border-b border-zinc-800/60">
               <Link to="/admin" onClick={() => setSidebarOpen(false)} className="block">
@@ -284,7 +287,9 @@ function AdminLayout() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-2">{renderNavLinks()}</div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {renderNavLinks()}
+            </div>
             <div className="p-3 mt-auto">
               <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/90 p-3 text-white">
                 <img
@@ -398,7 +403,7 @@ function AdminLayout() {
                       {(user as any).fullName || user.email.split("@")[0] || "Prince Vekariya"}
                     </span>
                     <span className="text-[10px] text-zinc-400">
-                      {user.role === "admin" ? "Administrator" : user.role || "Administrator"}
+                      {user.role === "admin" ? "Administrator" : (user.role || "Administrator")}
                     </span>
                   </div>
                   <ChevronDown className="hidden md:block h-3.5 w-3.5 text-zinc-400 ml-0.5" />
@@ -465,9 +470,7 @@ function AdminLayout() {
             </div>
           ) : roleQ.isLoading && !isExplicitAdmin ? (
             <div className="rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm">
-              <h2 className="text-lg font-semibold text-zinc-900">
-                Verifying administrator credentials…
-              </h2>
+              <h2 className="text-lg font-semibold text-zinc-900">Verifying administrator credentials…</h2>
               <p className="mt-1 text-sm text-zinc-500">Securing administrative console.</p>
             </div>
           ) : (
@@ -477,4 +480,5 @@ function AdminLayout() {
       </div>
     </div>
   );
+}
 }
