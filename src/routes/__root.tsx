@@ -211,18 +211,26 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col relative w-full max-w-full overflow-x-hidden md:overflow-x-visible">
-      <SiteHeader />
-      <main className={isAuthPage ? "flex-1 flex flex-col w-full max-w-full" : isCheckoutPage ? "flex-1 pt-16 md:pt-20 w-full max-w-full" : "flex-1 pt-16 md:pt-20 w-full max-w-full"}>
+      {!isAdminPage && <SiteHeader />}
+      <main
+        className={
+          isAuthPage || isAdminPage
+            ? "flex-1 flex flex-col w-full max-w-full"
+            : isCheckoutPage
+              ? "flex-1 pt-16 md:pt-20 w-full max-w-full"
+              : "flex-1 pt-16 md:pt-20 w-full max-w-full"
+        }
+      >
         <Outlet />
       </main>
-      {!isAuthPage && (
+      {!isAuthPage && !isAdminPage && (
         <div className={isCheckoutPage ? "hidden md:block" : ""}>
           <SiteFooter />
         </div>
       )}
       {showMobileOfferBar && <MobileBottomOfferBar />}
       <FloatingWhatsApp />
-      <CookieConsentBanner />
+      {!isAdminPage && <CookieConsentBanner />}
       <Toaster position="top-center" />
     </div>
   );

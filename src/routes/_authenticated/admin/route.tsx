@@ -14,7 +14,6 @@ import { hasAdminPanelAccess } from "@/lib/auth.types";
 import { checkIsAdmin } from "@/lib/admin.functions";
 import { getAdminNotifications } from "@/lib/admin-dashboard.functions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +33,6 @@ import {
   LogOut,
   Menu,
   X,
-  ShieldCheck,
   ScrollText,
   ExternalLink,
   RotateCcw,
@@ -44,44 +42,50 @@ import {
   BarChart3,
   Truck,
   CreditCard,
-  Globe,
   Store,
   UserCog,
   Settings,
   Ticket,
   Activity,
   Tag,
+  ChevronDown,
 } from "lucide-react";
 
 function AdminPendingShell() {
   return (
-    <div className="min-h-screen pt-16 md:pt-20">
-      <div className="mx-auto flex max-w-[1600px]">
-        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] w-60 shrink-0 border-r bg-card/40 md:block p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ShieldCheck className="h-4 w-4 text-brand-red" /> Admin
-          </div>
-          <nav className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
-            <div className="rounded-lg bg-brand-red text-white font-semibold px-3 py-2">Dashboard</div>
-            <div className="px-3 py-2">Orders</div>
-            <div className="px-3 py-2">Products</div>
-            <div className="px-3 py-2">Inventory</div>
-          </nav>
-        </aside>
-        <div className="min-w-0 flex-1">
-          <div className="sticky top-16 z-40 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur md:top-20">
-            <span className="text-sm font-semibold text-foreground">Store Management Console</span>
-            <div className="h-8 w-8 rounded-full bg-brand-red/80 text-xs font-bold text-white flex items-center justify-center">
-              A
-            </div>
-          </div>
-          <main className="px-4 py-6 md:px-6">
-            <div className="rounded-2xl border border-border/60 bg-card p-6">
-              <h1 className="text-2xl font-bold tracking-tight">Admin Console</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Connecting to management console…</p>
-            </div>
-          </main>
+    <div className="min-h-screen flex bg-[#0c0c0e]">
+      {/* Dark Sidebar Skeleton */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#0c0c0e] border-r border-zinc-800/60 h-screen sticky top-0 p-4">
+        <div className="px-2 pt-2 pb-4">
+          <img src="/assets/riotous-logo.png" alt="RIOTOUS" className="h-6 w-auto object-contain" />
+          <span className="block text-[9px] font-bold tracking-[0.25em] text-zinc-500 uppercase mt-1">
+            ADMIN PANEL
+          </span>
         </div>
+        <div className="mt-2 flex flex-col gap-1 text-sm">
+          <div className="rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold px-3.5 py-2.5 text-xs shadow-md shadow-red-950/40">
+            Dashboard
+          </div>
+          <div className="px-3.5 py-2.5 text-xs text-zinc-500">Orders</div>
+          <div className="px-3.5 py-2.5 text-xs text-zinc-500">Products</div>
+          <div className="px-3.5 py-2.5 text-xs text-zinc-500">Inventory</div>
+        </div>
+      </aside>
+
+      {/* Main Container Skeleton */}
+      <div className="flex-1 min-w-0 flex flex-col bg-[#f4f5f7]">
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-zinc-800/60 bg-[#0c0c0e] px-6 py-2.5">
+          <span className="text-xs font-semibold text-zinc-400">RIOTOUS Management Console</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e9d5ff] text-[#581c87] text-xs font-bold">
+            P
+          </div>
+        </div>
+        <main className="flex-1 p-6 md:p-8">
+          <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900">Admin Console</h1>
+            <p className="mt-1 text-xs text-zinc-500">Connecting to management console…</p>
+          </div>
+        </main>
       </div>
     </div>
   );
@@ -99,14 +103,18 @@ export const Route = createFileRoute("/_authenticated/admin")({
   }),
 });
 
-const NAV: Array<{
+interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   exact?: boolean;
-}> = [
+  badge?: boolean;
+  isExternalIcon?: boolean;
+}
+
+const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/orders", label: "Orders", icon: Receipt },
+  { to: "/admin/orders", label: "Orders", icon: Receipt, badge: true },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/inventory", label: "Inventory", icon: Boxes },
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
@@ -115,13 +123,13 @@ const NAV: Array<{
   { to: "/admin/coupons", label: "Coupons", icon: Ticket },
   { to: "/admin/offers", label: "Offers", icon: Tag },
   { to: "/admin/designs", label: "Design Studio", icon: Palette },
-  { to: "/admin/storefront", label: "Storefront", icon: Store },
+  { to: "/admin/storefront", label: "Storefront", icon: Store, isExternalIcon: true },
   { to: "/admin/marketing", label: "Marketing", icon: Megaphone },
   { to: "/admin/shipping", label: "Shipping", icon: Truck },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/admin/staff", label: "Staff", icon: UserCog },
   { to: "/admin/settings", label: "Settings", icon: Settings },
+  { to: "/admin/staff", label: "Staff", icon: UserCog },
   { to: "/admin/health", label: "System Health", icon: Activity },
   { to: "/admin/activity", label: "Activity log", icon: ScrollText },
 ];
@@ -182,7 +190,7 @@ function AdminLayout() {
 
   const notifications = notifQ.data ?? [];
 
-  const sidebar = (
+  const renderNavLinks = () => (
     <nav className="flex flex-col gap-1 p-3">
       {NAV.map((item) => (
         <Link
@@ -190,101 +198,169 @@ function AdminLayout() {
           to={item.to as "/admin"}
           activeOptions={item.exact ? { exact: true } : undefined}
           onClick={() => setSidebarOpen(false)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="flex items-center justify-between rounded-xl px-3.5 py-2 text-xs font-medium text-zinc-400 transition-all hover:bg-white/[0.06] hover:text-white group"
           activeProps={{
             className:
-              "!bg-brand-red !text-white hover:!bg-brand-red hover:!text-white font-semibold",
+              "!bg-gradient-to-r !from-red-600 !to-rose-600 !text-white !font-semibold shadow-md shadow-red-950/40 hover:!bg-red-600 hover:!text-white",
           }}
         >
-          <item.icon className="h-4 w-4" />
-          {item.label}
+          <div className="flex items-center gap-3">
+            <item.icon className="h-4 w-4 shrink-0 transition-colors" />
+            <span>{item.label}</span>
+          </div>
+          {item.badge && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 text-white px-1 text-[10px] font-bold leading-none shadow-xs">
+              2
+            </span>
+          )}
+          {item.isExternalIcon && (
+            <ExternalLink className="h-3.5 w-3.5 text-zinc-500 group-hover:text-zinc-300" />
+          )}
         </Link>
       ))}
-      <Link
-        to="/"
-        className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-      >
-        <ExternalLink className="h-4 w-4" /> View storefront
-      </Link>
     </nav>
   );
 
   return (
-    <div className="min-h-screen pt-16 md:pt-20">
-      <div className="mx-auto flex max-w-[1600px]">
-        {/* Sidebar */}
-        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] w-60 shrink-0 overflow-y-auto border-r bg-card/40 md:block">
-          <div className="flex items-center gap-2 px-4 pt-4 text-sm font-semibold">
-            <ShieldCheck className="h-4 w-4 text-brand-red" /> Admin
-          </div>
-          {sidebar}
-        </aside>
+    <div className="min-h-screen flex bg-[#0c0c0e] text-zinc-900 font-sans selection:bg-red-600 selection:text-white">
+      {/* Desktop Dark Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#0c0c0e] border-r border-zinc-800/60 h-screen sticky top-0 z-50">
+        {/* Brand Header */}
+        <div className="px-5 pt-6 pb-3">
+          <Link to="/admin" className="block focus:outline-none">
+            <img
+              src="/assets/riotous-logo.png"
+              alt="RIOTOUS"
+              className="h-6 w-auto object-contain"
+            />
+            <span className="block text-[9px] font-bold tracking-[0.25em] text-zinc-500 uppercase mt-1">
+              ADMIN PANEL
+            </span>
+          </Link>
+        </div>
 
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-[70] md:hidden">
-            <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
-            <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-background">
-              <div className="flex items-center justify-between px-4 py-4">
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <ShieldCheck className="h-4 w-4 text-brand-red" /> Admin
+        {/* Scrollable Nav Items */}
+        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">{renderNavLinks()}</div>
+
+        {/* Bottom Streetwear Branded Card */}
+        <div className="p-3 pt-2 mt-auto">
+          <div className="rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/90 to-zinc-950 p-3 text-white relative overflow-hidden shadow-inner">
+            <img
+              src="/assets/riotous-logo.png"
+              alt="RIOTOUS"
+              className="h-3.5 w-auto object-contain opacity-90 mb-1.5"
+            />
+            <p className="text-[9px] font-bold tracking-wider uppercase text-zinc-400 leading-tight">
+              WE DON'T FOLLOW TRENDS. WE PRINT THEM.
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-[70] md:hidden">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-xs"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-64 bg-[#0c0c0e] border-r border-zinc-800/80 flex flex-col overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-5 border-b border-zinc-800/60">
+              <Link to="/admin" onClick={() => setSidebarOpen(false)} className="block">
+                <img
+                  src="/assets/riotous-logo.png"
+                  alt="RIOTOUS"
+                  className="h-5 w-auto object-contain"
+                />
+                <span className="block text-[8px] font-bold tracking-[0.25em] text-zinc-500 uppercase mt-0.5">
+                  ADMIN PANEL
                 </span>
-                <button aria-label="Close" onClick={() => setSidebarOpen(false)}>
-                  <X className="h-5 w-5" />
-                </button>
+              </Link>
+              <button
+                aria-label="Close"
+                onClick={() => setSidebarOpen(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">{renderNavLinks()}</div>
+            <div className="p-3 mt-auto">
+              <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/90 p-3 text-white">
+                <img
+                  src="/assets/riotous-logo.png"
+                  alt="RIOTOUS"
+                  className="h-3.5 w-auto object-contain opacity-90 mb-1"
+                />
+                <p className="text-[8px] font-bold tracking-wider uppercase text-zinc-400 leading-tight">
+                  WE DON'T FOLLOW TRENDS. WE PRINT THEM.
+                </p>
               </div>
-              {sidebar}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="min-w-0 flex-1">
-          {/* Top bar */}
-          <div className="sticky top-16 z-40 flex items-center gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur md:top-20">
-            <button className="md:hidden" aria-label="Menu" onClick={() => setSidebarOpen(true)}>
+      {/* Main Dashboard Column */}
+      <div className="flex-1 min-w-0 flex flex-col bg-[#f4f5f7]">
+        {/* Dark Top Utility Bar */}
+        <header className="sticky top-0 z-40 bg-[#0c0c0e] border-b border-zinc-800/60 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4 backdrop-blur-md">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button
+              className="md:hidden p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+              aria-label="Toggle menu"
+              onClick={() => setSidebarOpen(true)}
+            >
               <Menu className="h-5 w-5" />
             </button>
             <form
-              className="relative flex-1 max-w-md"
+              className="relative flex-1 max-w-xs sm:max-w-sm lg:max-w-md"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!term.trim()) return;
                 navigate({ to: "/admin/orders", search: { q: term.trim() } });
               }}
             >
-              <button
-                type="submit"
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-full"
-                aria-label="Submit search"
-                title="Search orders & customers"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-              <Input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              <input
+                type="text"
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
-                placeholder="Search orders, customers…"
-                className="h-9 pl-9 pr-8"
+                placeholder="Search orders, customers, products…"
+                className="h-9 w-full rounded-xl border border-zinc-800 bg-[#16161a] pl-9 pr-8 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-600/70 focus:outline-none focus:ring-1 focus:ring-red-600/70 transition-all"
               />
               {term && (
                 <button
                   type="button"
                   onClick={() => setTerm("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-white transition-colors cursor-pointer"
                   aria-label="Clear search text"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </form>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Link
+              to="/"
+              target="_blank"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700/60 bg-zinc-800/60 hover:bg-zinc-700/80 text-zinc-200 text-xs font-semibold transition-colors"
+            >
+              <span>Visit Store</span>
+              <ExternalLink className="h-3 w-3 text-zinc-400" />
+            </Link>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary"
+                  className="relative flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" />
                   {notifications.length > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-semibold text-white">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-xs">
                       {notifications.length}
                     </span>
                   )}
@@ -307,13 +383,25 @@ function AdminLayout() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-2.5 p-1 sm:px-2 sm:py-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer text-left"
                   aria-label="Admin profile"
                 >
-                  {((user as any).fullName?.[0] || user.email?.[0] || "A").toUpperCase()}
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e9d5ff] text-[#581c87] font-black text-xs shrink-0 shadow-xs">
+                    {((user as any).fullName?.[0] || user.email?.[0] || "P").toUpperCase()}
+                  </div>
+                  <div className="hidden md:flex flex-col leading-tight">
+                    <span className="text-xs font-bold text-white truncate max-w-[130px]">
+                      {(user as any).fullName || user.email.split("@")[0] || "Prince Vekariya"}
+                    </span>
+                    <span className="text-[10px] text-zinc-400">
+                      {user.role === "admin" ? "Administrator" : user.role || "Administrator"}
+                    </span>
+                  </div>
+                  <ChevronDown className="hidden md:block h-3.5 w-3.5 text-zinc-400 ml-0.5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -351,38 +439,41 @@ function AdminLayout() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        </header>
 
-          <main className="px-4 py-6 md:px-6">
-            {roleQ.data === false && !isExplicitAdmin ? (
-              <div className="container py-32 text-center">
-                <h1 className="text-3xl font-bold">Access denied</h1>
-                <p className="mt-2 text-muted-foreground">
-                  You must be an administrator to view this area.
-                </p>
-                <Button asChild className="mt-6">
-                  <Link to="/">Back to store</Link>
-                </Button>
-              </div>
-            ) : roleQ.isError && !isExplicitAdmin ? (
-              <div className="container py-32 text-center">
-                <h1 className="text-3xl font-bold">Could not verify access</h1>
-                <p className="mt-2 text-muted-foreground">
-                  Your administrator access could not be checked. Please try again.
-                </p>
-                <Button className="mt-6" onClick={() => roleQ.refetch()}>
-                  Try again
-                </Button>
-              </div>
-            ) : roleQ.isLoading && !isExplicitAdmin ? (
-              <div className="rounded-2xl border border-border/60 bg-card p-8">
-                <h2 className="text-lg font-semibold text-foreground">Verifying administrator credentials…</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Securing administrative console.</p>
-              </div>
-            ) : (
-              <Outlet />
-            )}
-          </main>
-        </div>
+        {/* Content canvas */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          {roleQ.data === false && !isExplicitAdmin ? (
+            <div className="container py-32 text-center">
+              <h1 className="text-3xl font-bold">Access denied</h1>
+              <p className="mt-2 text-muted-foreground">
+                You must be an administrator to view this area.
+              </p>
+              <Button asChild className="mt-6">
+                <Link to="/">Back to store</Link>
+              </Button>
+            </div>
+          ) : roleQ.isError && !isExplicitAdmin ? (
+            <div className="container py-32 text-center">
+              <h1 className="text-3xl font-bold">Could not verify access</h1>
+              <p className="mt-2 text-muted-foreground">
+                Your administrator access could not be checked. Please try again.
+              </p>
+              <Button className="mt-6" onClick={() => roleQ.refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : roleQ.isLoading && !isExplicitAdmin ? (
+            <div className="rounded-2xl border border-zinc-200/80 bg-white p-8 shadow-sm">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                Verifying administrator credentials…
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">Securing administrative console.</p>
+            </div>
+          ) : (
+            <Outlet />
+          )}
+        </main>
       </div>
     </div>
   );
