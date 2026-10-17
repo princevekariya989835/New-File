@@ -4,6 +4,7 @@ import {
   RIOTOUS_LOGO_HEIGHT,
   RIOTOUS_LOGO_ASPECT_RATIO,
   getRiotousLogoBytes,
+  getRiotousLogoAlphaBytes,
 } from "./logo-data";
 
 /**
@@ -310,12 +311,21 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Uint8Array {
   function renderPageHeader(isFirstPage: boolean): number {
     let curY = 32;
 
-    // 1. Top Brand Bar with Official Site Logo
+    // 1. Top Brand Bar with Official Site Logo on solid dark charcoal background for high contrast
     const logoW = 104;
     const logoH = Math.round((logoW / RIOTOUS_LOGO_ASPECT_RATIO) * 100) / 100;
+    const padX = 4;
+    const padY = 2.5;
+    const bgX = MARGIN_LEFT - padX;
+    const bgY = curY - 2 - padY;
+    const bgW = logoW + padX * 2;
+    const bgH = logoH + padY * 2;
+
+    // Solid dark charcoal background (#111111) complementing RIOTOUS branding
+    drawRect(bgX, bgY, bgW, bgH, [0.067, 0.067, 0.067], [0.15, 0.15, 0.16], 0.5);
     drawImage("Im1", MARGIN_LEFT, curY - 2, logoW, logoH);
 
-    drawText("WE DON'T FOLLOW TRENDS. WE PRINT THEM.", MARGIN_LEFT, curY + 31, {
+    drawText("WE DON'T FOLLOW TRENDS. WE PRINT THEM.", MARGIN_LEFT, curY + 32, {
       font: "F2",
       size: 6.5,
       color: [0.5, 0.5, 0.55],
@@ -968,7 +978,8 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Uint8Array {
 
   // --- SERIALIZE COMPLETE PDF 1.4 BINARY ---
   const logoBytes = getRiotousLogoBytes();
-  return compilePdfDocument(pages, PAGE_WIDTH, PAGE_HEIGHT, logoBytes);
+  const logoAlphaBytes = getRiotousLogoAlphaBytes();
+  return compilePdfDocument(pages, PAGE_WIDTH, PAGE_HEIGHT, logoBytes, logoAlphaBytes);
 }
 
 /**
@@ -979,6 +990,7 @@ function compilePdfDocument(
   width: number,
   height: number,
   logoBytes?: Uint8Array,
+  logoAlphaBytes?: Uint8Array,
 ): Uint8Array {
   const objectBuffers: Uint8Array[] = [];
   const byteOffsets: number[] = [];
@@ -1017,8 +1029,10 @@ function compilePdfDocument(
   const f3Obj = `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>`;
 
   const hasLogo = Boolean(logoBytes && logoBytes.length > 0);
+  const hasAlpha = Boolean(logoAlphaBytes && logoAlphaBytes.length > 0);
   const logoObjNum = hasLogo ? 6 : null;
-  let nextObjNum = hasLogo ? 7 : 6;
+  const alphaObjNum = hasLogo && hasAlpha ? 7 : null;
+  let nextObjNum = hasLogo ? (hasAlpha ? 8 : 7) : 6;
 
   const pageObjNums: number[] = [];
   const contentStreamNums: number[] = [];
@@ -1041,9 +1055,17 @@ function compilePdfDocument(
 
   // Obj 6: Optional Logo Image XObject
   if (hasLogo && logoBytes && logoObjNum) {
-    const imgStreamHeader = `${logoObjNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${RIOTOUS_LOGO_WIDTH} /Height ${RIOTOUS_LOGO_HEIGHT} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${logoBytes.length} >>\nstream\n`;
+    const smaskEntry = alphaObjNum ? `/SMask ${alphaObjNum} 0 R ` : "";
+    const imgStreamHeader = `${logoObjNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${RIOTOUS_LOGO_WIDTH} /Height ${RIOTOUS_LOGO_HEIGHT} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode ${smaskEntry}/Length ${logoBytes.length} >>\nstream\n`;
     const imgStreamFooter = "\nendstream\nendobj\n";
     addBinaryObject(imgStreamHeader, logoBytes, imgStreamFooter);
+
+    // Obj 7: Optional Soft-Mask (Alpha Channel)
+    if (hasAlpha && logoAlphaBytes && alphaObjNum) {
+      const alphaStreamHeader = `${alphaObjNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${RIOTOUS_LOGO_WIDTH} /Height ${RIOTOUS_LOGO_HEIGHT} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logoAlphaBytes.length} >>\nstream\n`;
+      const alphaStreamFooter = "\nendstream\nendobj\n";
+      addBinaryObject(alphaStreamHeader, logoAlphaBytes, alphaStreamFooter);
+    }
   }
 
   // Page and Content objects
