@@ -198,6 +198,16 @@ export function StreetwearHero({ hero }: StreetwearHeroProps) {
             <div className="anim-float relative overflow-hidden bg-secondary shadow-2xl">
               <img
                 src={imageSrc}
+                srcSet={
+                  imageSrc.includes("hero-model.jpg")
+                    ? "/assets/hero-model-mobile.jpg 640w, /assets/hero-model.jpg 1024w"
+                    : undefined
+                }
+                sizes={
+                  imageSrc.includes("hero-model.jpg")
+                    ? "(max-width: 640px) 100vw, 480px"
+                    : undefined
+                }
                 onError={(e) => {
                   if (!e.currentTarget.src.includes("hero-model.jpg")) {
                     e.currentTarget.src = "/assets/hero-model.jpg";

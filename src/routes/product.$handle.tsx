@@ -120,7 +120,19 @@ export const Route = createFileRoute("/product/$handle")({
             ] as const)
           : []),
       ],
-      links: [{ rel: "canonical", href: `https://riotous.store/product/${p.handle}` }],
+      links: [
+        { rel: "canonical", href: `https://riotous.store/product/${p.handle}` },
+        ...(rawImg
+          ? [
+              {
+                rel: "preload",
+                as: "image",
+                href: rawImg,
+                fetchPriority: "high",
+              },
+            ]
+          : []),
+      ],
       scripts: [
         {
           type: "application/ld+json",

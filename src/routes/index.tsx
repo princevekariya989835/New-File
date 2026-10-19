@@ -59,7 +59,17 @@ export const Route = createFileRoute("/")({
       { property: "og:image", content: "https://riotous.store/assets/hero-model.jpg" },
       { name: "twitter:image", content: "https://riotous.store/assets/hero-model.jpg" },
     ],
-    links: [{ rel: "canonical", href: "https://riotous.store/" }],
+    links: [
+      { rel: "canonical", href: "https://riotous.store/" },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/assets/hero-model-mobile.jpg",
+        imageSrcSet: "/assets/hero-model-mobile.jpg 640w, /assets/hero-model.jpg 1024w",
+        imageSizes: "(max-width: 640px) 100vw, 480px",
+        fetchPriority: "high",
+      },
+    ],
     scripts: [
       {
         type: "application/ld+json",

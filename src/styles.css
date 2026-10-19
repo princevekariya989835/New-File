@@ -44,6 +44,14 @@
   src: url("/assets/fonts/inter-800.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/archivo-black.woff2") format("woff2");
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

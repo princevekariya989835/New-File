@@ -60,14 +60,29 @@
 - **Verification**: Verified using `scripts/test-zippyy-live.mjs`.
 - **Remaining Risks**: None.
 
+### ISSUE-006: Render-Blocking External Typography & Mobile Hero Image Latency
+- **Status**: **RESOLVED**
+- **Symptoms**: Mobile PageSpeed Insights reported high LCP and render-blocking CSS warnings caused by remote Google Fonts stylesheets and large uncompressed desktop hero assets delivered to mobile screens.
+- **Root Cause**: `src/routes/__root.tsx` loaded `Archivo Black` via external stylesheet from `fonts.googleapis.com` and universally preloaded a 105.5 KB desktop hero image across all routes.
+- **Affected Files**: `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/routes/product.$handle.tsx`, `src/components/ui/streetwear-hero.tsx`, `src/styles.css`.
+- **Fix Implemented**:
+  1. Self-hosted `Archivo Black` woff2 (9.7 KB) in `public/assets/fonts/` with `font-display: swap` in `src/styles.css`, eliminating remote CSS blocking.
+  2. Removed global 105.5 KB hero preload from `__root.tsx`.
+  3. Created `public/assets/hero-model-mobile.jpg` (45.3 KB vs 105.5 KB, 57% savings) and wired route-scoped responsive preload in `src/routes/index.tsx` and responsive `srcSet`/`sizes` in `src/components/ui/streetwear-hero.tsx`.
+  4. Added dynamic LCP image preload in `src/routes/product.$handle.tsx`.
+  5. Compressed homepage collection card images saving 715 KB.
+- **Verification**: `npm run build` succeeded with zero errors; full asset byte reduction confirmed.
+- **Remaining Risks**: None.
+
 ---
 
 ## 2. Active Technical Considerations & Mitigations
 
-### ISSUE-006: Dual-Engine SQL Dialect Variance (D1 SQLite vs Neon PostgreSQL)
+### ISSUE-007: Dual-Engine SQL Dialect Variance (D1 SQLite vs Neon PostgreSQL)
 - **Status**: **MITIGATED & MONITORED**
 - **Symptoms**: Potential SQL syntax differences between Cloudflare D1 (SQLite) and Neon (PostgreSQL), such as boolean comparison (`1`/`0` vs `TRUE`/`FALSE`) and JSON aggregation functions.
 - **Mitigation**:
   - `src/lib/db.ts` acts as a unified abstraction layer, normalizing query inputs and providing fallbacks.
   - Queries in `src/lib/catalog.ts` utilize single-table selects with application-level mapping rather than complex Postgres-only joins.
 - **Action Required for Developers**: Always test new database queries against both engines or verify compatibility with SQLite 3 before merging migrations.
+
