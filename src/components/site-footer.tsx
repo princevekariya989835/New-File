@@ -78,7 +78,9 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
     "RIOTOUS creates heavyweight, DTF-printed streetwear made in India. Built for creators, artists, and culture shifters.";
 
   // Normalize long all-caps headings to title case (Issue 5)
-  const rawHeading = footer?.heading || "Wear the print.";
+  const rawHeading = (footer?.heading || "Wear the print.")
+    .replace(/[\r\n]*not the trend\.?/gi, "")
+    .trim();
   const displayHeading =
     rawHeading === rawHeading.toUpperCase() && rawHeading.length > 15
       ? rawHeading
@@ -86,7 +88,10 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           .replace(/(^\w|\s\w)/g, (m: string) => m.toUpperCase())
       : rawHeading;
 
-  const rawSubheading = footer?.subheading || "Not the trend.";
+  const rawSubheading =
+    footer?.subheading && !footer.subheading.toLowerCase().includes("not the trend")
+      ? footer.subheading
+      : "";
   const displaySubheading =
     rawSubheading === rawSubheading.toUpperCase() && rawSubheading.length > 15
       ? rawSubheading
@@ -101,14 +106,23 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           <div className="col-span-1 sm:col-span-2 md:col-span-6 lg:col-span-6">
             {/* Scaled footer heading with comfortable vertical separation (Issue 3) */}
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl leading-snug text-foreground">
-              {displayHeading.split("\n").map((line: string, i: number) => (
-                <span key={i} className={i > 0 ? "block mt-1.5 sm:mt-2" : "block"}>
-                  {line}
+              {displayHeading
+                .split("\n")
+                .map((line: string) => line.trim())
+                .filter(
+                  (line: string) =>
+                    line.length > 0 && !line.toLowerCase().includes("not the trend"),
+                )
+                .map((line: string, i: number) => (
+                  <span key={i} className={i > 0 ? "block mt-1.5 sm:mt-2" : "block"}>
+                    {line}
+                  </span>
+                ))}
+              {displaySubheading ? (
+                <span className="block mt-1.5 sm:mt-2 text-muted-foreground font-semibold">
+                  {displaySubheading}
                 </span>
-              ))}
-              <span className="block mt-1.5 sm:mt-2 text-muted-foreground font-semibold">
-                {displaySubheading}
-              </span>
+              ) : null}
             </h2>
             {tagline ? (
               <p className="mt-2.5 max-w-md text-sm text-muted-foreground leading-relaxed">

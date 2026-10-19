@@ -465,7 +465,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     title: "Straight from the community.",
   },
   footer: {
-    heading: "Wear the print.\nNot the trend.",
+    heading: "Wear the print.",
     subheading:
       "Join our streetwear community for secret drops, exclusive discounts, and studio access.",
     brandTagline:
