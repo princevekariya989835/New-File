@@ -9,21 +9,21 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // 1. Primary
+        // 1. Primary: Main actions (purchasing, submission, primary CTAs)
         primary:
-          "bg-foreground text-background shadow-sm hover:bg-brand hover:text-brand-foreground font-bold uppercase tracking-wider",
+          "bg-foreground text-background shadow-xs hover:bg-brand-red hover:text-white font-bold uppercase tracking-wider border border-transparent",
         default:
-          "bg-foreground text-background shadow-sm hover:bg-brand hover:text-brand-foreground font-bold uppercase tracking-wider",
-        // 2. Secondary (consolidated with outline)
+          "bg-foreground text-background shadow-xs hover:bg-brand-red hover:text-white font-bold uppercase tracking-wider border border-transparent",
+        // 2. Secondary: Supporting actions & options
         secondary:
-          "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30",
+          "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30 font-semibold",
         outline:
-          "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30",
-        // 3. Ghost / Outline
+          "border border-border bg-secondary/80 text-foreground shadow-xs hover:bg-secondary hover:border-foreground/30 font-semibold",
+        // 3. Ghost / Outline: Low-emphasis actions, filters, secondary nav
         ghost:
-          "text-muted-foreground hover:text-foreground hover:bg-secondary/70",
-        destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-        link: "text-brand-red underline-offset-4 hover:underline active:scale-100",
+          "text-muted-foreground hover:text-foreground hover:bg-secondary/70 font-medium",
+        destructive: "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 font-bold uppercase tracking-wider",
+        link: "text-brand-red underline-offset-4 hover:underline font-semibold active:scale-100",
       },
       size: {
         default: "h-11 min-h-[44px] px-6 py-2.5",

@@ -137,18 +137,18 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                 placeholder="Your email for exclusive drops"
                 aria-label="Email address for exclusive drops"
                 suppressHydrationWarning
-                className="h-11 min-w-0 flex-1 rounded-full border border-border bg-secondary/80 px-3.5 sm:px-4 text-xs sm:text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
+                className="h-11 min-w-0 flex-1 rounded-full border border-border bg-secondary/80 px-4 text-xs sm:text-sm outline-none transition-all placeholder:text-muted-foreground text-foreground focus:border-foreground/60 focus:ring-2 focus:ring-foreground/10"
               />
               <button
                 type="submit"
                 suppressHydrationWarning
-                className="inline-flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full bg-foreground px-5 sm:px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary-foreground transition-all hover:bg-brand hover:text-brand-foreground active:scale-95 cursor-pointer shadow-sm"
+                className="inline-flex h-11 min-h-[44px] shrink-0 items-center justify-center rounded-full bg-foreground px-5 sm:px-6 text-xs sm:text-sm font-bold uppercase tracking-wider text-background transition-all hover:bg-brand-red hover:text-white active:scale-95 cursor-pointer shadow-xs border border-transparent focus-visible:outline-2 focus-visible:outline-brand-red"
               >
                 Join
               </button>
             </form>
             {subscribed && (
-              <p className="mt-3 text-xs text-brand">Thanks — you're on the drop list.</p>
+              <p className="mt-3 text-xs text-brand-red font-medium">Thanks — you're on the drop list.</p>
             )}
 
             {(footer?.contactEmail ||
@@ -157,34 +157,39 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
               (config as any)?.general?.contactPhone ||
               config?.settings?.storeEmail ||
               (config as any)?.general?.contactEmail) && (
-              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
-                {(footer?.contactEmail ||
-                  config?.settings?.storeEmail ||
-                  (config as any)?.general?.contactEmail) && (
-                  <a
-                    href={`mailto:${footer?.contactEmail || config?.settings?.storeEmail || (config as any)?.general?.contactEmail}`}
-                    className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {footer?.contactEmail ||
-                      config?.settings?.storeEmail ||
-                      (config as any)?.general?.contactEmail}
-                  </a>
-                )}
-                {(footer?.contactPhone ||
-                  config?.settings?.storePhone ||
-                  (config as any)?.general?.contactPhone) && (
-                  <a
-                    href={`tel:${(footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone || "+91 90998 66791").replace(/\s+/g, "")}`}
-                    className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
-                  >
-                    <Phone className="h-4 w-4" />
-                    {footer?.contactPhone ||
-                      config?.settings?.storePhone ||
-                      (config as any)?.general?.contactPhone ||
-                      "+91 90998 66791"}
-                  </a>
-                )}
+              <div className="mt-6 pt-5 border-t border-border/40">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Contact Us
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
+                  {(footer?.contactEmail ||
+                    config?.settings?.storeEmail ||
+                    (config as any)?.general?.contactEmail) && (
+                    <a
+                      href={`mailto:${footer?.contactEmail || config?.settings?.storeEmail || (config as any)?.general?.contactEmail}`}
+                      className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
+                    >
+                      <Mail className="h-4 w-4" />
+                      {footer?.contactEmail ||
+                        config?.settings?.storeEmail ||
+                        (config as any)?.general?.contactEmail}
+                    </a>
+                  )}
+                  {(footer?.contactPhone ||
+                    config?.settings?.storePhone ||
+                    (config as any)?.general?.contactPhone) && (
+                    <a
+                      href={`tel:${(footer?.contactPhone || config?.settings?.storePhone || (config as any)?.general?.contactPhone || "+91 90998 66791").replace(/\s+/g, "")}`}
+                      className="inline-flex min-h-[44px] items-center gap-2 py-2 hover:text-foreground transition-colors"
+                    >
+                      <Phone className="h-4 w-4" />
+                      {footer?.contactPhone ||
+                        config?.settings?.storePhone ||
+                        (config as any)?.general?.contactPhone ||
+                        "+91 90998 66791"}
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -205,19 +210,14 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
                             href={target}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                            className="inline-block text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-red rounded-xs"
                           >
                             {l.label}
                           </a>
                         ) : (
                           <Link
                             to={target}
-                            activeOptions={{ exact: true }}
-                            className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                            activeProps={{
-                              className:
-                                "text-foreground font-semibold after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-red after:rounded-full",
-                            }}
+                            className="inline-block text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-red rounded-xs"
                           >
                             {l.label}
                           </Link>
@@ -333,12 +333,7 @@ function FooterCol({
           <li key={i}>
             <Link
               to={l.to}
-              activeOptions={{ exact: true }}
-              className="relative inline-block pb-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              activeProps={{
-                className:
-                  "text-foreground font-semibold after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-red after:rounded-full",
-              }}
+              className="inline-block text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-red rounded-xs"
             >
               {l.label}
             </Link>

@@ -4,6 +4,23 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 4: Shop Page Usability Audit Optimization (9 Usability Fixes)
+- **Date**: 2026-10-19
+- **Objective**: Resolve all 9 usability audit findings on the Shop page (`/shop`) covering button style consolidation, footer link consistency, newsletter input/button harmonization, product card information hierarchy, contact info grouping, floating WhatsApp repositioning, filter toolbar grouping, and product text left alignment.
+- **Files Modified**:
+  - `src/components/ui/button.tsx`: Consolidated button variants into 3 unified types (Primary, Secondary, Ghost/Outline) with consistent `rounded-full` styling, typography, padding, transitions, and hover states.
+  - `src/components/site-footer.tsx`: Unified newsletter input and Join button with identical `rounded-full` curvature; separated customer contact links with dedicated "Contact Us" subheading; eliminated `activeProps` red underline to make "Design Your Own" and all column links visually consistent across Shop, Company, and Support.
+  - `src/components/product-card.tsx` & `src/components/shop/shop-skeleton.tsx`: Improved information hierarchy (Category kicker -> Product title -> Price row with struck-through MRP and discount badge), removed arbitrary height boxes, and removed `px-1` indent so text container aligns flush with the product image left edge.
+  - `src/components/floating-whatsapp.tsx`: Repositioned WhatsApp button from `bottom: 5rem` down into the safe bottom-right corner (`bottom: max(1.25rem, ...)`, `right: max(1rem, ...)`, `z-30`) so it no longer overlaps merchandise in the rightmost product column.
+  - `src/routes/shop.tsx`: Reorganized filter toolbar to group the live item count (`{filtered.length} items`) directly before the "All sizes" and "Sort" dropdowns with clean mobile stacking and standardized button styling.
+- **Tests Performed**:
+  - `npm run build`: Production build verified with zero TypeScript or bundling errors.
+  - `node scripts/verify-seo-fixes.mjs`: All 38 SEO assertions passed.
+  - Tested responsive toolbar layout and card alignment across mobile, tablet, and desktop viewports.
+- **Outcome**: All 9 usability issues fully resolved with zero regressions or breaking changes to branding, ecommerce flows, or backend logic.
+
+---
+
 ## Task 3: Safe Mobile Performance Optimisation and Verification
 - **Date**: 2026-10-19
 - **Objective**: Improve mobile PageSpeed Insights & Lighthouse performance (LCP, FCP, TBT, CLS) without redesigning, changing brand identity, or breaking any ecommerce workflows (Cart, Checkout, Razorpay, Auth, Admin, Zippyy, Inventory, SEO).

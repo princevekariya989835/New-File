@@ -6,6 +6,16 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-10-19
 
+### Shop Page & Storefront Usability Audit Optimizations (9 Fixes)
+- **Consolidated Button Styles (Fix 1)**: Unified button primitives in `src/components/ui/button.tsx` into 3 standardized variants (Primary, Secondary, Ghost/Outline) with consistent `rounded-full` curvature, padding, font weights, and hover/active states.
+- **Harmonized Footer Links & "Design Your Own" (Fix 2 & Fix 4)**: Standardized link styling across Shop, Company, and Support footer columns; eliminated route-active red underline discrepancies in `src/components/site-footer.tsx`.
+- **Unified Newsletter Input & Join Button (Fix 3)**: Cohesive pill-shaped newsletter form with matching `rounded-full` radii, responsive heights, and no-overflow flex behavior.
+- **Improved Product Card Information Hierarchy (Fix 5)**: Established clear vertical hierarchy (Category kicker -> Product title -> Price block with selling price, struck-through MRP, and discount badge) without empty whitespace boxes in `src/components/product-card.tsx`.
+- **Separated Contact Information from Newsletter (Fix 6)**: Added a dedicated "Contact Us" subheading with clean top border separation in `src/components/site-footer.tsx`.
+- **Repositioned Floating WhatsApp Button (Fix 7)**: Relocated button to the true bottom-right viewport corner in `src/components/floating-whatsapp.tsx` (`z-30`), eliminating overlap with product cards in the rightmost column.
+- **Grouped Item Count with Filter Toolbar (Fix 8)**: Reorganized shop toolbar in `src/routes/shop.tsx` so `{filtered.length} items` aligns directly before the "All sizes" and "Sort" dropdowns with clean mobile stacking.
+- **Aligned Product Text Flush with Product Image (Fix 9)**: Removed accidental `px-1` indent in `src/components/product-card.tsx` and `src/components/shop/shop-skeleton.tsx`, establishing precise left alignment.
+
 ### Mobile Performance & Asset Delivery Optimization
 - **Eliminated Render-Blocking External Typography**: Self-hosted `Archivo Black` woff2 (9.7 KB) locally in `public/assets/fonts/` with `@font-face` and `font-display: swap` in `src/styles.css`. Removed external Google Fonts CSS and preconnect links from `src/routes/__root.tsx`.
 - **Eliminated Global Preload Waste & Optimized Mobile LCP**: Removed wasteful 105.5 KB global `/assets/hero-model.jpg` preload from `src/routes/__root.tsx`. Generated mobile-optimized hero asset `public/assets/hero-model-mobile.jpg` (45.3 KB vs 105.5 KB, 57% savings). Added route-scoped responsive preload in `src/routes/index.tsx` and responsive `srcSet`/`sizes` in `src/components/ui/streetwear-hero.tsx`.
