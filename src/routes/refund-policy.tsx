@@ -7,9 +7,43 @@ export const Route = createFileRoute("/refund-policy")({
       { title: "Refund & Return Policy | RIOTOUS Customer Care Team" },
       {
         name: "description",
-        content: "Returns, exchanges and refund guidelines for RIOTOUS purchases.",
+        content:
+          "Returns, size exchanges, and refund guidelines for RIOTOUS streetwear apparel. 7-day hassle-free returns with doorstep courier pickup.",
       },
+      { name: "robots", content: "index, follow" },
       { property: "og:title", content: "Refund & Return Policy | RIOTOUS Customer Care Team" },
+      {
+        property: "og:description",
+        content:
+          "Returns, size exchanges, and refund guidelines for RIOTOUS streetwear apparel. 7-day hassle-free returns with doorstep courier pickup.",
+      },
+      { property: "og:url", content: "https://riotous.store/refund-policy" },
+      { property: "og:image", content: "https://riotous.store/assets/riotous-logo.png" },
+      { name: "twitter:image", content: "https://riotous.store/assets/riotous-logo.png" },
+    ],
+    links: [{ rel: "canonical", href: "https://riotous.store/refund-policy" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://riotous.store/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Refund & Return Policy",
+              item: "https://riotous.store/refund-policy",
+            },
+          ],
+        }),
+      },
     ],
   }),
   component: RefundPolicyPage,

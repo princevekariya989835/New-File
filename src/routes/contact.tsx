@@ -12,16 +12,20 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Reach RIOTOUS about orders, custom prints, or wholesale. Email, Phone, or Instagram.",
+          "Reach RIOTOUS about streetwear orders, custom DTF prints, or bulk production. Connect via Email, Phone, or Instagram.",
       },
+      { name: "robots", content: "index, follow" },
       { property: "og:title", content: "Contact RIOTOUS | Customer Support & Custom Orders" },
       {
         property: "og:description",
-        content: "Get in touch with the RIOTOUS team.",
+        content:
+          "Reach RIOTOUS about streetwear orders, custom DTF prints, or bulk production. Connect via Email, Phone, or Instagram.",
       },
-      { property: "og:url", content: "/contact" },
+      { property: "og:url", content: "https://riotous.store/contact" },
+      { property: "og:image", content: "https://riotous.store/assets/riotous-logo.png" },
+      { name: "twitter:image", content: "https://riotous.store/assets/riotous-logo.png" },
     ],
-    links: [{ rel: "canonical", href: "/contact" }],
+    links: [{ rel: "canonical", href: "https://riotous.store/contact" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -31,8 +35,9 @@ export const Route = createFileRoute("/contact")({
           name: "RIOTOUS",
           url: "https://riotous.store/contact",
           telephone: "+91 90998 66791",
+          email: "support@riotous.store",
           description:
-            "Premium DTF printed streetwear studio. Orders, custom prints and wholesale support.",
+            "Premium DTF printed streetwear studio in Surat, India. Orders, custom prints and wholesale support.",
           areaServed: "IN",
           openingHoursSpecification: [
             {
@@ -40,6 +45,27 @@ export const Route = createFileRoute("/contact")({
               dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
               opens: "10:00",
               closes: "19:00",
+            },
+          ],
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://riotous.store/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Contact",
+              item: "https://riotous.store/contact",
             },
           ],
         }),

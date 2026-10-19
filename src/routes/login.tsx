@@ -8,6 +8,7 @@ export const Route = createFileRoute("/login")({
         redirect: typeof (search as any)?.redirect === "string" ? (search as any).redirect : undefined,
         mode: "signin",
       },
+      statusCode: 301,
       replace: true,
     });
   },

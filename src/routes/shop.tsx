@@ -41,16 +41,20 @@ export const Route = createFileRoute("/shop")({
       {
         name: "description",
         content:
-          "Browse the full RIOTOUS collection. DTF printed tees, oversized fits, and limited drops.",
+          "Browse the full RIOTOUS collection. Premium DTF printed oversized t-shirts, heavyweight combed cotton, and limited street drops made in India.",
       },
+      { name: "robots", content: "index, follow" },
       { property: "og:title", content: "Shop Oversized Streetwear & Graphic Tees | RIOTOUS" },
       {
         property: "og:description",
-        content: "Browse the full RIOTOUS collection.",
+        content:
+          "Browse the full RIOTOUS collection. Premium DTF printed oversized t-shirts, heavyweight combed cotton, and limited street drops made in India.",
       },
-      { property: "og:url", content: "/shop" },
+      { property: "og:url", content: "https://riotous.store/shop" },
+      { property: "og:image", content: "https://riotous.store/assets/hero-model.jpg" },
+      { name: "twitter:image", content: "https://riotous.store/assets/hero-model.jpg" },
     ],
-    links: [{ rel: "canonical", href: "/shop" }],
+    links: [{ rel: "canonical", href: "https://riotous.store/shop" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -66,6 +70,27 @@ export const Route = createFileRoute("/shop")({
             name: "RIOTOUS",
             url: "https://riotous.store",
           },
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://riotous.store/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Shop",
+              item: "https://riotous.store/shop",
+            },
+          ],
         }),
       },
     ],

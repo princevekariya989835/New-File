@@ -78,35 +78,49 @@ export const Route = createFileRoute("/product/$handle")({
       return {
         meta: [
           { title: "Product Not Found | RIOTOUS Streetwear Store" },
-          { name: "robots", content: "noindex" },
+          { name: "robots", content: "noindex, nofollow" },
         ],
       };
     }
     const p = loaderData;
     const pageTitle = formatProductPageTitle(p.title);
-    const img = p.images.edges[0]?.node.url;
+    const rawImg = p.images.edges[0]?.node.url;
+    const toAbsoluteUrl = (u?: string | null) => {
+      if (!u) return undefined;
+      return u.startsWith("http") ? u : `https://riotous.store${u.startsWith("/") ? "" : "/"}${u}`;
+    };
+    const absoluteImg = toAbsoluteUrl(rawImg);
+    const absoluteImages = p.images.edges
+      .map((e) => toAbsoluteUrl(e.node.url))
+      .filter((u): u is string => Boolean(u));
+
+    const metaDescription =
+      p.description?.slice(0, 155) ||
+      `Buy ${p.title} by RIOTOUS. Premium 240 GSM DTF printed heavyweight oversized streetwear t-shirt made in India. Free shipping over ₹1499.`;
+
     return {
       meta: [
         { title: pageTitle },
         {
           name: "description",
-          content: p.description?.slice(0, 155) || `${p.title} by RIOTOUS.`,
+          content: metaDescription,
         },
+        { name: "robots", content: "index, follow" },
         { property: "og:title", content: pageTitle },
         {
           property: "og:description",
-          content: p.description?.slice(0, 155) || `${p.title} by RIOTOUS.`,
+          content: metaDescription,
         },
         { property: "og:type", content: "product" },
-        { property: "og:url", content: `/product/${p.handle}` },
-        ...(img
+        { property: "og:url", content: `https://riotous.store/product/${p.handle}` },
+        ...(absoluteImg
           ? ([
-              { property: "og:image", content: img },
-              { name: "twitter:image", content: img },
+              { property: "og:image", content: absoluteImg },
+              { name: "twitter:image", content: absoluteImg },
             ] as const)
           : []),
       ],
-      links: [{ rel: "canonical", href: `/product/${p.handle}` }],
+      links: [{ rel: "canonical", href: `https://riotous.store/product/${p.handle}` }],
       scripts: [
         {
           type: "application/ld+json",
@@ -117,7 +131,7 @@ export const Route = createFileRoute("/product/$handle")({
             sku: p.productId || p.handle,
             category: p.productType || "Apparel & Accessories > Clothing > Shirts & Tops",
             description: p.description || `${p.title} by RIOTOUS.`,
-            image: p.images.edges.map((e) => e.node.url),
+            image: absoluteImages.length > 0 ? absoluteImages : undefined,
             brand: { "@type": "Brand", name: "RIOTOUS" },
             url: `https://riotous.store/product/${p.handle}`,
             ...((p as any).updated_at ? { dateModified: new Date((p as any).updated_at).toISOString() } : {}),
@@ -134,7 +148,69 @@ export const Route = createFileRoute("/product/$handle")({
               availability: v.node.availableForSale
                 ? "https://schema.org/InStock"
                 : "https://schema.org/OutOfStock",
+              hasMerchantReturnPolicy: {
+                "@type": "MerchantReturnPolicy",
+                applicableCountry: "IN",
+                returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+                merchantReturnDays: 7,
+                returnMethod: "https://schema.org/ReturnByMail",
+                returnFees: "https://schema.org/FreeReturn",
+              },
+              shippingDetails: {
+                "@type": "OfferShippingDetails",
+                shippingRate: {
+                  "@type": "MonetaryAmount",
+                  value: "0",
+                  currency: "INR",
+                },
+                shippingDestination: {
+                  "@type": "DefinedRegion",
+                  addressCountry: "IN",
+                },
+                deliveryTime: {
+                  "@type": "ShippingDeliveryTime",
+                  handlingTime: {
+                    "@type": "QuantitativeValue",
+                    minValue: 1,
+                    maxValue: 2,
+                    unitCode: "DAY",
+                  },
+                  transitTime: {
+                    "@type": "QuantitativeValue",
+                    minValue: 3,
+                    maxValue: 5,
+                    unitCode: "DAY",
+                  },
+                },
+              },
             })),
+          }),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: "https://riotous.store/",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Shop",
+                item: "https://riotous.store/shop",
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: p.title,
+                item: `https://riotous.store/product/${p.handle}`,
+              },
+            ],
           }),
         },
       ],
@@ -424,7 +500,16 @@ function ProductPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-10 md:py-16">
+    <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 md:py-12">
+      {/* Breadcrumb Navigation for Crawlers and Users */}
+      <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-muted-foreground">
+        <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
+        <span>/</span>
+        <Link to="/shop" className="hover:text-foreground transition-colors">Shop</Link>
+        <span>/</span>
+        <span className="text-foreground font-medium truncate max-w-[220px] sm:max-w-md">{displayTitle}</span>
+      </nav>
+
       <div className="grid gap-8 md:grid-cols-2 md:gap-16 md:items-start">
         {/* Gallery */}
         <div className="flex flex-col gap-4 md:sticky md:top-24 md:self-start">
@@ -520,7 +605,7 @@ function ProductPage() {
                 >
                   <img
                     src={img.node.url}
-                    alt=""
+                    alt={`${displayTitle} - thumbnail ${i + 1}`}
                     width={80}
                     height={80}
                     loading="lazy"

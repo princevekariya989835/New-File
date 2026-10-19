@@ -7,9 +7,43 @@ export const Route = createFileRoute("/terms")({
       { title: "Terms of Service | RIOTOUS Official Streetwear Store" },
       {
         name: "description",
-        content: "Terms and conditions for using RIOTOUS store and custom apparel services.",
+        content:
+          "Terms and conditions for using RIOTOUS store, ordering custom DTF streetwear apparel, and payment processing.",
       },
+      { name: "robots", content: "index, follow" },
       { property: "og:title", content: "Terms of Service | RIOTOUS Official Streetwear Store" },
+      {
+        property: "og:description",
+        content:
+          "Terms and conditions for using RIOTOUS store, ordering custom DTF streetwear apparel, and payment processing.",
+      },
+      { property: "og:url", content: "https://riotous.store/terms" },
+      { property: "og:image", content: "https://riotous.store/assets/riotous-logo.png" },
+      { name: "twitter:image", content: "https://riotous.store/assets/riotous-logo.png" },
+    ],
+    links: [{ rel: "canonical", href: "https://riotous.store/terms" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://riotous.store/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Terms of Service",
+              item: "https://riotous.store/terms",
+            },
+          ],
+        }),
+      },
     ],
   }),
   component: TermsPage,

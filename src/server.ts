@@ -86,6 +86,27 @@ function applySecurityHeaders(response: Response, request: Request): Response {
     headers.set("Last-Modified", new Date().toUTCString());
   }
 
+  // Ensure 404 responses have X-Robots-Tag: noindex
+  if (response.status === 404 && !headers.has("x-robots-tag")) {
+    headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
+  // Ensure private routes have HTTP-level X-Robots-Tag protection
+  const url = new URL(request.url);
+  const path = url.pathname;
+  if (
+    path.startsWith("/admin") ||
+    path.startsWith("/account") ||
+    path.startsWith("/checkout") ||
+    path.startsWith("/auth") ||
+    path.startsWith("/reset-password") ||
+    path.startsWith("/api")
+  ) {
+    if (!path.startsWith("/api/media") && !path.startsWith("/api/public")) {
+      headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+  }
+
   // Content-Security-Policy for HTML responses
   const contentType = headers.get("content-type") ?? "";
   if (contentType.includes("text/html") && !headers.has("content-security-policy")) {
@@ -117,6 +138,56 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       setCloudflareEnv(env);
+
+      // SEO & Canonical URL Normalization (HTTP 301 Permanent Redirects)
+      if (request.method === "GET") {
+        const url = new URL(request.url);
+
+        // 1. Normalize www -> apex domain
+        if (url.hostname === "www.riotous.store") {
+          url.hostname = "riotous.store";
+          return Response.redirect(url.toString(), 301);
+        }
+
+        const pathname = url.pathname;
+
+        // 2. Redirect standard catalog aliases to canonical /shop
+        if (
+          pathname === "/products" ||
+          pathname === "/products/" ||
+          pathname === "/collections" ||
+          pathname === "/collections/" ||
+          pathname === "/catalog" ||
+          pathname === "/catalog/" ||
+          pathname === "/product" ||
+          pathname === "/product/"
+        ) {
+          const target = new URL("/shop", url.origin);
+          target.search = url.search;
+          return Response.redirect(target.toString(), 301);
+        }
+
+        // 3. Normalize auth aliases to /auth with HTTP 301
+        if (pathname === "/login" || pathname === "/login/") {
+          const target = new URL("/auth", url.origin);
+          target.search = url.search || "?mode=signin";
+          return Response.redirect(target.toString(), 301);
+        }
+        if (pathname === "/signup" || pathname === "/signup/") {
+          const target = new URL("/auth", url.origin);
+          target.search = url.search || "?mode=signup";
+          return Response.redirect(target.toString(), 301);
+        }
+
+        // 4. Trailing slash normalization: /shop/ -> /shop (301 Permanent)
+        if (pathname.length > 1 && pathname.endsWith("/") && !pathname.includes(".")) {
+          const cleanPath = pathname.replace(/\/+$/, "");
+          const target = new URL(cleanPath, url.origin);
+          target.search = url.search;
+          return Response.redirect(target.toString(), 301);
+        }
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);
