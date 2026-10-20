@@ -4,6 +4,33 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 5: Production Login Security, Password Recovery & Private Email Notifications
+- **Date**: 2026-10-20
+- **Objective**: Implement production-grade brute-force protection, account-level and IP rate limiting, cryptographic single-use password recovery tokens, and private administrator email notifications (`ADMIN_NOTIFICATION_EMAIL`) via Brevo, while preserving 100% of existing customer, admin, checkout, and inventory workflows.
+- **Files Modified / Created**:
+  - `src/lib/env.server.ts`: Created secure multi-runtime environment resolver for `ADMIN_NOTIFICATION_EMAIL`, `SITE_URL`, `AUTH_SECRET`, `BREVO_API_KEY`, `EMAIL_FROM`, and `EMAIL_MODE`.
+  - `migrations/0006_auth_security_and_password_recovery.sql`: Created migration for `rate_limits` and `password_resets` tables with performance indexes.
+  - `src/lib/rate-limiter.server.ts`: Implemented shared persistent rate limiter (5 failed attempts/15 min on account, 20 failed attempts/15 min on IP, 15 min temporary lockout, email normalization, safe decay & reset on successful login).
+  - `src/lib/auth.server.ts`: Implemented `generateSecureResetToken()` (32 random bytes) and `hashToken()` (SHA-256).
+  - `src/lib/email/templates.ts`: Added responsive branded email templates for Password Reset, Password Changed, Admin New Registration, and Admin New Order with HTML entity sanitization.
+  - `src/lib/email/index.ts`: Integrated transactional delivery functions with idempotency caching to prevent duplicate webhook/retry emails.
+  - `src/lib/auth.ts`: Integrated brute-force rate limiting in `loginServerFn`, generic anti-enumeration messages in `requestPasswordResetServerFn`, atomic single-use token consumption in `resetPasswordWithTokenServerFn`, and admin notification dispatch in registration handlers.
+  - `src/routes/reset-password.tsx`: Built sleek, accessible password recovery interface with token validation, password matching, eye toggles, error feedback, and `referrer: no-referrer` meta header to prevent token leakage.
+  - `src/routes/auth.lazy.tsx`: Harmonized forgot password mode with generic confirmation feedback and recovery link tips.
+  - `src/hooks/use-auth.ts`: Exposed `requestPasswordReset` and `resetPasswordWithToken` with state/cookie synchronization.
+  - `src/routes/api/razorpay.webhook.ts` & `src/lib/orders.functions.ts`: Replaced hardcoded personal email with `sendAdminNewOrderNotification` to `ADMIN_NOTIFICATION_EMAIL`.
+  - `src/lib/admin-staff.functions.ts` & `src/lib/db.ts`: Replaced hardcoded personal email addresses with dynamic resolver and generic mock data.
+  - `.env.example`: Documented `ADMIN_NOTIFICATION_EMAIL` and `SITE_URL`.
+  - `scripts/test-auth-security.mjs`: Added 38-assertion automated test suite for rate limiting, token security, and privacy auditing.
+  - `docs/DATABASE_SCHEMA.md`, `docs/ENVIRONMENT_CONFIGURATION.md`, `docs/AUTHENTICATION_AND_AUTHORIZATION.md`: Documented new tables, secrets, and security protocols.
+- **Tests Performed**:
+  - `node scripts/test-auth-security.mjs`: All 38 security, crypto, rate limiting, and privacy audit assertions passed.
+  - `npm run build`: Production build verified with zero TypeScript, bundling, or SSR errors.
+  - Static bundle scan of `.output/public`: Zero secrets, API keys, or admin emails in client-visible code.
+- **Outcome**: Delivered complete, battle-tested production login security, cryptographic password recovery flow, and private Brevo notifications with 100% preservation of existing functionality.
+
+---
+
 ## Task 4: Shop Page Usability Audit Optimization (9 Usability Fixes)
 - **Date**: 2026-10-19
 - **Objective**: Resolve all 9 usability audit findings on the Shop page (`/shop`) covering button style consolidation, footer link consistency, newsletter input/button harmonization, product card information hierarchy, contact info grouping, floating WhatsApp repositioning, filter toolbar grouping, and product text left alignment.

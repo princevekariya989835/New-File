@@ -8,6 +8,7 @@
  */
 
 import { getSql } from "@/lib/db";
+import { getBrevoApiKey, getEmailMode, getEmailFrom } from "@/lib/env.server";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,20 @@ export const BREVO_REPLY_TO: BrevoRecipient = {
   email: "support@riotous.store",
 };
 
+export function getVerifiedSender(defaultSender: BrevoSender): BrevoSender {
+  const envFrom = getEmailFrom();
+  if (envFrom) {
+    const match = envFrom.match(/^(.*?)\s*<(.+)>$/);
+    if (match) {
+      return { name: match[1].trim() || defaultSender.name, email: match[2].trim() };
+    }
+    if (envFrom.includes("@")) {
+      return { name: defaultSender.name, email: envFrom.trim() };
+    }
+  }
+  return defaultSender;
+}
+
 // ─── Core Brevo API Call ──────────────────────────────────────────────────────
 
 /**
@@ -66,8 +81,8 @@ export const BREVO_REPLY_TO: BrevoRecipient = {
  * NEVER throws — always returns a result object so callers can handle gracefully.
  */
 export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<BrevoEmailResult> {
-  const apiKey = process.env["BREVO_API_KEY"];
-  const emailMode = process.env["EMAIL_MODE"] || "development";
+  const apiKey = getBrevoApiKey();
+  const emailMode = getEmailMode();
 
   // Development / no-key mode: log and return success simulation
   if (!apiKey || emailMode === "development") {

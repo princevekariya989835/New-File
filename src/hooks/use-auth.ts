@@ -11,6 +11,8 @@ import {
   sendOtpServerFn,
   verifyAndRegisterServerFn,
   verifyAndResetPasswordServerFn,
+  requestPasswordResetServerFn,
+  resetPasswordWithTokenServerFn,
 } from "@/lib/auth";
 import { setSecureCookie, removeSecureCookie } from "@/lib/cookie";
 
@@ -243,6 +245,36 @@ export function useAuth() {
     return res;
   };
 
+  const requestPasswordReset = async (email: string) => {
+    return await requestPasswordResetServerFn({ data: { email } });
+  };
+
+  const resetPasswordWithToken = async (
+    token: string,
+    newPassword: string,
+    confirmPassword?: string,
+  ) => {
+    const res = await resetPasswordWithTokenServerFn({
+      data: { token, newPassword, confirmPassword },
+    });
+    if (res.ok && res.session) {
+      const sessionToken = res.session.token;
+      localStorage.setItem("riotous_session", sessionToken);
+      setSecureCookie("riotous_session", sessionToken, { maxAge: 2592000 });
+      const newUser: UserWithMeta = {
+        ...res.session.user,
+        user_metadata: { full_name: res.session.user.fullName },
+      };
+      _moduleUser = newUser;
+      _moduleToken = sessionToken;
+      _lastVerifiedAt = Date.now();
+      notifyAuthListeners(newUser, false);
+      setUser(newUser);
+      setLoading(false);
+    }
+    return res;
+  };
+
   return {
     user,
     session: user ? { user } : null,
@@ -252,6 +284,8 @@ export function useAuth() {
     signIn: login,
     signUp: register,
     sendOtp,
+    requestPasswordReset,
+    resetPasswordWithToken,
     verifyAndRegister,
     verifyAndResetPassword,
     logout,

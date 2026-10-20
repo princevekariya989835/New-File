@@ -141,13 +141,23 @@ export const listStaff = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
 
-    // Fetch all staff rows (role != 'customer' OR email in admin list)
-    const allStaffRows = await sql`
-      SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at, created_at, updated_at, created_by
-      FROM profiles
-      WHERE role != 'customer' OR email = 'princevekariya9898@gmail.com'
-      ORDER BY created_at DESC
-    `;
+    const { getAdminNotificationEmail } = await import("@/lib/env.server");
+    const adminEmail = getAdminNotificationEmail();
+
+    // Fetch all staff rows (role != 'customer' OR email matches configured admin notification email)
+    const allStaffRows = adminEmail
+      ? await sql`
+          SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at, created_at, updated_at, created_by
+          FROM profiles
+          WHERE role != 'customer' OR LOWER(email) = LOWER(${adminEmail})
+          ORDER BY created_at DESC
+        `
+      : await sql`
+          SELECT id, email, full_name, role, phone, avatar, status, permissions, last_login_at, created_at, updated_at, created_by
+          FROM profiles
+          WHERE role != 'customer'
+          ORDER BY created_at DESC
+        `;
 
     // Calculate metrics
     let totalStaff = 0;

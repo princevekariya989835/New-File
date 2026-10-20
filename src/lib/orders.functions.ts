@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { sendOrderConfirmation } from "@/lib/email";
-import { sendTemplateEmail } from "@/lib/email-templates/send-email";
+import { sendOrderConfirmation, sendAdminNewOrderNotification } from "@/lib/email";
 import {
   deductOrderInventory,
   restoreOrderInventory,
@@ -798,15 +797,17 @@ export const placeOrder = createServerFn({ method: "POST" })
       userId: customerUserId,
     }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
 
-    // Send store owner / admin notification via legacy template (fire and forget)
-    const adminTemplateData = {
+    // Send store owner / admin notification privately (resolves ADMIN_NOTIFICATION_EMAIL securely)
+    sendAdminNewOrderNotification({
       orderNumber,
+      orderId,
       createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
       customerName: data.shippingName,
       customerEmail: data.shippingEmail,
       customerPhone: data.shippingPhone || null,
       shippingAddress: data.shippingAddress,
       paymentMethod: "Cash on Delivery (COD)",
+      paymentStatus: "Pending",
       subtotal: subtotal.toLocaleString("en-IN"),
       discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
       couponCode: appliedCoupon ? appliedCoupon.code : null,
@@ -823,9 +824,6 @@ export const placeOrder = createServerFn({ method: "POST" })
         subtotal: i.subtotal.toLocaleString("en-IN"),
         isCustomDesign: !!i.designSubmissionId,
       })),
-    };
-    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-      templateData: adminTemplateData,
     }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
 
     // Automated Forward Shipment fulfillment via Zippyy
@@ -1378,14 +1376,17 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     );
 
     // Send store owner / admin notification
-    const adminTemplateData = {
+    // Send store owner / admin notification privately (resolves ADMIN_NOTIFICATION_EMAIL securely)
+    sendAdminNewOrderNotification({
       orderNumber: String(order.order_number),
+      orderId: String(order.id),
       createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
       customerName: String(order.shipping_name),
       customerEmail: String(order.shipping_email),
       customerPhone: order.shipping_phone || null,
       shippingAddress: String(order.shipping_address),
       paymentMethod: "Online Payment (Razorpay)",
+      paymentStatus: "Paid",
       subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
       discountAmount:
         Number(order.discount_amount || 0) > 0
@@ -1405,9 +1406,6 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
         subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
         isCustomDesign: !!i.design_submission_id,
       })),
-    };
-    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-      templateData: adminTemplateData,
     }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
 
     // Automated Forward Shipment fulfillment via Zippyy

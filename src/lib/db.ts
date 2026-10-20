@@ -88,9 +88,9 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
 const _mockProfiles: any[] = [
   {
     id: "usr_admin_default",
-    email: "princevekariya9898@gmail.com",
+    email: "admin@riotous.store",
     password_hash: "d943405c9b0bde48dc8e01bdca39b7abeca89bb34f6b816679c7dbf4b60666f1",
-    full_name: "Prince Vekariya",
+    full_name: "RIOTOUS Admin",
     role: "Super Admin",
     status: "Active",
     permissions: {},
@@ -98,11 +98,11 @@ const _mockProfiles: any[] = [
     updated_at: new Date().toISOString(),
   },
   {
-    id: "usr_admin_sarthak",
-    email: "sarthakgujarati5080@gmail.com",
+    id: "usr_admin_manager",
+    email: "manager@riotous.store",
     password_hash: "dfd45f8f00eccb2c37b055d5f7c551c4593c2eb3a02090e651f077f796fbdf0f",
-    full_name: "Sarthak Gujarati",
-    role: "Super Admin",
+    full_name: "Store Manager",
+    role: "Admin",
     status: "Active",
     permissions: {},
     created_at: new Date().toISOString(),
@@ -449,6 +449,8 @@ let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
 let _mockProductOffers: any[] = [];
 const _mockWebsiteMedia = new Map<string, any>();
+const _mockRateLimits = new Map<string, any>();
+const _mockPasswordResets = new Map<string, any>();
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -1209,6 +1211,101 @@ export function getSql() {
         return [{ id }];
       }
 
+      // SELECT / INSERT / UPDATE / DELETE from rate_limits
+      if (lower.includes("rate_limits")) {
+        if (lower.startsWith("select")) {
+          const keyVal = values.find((v) => typeof v === "string");
+          if (keyVal && _mockRateLimits.has(keyVal)) {
+            return [{ ..._mockRateLimits.get(keyVal) }];
+          }
+          return [];
+        }
+        if (lower.startsWith("insert") || lower.startsWith("update")) {
+          const keyVal = values[0] ? String(values[0]) : "";
+          if (keyVal) {
+            const attempts = typeof values[1] === "number" ? values[1] : 1;
+            const firstAttempt = typeof values[2] === "number" ? values[2] : Date.now();
+            const lastAttempt = typeof values[3] === "number" ? values[3] : Date.now();
+            const blockedUntil = typeof values[4] === "number" ? values[4] : null;
+            const expiresAt = typeof values[5] === "number" ? values[5] : Date.now() + 15 * 60 * 1000;
+            _mockRateLimits.set(keyVal, {
+              key: keyVal,
+              attempts,
+              first_attempt_at: firstAttempt,
+              last_attempt_at: lastAttempt,
+              blocked_until: blockedUntil,
+              expires_at: expiresAt,
+            });
+          }
+          return [];
+        }
+        if (lower.startsWith("delete")) {
+          const keyVal = values.find((v) => typeof v === "string");
+          if (keyVal) _mockRateLimits.delete(keyVal);
+          return [];
+        }
+      }
+
+      // SELECT / INSERT / UPDATE / DELETE from password_resets
+      if (lower.includes("password_resets")) {
+        if (lower.startsWith("select")) {
+          const hashVal = values.find((v) => typeof v === "string" && v.length === 64);
+          if (hashVal) {
+            for (const r of _mockPasswordResets.values()) {
+              if (r.token_hash === hashVal) return [{ ...r }];
+            }
+          }
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          if (emailVal) {
+            const matches: any[] = [];
+            for (const r of _mockPasswordResets.values()) {
+              if (r.email.toLowerCase() === emailVal.toLowerCase()) matches.push({ ...r });
+            }
+            return matches;
+          }
+          return Array.from(_mockPasswordResets.values());
+        }
+        if (lower.startsWith("insert")) {
+          const id = String(values[0] || `pr_${Date.now()}`);
+          const userId = values[1] ? String(values[1]) : null;
+          const email = String(values[2] || "").toLowerCase();
+          const tokenHash = String(values[3] || "");
+          const expiresAt = String(values[4] || "");
+          const usedAt = values[5] ? String(values[5]) : null;
+          const ip = values[6] ? String(values[6]) : null;
+          _mockPasswordResets.set(id, {
+            id,
+            user_id: userId,
+            email,
+            token_hash: tokenHash,
+            expires_at: expiresAt,
+            used_at: usedAt,
+            ip_address: ip,
+            created_at: new Date().toISOString(),
+          });
+          return [];
+        }
+        if (lower.startsWith("update")) {
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          const idVal = values.find((v) => typeof v === "string" && v.startsWith("pr_"));
+          for (const [id, r] of _mockPasswordResets.entries()) {
+            if ((idVal && id === idVal) || (emailVal && r.email.toLowerCase() === emailVal.toLowerCase())) {
+              r.used_at = new Date().toISOString();
+            }
+          }
+          return [];
+        }
+        if (lower.startsWith("delete")) {
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          if (emailVal) {
+            for (const [id, r] of _mockPasswordResets.entries()) {
+              if (r.email.toLowerCase() === emailVal.toLowerCase()) _mockPasswordResets.delete(id);
+            }
+          }
+          return [];
+        }
+      }
+
       return [];
     };
 
@@ -1232,7 +1329,7 @@ export async function ensureDbSchema() {
       try {
         const rows = await sql`SELECT 1 FROM products LIMIT 1`;
         if (rows && rows.length > 0) {
-          // Ensure invoices and invoice_sequences tables exist
+            // Ensure invoices and invoice_sequences tables exist
           try {
             await sql`
               CREATE TABLE IF NOT EXISTS invoices (
@@ -1264,6 +1361,34 @@ export async function ensureDbSchema() {
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
               )
             `;
+
+            // Ensure rate_limits and password_resets tables exist for authentication security
+            await sql`
+              CREATE TABLE IF NOT EXISTS rate_limits (
+                key TEXT PRIMARY KEY,
+                attempts INTEGER NOT NULL DEFAULT 1,
+                first_attempt_at INTEGER NOT NULL,
+                last_attempt_at INTEGER NOT NULL,
+                blocked_until INTEGER DEFAULT NULL,
+                expires_at INTEGER NOT NULL
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON rate_limits (expires_at)`;
+
+            await sql`
+              CREATE TABLE IF NOT EXISTS password_resets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                email TEXT NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
+                used_at TEXT DEFAULT NULL,
+                ip_address TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets (token_hash)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets (email, expires_at)`;
 
             // Ensure orders table has invoice fields for fast query lookup
             try {

@@ -57,6 +57,22 @@ The database access layer is centralized in `src/lib/db.ts`:
    - `id` (TEXT, PK), `email` (TEXT), `otp_hash` (TEXT), `purpose` (TEXT), `expires_at` (TEXT), `is_used` (INTEGER/BOOLEAN), `created_at` (TEXT).
 3. **`addresses`**: Saved customer shipping and billing addresses.
    - `id` (TEXT, PK), `user_id` (TEXT, FK -> profiles), `full_name` (TEXT), `phone` (TEXT), `address_line1` (TEXT), `address_line2` (TEXT), `city` (TEXT), `state` (TEXT), `postal_code` (TEXT), `country` (TEXT, DEFAULT `'India'`), `is_default` (INTEGER/BOOLEAN), `created_at`, `updated_at`.
+4. **`rate_limits`**: Persistent distributed rate limiter counters across Cloudflare Workers.
+   - `key` (TEXT, PK): Composite rate key (e.g. `login:account:user@example.com`, `login:ip:1.2.3.4`).
+   - `attempts` (INTEGER, DEFAULT 1): Number of failed attempts within the active window.
+   - `first_attempt_at` (INTEGER): Timestamp ms when the first attempt occurred.
+   - `last_attempt_at` (INTEGER): Timestamp ms of the most recent attempt.
+   - `blocked_until` (INTEGER): Timestamp ms until which further attempts are rejected with 429.
+   - `expires_at` (INTEGER): Expiry timestamp ms for automatic pruning/decay.
+5. **`password_resets`**: Cryptographic single-use password recovery tokens.
+   - `id` (TEXT, PK): Unique recovery request ID (`pr_...`).
+   - `user_id` (TEXT, FK -> profiles): Associated customer ID.
+   - `email` (TEXT): Normalized email address.
+   - `token_hash` (TEXT, UNIQUE): SHA-256 cryptographic hash of the 32-byte secret token (raw token is never persisted).
+   - `expires_at` (TEXT): ISO timestamp when the token expires (typically 20 minutes).
+   - `used_at` (TEXT): ISO timestamp when the token was consumed (atomically prevents replay/reuse).
+   - `ip_address` (TEXT): IP address of the requester for security auditing.
+   - `created_at` (TEXT): Request creation timestamp.
 
 ### 3.2 Product Catalog & Merchandise
 4. **`categories`**: Product taxonomy categories.
