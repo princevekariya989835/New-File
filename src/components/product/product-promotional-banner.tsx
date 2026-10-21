@@ -44,15 +44,15 @@ export function ProductPromotionalBanner({
 
   // Resolve banner content (admin configured offer takes priority, otherwise B2G1 apparel promotion)
   let heading = "SPECIAL OFFER";
-  let title = "BUY 2 GET 1 FREE";
-  let description = "Add eligible products to your bag to receive the applicable discount.";
+  let title = "Buy 2 Get 1 Free";
+  let description = "Add any 3 t-shirts to your bag to get 1 free. Discount applied automatically at checkout.";
   let promoCode: string | null = null;
   let terms: string | null =
-    "• Add any 3 qualifying streetwear items to your cart.\n• The lowest-priced qualifying piece will be discounted to ₹0 automatically at checkout.\n• No coupon code required.\n• Can be combined with storewide free shipping on orders above ₹1499.";
+    "• Add any 3 qualifying streetwear items to your cart.\n• The lowest-priced qualifying piece will be discounted to ₹0 automatically at checkout.\n• No coupon code required.\n• Can be combined with storewide free shipping on orders above ₹999.";
 
   if (activeOffer) {
-    heading = activeOffer.discountType === "buy_x_get_y" ? "BUNDLE OFFER" : "SPECIAL OFFER";
-    title = activeOffer.title.toUpperCase();
+    heading = activeOffer.discountType === "buy_x_get_y" ? "SPECIAL OFFER" : "SPECIAL OFFER";
+    title = activeOffer.title;
     if (activeOffer.description) {
       description = activeOffer.description;
     }
@@ -76,66 +76,82 @@ export function ProductPromotionalBanner({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-2xl border border-brand-red/25 bg-red-50/80 dark:bg-red-950/20 p-4 sm:p-5 transition-all shadow-xs">
+      <div className="relative overflow-hidden rounded-2xl border border-red-200/80 bg-[#FFF0F2] dark:bg-red-950/20 p-4 sm:p-5 transition-all shadow-xs">
         {/* Soft decorative background glow */}
         <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-red/10 blur-2xl" />
 
-        <div className="relative flex items-start gap-3.5 sm:gap-4">
-          {/* Red Gift Icon Badge */}
-          <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl bg-brand-red/10 text-brand-red border border-brand-red/20 shadow-2xs">
-            <Gift className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.2]" />
+        <div className="relative flex items-center justify-between gap-3.5 sm:gap-4">
+          <div className="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
+            {/* Red Gift Icon Badge */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-red text-white shadow-xs">
+              <Gift className="h-5 w-5 stroke-[2.2]" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {/* Header pill */}
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest text-brand-red">
+                <Sparkles className="h-3 w-3" />
+                <span>{heading}</span>
+              </div>
+
+              {/* Offer Title */}
+              <h2 className="mt-0.5 text-base sm:text-lg font-black tracking-tight text-foreground">
+                {title}
+              </h2>
+
+              {/* Explanatory Text */}
+              <p className="mt-0.5 text-xs sm:text-[13px] leading-relaxed text-muted-foreground/90">
+                {description}
+              </p>
+
+              {/* Optional Promo Code & Terms Links */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                {promoCode && (
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-red/30 bg-background px-2.5 py-1 text-xs font-bold text-brand-red hover:bg-brand-red/5 transition-colors cursor-pointer"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                        <span>COPIED</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>CODE: {promoCode}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {terms && (
+                  <button
+                    type="button"
+                    onClick={() => setTermsModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer underline underline-offset-4 py-0.5"
+                  >
+                    <Info className="h-3 w-3 text-brand-red" />
+                    <span>Offer Details</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            {/* Header pill */}
-            <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-brand-red">
-              <Sparkles className="h-3 w-3" />
-              <span>{heading}</span>
-            </div>
-
-            {/* Offer Title */}
-            <h2 className="mt-1 text-base sm:text-lg font-black tracking-tight text-foreground">
-              {title}
-            </h2>
-
-            {/* Explanatory Text */}
-            <p className="mt-1 text-xs sm:text-sm leading-relaxed text-muted-foreground">
-              {description}
-            </p>
-
-            {/* Optional Promo Code & Terms Links */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {promoCode && (
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-red/30 bg-background px-2.5 py-1 text-xs font-bold text-brand-red hover:bg-brand-red/5 transition-colors cursor-pointer"
-                >
-                  {copiedCode ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                      <span>COPIED</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5" />
-                      <span>CODE: {promoCode}</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              {terms && (
-                <button
-                  type="button"
-                  onClick={() => setTermsModalOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer underline underline-offset-4 py-0.5"
-                >
-                  <Info className="h-3.5 w-3.5 text-brand-red" />
-                  <span>Offer Details</span>
-                </button>
-              )}
-            </div>
+          {/* RIGHT SIDE DECORATIVE STREETWEAR TEES GRAPHIC */}
+          <div className="hidden sm:flex shrink-0 items-center justify-center relative w-24 h-20 overflow-hidden rounded-xl bg-white/60 dark:bg-card/40 border border-red-200/50 p-1 shadow-2xs">
+            <img
+              src="/products/zoro-black-1.jpg"
+              alt="Promo streetwear tee"
+              className="absolute -left-1 top-1 h-16 w-14 object-cover rounded shadow-xs rotate-[-8deg]"
+            />
+            <img
+              src="/products/satoru-gojo-white-1.jpg"
+              alt="Promo streetwear tee"
+              className="absolute right-0 top-2 h-16 w-14 object-cover rounded shadow-md rotate-[6deg]"
+            />
           </div>
         </div>
       </div>

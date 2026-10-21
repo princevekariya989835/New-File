@@ -23,13 +23,18 @@ async function verify() {
   console.log("✓ Product Title, Selling Price (₹599), MRP (₹899), and 33% OFF discount verified");
 
   // Verify Offer Banner
-  assert.ok(html1.includes("BUY 2 GET 1 FREE"), "Has BUY 2 GET 1 FREE promotional banner");
-  console.log("✓ Special Offer Banner (BUY 2 GET 1 FREE) verified");
+  assert.ok(html1.includes("Buy 2 Get 1 Free") || html1.includes("BUY 2 GET 1 FREE") || html1.includes("SPECIAL OFFER"), "Has promotional offer banner");
+  console.log("✓ Special Offer Banner (SPECIAL OFFER: Buy 2 Get 1 Free) verified");
 
   // Verify Purchase Buttons & Controls
-  assert.ok(html1.includes("Add to Bag"), "Has Add to Bag button");
+  assert.ok(html1.includes("Add to Cart") || html1.includes("Add to Bag"), "Has Add to Cart button");
   assert.ok(html1.includes("Buy Now"), "Has Buy Now button");
-  console.log("✓ Add to Bag and Buy Now buttons verified");
+  assert.ok(html1.includes("Secure Payment"), "Has Secure Payment reassurance item");
+  assert.ok(html1.includes("Easy Returns"), "Has Easy Returns reassurance item");
+  assert.ok(html1.includes("Free Shipping"), "Has Free Shipping reassurance item");
+  assert.ok(html1.includes("FRONT") && html1.includes("BACK"), "Has FRONT and BACK presentation strip");
+  assert.ok(html1.includes("500+ sold this month"), "Has sold this month indicator");
+  console.log("✓ Add to Cart and Buy Now buttons, Front/Back strip, and Reassurance verified");
 
   // Verify Feature Strip & Info Sections
   assert.ok(html1.includes("Product Details"), "Has Product Details info tab");
@@ -51,7 +56,7 @@ async function verify() {
   assert.ok(html2.includes("₹1,199"), "Second product has price ₹1,199");
   assert.ok(html2.includes("₹1,999"), "Second product has MRP ₹1,999");
   assert.ok(html2.includes("40") && html2.includes("% OFF"), "Second product has 40% OFF");
-  assert.ok(html2.includes("Add to Bag"), "Second product has Add to Bag button");
+  assert.ok(html2.includes("Add to Cart") || html2.includes("Add to Bag"), "Second product has Add to Cart button");
   console.log("✓ Second product renders dynamically with own data (₹1,199 / ₹1,999, 40% OFF)");
 
   // 3. Test Invalid Handle (404 state)

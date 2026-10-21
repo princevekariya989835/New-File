@@ -29,9 +29,11 @@ export interface ProductInfoSectionsProps {
   productTitle?: string;
   category?: string;
   onOpenSizeGuide?: () => void;
+  detailImageUrl?: string | null;
+  reviewCount?: number;
 }
 
-type TabKey = "details" | "fit" | "fabric" | "care" | "shipping";
+type TabKey = "details" | "fit" | "fabric" | "care" | "shipping" | "reviews";
 
 export function ProductInfoSections({
   description = "",
@@ -44,6 +46,8 @@ export function ProductInfoSections({
   productTitle = "Product",
   category = "T-Shirts",
   onOpenSizeGuide,
+  detailImageUrl,
+  reviewCount = 124,
 }: ProductInfoSectionsProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("details");
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
@@ -52,9 +56,15 @@ export function ProductInfoSections({
     fabric: false,
     care: false,
     shipping: false,
+    reviews: false,
   });
 
   const toggleAccordion = (key: string) => {
+    if (key === "reviews") {
+      const el = document.getElementById("customer-reviews-section");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
     setOpenAccordions((prev) => ({
       ...prev,
       [key]: !prev[key],
@@ -110,46 +120,39 @@ export function ProductInfoSections({
     { key: "fabric", label: "Fabric & Print", icon: Shirt },
     { key: "care", label: "Wash Care", icon: Droplets },
     { key: "shipping", label: "Shipping & Returns", icon: Truck },
+    { key: "reviews", label: `Reviews (${reviewCount})`, icon: Sparkles },
   ];
 
   return (
     <section
       id="product-info-section"
       aria-label="Product Information"
-      className="mt-14 sm:mt-18 md:mt-24 border-t border-border/80 pt-10 sm:pt-14"
+      className="mt-10 sm:mt-14 border-t border-border/80 pt-6 sm:pt-8"
     >
-      {/* SECTION HEADER */}
-      <div className="mb-8 md:mb-10 text-center sm:text-left">
-        <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-red mb-1.5">
-          Garment Specifications
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-          Detailed Information
-        </h2>
-        <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-          Everything you need to know about materials, sizing, and garment longevity.
-        </p>
-      </div>
-
       {/* DESKTOP TABBED NAVIGATION (Hidden on mobile) */}
-      <div className="hidden md:flex items-center gap-2 border-b border-border/80">
+      <div className="hidden md:flex items-center gap-1 sm:gap-2 border-b border-border/80">
         {tabs.map((tab) => {
-          const Icon = tab.icon;
           const isActive = activeTab === tab.key;
           return (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                if (tab.key === "reviews") {
+                  const el = document.getElementById("customer-reviews-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                  return;
+                }
+                setActiveTab(tab.key);
+              }}
               aria-selected={isActive}
               role="tab"
-              className={`relative flex items-center gap-2.5 px-5 py-3.5 text-sm font-bold transition-all cursor-pointer ${
+              className={`relative flex items-center gap-2 px-5 py-3.5 text-sm font-bold transition-all cursor-pointer ${
                 isActive
-                  ? "text-brand-red"
+                  ? "text-brand-red font-extrabold"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className="h-4 w-4" />
               <span>{tab.label}</span>
               {isActive && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-red" />
@@ -160,105 +163,47 @@ export function ProductInfoSections({
       </div>
 
       {/* DESKTOP TAB CONTENT PANELS (Visible on md+) */}
-      <div className="hidden md:block py-8">
-        {/* TAB 1: PRODUCT DETAILS */}
+      <div className="hidden md:block py-6">
+        {/* TAB 1: PRODUCT DETAILS (Two-Column Layout matching Reference) */}
         {activeTab === "details" && (
-          <div className="space-y-6 animate-in fade-in-50 duration-200">
-            {cleanDescription && (
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-brand-red" />
-                  <span>The Story & Design Concept</span>
-                </h3>
-                <div className="text-xs sm:text-sm leading-relaxed text-muted-foreground max-w-3xl">
-                  {renderMarkdownToHtml(cleanDescription)}
-                </div>
-              </div>
-            )}
-
-            {/* Specifications Grid */}
-            <div className="pt-4 border-t border-border/60">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-2">
-                <Layers className="h-4 w-4 text-brand-red" />
-                <span>Technical Specifications</span>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start animate-in fade-in-50 duration-200">
+            <div className="md:col-span-7 space-y-4">
+              <h3 className="text-xl font-black tracking-tight text-foreground">
+                Product Details
               </h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+              <div className="text-xs sm:text-sm leading-relaxed text-muted-foreground/90 whitespace-pre-line space-y-3">
+                {cleanDescription}
+              </div>
+
+              {/* Quick Specs summary */}
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border/50">
+                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
                     Silhouette / Fit
                   </span>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">
+                  <span className="text-xs font-semibold text-foreground">
                     {resolvedFit}
                   </span>
                 </div>
-
-                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
-                    Fabric Composition
+                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                    Fabric
                   </span>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">
+                  <span className="text-xs font-semibold text-foreground">
                     {resolvedMaterial}
                   </span>
                 </div>
-
-                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
-                    Country of Origin
-                  </span>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">
-                    {mfgCountry}
-                  </span>
-                </div>
-
-                <div className="rounded-xl border border-border/60 bg-secondary/30 p-3.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
-                    Crafted By
-                  </span>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">
-                    {mfgEntity}
-                  </span>
-                </div>
-
-                {specifications
-                  .filter(
-                    (s) =>
-                      !["fit", "fabric", "material", "country of origin"].includes(
-                        s.label.toLowerCase(),
-                      ),
-                  )
-                  .map((spec, i) => (
-                    <div
-                      key={i}
-                      className="rounded-xl border border-border/60 bg-secondary/30 p-3.5"
-                    >
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
-                        {spec.label}
-                      </span>
-                      <span className="text-xs sm:text-sm font-semibold text-foreground">
-                        {spec.value}
-                      </span>
-                    </div>
-                  ))}
               </div>
             </div>
 
-            {/* Key Features List */}
-            {features.length > 0 && (
-              <div className="pt-4 border-t border-border/60">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3">
-                  Key Features
-                </h3>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {features.map((feat, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2.5 text-xs sm:text-sm text-muted-foreground leading-relaxed"
-                    >
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-red stroke-[2.5]" />
-                      <span>{typeof feat === "object" ? (feat as any).title : feat}</span>
-                    </li>
-                  ))}
-                </ul>
+            {/* DETAIL PHOTOGRAPH ON RIGHT */}
+            {detailImageUrl && (
+              <div className="md:col-span-5 overflow-hidden rounded-2xl border border-border/70 bg-[#F6F5F2] shadow-xs">
+                <img
+                  src={detailImageUrl}
+                  alt={`${productTitle} detail`}
+                  className="h-full w-full object-cover object-center aspect-[4/3] hover:scale-105 transition-transform duration-500"
+                />
               </div>
             )}
           </div>
@@ -570,6 +515,22 @@ export function ProductInfoSections({
               <p>• 7-day hassle-free return and exchange policy.</p>
             </div>
           )}
+        </div>
+
+        {/* Accordion 6: Reviews (Matching Reference Screenshot) */}
+        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleAccordion("reviews")}
+            aria-expanded={openAccordions["reviews"]}
+            className="flex w-full items-center justify-between p-4 text-left font-bold text-sm text-foreground hover:bg-secondary/40 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2.5">
+              <Sparkles className="h-4 w-4 text-brand-red" />
+              <span>Reviews ({reviewCount})</span>
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
       </div>
     </section>

@@ -120,8 +120,8 @@ export function ProductGallery({
                   aria-current={isActive ? "true" : undefined}
                   className={`group relative aspect-[4/5] w-full shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? "border-foreground shadow-sm ring-1 ring-foreground/20 scale-[1.02]"
-                      : "border-border/70 hover:border-foreground/50 opacity-75 hover:opacity-100"
+                      ? "border-brand-red ring-1 ring-brand-red shadow-xs"
+                      : "border-border/70 hover:border-foreground/40 opacity-75 hover:opacity-100"
                   } bg-[#F6F5F2] dark:bg-card/50`}
                 >
                   <img
@@ -136,9 +136,6 @@ export function ProductGallery({
                       e.currentTarget.src = "/placeholder-tee.jpg";
                     }}
                   />
-                  {isActive && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-5 rounded-full bg-brand-red" />
-                  )}
                 </button>
               );
             })}
@@ -153,6 +150,11 @@ export function ProductGallery({
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
+            {/* TOP-LEFT "NEW" BADGE */}
+            <div className="absolute left-3.5 top-3.5 z-10 rounded-md bg-black px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-widest text-white shadow-xs">
+              NEW
+            </div>
+
             {currentImage && (
               <button
                 type="button"
@@ -182,7 +184,7 @@ export function ProductGallery({
               type="button"
               onClick={onToggleFavorite}
               aria-label={liked ? "Remove from wishlist" : "Add to wishlist"}
-              className="absolute right-3.5 top-3.5 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-background/90 text-foreground backdrop-blur-md shadow-sm border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-3.5 top-3.5 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-white/95 text-foreground backdrop-blur-md shadow-md border border-neutral-200/80 transition-all duration-200 hover:bg-white hover:scale-110 active:scale-95 cursor-pointer focus:outline-none"
             >
               <Heart
                 className={`h-5 w-5 transition-colors ${
@@ -200,33 +202,37 @@ export function ProductGallery({
                   type="button"
                   onClick={handlePrev}
                   aria-label="Previous product image"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/90 text-foreground backdrop-blur-md shadow-md border border-neutral-200/60 transition-all duration-200 hover:bg-white hover:scale-110 active:scale-95 cursor-pointer"
                 >
-                  <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
+                  <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
                 </button>
                 <button
                   type="button"
                   onClick={handleNext}
                   aria-label="Next product image"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-background/85 text-foreground backdrop-blur-md shadow-md border border-border/40 transition-all duration-200 hover:bg-background hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/90 text-foreground backdrop-blur-md shadow-md border border-neutral-200/60 transition-all duration-200 hover:bg-white hover:scale-110 active:scale-95 cursor-pointer"
                 >
-                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
+                  <ChevronRight className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </>
             )}
 
-            {/* IMAGE COUNTER BADGE */}
+            {/* BOTTOM-LEFT FULLSCREEN ZOOM BUTTON */}
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label="Expand image fullscreen"
+              className="absolute bottom-3.5 left-3.5 z-10 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-black/60 text-white backdrop-blur-md shadow-xs transition-colors hover:bg-black/80 cursor-pointer"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+
+            {/* BOTTOM-RIGHT IMAGE COUNTER BADGE */}
             {images.length > 1 && (
-              <div className="absolute bottom-3.5 right-3.5 z-10 rounded-full bg-background/85 px-3 py-1 text-xs font-bold text-foreground backdrop-blur-md shadow-xs border border-border/40 tracking-wider">
-                {safeActiveIndex + 1} / {images.length}
+              <div className="absolute bottom-3.5 right-3.5 z-10 rounded-lg bg-black/60 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md shadow-xs tracking-wider">
+                {safeActiveIndex + 1}/{images.length}
               </div>
             )}
-
-            {/* QUICK ZOOM HINT ICON (Desktop) */}
-            <div className="hidden sm:flex absolute bottom-3.5 left-3.5 z-10 items-center gap-1.5 rounded-full bg-background/75 px-2.5 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur-md shadow-2xs border border-border/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-              <ZoomIn className="h-3 w-3" />
-              <span>Click to zoom</span>
-            </div>
           </div>
 
           {/* MOBILE HORIZONTAL THUMBNAIL RAIL (Below main image on narrow viewports) */}
@@ -260,6 +266,51 @@ export function ProductGallery({
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* WIDE FRONT / BACK PRESENTATION SECTION (Approved Visual Reference) */}
+          {images.length >= 2 && (
+            <div className="mt-4 sm:mt-5 grid grid-cols-2 gap-3 sm:gap-4 overflow-hidden rounded-2xl md:rounded-3xl border border-border/70 bg-card shadow-xs">
+              {/* FRONT PANEL */}
+              <div
+                onClick={() => onSelectImage(0)}
+                className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
+              >
+                <img
+                  src={images[0].node.url}
+                  alt={`${productTitle} - Front View`}
+                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4">
+                  <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
+                    FRONT
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-white/80 font-medium">
+                    Minimal &amp; Clean
+                  </span>
+                </div>
+              </div>
+
+              {/* BACK PANEL */}
+              <div
+                onClick={() => onSelectImage(1)}
+                className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
+              >
+                <img
+                  src={images[1].node.url}
+                  alt={`${productTitle} - Back View`}
+                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4 text-right">
+                  <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
+                    BACK
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-white/80 font-medium">
+                    Bold Statement
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>

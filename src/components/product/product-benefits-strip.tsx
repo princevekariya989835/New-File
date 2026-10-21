@@ -5,18 +5,71 @@ import {
   Scissors,
   Droplets,
   Truck,
+  Feather,
+  Layers,
   ShieldCheck,
   Award,
   RefreshCw,
   Flame,
   CheckCircle2,
+  Sun,
 } from "lucide-react";
 import type { ProductSpecification } from "@/lib/catalog";
 
 export interface BenefitItem {
   icon: React.ElementType;
   title: string;
-  description: string;
+  description?: string;
+}
+
+/**
+ * 4 Compact Benefit Icons in purchase panel (Above promotional offer)
+ * Matches reference: Premium Cotton Fabric | High Quality DTF Print | Oversized Fit | Fast Shipping
+ */
+export function CompactProductBenefitIcons({
+  category = "T-Shirts",
+}: {
+  category?: string;
+}) {
+  const catLower = (category || "").toLowerCase();
+  const isHoodie = catLower.includes("hoodie") || catLower.includes("sweatshirt");
+
+  const items = isHoodie
+    ? [
+        { icon: Feather, label: "Heavy 380 GSM" },
+        { icon: Layers, label: "High Quality DTF" },
+        { icon: Shirt, label: "Relaxed Boxy Fit" },
+        { icon: Truck, label: "Fast Shipping" },
+      ]
+    : [
+        { icon: Feather, label: "Premium Cotton Fabric" },
+        { icon: Layers, label: "High Quality DTF Print" },
+        { icon: Shirt, label: "Oversized Fit" },
+        { icon: Truck, label: "Fast Shipping" },
+      ];
+
+  return (
+    <div className="grid grid-cols-4 gap-2 py-3 border-y border-border/70 my-4 text-center">
+      {items.map((it, idx) => {
+        const Icon = it.icon;
+        return (
+          <div
+            key={idx}
+            className={`flex flex-col items-center justify-start gap-1.5 px-1 ${
+              idx !== items.length - 1 ? "border-r border-border/60" : ""
+            }`}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary/60 text-foreground">
+              <Icon className="h-4 w-4 stroke-[1.8]" />
+            </div>
+            <span className="text-[10.5px] sm:text-[11px] font-semibold text-foreground/90 leading-tight">
+              {it.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export interface ProductBenefitsStripProps {
@@ -26,27 +79,10 @@ export interface ProductBenefitsStripProps {
   productTitle?: string;
 }
 
-function resolveIcon(iconNameOrKeyword: string): React.ElementType {
-  const k = (iconNameOrKeyword || "").toLowerCase();
-  if (k.includes("cotton") || k.includes("fabric") || k.includes("material") || k.includes("shirt"))
-    return Shirt;
-  if (k.includes("dtf") || k.includes("print") || k.includes("graphic") || k.includes("sparkle"))
-    return Sparkles;
-  if (k.includes("fit") || k.includes("silhouette") || k.includes("cut") || k.includes("scissor"))
-    return Scissors;
-  if (k.includes("wash") || k.includes("shrink") || k.includes("water") || k.includes("drop"))
-    return Droplets;
-  if (k.includes("deliver") || k.includes("ship") || k.includes("dispatch") || k.includes("truck"))
-    return Truck;
-  if (k.includes("stitch") || k.includes("durable") || k.includes("shield") || k.includes("quality"))
-    return ShieldCheck;
-  if (k.includes("return") || k.includes("exchange") || k.includes("refresh"))
-    return RefreshCw;
-  if (k.includes("flame") || k.includes("drop") || k.includes("hot"))
-    return Flame;
-  return Award;
-}
-
+/**
+ * Secondary Feature Strip below two-column layout
+ * Matches reference: Soft & Breathable Cotton | Durable DTF Print | Oversized Streetwear Fit | Fade Resistant & Long Lasting
+ */
 export function ProductBenefitsStrip({
   features = [],
   specifications = [],
@@ -54,149 +90,60 @@ export function ProductBenefitsStrip({
   productTitle = "",
 }: ProductBenefitsStripProps) {
   const catLower = (category || "").toLowerCase();
-  const specFabric = specifications.find(
-    (s) => s.label.toLowerCase() === "fabric" || s.label.toLowerCase() === "material",
-  )?.value;
-  const specGsm = specifications.find((s) => s.label.toLowerCase() === "gsm")?.value;
-  const specFit = specifications.find((s) => s.label.toLowerCase() === "fit")?.value;
+  const isHoodie = catLower.includes("hoodie") || catLower.includes("sweatshirt");
 
-  // Resolve 5 benefits: prioritize admin-configured features if provided
-  let items: BenefitItem[] = [];
+  const defaultItems = isHoodie
+    ? [
+        { icon: Feather, title: "Warm & Cozy Fleece", description: "380 GSM dense brushed cotton" },
+        { icon: Layers, title: "Durable DTF Print", description: "Vibrant & crack-resistant" },
+        { icon: Shirt, title: "Boxy Streetwear Fit", description: "Dropped shoulders & lined hood" },
+        { icon: Sun, title: "Fade Resistant & Long Lasting", description: "Color-locked pigment dyes" },
+      ]
+    : [
+        { icon: Feather, title: "Soft & Breathable Cotton", description: "100% Super Combed 240 GSM" },
+        { icon: Layers, title: "Durable DTF Print", description: "High-density crack-proof graphics" },
+        { icon: Shirt, title: "Oversized Streetwear Fit", description: "Signature relaxed boxy cut" },
+        { icon: Sun, title: "Fade Resistant & Long Lasting", description: "Biowashed & color-locked" },
+      ];
 
-  if (Array.isArray(features) && features.length >= 3) {
-    items = features.slice(0, 5).map((f) => {
-      if (typeof f === "object" && f !== null) {
-        return {
-          icon: resolveIcon(f.icon || f.title || ""),
-          title: f.title || "Premium Feature",
-          description: f.description || "",
-        };
-      }
-      const str = String(f).trim();
-      if (str.includes(":") || str.includes(" - ")) {
-        const parts = str.includes(":") ? str.split(":") : str.split(" - ");
-        return {
-          icon: resolveIcon(parts[0]),
-          title: parts[0].trim(),
-          description: parts.slice(1).join(" - ").trim(),
-        };
-      }
+  // If admin provided custom features, adapt them
+  let items = defaultItems;
+  if (Array.isArray(features) && features.length >= 4) {
+    items = features.slice(0, 4).map((f, i) => {
+      const label = typeof f === "string" ? f : f.title || "";
       return {
-        icon: resolveIcon(str),
-        title: str,
-        description: "",
+        icon: defaultItems[i]?.icon || Award,
+        title: label,
+        description: typeof f === "object" ? f.description : "",
       };
     });
-  } else if (catLower.includes("hoodie") || catLower.includes("sweatshirt") || catLower.includes("fleece")) {
-    items = [
-      {
-        icon: Shirt,
-        title: specFabric ? specFabric : "380 GSM Heavy Fleece",
-        description: specGsm ? `${specGsm} dense brushed fabric` : "Ultra-warm brushed interior",
-      },
-      {
-        icon: Sparkles,
-        title: "High-Density DTF Print",
-        description: "Vibrant & crack-resistant",
-      },
-      {
-        icon: Scissors,
-        title: specFit ? specFit : "Streetwear Boxy Fit",
-        description: "Double-layered hood & deep pockets",
-      },
-      {
-        icon: ShieldCheck,
-        title: "Reinforced Seams",
-        description: "Built for heavy rotation",
-      },
-      {
-        icon: Truck,
-        title: "Free Express Shipping",
-        description: "Dispatched in 24-48 hrs",
-      },
-    ];
-  } else if (catLower.includes("tee") || catLower.includes("shirt") || catLower.includes("apparel") || !catLower) {
-    // Standard and Oversized T-Shirts (Matching Satoru Gojo Reference)
-    items = [
-      {
-        icon: Shirt,
-        title: specFabric ? specFabric : "100% Pure Cotton",
-        description: specGsm ? `${specGsm} heavyweight knit` : "240 GSM super combed cotton",
-      },
-      {
-        icon: Sparkles,
-        title: "High-Definition DTF",
-        description: "Vivid, stretchable & fade-proof",
-      },
-      {
-        icon: Scissors,
-        title: specFit ? specFit : "Oversized Streetwear Fit",
-        description: "Drop shoulder boxy silhouette",
-      },
-      {
-        icon: Droplets,
-        title: "Pre-Shrunk & Bio-Washed",
-        description: "Zero post-wash shrinkage",
-      },
-      {
-        icon: Truck,
-        title: "Free Pan-India Delivery",
-        description: "Orders over ₹1499",
-      },
-    ];
-  } else {
-    // Accessories / Other categories
-    items = [
-      {
-        icon: Award,
-        title: "Premium Craftsmanship",
-        description: "Engineered with durable materials",
-      },
-      {
-        icon: ShieldCheck,
-        title: "100% Genuine Quality",
-        description: "Direct from RIOTOUS studio",
-      },
-      {
-        icon: RefreshCw,
-        title: "7-Day Easy Returns",
-        description: "Hassle-free exchange policy",
-      },
-      {
-        icon: Truck,
-        title: "Express Delivery",
-        description: "5-7 business days across India",
-      },
-    ];
   }
 
   return (
     <section
       aria-label="Product Features and Benefits"
-      className="mt-12 sm:mt-16 md:mt-20 border-y border-border/80 bg-secondary/20 py-8 md:py-10"
+      className="mt-10 sm:mt-14 mb-8 border-y border-border/70 bg-card py-6"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 divide-y md:divide-y-0 md:divide-x divide-border/60">
           {items.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div
                 key={idx}
-                className={`flex flex-col items-start gap-2.5 rounded-2xl border border-border/60 bg-card/80 p-4 transition-all duration-200 hover:border-foreground/30 hover:shadow-2xs ${
-                  idx === items.length - 1 && items.length % 2 !== 0
-                    ? "col-span-2 md:col-span-1"
-                    : ""
+                className={`flex items-center gap-3.5 pt-3 md:pt-0 ${
+                  idx > 0 ? "md:pl-6" : ""
                 }`}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-red/10 text-brand-red border border-brand-red/15">
-                  <Icon className="h-5 w-5 stroke-[2.2]" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary/80 text-foreground border border-border/40">
+                  <Icon className="h-5 w-5 stroke-[1.8]" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs sm:text-sm font-bold text-foreground leading-snug">
                     {item.title}
                   </h3>
                   {item.description && (
-                    <p className="mt-0.5 text-[11px] sm:text-xs text-muted-foreground leading-normal">
+                    <p className="text-[11px] text-muted-foreground leading-normal mt-0.5">
                       {item.description}
                     </p>
                   )}
