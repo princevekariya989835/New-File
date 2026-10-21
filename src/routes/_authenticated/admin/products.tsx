@@ -194,6 +194,12 @@ function ProductsPage() {
             isActive: editing.status === "ACTIVE",
             sku: editing.sku ?? "",
             slug: editing.slug ?? "",
+            frontShowcaseImage: editing.frontShowcaseImage ?? "",
+            backShowcaseImage: editing.backShowcaseImage ?? "",
+            frontShowcaseTitle: editing.frontShowcaseTitle ?? "FRONT",
+            frontShowcaseSubtitle: editing.frontShowcaseSubtitle ?? "Minimal & Clean",
+            backShowcaseTitle: editing.backShowcaseTitle ?? "BACK",
+            backShowcaseSubtitle: editing.backShowcaseSubtitle ?? "Bold Statement",
           }}
           onCancel={() => setEditing(null)}
           onSubmit={async (values) => {

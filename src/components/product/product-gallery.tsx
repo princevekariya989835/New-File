@@ -13,6 +13,12 @@ export interface ProductGalleryProps {
   productHandle: string;
   price?: number;
   currency?: string;
+  frontShowcaseImage?: string | null;
+  backShowcaseImage?: string | null;
+  frontShowcaseTitle?: string | null;
+  frontShowcaseSubtitle?: string | null;
+  backShowcaseTitle?: string | null;
+  backShowcaseSubtitle?: string | null;
 }
 
 export function ProductGallery({
@@ -23,6 +29,12 @@ export function ProductGallery({
   productHandle,
   price,
   currency = "INR",
+  frontShowcaseImage,
+  backShowcaseImage,
+  frontShowcaseTitle,
+  frontShowcaseSubtitle,
+  backShowcaseTitle,
+  backShowcaseSubtitle,
 }: ProductGalleryProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const safeActiveIndex = Math.min(activeImage, Math.max(0, images.length - 1));
@@ -269,50 +281,86 @@ export function ProductGallery({
             </div>
           )}
 
-          {/* WIDE FRONT / BACK PRESENTATION SECTION (Approved Visual Reference) */}
-          {images.length >= 2 && (
-            <div className="mt-4 sm:mt-5 grid grid-cols-2 gap-3 sm:gap-4 overflow-hidden rounded-2xl md:rounded-3xl border border-border/70 bg-card shadow-xs">
-              {/* FRONT PANEL */}
-              <div
-                onClick={() => onSelectImage(0)}
-                className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
-              >
-                <img
-                  src={images[0].node.url}
-                  alt={`${productTitle} - Front View`}
-                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4">
-                  <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
-                    FRONT
-                  </span>
-                  <span className="text-[11px] sm:text-xs text-white/80 font-medium">
-                    Minimal &amp; Clean
-                  </span>
-                </div>
-              </div>
+          {/* DEDICATED FRONT / BACK SHOWCASE SECTION (Admin-Controlled & Independent of Gallery) */}
+          {(() => {
+            const hasFront = Boolean(frontShowcaseImage?.trim());
+            const hasBack = Boolean(backShowcaseImage?.trim());
+            if (!hasFront && !hasBack) return null;
 
-              {/* BACK PANEL */}
+            const frontTitle = frontShowcaseTitle?.trim() || "FRONT";
+            const frontSub = frontShowcaseSubtitle?.trim() || "Minimal & Clean";
+            const backTitle = backShowcaseTitle?.trim() || "BACK";
+            const backSub = backShowcaseSubtitle?.trim() || "Bold Statement";
+
+            const handleShowcaseClick = (url: string) => {
+              const foundIdx = images.findIndex((img) => img.node.url === url);
+              if (foundIdx >= 0) {
+                onSelectImage(foundIdx);
+              }
+            };
+
+            return (
               <div
-                onClick={() => onSelectImage(1)}
-                className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
+                className={`mt-4 sm:mt-5 grid ${
+                  hasFront && hasBack ? "grid-cols-2" : "grid-cols-1"
+                } gap-3 sm:gap-4 overflow-hidden rounded-2xl md:rounded-3xl border border-border/70 bg-card shadow-xs`}
               >
-                <img
-                  src={images[1].node.url}
-                  alt={`${productTitle} - Back View`}
-                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4 text-right">
-                  <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
-                    BACK
-                  </span>
-                  <span className="text-[11px] sm:text-xs text-white/80 font-medium">
-                    Bold Statement
-                  </span>
-                </div>
+                {/* FRONT PANEL */}
+                {hasFront && (
+                  <div
+                    onClick={() => handleShowcaseClick(frontShowcaseImage!)}
+                    className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
+                  >
+                    <img
+                      src={frontShowcaseImage!}
+                      alt={`${productTitle} - ${frontTitle}`}
+                      className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder-tee.jpg";
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4 pointer-events-none">
+                      <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
+                        {frontTitle}
+                      </span>
+                      <span className="text-[11px] sm:text-xs text-white/80 font-medium">
+                        {frontSub}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* BACK PANEL */}
+                {hasBack && (
+                  <div
+                    onClick={() => handleShowcaseClick(backShowcaseImage!)}
+                    className="group relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-[#F6F5F2] dark:bg-card/40 cursor-pointer"
+                  >
+                    <img
+                      src={backShowcaseImage!}
+                      alt={`${productTitle} - ${backTitle}`}
+                      className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder-tee.jpg";
+                      }}
+                    />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3 sm:p-4 pointer-events-none ${
+                        hasFront ? "text-right" : ""
+                      }`}
+                    >
+                      <span className="text-xs sm:text-sm font-black tracking-widest uppercase text-white">
+                        {backTitle}
+                      </span>
+                      <span className="text-[11px] sm:text-xs text-white/80 font-medium">
+                        {backSub}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

@@ -61,6 +61,12 @@ export type AdminProduct = {
   tags: string[];
   category: string | null;
   sizeStock?: Record<string, number>;
+  frontShowcaseImage?: string | null;
+  backShowcaseImage?: string | null;
+  frontShowcaseTitle?: string | null;
+  frontShowcaseSubtitle?: string | null;
+  backShowcaseTitle?: string | null;
+  backShowcaseSubtitle?: string | null;
 };
 
 export type AdminOrderItem = {
@@ -155,6 +161,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
           p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
           p.images, p.sizes, p.colors, p.color_variants, p.tags, p.stock_quantity, p.is_active, p.category,
           p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
+          p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle,
           COALESCE(
             (
               SELECT jsonb_agg(jsonb_build_object(
@@ -419,6 +426,12 @@ export const adminListProducts = createServerFn({ method: "GET" })
         tags: Array.isArray(p.tags) ? p.tags : [],
         category: p.category ?? null,
         sizeStock: sizeStockByProd.get(String(p.id)) || {},
+        frontShowcaseImage: p.front_showcase_image || null,
+        backShowcaseImage: p.back_showcase_image || null,
+        frontShowcaseTitle: p.front_showcase_title || null,
+        frontShowcaseSubtitle: p.front_showcase_subtitle || null,
+        backShowcaseTitle: p.back_showcase_title || null,
+        backShowcaseSubtitle: p.back_showcase_subtitle || null,
       };
     });
   });
@@ -773,6 +786,15 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       }
     }
 
+    if (typeof values.front_showcase_image === "string" && values.front_showcase_image.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([values.front_showcase_image], userEmail);
+      values.front_showcase_image = persisted[0] || values.front_showcase_image;
+    }
+    if (typeof values.back_showcase_image === "string" && values.back_showcase_image.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([values.back_showcase_image], userEmail);
+      values.back_showcase_image = persisted[0] || values.back_showcase_image;
+    }
+
     const sql = getSql();
     const productId = `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const base = slugify(values.name) || "product";
@@ -782,13 +804,15 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
+            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements,
+            front_showcase_image, back_showcase_image, front_showcase_title, front_showcase_subtitle, back_showcase_title, back_showcase_subtitle
           ) VALUES (
             ${productId}, ${values.name}, ${slug}, ${values.sku || null}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
             ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
-            ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb
+            ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb,
+            ${values.front_showcase_image || null}, ${values.back_showcase_image || null}, ${values.front_showcase_title || null}, ${values.front_showcase_subtitle || null}, ${values.back_showcase_title || null}, ${values.back_showcase_subtitle || null}
           );
         `;
       } catch (colErr: any) {
@@ -981,6 +1005,15 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       }
     }
 
+    if (typeof values.front_showcase_image === "string" && values.front_showcase_image.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([values.front_showcase_image], userEmail);
+      values.front_showcase_image = persisted[0] || values.front_showcase_image;
+    }
+    if (typeof values.back_showcase_image === "string" && values.back_showcase_image.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([values.back_showcase_image], userEmail);
+      values.back_showcase_image = persisted[0] || values.back_showcase_image;
+    }
+
     const sql = getSql();
 
     let updatedRows: any[] = [];
@@ -1009,6 +1042,12 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           care_instructions = ${JSON.stringify(values.care_instructions)}::jsonb,
           manufacturing_info = ${JSON.stringify(values.manufacturing_info)}::jsonb,
           size_measurements = ${JSON.stringify(values.size_measurements)}::jsonb,
+          front_showcase_image = ${values.front_showcase_image || null},
+          back_showcase_image = ${values.back_showcase_image || null},
+          front_showcase_title = ${values.front_showcase_title || null},
+          front_showcase_subtitle = ${values.front_showcase_subtitle || null},
+          back_showcase_title = ${values.back_showcase_title || null},
+          back_showcase_subtitle = ${values.back_showcase_subtitle || null},
           updated_at = NOW()
         WHERE id::text = ${data.productId} OR slug::text = ${data.productId}
         RETURNING id, name, slug, price, stock_quantity, is_active

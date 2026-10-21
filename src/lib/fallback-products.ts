@@ -106,6 +106,13 @@ export interface ProductRow {
   manufacturing_info?: ManufacturingInfo;
   size_measurements?: GarmentMeasurement[];
   color_variants?: ProductColorVariant[];
+  sku?: string | null;
+  front_showcase_image?: string | null;
+  back_showcase_image?: string | null;
+  front_showcase_title?: string | null;
+  front_showcase_subtitle?: string | null;
+  back_showcase_title?: string | null;
+  back_showcase_subtitle?: string | null;
 }
 
 export const FALLBACK_PRODUCTS: ProductRow[] = [
@@ -968,6 +975,12 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       "/products/satoru-gojo-white-3.jpg",
       "/products/satoru-gojo-white-4.jpg",
     ],
+    front_showcase_image: "/products/satoru-gojo-white-1.jpg",
+    back_showcase_image: "/products/satoru-gojo-white-2.jpg",
+    front_showcase_title: "FRONT",
+    front_showcase_subtitle: "Minimal & Clean",
+    back_showcase_title: "BACK",
+    back_showcase_subtitle: "Bold Statement",
     category: "T-Shirts",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: ["White"],
@@ -1095,6 +1108,12 @@ export const FALLBACK_PRODUCTS: ProductRow[] = [
       "/products/anime-swordsman-2.jpg",
       "/products/anime-swordsman-3.jpg",
     ],
+    front_showcase_image: "/products/anime-swordsman-1.jpg",
+    back_showcase_image: "/products/anime-swordsman-2.jpg",
+    front_showcase_title: "FRONT",
+    front_showcase_subtitle: "Minimal & Clean",
+    back_showcase_title: "BACK",
+    back_showcase_subtitle: "Bold Statement",
     category: "T-Shirts",
     sizes: ["S", "M", "L", "XL", "XXL"],
     colors: ["Beige"],

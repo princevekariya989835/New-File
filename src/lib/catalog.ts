@@ -113,6 +113,12 @@ export interface CatalogProductNode {
   images: { edges: Array<{ node: CatalogImage }> };
   variants: { edges: Array<{ node: CatalogVariant }> };
   options: Array<{ name: string; values: string[] }>;
+  frontShowcaseImage?: string | null;
+  backShowcaseImage?: string | null;
+  frontShowcaseTitle?: string | null;
+  frontShowcaseSubtitle?: string | null;
+  backShowcaseTitle?: string | null;
+  backShowcaseSubtitle?: string | null;
 }
 
 export interface CatalogProduct {
@@ -426,6 +432,12 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       variants: { edges: variants.map((node) => ({ node })) },
       colorVariants,
       options,
+      frontShowcaseImage: row.front_showcase_image || (row as any).frontShowcaseImage || null,
+      backShowcaseImage: row.back_showcase_image || (row as any).backShowcaseImage || null,
+      frontShowcaseTitle: row.front_showcase_title || (row as any).frontShowcaseTitle || null,
+      frontShowcaseSubtitle: row.front_showcase_subtitle || (row as any).frontShowcaseSubtitle || null,
+      backShowcaseTitle: row.back_showcase_title || (row as any).backShowcaseTitle || null,
+      backShowcaseSubtitle: row.back_showcase_subtitle || (row as any).backShowcaseSubtitle || null,
     },
   };
 }
@@ -797,6 +809,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
             p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
             p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
             p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(
@@ -1016,6 +1029,13 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
         care_instructions: Array.isArray(p.care_instructions) ? p.care_instructions : typeof p.care_instructions === "string" ? JSON.parse(p.care_instructions) : [],
         manufacturing_info: p.manufacturing_info ? (typeof p.manufacturing_info === "string" ? JSON.parse(p.manufacturing_info) : p.manufacturing_info) : null,
         size_measurements: Array.isArray(p.size_measurements) ? p.size_measurements : typeof p.size_measurements === "string" ? JSON.parse(p.size_measurements) : [],
+        sku: p.sku || null,
+        front_showcase_image: p.front_showcase_image || null,
+        back_showcase_image: p.back_showcase_image || null,
+        front_showcase_title: p.front_showcase_title || null,
+        front_showcase_subtitle: p.front_showcase_subtitle || null,
+        back_showcase_title: p.back_showcase_title || null,
+        back_showcase_subtitle: p.back_showcase_subtitle || null,
       };
 
       const result = toCatalogProduct(row).node;

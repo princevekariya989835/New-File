@@ -556,6 +556,12 @@ function ProductPage() {
             productHandle={p.handle}
             price={sellingPrice}
             currency={currency}
+            frontShowcaseImage={p.frontShowcaseImage}
+            backShowcaseImage={p.backShowcaseImage}
+            frontShowcaseTitle={p.frontShowcaseTitle}
+            frontShowcaseSubtitle={p.frontShowcaseSubtitle}
+            backShowcaseTitle={p.backShowcaseTitle}
+            backShowcaseSubtitle={p.backShowcaseSubtitle}
           />
         </div>
 

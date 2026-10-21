@@ -73,6 +73,12 @@ export type ProductFormValues = {
   sizeMeasurements?: GarmentMeasurement[];
   sku?: string;
   slug?: string;
+  frontShowcaseImage?: string;
+  backShowcaseImage?: string;
+  frontShowcaseTitle?: string;
+  frontShowcaseSubtitle?: string;
+  backShowcaseTitle?: string;
+  backShowcaseSubtitle?: string;
 };
 
 export function StatCard({ label, value }: { label: string; value: number }) {
@@ -431,6 +437,474 @@ export function ImageManager({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Dedicated Product Showcase Images Editor (FRONT & BACK)
+ * Independent of the main product gallery order.
+ */
+export function ProductShowcaseImagesEditor({
+  frontImage = "",
+  backImage = "",
+  frontTitle = "FRONT",
+  frontSubtitle = "Minimal & Clean",
+  backTitle = "BACK",
+  backSubtitle = "Bold Statement",
+  availableImages = [],
+  onChangeFrontImage,
+  onChangeBackImage,
+  onChangeFrontTitle,
+  onChangeFrontSubtitle,
+  onChangeBackTitle,
+  onChangeBackSubtitle,
+}: {
+  frontImage?: string;
+  backImage?: string;
+  frontTitle?: string;
+  frontSubtitle?: string;
+  backTitle?: string;
+  backSubtitle?: string;
+  availableImages?: string[];
+  onChangeFrontImage: (url: string) => void;
+  onChangeBackImage: (url: string) => void;
+  onChangeFrontTitle: (title: string) => void;
+  onChangeFrontSubtitle: (sub: string) => void;
+  onChangeBackTitle: (title: string) => void;
+  onChangeBackSubtitle: (sub: string) => void;
+}) {
+  const frontFileRef = useRef<HTMLInputElement>(null);
+  const backFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingFront, setUploadingFront] = useState(false);
+  const [uploadingBack, setUploadingBack] = useState(false);
+  const [showGalleryPickerFront, setShowGalleryPickerFront] = useState(false);
+  const [showGalleryPickerBack, setShowGalleryPickerBack] = useState(false);
+  const [manualUrlFront, setManualUrlFront] = useState("");
+  const [manualUrlBack, setManualUrlBack] = useState("");
+
+  const handleUploadFront = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFront(true);
+    try {
+      const url = await uploadProductImage(file);
+      if (url) {
+        onChangeFrontImage(url);
+        toast.success("Front showcase image uploaded successfully");
+      }
+    } catch (err) {
+      toast.error((err as Error).message || "Upload failed");
+    } finally {
+      setUploadingFront(false);
+      if (frontFileRef.current) frontFileRef.current.value = "";
+    }
+  };
+
+  const handleUploadBack = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBack(true);
+    try {
+      const url = await uploadProductImage(file);
+      if (url) {
+        onChangeBackImage(url);
+        toast.success("Back showcase image uploaded successfully");
+      }
+    } catch (err) {
+      toast.error((err as Error).message || "Upload failed");
+    } finally {
+      setUploadingBack(false);
+      if (backFileRef.current) backFileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div>
+          <h4 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-red text-[10px] font-bold text-white">
+              ★
+            </span>
+            Product Showcase Images (FRONT &amp; BACK)
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Explicitly assign which images appear in the split FRONT and BACK showcase section below the main gallery.
+            These assignments are persistent and independent of the gallery order.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        {/* PANEL A: FRONT SHOWCASE IMAGE */}
+        <div className="space-y-3.5 rounded-xl border border-border/70 bg-secondary/20 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-brand-red" />
+              1. Front Showcase Image (Left Panel)
+            </span>
+            {frontImage && (
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                Active
+              </span>
+            )}
+          </div>
+
+          {/* Visual Preview */}
+          <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-border/80 bg-neutral-100 dark:bg-neutral-900 shadow-xs flex items-center justify-center">
+            {frontImage ? (
+              <>
+                <img
+                  src={frontImage}
+                  alt="Front Showcase Preview"
+                  className="h-full w-full object-cover object-center"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder-tee.jpg";
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3.5 pointer-events-none">
+                  <span className="text-xs font-black tracking-widest uppercase text-white">
+                    {frontTitle || "FRONT"}
+                  </span>
+                  <span className="text-[11px] text-white/80 font-medium">
+                    {frontSubtitle || "Minimal & Clean"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                <ImageIcon className="h-8 w-8 stroke-1 text-muted-foreground/60 mb-2" />
+                <p className="text-xs font-semibold text-foreground">No Front Image Selected</p>
+                <p className="text-[11px] text-muted-foreground max-w-[220px] mt-0.5">
+                  Upload a photo or select from existing gallery images below.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Controls: Upload, Select from Gallery, URL */}
+          <div className="space-y-2">
+            <input
+              type="file"
+              ref={frontFileRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleUploadFront}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploadingFront}
+                onClick={() => frontFileRef.current?.click()}
+                className="text-xs h-8 gap-1.5"
+              >
+                {uploadingFront ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                <span>{frontImage ? "Replace Photo" : "Upload Front Photo"}</span>
+              </Button>
+
+              {availableImages.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGalleryPickerFront(!showGalleryPickerFront)}
+                  className="text-xs h-8 gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-brand-red" />
+                  <span>Choose from Gallery ({availableImages.length})</span>
+                </Button>
+              )}
+
+              {frontImage && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onChangeFrontImage("")}
+                  className="text-xs h-8 text-destructive hover:bg-destructive/10 gap-1 ml-auto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Quick Gallery Picker Drawer */}
+            {showGalleryPickerFront && availableImages.length > 0 && (
+              <div className="p-2.5 rounded-lg border border-border/80 bg-background/80 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+                  <span>Click any image to set as Front Showcase:</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowGalleryPickerFront(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  {availableImages.map((imgUrl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        onChangeFrontImage(imgUrl);
+                        setShowGalleryPickerFront(false);
+                        toast.success("Front showcase image updated from gallery");
+                      }}
+                      className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all cursor-pointer ${
+                        frontImage === imgUrl
+                          ? "border-brand-red ring-2 ring-brand-red/30 scale-105"
+                          : "border-border hover:border-foreground/50 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <img src={imgUrl} alt={`Gallery ${i}`} className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual URL Input Option */}
+            <div className="flex gap-2 pt-1">
+              <Input
+                placeholder="Or paste front image URL / media ID…"
+                value={manualUrlFront}
+                onChange={(e) => setManualUrlFront(e.target.value)}
+                className="h-8 text-xs font-mono"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!manualUrlFront.trim()}
+                onClick={() => {
+                  onChangeFrontImage(manualUrlFront.trim());
+                  setManualUrlFront("");
+                  toast.success("Front image URL applied");
+                }}
+                className="h-8 px-3 text-xs"
+              >
+                Set
+              </Button>
+            </div>
+          </div>
+
+          {/* Heading & Subtitle Inputs */}
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+            <div>
+              <Label className="text-[11px] font-semibold text-muted-foreground">Front Heading</Label>
+              <Input
+                value={frontTitle}
+                onChange={(e) => onChangeFrontTitle(e.target.value)}
+                placeholder="FRONT"
+                className="mt-1 h-8 text-xs font-bold"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold text-muted-foreground">Front Subtitle</Label>
+              <Input
+                value={frontSubtitle}
+                onChange={(e) => onChangeFrontSubtitle(e.target.value)}
+                placeholder="Minimal & Clean"
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* PANEL B: BACK SHOWCASE IMAGE */}
+        <div className="space-y-3.5 rounded-xl border border-border/70 bg-secondary/20 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-brand-red" />
+              2. Back Showcase Image (Right Panel)
+            </span>
+            {backImage && (
+              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                Active
+              </span>
+            )}
+          </div>
+
+          {/* Visual Preview */}
+          <div className="relative aspect-[16/10] overflow-hidden rounded-xl border border-border/80 bg-neutral-100 dark:bg-neutral-900 shadow-xs flex items-center justify-center">
+            {backImage ? (
+              <>
+                <img
+                  src={backImage}
+                  alt="Back Showcase Preview"
+                  className="h-full w-full object-cover object-center"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder-tee.jpg";
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-3.5 text-right pointer-events-none">
+                  <span className="text-xs font-black tracking-widest uppercase text-white">
+                    {backTitle || "BACK"}
+                  </span>
+                  <span className="text-[11px] text-white/80 font-medium">
+                    {backSubtitle || "Bold Statement"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                <ImageIcon className="h-8 w-8 stroke-1 text-muted-foreground/60 mb-2" />
+                <p className="text-xs font-semibold text-foreground">No Back Image Selected</p>
+                <p className="text-[11px] text-muted-foreground max-w-[220px] mt-0.5">
+                  Upload a photo or select from existing gallery images below.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Controls: Upload, Select from Gallery, URL */}
+          <div className="space-y-2">
+            <input
+              type="file"
+              ref={backFileRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleUploadBack}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploadingBack}
+                onClick={() => backFileRef.current?.click()}
+                className="text-xs h-8 gap-1.5"
+              >
+                {uploadingBack ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                <span>{backImage ? "Replace Photo" : "Upload Back Photo"}</span>
+              </Button>
+
+              {availableImages.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowGalleryPickerBack(!showGalleryPickerBack)}
+                  className="text-xs h-8 gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-brand-red" />
+                  <span>Choose from Gallery ({availableImages.length})</span>
+                </Button>
+              )}
+
+              {backImage && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onChangeBackImage("")}
+                  className="text-xs h-8 text-destructive hover:bg-destructive/10 gap-1 ml-auto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Quick Gallery Picker Drawer */}
+            {showGalleryPickerBack && availableImages.length > 0 && (
+              <div className="p-2.5 rounded-lg border border-border/80 bg-background/80 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+                  <span>Click any image to set as Back Showcase:</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowGalleryPickerBack(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  {availableImages.map((imgUrl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        onChangeBackImage(imgUrl);
+                        setShowGalleryPickerBack(false);
+                        toast.success("Back showcase image updated from gallery");
+                      }}
+                      className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all cursor-pointer ${
+                        backImage === imgUrl
+                          ? "border-brand-red ring-2 ring-brand-red/30 scale-105"
+                          : "border-border hover:border-foreground/50 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <img src={imgUrl} alt={`Gallery ${i}`} className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual URL Input Option */}
+            <div className="flex gap-2 pt-1">
+              <Input
+                placeholder="Or paste back image URL / media ID…"
+                value={manualUrlBack}
+                onChange={(e) => setManualUrlBack(e.target.value)}
+                className="h-8 text-xs font-mono"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!manualUrlBack.trim()}
+                onClick={() => {
+                  onChangeBackImage(manualUrlBack.trim());
+                  setManualUrlBack("");
+                  toast.success("Back image URL applied");
+                }}
+                className="h-8 px-3 text-xs"
+              >
+                Set
+              </Button>
+            </div>
+          </div>
+
+          {/* Heading & Subtitle Inputs */}
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+            <div>
+              <Label className="text-[11px] font-semibold text-muted-foreground">Back Heading</Label>
+              <Input
+                value={backTitle}
+                onChange={(e) => onChangeBackTitle(e.target.value)}
+                placeholder="BACK"
+                className="mt-1 h-8 text-xs font-bold"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold text-muted-foreground">Back Subtitle</Label>
+              <Input
+                value={backSubtitle}
+                onChange={(e) => onChangeBackSubtitle(e.target.value)}
+                placeholder="Bold Statement"
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1214,6 +1688,12 @@ const EMPTY_FORM: ProductFormValues = {
   sizeMeasurements: [],
   sku: "",
   slug: "",
+  frontShowcaseImage: "",
+  backShowcaseImage: "",
+  frontShowcaseTitle: "FRONT",
+  frontShowcaseSubtitle: "Minimal & Clean",
+  backShowcaseTitle: "BACK",
+  backShowcaseSubtitle: "Bold Statement",
 };
 
 export function ProductForm({
@@ -1249,6 +1729,12 @@ export function ProductForm({
     detailsHtml: initial?.detailsHtml ?? "",
     sku: initial?.sku ?? "",
     slug: initial?.slug ?? "",
+    frontShowcaseImage: initial?.frontShowcaseImage ?? "",
+    backShowcaseImage: initial?.backShowcaseImage ?? "",
+    frontShowcaseTitle: initial?.frontShowcaseTitle ?? "FRONT",
+    frontShowcaseSubtitle: initial?.frontShowcaseSubtitle ?? "Minimal & Clean",
+    backShowcaseTitle: initial?.backShowcaseTitle ?? "BACK",
+    backShowcaseSubtitle: initial?.backShowcaseSubtitle ?? "Bold Statement",
   }));
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
     if (initial?.sizeStock) return initial.sizeStock;
@@ -1359,6 +1845,12 @@ export function ProductForm({
             sizeStock,
             sku: values.sku?.trim() || undefined,
             slug: values.slug?.trim() || undefined,
+            frontShowcaseImage: values.frontShowcaseImage?.trim() || undefined,
+            backShowcaseImage: values.backShowcaseImage?.trim() || undefined,
+            frontShowcaseTitle: values.frontShowcaseTitle?.trim() || "FRONT",
+            frontShowcaseSubtitle: values.frontShowcaseSubtitle?.trim() || "Minimal & Clean",
+            backShowcaseTitle: values.backShowcaseTitle?.trim() || "BACK",
+            backShowcaseSubtitle: values.backShowcaseSubtitle?.trim() || "Bold Statement",
           });
         } catch (err) {
           toast.error((err as Error).message || "Something went wrong");
@@ -1547,12 +2039,29 @@ export function ProductForm({
         <ImageManager images={values.images} onChange={(v) => set("images", v)} />
       </div>
 
-      {/* 5. PRODUCT COLORS / COLOR VARIANTS */}
+      {/* 5. PRODUCT SHOWCASE IMAGES (FRONT & BACK) */}
+      <ProductShowcaseImagesEditor
+        frontImage={values.frontShowcaseImage}
+        backImage={values.backShowcaseImage}
+        frontTitle={values.frontShowcaseTitle}
+        frontSubtitle={values.frontShowcaseSubtitle}
+        backTitle={values.backShowcaseTitle}
+        backSubtitle={values.backShowcaseSubtitle}
+        availableImages={values.images}
+        onChangeFrontImage={(url) => set("frontShowcaseImage", url)}
+        onChangeBackImage={(url) => set("backShowcaseImage", url)}
+        onChangeFrontTitle={(val) => set("frontShowcaseTitle", val)}
+        onChangeFrontSubtitle={(val) => set("frontShowcaseSubtitle", val)}
+        onChangeBackTitle={(val) => set("backShowcaseTitle", val)}
+        onChangeBackSubtitle={(val) => set("backShowcaseSubtitle", val)}
+      />
+
+      {/* 6. PRODUCT COLORS / COLOR VARIANTS */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-              5
+              6
             </span>
             Product Colors / Color Variants
           </h4>
@@ -1572,11 +2081,11 @@ export function ProductForm({
         />
       </div>
 
-      {/* 6. VARIANTS / SIZES */}
+      {/* 7. VARIANTS & OPTIONS */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-            6
+            7
           </span>
           Variants & Options
         </h4>
@@ -1607,11 +2116,11 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* 6. INVENTORY */}
+      {/* 8. INVENTORY */}
       <div className="space-y-4 rounded-xl border border-border/80 bg-card/60 p-4 md:p-5">
         <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
-            6
+            8
           </span>
           Inventory & Stock Allocation
         </h4>
@@ -1650,25 +2159,25 @@ export function ProductForm({
         )}
       </div>
 
-      {/* 7. SIZE MEASUREMENTS */}
+      {/* 9. SIZE MEASUREMENTS */}
       <ProductMeasurementsEditor
         measurements={values.sizeMeasurements ?? []}
         onChange={(next) => set("sizeMeasurements", next)}
       />
 
-      {/* 8. KEY HIGHLIGHTS */}
+      {/* 10. KEY HIGHLIGHTS */}
       <KeyHighlightsEditor
         highlights={values.highlights ?? []}
         onChange={(next) => set("highlights", next)}
       />
 
-      {/* 9. PRODUCT SPECIFICATIONS */}
+      {/* 11. PRODUCT SPECIFICATIONS */}
       <ProductSpecificationsEditor
         specifications={values.specifications ?? []}
         onChange={(next) => set("specifications", next)}
       />
 
-      {/* 10. PRODUCT DESCRIPTION */}
+      {/* 12. PRODUCT DESCRIPTION */}
       <ProductDescriptionEditor
         description={values.description}
         detailsHtml={values.detailsHtml}
@@ -1676,19 +2185,19 @@ export function ProductForm({
         onChangeDetailsHtml={(next) => set("detailsHtml", next)}
       />
 
-      {/* 11. KEY FEATURES */}
+      {/* 13. KEY FEATURES & BENEFITS */}
       <ProductFeaturesEditor
         features={values.features ?? []}
         onChange={(next) => set("features", next)}
       />
 
-      {/* 12. CARE INSTRUCTIONS */}
+      {/* 14. CARE INSTRUCTIONS */}
       <ProductCareEditor
         careInstructions={values.careInstructions ?? []}
         onChange={(next) => set("careInstructions", next)}
       />
 
-      {/* 13. MANUFACTURING INFORMATION */}
+      {/* 15. MANUFACTURING INFORMATION */}
       <ProductManufacturingEditor
         manufacturingInfo={values.manufacturingInfo}
         onChange={(next) => set("manufacturingInfo", next)}
