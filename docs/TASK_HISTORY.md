@@ -4,6 +4,30 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 6: Mobile Navigation Drawer Redesign & Implementation
+- **Date**: 2026-10-21
+- **Objective**: Redesign and implement the mobile navigation drawer of the RIOTOUS e-commerce store (`riotous.store`), replacing the unfinished full-screen overlay with a premium, luxury-streetwear slide-in drawer inspired by the brand's visual identity and editorial design reference.
+- **Files Modified / Created**:
+  - `src/components/mobile-nav-drawer.tsx`: Created the complete mobile navigation drawer component featuring:
+    - **Header**: Trademark RIOTOUS logo with red "O"s (`RIOTOUS`), letterspaced subtitle tagline "WEAR THE NOISE", and an aligned close (`X`) button.
+    - **Search Bar**: Full-width rounded input with magnifying glass and "Search products..." placeholder, seamlessly connecting to the existing live catalog search dialog (`SearchDialog`).
+    - **Primary Navigation**: 4 clean rows with icons and right chevrons: Shop (soft red background pill with red icon & chevron), Design Your Own (pencil icon connecting to `/design`), About (info icon connecting to `/about`), and Contact (phone icon connecting to `/contact`).
+    - **Account Section**: Compact card layout handling both signed-in state (user initial avatar, account name, "Signed in", Account Settings link, and Logout action) and guest state ("Welcome to RIOTOUS" with "Sign In / Create Account" link connecting to `/auth`).
+    - **Quick-Access Cards**: 3 equal-width cards for My Orders (`/account/orders`), Wishlist (`/account/favorites`), and Saved (`/account/favorites`).
+    - **Promotional Offer Card**: Responsive promotional card for "BUY 2 GET 1 FREE" / "SPECIAL OFFER" with "SHOP NOW" CTA button, angled black graphic streetwear tee, and red graffiti crown accent, wired to `config.buy2get1Offer`.
+    - **Footer & Watermark**: Official brand social links (Instagram, YouTube, Pinterest), "STAY CONNECTED →" link, and a subtle RIOTOUS bird mascot vector watermark in the drawer background.
+    - **Drawer Behavior**: Smooth slide-in from left, backdrop blur overlay, automatic body scroll lock/unlock, Escape key closing, and touch-friendly mobile safe areas.
+  - `src/components/site-header.tsx`: Replaced inline legacy mobile menu markup with `<MobileNavDrawer />`, maintaining clean separation of concerns and keeping desktop header completely untouched.
+  - `public/assets/promo-tee-banner.jpg`: Added high-resolution luxury streetwear graphic tee banner asset.
+  - `docs/TASK_HISTORY.md` & `docs/CHANGELOG.md`: Updated development task history and changelog.
+- **Tests Performed**:
+  - `npm run build`: Verified production build succeeds with zero TypeScript errors and complete bundling.
+  - Validated HTTP 200 response on local development server.
+  - Verified regression protection: Cart drawer, desktop navigation, search modal, auth flow, and checkout remained completely intact.
+- **Outcome**: Delivered a luxury-streetwear mobile navigation drawer matching the visual reference with zero regressions to desktop navigation or backend logic.
+
+---
+
 ## Task 5: Production Login Security, Password Recovery & Private Email Notifications
 - **Date**: 2026-10-20
 - **Objective**: Implement production-grade brute-force protection, account-level and IP rate limiting, cryptographic single-use password recovery tokens, and private administrator email notifications (`ADMIN_NOTIFICATION_EMAIL`) via Brevo, while preserving 100% of existing customer, admin, checkout, and inventory workflows.

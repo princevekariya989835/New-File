@@ -4,7 +4,21 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ---
 
-## [Current Release] — 2026-10-19
+## [Current Release] — 2026-10-21
+
+### Mobile Navigation Drawer Redesign & Implementation
+- **Luxury-Streetwear Editorial Drawer**: Replaced legacy mobile overlay with a slide-in drawer (`src/components/mobile-nav-drawer.tsx`) inspired by the brand's aesthetic.
+- **Brand Header**: Signature red-and-black RIOTOUS typography (`RIOTOUS`), letterspaced "WEAR THE NOISE" tagline, and quick-dismiss close button.
+- **Integrated Product Search**: Rounded pill input with magnifying glass icon connecting directly to the store's instant catalog search modal.
+- **Structured Primary Navigation**: 4 aligned navigation rows with icons and chevrons, featuring soft-red highlighting on the "Shop" entry.
+- **Stateful Account Card**: Dual-state card displaying personalized initial avatar, customer name, signed-in indicator, account settings, and logout for members, or welcoming prompt linking to auth for guests.
+- **Quick-Access Shortcuts**: 3-column cards for "My Orders", "Wishlist", and "Saved" with clean hover/touch responses.
+- **Promotional Offer Card**: Responsive "BUY 2 GET 1 FREE" promotional banner with "SHOP NOW" CTA, streetwear t-shirt visual, and red graffiti crown accent.
+- **Compact Brand Footer & Watermark**: Official brand social links, "STAY CONNECTED →", and subtle vector mascot watermark.
+
+---
+
+## [Release] — 2026-10-19
 
 ### Shop Page & Storefront Usability Audit Optimizations (9 Fixes)
 - **Consolidated Button Styles (Fix 1)**: Unified button primitives in `src/components/ui/button.tsx` into 3 standardized variants (Primary, Secondary, Ghost/Outline) with consistent `rounded-full` curvature, padding, font weights, and hover/active states.

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { CartDrawer } from "./cart-drawer";
 import { SearchDialog } from "./search-dialog";
+import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { AnnouncementBar } from "./announcement-bar";
 import { useCartStore } from "@/stores/cart-store";
 import { useAuth } from "@/hooks/use-auth";
@@ -330,139 +331,16 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
         </div>
       </header>
 
-      {/* Mobile nav */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-[60] bg-background md:hidden animate-in fade-in duration-200">
-          <div className="flex h-16 items-center justify-between px-6">
-            <BrandName className="text-xl font-black tracking-[0.2em]" />
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-brand-red hover:text-white"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <nav className="flex flex-col gap-1 px-6 pt-4 overflow-y-auto max-h-[calc(100vh-80px)]">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileOpen(false);
-                setSearchOpen(true);
-              }}
-              className="flex items-center gap-3 w-full border border-border/80 bg-white/5 rounded-xl px-4 py-3 text-left text-base font-medium text-white hover:bg-white/10 transition-colors mb-2 cursor-pointer"
-            >
-              <Search className="h-5 w-5 text-brand-red" />
-              <span>Search products…</span>
-            </button>
-
-            {activeNav.map((n) =>
-              (n as any).isExternal ? (
-                <a
-                  key={n.to}
-                  href={n.to}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => setMobileOpen(false)}
-                  className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
-                >
-                  {n.label}
-                </a>
-              ) : (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  onClick={() => setMobileOpen(false)}
-                  activeProps={{ className: "text-brand-red font-bold" }}
-                  className="border-b border-border/60 py-4 text-2xl font-semibold tracking-tight transition-colors hover:text-brand-red"
-                >
-                  {n.label}
-                </Link>
-              ),
-            )}
-
-            <div className="pt-6 pb-12 border-t border-border mt-4 flex flex-col gap-3">
-              {user ? (
-                <>
-                  <div className="flex items-center gap-3 px-2 py-2 rounded-lg bg-white/5 mb-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-red text-sm font-bold text-white">
-                      {initials}
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-sm font-semibold truncate text-white">{user.email}</p>
-                      <p className="text-xs opacity-60">Signed in account</p>
-                    </div>
-                  </div>
-                  <Link
-                    to="/account/orders"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
-                  >
-                    <Package className="h-5 w-5 text-brand-red" />
-                    My orders
-                  </Link>
-                  <Link
-                    to="/account/favorites"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
-                  >
-                    <Heart className="h-5 w-5 text-brand-red" />
-                    Favorites
-                  </Link>
-                  <Link
-                    to="/account/reviews"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
-                  >
-                    <Star className="h-5 w-5 text-brand-red" />
-                    My reviews
-                  </Link>
-                  <Link
-                    to="/account/returns"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
-                  >
-                    <RotateCcw className="h-5 w-5 text-brand-red" />
-                    Returns & support
-                  </Link>
-                  {isAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 py-3 px-3 rounded-lg text-base font-medium text-white hover:bg-white/5"
-                    >
-                      <ShieldCheck className="h-5 w-5 text-brand-red" />
-                      Admin panel
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => {
-                      setMobileOpen(false);
-                      handleSignOut();
-                    }}
-                    className="mt-4 flex items-center justify-center gap-2 w-full py-3.5 px-4 rounded-xl bg-brand-red text-white font-semibold shadow-lg hover:bg-brand-red/90 transition-colors"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to="/auth"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full py-3.5 px-4 rounded-xl bg-brand-red text-white font-semibold shadow-lg hover:bg-brand-red/90 transition-colors text-base"
-                  activeProps={{
-                    className: "ring-2 ring-white/70 bg-brand-red text-white font-bold",
-                  }}
-                >
-                  <User className="h-5 w-5" />
-                  Sign In / Register
-                </Link>
-              )}
-            </div>
-          </nav>
-        </div>
-      )}
+      {/* Mobile navigation drawer */}
+      <MobileNavDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        onOpenSearch={() => {
+          setMobileOpen(false);
+          setSearchOpen(true);
+        }}
+        config={config}
+      />
     </>
   );
 }
