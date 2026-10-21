@@ -4,6 +4,29 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 8: Complete Product Page Admin Control & Front/Back Showcase Image Fix
+- **Date**: 2026-10-21
+- **Objective**: Implement a complete, persistent admin editing system for every individual product page from Admin Panel → Products → Edit Product, and fix the front/back showcase section so administrators can independently select, upload, preview, replace, or remove which image appears on the FRONT and which appears on the BACK, with custom titles and subtitles, decoupled completely from the main product gallery.
+- **Files Modified / Created**:
+  - `src/lib/db.ts`: Added schema migrations for `front_showcase_image`, `back_showcase_image`, `front_showcase_title`, `front_showcase_subtitle`, `back_showcase_title`, `back_showcase_subtitle` columns in `products` table. Enhanced local mock SQL engine in `UPDATE products` to parse all column assignments in SET clauses.
+  - `src/lib/fallback-products.ts`: Added `sku` and all 6 showcase fields to `ProductRow` interface and fallback products.
+  - `src/lib/catalog.ts`: Added showcase fields to `CatalogProductNode`, mapped columns in `mapDbProduct` and `getProductByHandleDirect`, and updated cache invalidation.
+  - `src/lib/admin-utils.ts`: Added showcase properties to `ProductInput` and normalized them in `normalizeProductInput`.
+  - `src/lib/admin.functions.ts`: Added showcase fields to `AdminProduct` type, `adminListProducts`, `adminCreateProduct`, and `adminUpdateProduct`. Added automatic base64 persistence to `website_media` table.
+  - `src/components/admin/product-ui.tsx`: Created `ProductShowcaseImagesEditor` with live image previews, dynamic badge overlays, file uploader, gallery quick-picker drawer, manual URL inputs, replace, and remove actions. Added Section 5 into `ProductForm`, updated initial state, form values, and `onSubmit`.
+  - `src/routes/_authenticated/admin/products.tsx`: Wired showcase fields from `AdminProduct` into `ProductForm` initial state when editing.
+  - `src/components/product/product-gallery.tsx`: Refactored showcase rendering to consume `frontShowcaseImage`, `backShowcaseImage`, `frontShowcaseTitle`, `frontShowcaseSubtitle`, `backShowcaseTitle`, and `backShowcaseSubtitle` independently from `images[0]` and `images[1]`. Gracefully hides missing panels or section when unassigned.
+  - `src/routes/product.$handle.tsx`: Passed all 6 showcase properties to `<ProductGallery />`.
+  - `scripts/test-product-showcase-complete.mjs`: Automated 10-point test suite covering database schema, independent image assignment, non-overwriting behavior on single-image replace, graceful removal of single image, independence from gallery reordering, and live storefront HTTP SSR verification.
+  - `docs/CHANGELOG.md` & `docs/TASK_HISTORY.md`: Documented all updates, persistence mechanisms, and verification outcomes.
+- **Tests Performed**:
+  - `npx tsx scripts/test-product-showcase-complete.mjs`: All 10 tests passed with exit code 0.
+  - `node scripts/test-product-ssr.mjs`: All storefront SSR regression tests passed with exit code 0.
+  - `npm run build`: Production build succeeded with exit code 0, complete TypeScript validation, and clean Nitro Cloudflare module packaging.
+- **Outcome**: Administrators can open any product in Admin Panel → Edit Product, independently assign FRONT and BACK showcase images and titles/subtitles, save changes, and have those exact changes immediately and persistently reflected on the storefront with zero regressions to other features.
+
+---
+
 ## Task 7: Complete Storewide Product Page Redesign + Fully Admin-Managed Product Content
 - **Date**: 2026-10-21
 - **Objective**: Redesign the product detail experience for every existing and future product on RIOTOUS (`riotous.store`), faithfully reproducing the approved visual reference layout (desktop thumbnail rail with red active outline, 4:5 main image, selling price in prominent red, MRP, discount percentage badge, savings amount, promotional offer card with angled t-shirt graphic, 4 compact product benefit icons, FRONT / BACK split presentation strip, size selector with size guide, quantity selector with soft-red stock pill, side-by-side Add to Cart and Buy Now buttons, 3-item reassurance row, 4-card secondary feature strip, tabbed info sections with detail photo, customer reviews, related products "COMPLETE YOUR FIT", and mobile responsive accordions), strictly preserve the live header and footer, and ensure all product content can be managed via the administrator panel.

@@ -6,6 +6,27 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-10-21
 
+### Complete Product Page Admin Control & Front/Back Showcase Image Fix
+- **Dedicated FRONT & BACK Showcase Admin Controls**:
+  - Added a dedicated "Product Showcase Images (FRONT & BACK)" editor section in Admin Panel → Products → Edit Product.
+  - Provided independent controls for both Front Showcase and Back Showcase images: direct file upload (`uploadProductImage`), gallery quick-picker drawer (selecting any image from the uploaded product gallery without re-upload), manual URL/media ID input, live visual card previews with dynamic badge overlays, image replace button, and image removal.
+  - Added customizable Heading (defaults to "FRONT" and "BACK") and Subtitle (defaults to "Minimal & Clean" and "Bold Statement") fields.
+- **Complete Invariant Decoupling from Gallery**:
+  - Refactored `ProductGallery` (`src/components/product/product-gallery.tsx`) so that FRONT and BACK showcase panels strictly render from dedicated database fields `front_showcase_image` and `back_showcase_image` rather than inferring from gallery array indices `images[0]` and `images[1]`.
+  - Reordering or modifying the main gallery no longer changes the showcase assignments.
+  - Changing front image does not overwrite back image; changing back image does not overwrite front image; removing one image gracefully keeps the other active.
+  - If neither image is assigned, the showcase section is cleanly omitted without displaying random pictures or placeholders.
+- **Database Schema & Runtime Storage**:
+  - Added nullable columns `front_showcase_image`, `back_showcase_image`, `front_showcase_title`, `front_showcase_subtitle`, `back_showcase_title`, `back_showcase_subtitle` to `products` table in `ensureDbSchema()` (`src/lib/db.ts`).
+  - Added mapping and persistence across `ProductRow`, `CatalogProductNode`, `adminListProducts`, `adminCreateProduct`, `adminUpdateProduct`, and `mapDbProduct`.
+  - Enhanced local mock SQL engine in `src/lib/db.ts` to parse all column assignments in `UPDATE products SET ...` clauses.
+  - Base64 data URLs uploaded through the admin panel are automatically persisted to `website_media` table streaming endpoint `/api/media/:id`.
+  - Cache invalidation via `invalidateCatalogCache()` ensures immediate real-time reflection across visitor and authenticated edge sessions.
+
+---
+
+## [Release] — 2026-10-21
+
 ### Complete Storewide Product Page Redesign + Fully Admin-Managed Product Content
 - **Single Reusable Template for Every Product**: Fully refactored `src/routes/product.$handle.tsx` into a shared, data-driven template serving every existing and future product across all categories without category-specific code bifurcations.
 - **Strict Header & Footer Preservation**: Original `SiteHeader` (`src/components/site-header.tsx`) and `SiteFooter` (`src/components/site-footer.tsx`) maintained 100% untouched.
