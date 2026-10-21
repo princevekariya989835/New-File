@@ -1406,6 +1406,23 @@ export async function ensureDbSchema() {
             } catch {
               /* index may already exist */
             }
+
+            // Ensure products table has sku and seo fields for rich product page content
+            try {
+              await sql`ALTER TABLE products ADD COLUMN sku TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN seo_title TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN seo_description TEXT`;
+            } catch {
+              /* column may already exist */
+            }
           } catch {
             /* tables or columns setup handled */
           }

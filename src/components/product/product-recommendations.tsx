@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchProducts, type CatalogProduct, type CatalogProductNode } from "@/lib/catalog";
+import { fetchProducts, toCatalogProduct, type CatalogProduct, type CatalogProductNode } from "@/lib/catalog";
+import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
 import { ProductCard } from "@/components/product-card";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
@@ -119,8 +120,11 @@ export function ProductRecommendations({ currentProduct }: ProductRecommendation
 
   // Dynamically compute recommendations for the current product
   const recommendations = useMemo(() => {
-    if (!rawProducts || !Array.isArray(rawProducts)) return [];
-    return getRecommendedProducts(currentProduct, rawProducts, 6);
+    let pool = Array.isArray(rawProducts) && rawProducts.length > 0 ? rawProducts : null;
+    if (!pool || pool.length === 0) {
+      pool = FALLBACK_PRODUCTS.map((r) => toCatalogProduct(r, true));
+    }
+    return getRecommendedProducts(currentProduct, pool, 6);
   }, [currentProduct, rawProducts]);
 
   if (!recommendations || recommendations.length === 0) {
@@ -153,10 +157,10 @@ export function ProductRecommendations({ currentProduct }: ProductRecommendation
             id="recommendations-heading"
             className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground"
           >
-            You may also like.
+            COMPLETE YOUR FIT
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-muted-foreground font-normal">
-            More pieces worth adding to your rotation.
+            Curated streetwear pieces to elevate your rotation.
           </p>
         </div>
 

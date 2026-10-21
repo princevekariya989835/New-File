@@ -71,6 +71,8 @@ export type ProductFormValues = {
   careInstructions?: string[];
   manufacturingInfo?: ManufacturingInfo;
   sizeMeasurements?: GarmentMeasurement[];
+  sku?: string;
+  slug?: string;
 };
 
 export function StatCard({ label, value }: { label: string; value: number }) {
@@ -384,6 +386,47 @@ export function ImageManager({
               >
                 <X className="h-3.5 w-3.5" />
               </button>
+
+              {/* Image Reorder Controls */}
+              <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-xs rounded-md px-1 py-0.5 shadow-xs">
+                <button
+                  type="button"
+                  disabled={i === 0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (i === 0) return;
+                    const next = [...images];
+                    const temp = next[i - 1];
+                    next[i - 1] = next[i];
+                    next[i] = temp;
+                    onChange(next);
+                  }}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                  title="Move earlier"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </button>
+                <span className="text-[9px] font-semibold text-muted-foreground">
+                  {i + 1}/{images.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={i === images.length - 1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (i === images.length - 1) return;
+                    const next = [...images];
+                    const temp = next[i + 1];
+                    next[i + 1] = next[i];
+                    next[i] = temp;
+                    onChange(next);
+                  }}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                  title="Move later"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1169,6 +1212,8 @@ const EMPTY_FORM: ProductFormValues = {
   careInstructions: [],
   manufacturingInfo: { country_of_origin: "India", manufacturer: "", marketed_by: "", customer_care: "" },
   sizeMeasurements: [],
+  sku: "",
+  slug: "",
 };
 
 export function ProductForm({
@@ -1202,6 +1247,8 @@ export function ProductForm({
     },
     sizeMeasurements: initial?.sizeMeasurements ?? [],
     detailsHtml: initial?.detailsHtml ?? "",
+    sku: initial?.sku ?? "",
+    slug: initial?.slug ?? "",
   }));
   const [sizeStock, setSizeStock] = useState<Record<string, number>>(() => {
     if (initial?.sizeStock) return initial.sizeStock;
@@ -1310,6 +1357,8 @@ export function ProductForm({
             manufacturingInfo: values.manufacturingInfo,
             sizeMeasurements: values.sizeMeasurements ?? [],
             sizeStock,
+            sku: values.sku?.trim() || undefined,
+            slug: values.slug?.trim() || undefined,
           });
         } catch (err) {
           toast.error((err as Error).message || "Something went wrong");
@@ -1360,6 +1409,24 @@ export function ProductForm({
               value={values.category}
               onChange={(e) => set("category", e.target.value)}
               placeholder="e.g. Oversized Tees, Hoodies, Graphic Tees"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">SKU (Stock Keeping Unit)</Label>
+            <Input
+              value={values.sku ?? ""}
+              onChange={(e) => set("sku", e.target.value)}
+              placeholder="e.g. RIO-TEE-GOJO-001"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">URL Slug / Handle</Label>
+            <Input
+              value={values.slug ?? ""}
+              onChange={(e) => set("slug", e.target.value)}
+              placeholder="e.g. satoru-gojo-anime-graphic-t-shirt"
               className="mt-1"
             />
           </div>

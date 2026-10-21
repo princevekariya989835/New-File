@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/products")({
@@ -192,6 +192,8 @@ function ProductsPage() {
             stock: String(editing.totalInventory),
             sizeStock: editing.sizeStock,
             isActive: editing.status === "ACTIVE",
+            sku: editing.sku ?? "",
+            slug: editing.slug ?? "",
           }}
           onCancel={() => setEditing(null)}
           onSubmit={async (values) => {
@@ -309,6 +311,11 @@ function ProductsPage() {
                       </>
                     )}
                     <span>{p.category ? ` · ${p.category}` : ""} · Stock: {p.totalInventory}</span>
+                    {p.sku && (
+                      <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        SKU: {p.sku}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {p.sizes.map((s) => (
@@ -322,12 +329,22 @@ function ProductsPage() {
                       </Badge>
                     ))}
                   </div>
-                  <Link
-                    to="/admin/inventory"
-                    className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
-                  >
-                    Manage size / colour stock →
-                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Link
+                      to="/admin/inventory"
+                      className="inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      Manage size / colour stock →
+                    </Link>
+                    <a
+                      href={`/product/${p.slug || p.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> View on store
+                    </a>
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">

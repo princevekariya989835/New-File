@@ -6,6 +6,27 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-10-21
 
+### Complete Storewide Product Page Redesign + Fully Admin-Managed Product Content
+- **Single Reusable Template for Every Product**: Fully refactored `src/routes/product.$handle.tsx` into a shared, data-driven template serving every existing and future product across all categories without category-specific code bifurcations.
+- **Strict Header & Footer Preservation**: Original `SiteHeader` (`src/components/site-header.tsx`) and `SiteFooter` (`src/components/site-footer.tsx`) maintained 100% untouched.
+- **Approved Visual Hierarchy**:
+  - **Desktop Image Gallery Rail (`src/components/product/product-gallery.tsx`)**: Vertical thumbnail rail on the left, large 4:5 main image container, top-right wishlist button connected to `useFavorites()`, floating prev/next navigation, 1/N counter badge, touch-swiping, and full-screen zoom/pan modal.
+  - **Dynamic Pricing & MRP Hierarchy**: Selling price, struck-through MRP, red discount badge (`% OFF`), savings amount (`(Save ₹...)`), and tax-inclusive label.
+  - **Promotional Offer Banner (`src/components/product/product-promotional-banner.tsx`)**: Recreated pale-red/pink offer card with red gift icon, customizable heading, offer title ("BUY 2 GET 1 FREE"), discount code copy, and terms modal.
+  - **Engineered Product Benefits Strip (`src/components/product/product-benefits-strip.tsx`)**: 5-card feature strip with outline Lucide icons (Pure Cotton, High-Density DTF, Oversized Fit, Pre-Shrunk, Free Delivery).
+  - **Structured Product Information Sections (`src/components/product/product-info-sections.tsx`)**: Responsive tabbed layout on desktop and expandable accordions on mobile for Product Details, Size & Fit, Fabric & Print, Wash Care, and Shipping & Returns.
+  - **Real Customer Reviews & Complete Your Fit (`src/components/product/product-recommendations.tsx`)**: Real review summary from `getProductReviews()` and curated recommendation scoring algorithm.
+  - **Mobile Sticky Purchase Bar (`src/components/product/product-sticky-bar.tsx`)**: Mobile sticky bottom bar syncing selected variant, stock status, price, and instant Add to Bag.
+- **Admin Content Management & Database Persistence**:
+  - Schema extension: added `sku`, `seo_title`, `seo_description` columns to `products` in `src/lib/db.ts` (`ensureDbSchema`).
+  - Added SKU and custom slug editing in `src/components/admin/product-ui.tsx` and `src/routes/_authenticated/admin/products.tsx`.
+  - Added Left/Right image reordering arrows (`ChevronLeft`, `ChevronRight`) in `ImageManager`.
+  - Immediate catalog micro-cache invalidation (`invalidateCatalogCache()`) on admin mutations.
+
+---
+
+## [Release] — 2026-10-21
+
 ### Mobile Navigation Drawer Redesign & Implementation
 - **Luxury-Streetwear Editorial Drawer**: Replaced legacy mobile overlay with a slide-in drawer (`src/components/mobile-nav-drawer.tsx`) inspired by the brand's aesthetic.
 - **Brand Header**: Signature red-and-black RIOTOUS typography (`RIOTOUS`), letterspaced "WEAR THE NOISE" tagline, and quick-dismiss close button.

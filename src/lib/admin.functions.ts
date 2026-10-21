@@ -37,6 +37,8 @@ export type AdminProduct = {
   title: string;
   name: string;
   handle: string;
+  slug?: string;
+  sku?: string | null;
   status: "ACTIVE" | "DRAFT";
   totalInventory: number;
   featuredImage: string | null;
@@ -366,6 +368,8 @@ export const adminListProducts = createServerFn({ method: "GET" })
         title: p.name,
         name: p.name,
         handle: p.slug,
+        slug: p.slug,
+        sku: p.sku || null,
         status:
           p.is_active === 0 || p.is_active === false || p.is_active === "false"
             ? "DRAFT"
@@ -772,15 +776,15 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
     const sql = getSql();
     const productId = `prod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const base = slugify(values.name) || "product";
-    const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    const slug = values.slug || `${base}-${Math.random().toString(36).slice(2, 6)}`;
 
     const doInsert = async () => {
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
+            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
           ) VALUES (
-            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
+            ${productId}, ${values.name}, ${slug}, ${values.sku || null}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
             ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
@@ -984,6 +988,8 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
       updatedRows = await sql`
         UPDATE products SET
           name = ${values.name},
+          sku = ${values.sku || null},
+          slug = COALESCE(${values.slug || null}, slug),
           description = ${values.description},
           details_html = ${values.details_html},
           price = ${values.price},

@@ -256,6 +256,8 @@ export type ProductOfferInput = {
 
 export type ProductInput = {
   title: string;
+  sku?: string | null;
+  slug?: string | null;
   description?: string;
   detailsHtml?: string | null;
   price: string | number;
@@ -480,6 +482,8 @@ export function normalizeProductInput(d: ProductInput) {
 
   return {
     name: title,
+    sku: d.sku?.trim() ? d.sku.trim() : null,
+    slug: d.slug?.trim() ? slugify(d.slug.trim()) : null,
     description: d.description?.trim() ? d.description.trim() : null,
     details_html: d.detailsHtml?.trim() ? d.detailsHtml.trim() : null,
     price,
