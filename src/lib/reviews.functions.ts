@@ -8,6 +8,21 @@ import {
 } from "@/lib/reviews-shared";
 import { ensureDbSchema, getSql } from "@/lib/db";
 
+function toIsoDate(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === "string") {
+    const s = val.trim();
+    if (s.includes(" ") && !s.includes("T")) {
+      const parsed = new Date(s.replace(" ", "T") + "Z");
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
+    }
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  const parsed = new Date(val);
+  return !isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
+}
+
 export type ProductReviewsResult = {
   summary: ReviewSummary;
   reviews: PublicReview[];
@@ -45,8 +60,8 @@ export const getProductReviews = createServerFn({ method: "POST" })
           : typeof r.images === "string"
             ? JSON.parse(r.images)
             : [],
-        created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
-        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        created_at: toIsoDate(r.created_at),
+        createdAt: toIsoDate(r.created_at),
       }));
 
       return { summary: summarize(reviews.map((r) => r.rating)), reviews };

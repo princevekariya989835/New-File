@@ -53,11 +53,11 @@ export type MyReview = PublicReview & {
   product_id: string;
   admin_note: string | null;
   updated_at: string;
-  product?: { name: string; slug: string; image: string | null } | null;
+  product?: { name: string; slug: string; image: string | null; isDeleted?: boolean } | null;
 };
 
 export type AdminReview = MyReview & {
-  user_id: string;
+  user_id: string | null;
   order_id: string | null;
   customer_email: string | null;
   customer_name: string | null;

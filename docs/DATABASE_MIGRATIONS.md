@@ -18,6 +18,8 @@ Migrations MUST always be executed in strict numerical sequence:
 | **`0003_populate_full_relational_data.sql`** | Relational catalog enhancements | Populates `product_highlights`, `product_specifications`, `product_offers`, and size/color variant relationships. |
 | **`0004_invoices_and_tax_schema.sql`** | Tax invoice and GST data model | Creates `invoices` and `invoice_sequences` tables for GST-compliant invoicing. |
 | **`0005_add_invoice_fields_to_orders.sql`** | Order invoice reference extension | Adds `invoice_number` and `invoice_date` columns to the `orders` table. |
+| **`0006_auth_security_and_password_recovery.sql`** | Authentication security and password recovery | Creates `rate_limits` and `password_resets` tables for persistent IP/account rate limiting and reset tokens. |
+| **`0007_reviews_admin_columns.sql`** | Review moderation and audit columns | Ensures `admin_note` and `is_sample` columns and status/sample indices exist on the `reviews` table. |
 
 ---
 

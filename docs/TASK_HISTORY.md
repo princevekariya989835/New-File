@@ -4,6 +4,26 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 9: Complete Admin Panel Reviews Page Audit & Repair
+- **Date**: 2026-10-21
+- **Objective**: Conduct a complete forensic audit of the admin reviews page (`/admin/reviews`), identify root causes of every issue (crashes, broken actions, loading/empty states, missing product data), repair backend APIs, database queries, and frontend UI without redesigning unrelated components or creating fake reviews.
+- **Files Modified / Created**:
+  - `src/lib/reviews-shared.ts`: Updated `AdminReview` type (`user_id` now nullable `string | null` and added optional `isDeleted?: boolean` on product metadata).
+  - `src/lib/admin-reviews.functions.ts`: Added cross-engine date normalizer `toIsoDate()`, updated product join to `LEFT JOIN products p ON (r.product_id = p.id OR r.product_id = p.slug)`, added order join `ord_match` to retrieve verified delivered `matched_order_id`, handled deleted/orphan products gracefully, updated `adminUpdateReviewStatus` to allow independent note updates, and updated `adminSaveReview` to preserve `is_verified_buyer` status on edit.
+  - `src/routes/_authenticated/admin/reviews.lazy.tsx`: Fixed critical null crash on `user_id.slice()`, added search across all fields (reviewer name, email, product, content, admin note), interactive stat cards, dedicated "Save Note" action button, "View on store" external links, dedicated error state with retry, empty state differentiation, and client pagination (15 items per page).
+  - `src/lib/reviews.functions.ts`: Added `toIsoDate()` date parser for public storefront reviews.
+  - `src/lib/db.ts`: Fixed query routing in `mockSql` for `from reviews` and `delete from reviews`, and enabled regex/literal parameter extraction for review updates.
+  - `migrations/0007_reviews_admin_columns.sql` & `docs/DATABASE_MIGRATIONS.md`: Created and documented migration for `admin_note` and `is_sample` columns and indexes in D1.
+  - `scripts/test-admin-reviews-audit.mjs`: Created automated test suite verifying all 8 audit scenarios.
+  - `docs/CHANGELOG.md` & `docs/TASK_HISTORY.md`: Documented changes and test outcomes.
+- **Tests Performed**:
+  - `npx tsx scripts/test-admin-reviews-audit.mjs`: All 8 test stages passed with 100%.
+  - `npx tsx scripts/test-product-reviews-complete.mjs`: All 7 product review verification tests passed with 100%.
+  - `npm run build`: Production build succeeded with code 0 and zero errors.
+- **Outcome**: The admin reviews page is completely repaired, robust against null pointers and deleted products, supports full moderation actions (Approve, Reject, Restore to Pending, Hide, Delete with confirmation, Edit, Note saving, View on store), filters accurately, and connects cleanly to production database tables.
+
+---
+
 ## Task 8: Complete Product Page Admin Control & Front/Back Showcase Image Fix
 - **Date**: 2026-10-21
 - **Objective**: Implement a complete, persistent admin editing system for every individual product page from Admin Panel → Products → Edit Product, and fix the front/back showcase section so administrators can independently select, upload, preview, replace, or remove which image appears on the FRONT and which appears on the BACK, with custom titles and subtitles, decoupled completely from the main product gallery.

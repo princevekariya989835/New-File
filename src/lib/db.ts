@@ -993,17 +993,17 @@ export function getSql() {
       }
 
       // SELECT from orders
-      if (lower.includes("from orders")) {
+      if (lower.includes("from orders") && !lower.includes("from reviews")) {
         return [..._mockOrders];
       }
 
       // SELECT from order_items
-      if (lower.includes("from order_items")) {
+      if (lower.includes("from order_items") && !lower.includes("from reviews")) {
         return [..._mockOrderItems];
       }
 
       // SELECT from reviews
-      if (lower.includes("from reviews")) {
+      if (lower.includes("from reviews") && !lower.includes("delete from")) {
         if (lower.startsWith("select count") || lower.includes("count(*)")) {
           return [{ count: _mockReviews.length }];
         }
@@ -1017,11 +1017,13 @@ export function getSql() {
             ...r,
             review: r.content ?? r.review ?? "",
             verified_purchase: Boolean(r.is_verified_buyer),
+            matched_product_id: prod?.id || null,
             product_name: prod?.name || null,
             product_slug: prod?.slug || null,
             product_images: prod?.images || [],
             customer_email: prof?.email || null,
             customer_name: prof?.full_name || r.author_name || null,
+            matched_order_id: null,
           };
         });
 
@@ -1095,15 +1097,15 @@ export function getSql() {
         const rating = Number(getVal("rating", 4)) || 5;
         const title = getVal("title", 5) ? String(getVal("title", 5)) : null;
         const content = getVal("content", 6) ? String(getVal("content", 6)) : "";
-        const isVerifiedBuyer = Boolean(getVal("is_verified_buyer", 7));
-        const status = getVal("status", 8) ? String(getVal("status", 8)) : "approved";
-        const rawImages = getVal("images", 9);
+        const rawImages = getVal("images", 7);
         let images: any[] = [];
         try {
           images = typeof rawImages === "string" ? JSON.parse(rawImages) : (Array.isArray(rawImages) ? rawImages : []);
         } catch {
           images = [];
         }
+        const isVerifiedBuyer = Boolean(getVal("is_verified_buyer", 8));
+        const status = getVal("status", 9) ? String(getVal("status", 9)) : "approved";
         const adminNote = getVal("admin_note", 10) ? String(getVal("admin_note", 10)) : null;
         const isSample = Boolean(getVal("is_sample", 11));
         const createdAt = getVal("created_at", 12) ? String(getVal("created_at", 12)) : new Date().toISOString();
@@ -1136,29 +1138,50 @@ export function getSql() {
 
       // UPDATE reviews
       if (lower.includes("update reviews")) {
-        const revId = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+        const revId =
+          values.find((v) => typeof v === "string" && (v.startsWith("rev_") || v.startsWith("rev-"))) ||
+          (typeof values[values.length - 1] === "string" ? values[values.length - 1] : null);
         if (revId) {
           const rev = _mockReviews.find((r) => r.id === revId);
           if (rev) {
-            if (lower.includes("status =")) {
-              const statusVal = values.find((v) => ["approved", "pending", "rejected", "hidden"].includes(String(v)));
-              if (statusVal) rev.status = statusVal;
+            const statusMatch = queryStr.match(/status\s*=\s*'([^']+)'/i);
+            if (statusMatch) {
+              rev.status = statusMatch[1].toLowerCase();
+            } else if (lower.includes("status =")) {
+              const statusVal = values.find((v) => ["approved", "pending", "rejected", "hidden"].includes(String(v).toLowerCase()));
+              if (statusVal) rev.status = String(statusVal).toLowerCase();
             }
+
+            const noteMatch = queryStr.match(/admin_note\s*=\s*'([^']+)'/i);
+            if (noteMatch) {
+              rev.admin_note = noteMatch[1];
+            } else if (lower.includes("admin_note =")) {
+              const noteVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
+              if (noteVal !== undefined) rev.admin_note = noteVal;
+            }
+
             if (lower.includes("rating =")) {
               const ratVal = values.find((v) => typeof v === "number" && v >= 1 && v <= 5);
               if (ratVal !== undefined) rev.rating = ratVal;
             }
-            if (lower.includes("title =")) {
-              const titleVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_"));
+            const titleMatch = queryStr.match(/title\s*=\s*'([^']+)'/i);
+            if (titleMatch) {
+              rev.title = titleMatch[1];
+            } else if (lower.includes("title =")) {
+              const titleVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
               if (titleVal !== undefined) rev.title = titleVal;
             }
-            if (lower.includes("content =")) {
-              const contentVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_"));
+
+            const contentMatch = queryStr.match(/content\s*=\s*'([^']+)'/i);
+            if (contentMatch) {
+              rev.content = contentMatch[1];
+            } else if (lower.includes("content =")) {
+              const contentVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
               if (contentVal !== undefined) rev.content = contentVal;
             }
-            if (lower.includes("admin_note =")) {
-              const noteVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v));
-              if (noteVal !== undefined) rev.admin_note = noteVal;
+            if (lower.includes("is_verified_buyer =")) {
+              const verVal = values.find((v) => typeof v === "number" && (v === 0 || v === 1));
+              if (verVal !== undefined) rev.is_verified_buyer = verVal;
             }
             rev.updated_at = new Date().toISOString();
             return [rev];
@@ -1169,9 +1192,13 @@ export function getSql() {
 
       // DELETE FROM reviews
       if (lower.includes("delete from reviews")) {
-        const revId = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+        const idMatch = queryStr.match(/where\s+(?:r\.)?id\s*=\s*'([^']+)'/i);
+        const revId =
+          (idMatch && idMatch[1]) ||
+          values.find((v) => typeof v === "string" && (v.startsWith("rev_") || v.startsWith("rev-"))) ||
+          (typeof values[values.length - 1] === "string" ? values[values.length - 1] : null);
         if (revId) {
-          const idx = _mockReviews.findIndex((r) => r.id === revId);
+          const idx = _mockReviews.findIndex((r) => String(r.id) === String(revId));
           if (idx !== -1) {
             _mockReviews.splice(idx, 1);
             return [{ id: revId }];

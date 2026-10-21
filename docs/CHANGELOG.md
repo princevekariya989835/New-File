@@ -6,6 +6,26 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-10-21
 
+### Complete Admin Panel Reviews Page Audit & Repair
+- **Forensic Audit & Root Causes Fixed**:
+  - **Null Safety Crash Resolved**: Fixed unhandled `TypeError: Cannot read properties of null (reading 'slice')` in `src/routes/_authenticated/admin/reviews.lazy.tsx` (previously calling `r.user_id.slice(0, 8)` directly on guest reviews where `user_id` is null). Safe fallback `{r.user_id ? `${r.user_id.slice(0, 8)}…` : "Not linked"}` prevents UI crash.
+  - **Slug/ID Product Join Resolution**: Fixed product metadata dropping in `src/lib/admin-reviews.functions.ts` by updating the join condition to `LEFT JOIN products p ON (r.product_id = p.id OR r.product_id = p.slug)`. Reviews linking to product slugs now correctly resolve product names and thumbnail images.
+  - **Cross-Engine Date Serialization**: Replaced raw string date handling with a robust `toIsoDate()` normalizer across `src/lib/admin-reviews.functions.ts` and `src/lib/reviews.functions.ts`, eliminating Safari/WebKit `RangeError: Invalid time value` on SQLite `"YYYY-MM-DD HH:MM:SS"` strings.
+  - **Deleted & Missing Product Handling**: Added graceful fallback `{ isDeleted: true, name: 'Deleted / Unlinked Product (...)', ... }` preventing page breakage when reviews reference legacy, unlinked, or deleted products.
+  - **Independent Admin Notes**: Upgraded `adminUpdateReviewStatus` and the admin review card UI to allow saving internal staff notes independently with a dedicated "Save Note" button without forcing a status change.
+  - **Verified Purchase Preservation on Edit**: Upgraded `adminSaveReview` to preserve existing `is_verified_buyer` status on edit so modifying review title or text never strips genuine verified status.
+  - **Cross-Engine Parameterized SQL**: Replaced engine-specific `NOW()` with SQL standard `CURRENT_TIMESTAMP` in `admin-reviews.functions.ts` for full D1/SQLite/PostgreSQL portability.
+  - **Enhanced UI & Feedback**:
+    * Added comprehensive search across Review ID, Author Name, Customer Name, Email, User ID, Product Name, Product Slug, Title, Content, and Internal Admin Note.
+    * Made all 7 header metric cards interactive click-to-filter triggers (Total, Customer, Sample, Verified, Pending, Approved, Rejected).
+    * Added explicit "View on store" external link directly to the live product page `/product/${r.product?.slug}`.
+    * Added dedicated Error State with retry button (`listQ.refetch`) on network or database failures.
+    * Added empty state differentiation ("No reviews yet in store" vs "No reviews match this filter").
+    * Added responsive client pagination (15 items per page) with Previous/Next controls and page counter.
+- **Verification**:
+  - Automated test suite `scripts/test-admin-reviews-audit.mjs` verifying all 8 audit scenarios with 100% pass rate.
+  - Full production build `npm run build` succeeds with zero errors.
+
 ### Complete Storewide Product Review System Implementation
 - **Initial 5 Reviews per Live Product (40 Total)**:
   - Seeded 40 authentic-feeling, polished customer reviews across all 8 live products (`prod-satoru-gojo-graphic-tee`, `prod-anime-swordsman-tee`, `prod-oversized-black-tee`, `prod-premium-white-tee`, `prod-classic-red-tee`, `prod-heavyweight-grey-tee`, `prod-streetwear-blue-tee`, `prod-baki-hanma-oversized-tee`) in `src/lib/reviews-seed.ts`.
