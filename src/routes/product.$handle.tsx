@@ -62,6 +62,15 @@ function formatProductPageTitle(title: string): string {
 export const Route = createFileRoute("/product/$handle")({
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.handle));
+    if (p?.productId) {
+      await context.queryClient
+        .prefetchQuery({
+          queryKey: ["reviews", p.productId],
+          queryFn: () => getProductReviews({ data: { productId: p.productId } }),
+          staleTime: 1000 * 60 * 2,
+        })
+        .catch(() => {});
+    }
     // Prefetch catalog for instant SSR & client recommendations
     await context.queryClient
       .prefetchQuery({
@@ -588,23 +597,33 @@ function ProductPage() {
                 <Star
                   key={star}
                   className={`h-4 w-4 ${
-                    star <= Math.round(averageRating || 5)
+                    totalReviews > 0 && star <= Math.round(averageRating)
                       ? "fill-amber-400 text-amber-400"
                       : "fill-muted text-muted-foreground/30"
                   }`}
                 />
               ))}
             </div>
-            <button
-              type="button"
-              onClick={scrollToReviews}
-              className="font-bold text-neutral-800 hover:underline cursor-pointer"
-            >
-              {averageRating > 0 ? averageRating.toFixed(1) : "4.8"}{" "}
-              <span className="text-neutral-500 font-normal">
-                ({totalReviews > 0 ? totalReviews : 124} reviews)
-              </span>
-            </button>
+            {totalReviews > 0 ? (
+              <button
+                type="button"
+                onClick={scrollToReviews}
+                className="font-bold text-neutral-800 hover:underline cursor-pointer"
+              >
+                {averageRating.toFixed(1)}{" "}
+                <span className="text-neutral-500 font-normal">
+                  ({totalReviews} review{totalReviews > 1 ? "s" : ""})
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={scrollToReviews}
+                className="font-medium text-neutral-600 hover:underline cursor-pointer"
+              >
+                No reviews yet <span className="text-neutral-400 font-normal">(Be first to review)</span>
+              </button>
+            )}
             <span className="text-neutral-300 font-normal">|</span>
             <span className="inline-flex items-center gap-1 font-semibold text-neutral-700">
               <span className="text-amber-500">🔥</span>
@@ -980,7 +999,7 @@ function ProductPage() {
         productTitle={p.title}
         category={p.productType}
         detailImageUrl={galleryImages[2]?.node.url || galleryImages[1]?.node.url || galleryImages[0]?.node.url}
-        reviewCount={totalReviews > 0 ? totalReviews : 124}
+        reviewCount={totalReviews}
         onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
       />
 

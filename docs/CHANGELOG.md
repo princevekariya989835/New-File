@@ -6,6 +6,43 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-10-21
 
+### Complete Storewide Product Review System Implementation
+- **Initial 5 Reviews per Live Product (40 Total)**:
+  - Seeded 40 authentic-feeling, polished customer reviews across all 8 live products (`prod-satoru-gojo-graphic-tee`, `prod-anime-swordsman-tee`, `prod-oversized-black-tee`, `prod-premium-white-tee`, `prod-classic-red-tee`, `prod-heavyweight-grey-tee`, `prod-streetwear-blue-tee`, `prod-baki-hanma-oversized-tee`) in `src/lib/reviews-seed.ts`.
+  - 100% unique reviewer names and surnames (Aarav Sharma, Devansh Rao, Rohan Verma, Kabir Mehta, Aditya Chaudhury, Manish Tiwari, Abhishek Mukherjee, Yashwant Reddy, Aakash Bhatt, etc.).
+  - 100% unique review titles and natural review content specifically relevant to each product's anime artwork, oversized streetwear drape, 240 GSM bio-wash cotton fabric, collar ribbing, DTF print elasticity, and cold wash durability.
+  - Realistic rating distribution from 3 to 5 stars (averages 4.2 to 4.8 per product).
+- **Database Schema & Invariants**:
+  - Leveraged existing `reviews` table (`id`, `product_id`, `user_id`, `author_name`, `rating`, `title`, `content`, `is_verified_buyer`, `status`, `images`, `created_at`, `updated_at`).
+  - Added safe column migrations for `admin_note` (TEXT) and `is_sample` (INTEGER default 0).
+  - Ensured composite database indexes on `product_id` and `status`.
+  - Strictly avoided `BEGIN TRANSACTION`, `COMMIT`, or `SAVEPOINT` through Cloudflare Durable Objects SQL interface. Implemented duplicate-safe primary keys (`id`) with `ON CONFLICT (id) DO NOTHING` or existence verification.
+  - Initial reviews preserve authentic customer experience without falsely claiming purchase verification (`is_verified_buyer = 0`).
+- **Review Status & Purchase Verification Rules**:
+  - Enforced system-confirmed purchase verification: reviews are only marked verified when confirmed by a delivered order in the database (`orders.status = 'Delivered'`).
+  - Prohibited manual verification spoofing in Admin Panel (`adminSaveReview` strictly checks delivered orders in `orders` / `order_items`).
+  - Sample content (`is_sample = 1`) is strictly excluded from public storefront product queries (`getProductReviews`) until replaced or converted.
+  - Unapproved reviews (`status = 'pending'`, `'rejected'`, `'hidden'`) are kept out of public product pages.
+- **Frontend & Real-Time Calculation**:
+  - Eliminated hardcoded fallback ratings ("4.8" and "124 reviews") on `src/routes/product.$handle.tsx`.
+  - Dynamically calculates arithmetic average rating and exact review count per product.
+  - Prefetches reviews in `/product/$handle` route `loader` for instant, crawler-accessible SSR.
+  - Renders star rating breakdown with percentage bars, review filtering (5, 4, 3, 2, 1 stars), sort options (Most recent, Highest rating, Lowest rating, Verified purchases), verified buyer badge (`ShieldCheck`), customer photos gallery, and paginated review list without horizontal overflow.
+- **Admin Panel Control**:
+  - Enhanced Admin Panel (`src/routes/_authenticated/admin/reviews.lazy.tsx`) with:
+    * Content Source filter: "All sources", "Customer reviews", "Sample content".
+    * Live stats breakdown: Total, Customer, Sample, Verified, Pending, Approved, Rejected, Avg rating.
+    * Visual distinction badges: `Sample Content` vs `Customer Review`, and `Verified Buyer` vs `Unverified`.
+    * System verification status indicator replacing manual spoofing dropdown.
+    * Status transitions: Approve, Reject, Restore to Pending, Hide, and Delete with audit logging and `invalidateCatalogCache()`.
+- **Verification**:
+  - Automated test suite `scripts/test-product-reviews-complete.mjs` verifying all 7 core invariants with 100% pass rate.
+  - `npm run build` succeeds with zero TypeScript errors and zero bundling warnings.
+
+---
+
+## [Release] — 2026-10-21
+
 ### Complete Product Page Admin Control & Front/Back Showcase Image Fix
 - **Dedicated FRONT & BACK Showcase Admin Controls**:
   - Added a dedicated "Product Showcase Images (FRONT & BACK)" editor section in Admin Panel → Products → Edit Product.

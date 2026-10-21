@@ -26,6 +26,7 @@ export type PublicReview = {
   verified_purchase: boolean;
   created_at: string;
   author_name?: string | null;
+  is_sample?: boolean;
 };
 
 export const REVIEW_SORTS = ["recent", "highest", "lowest", "verified"] as const;

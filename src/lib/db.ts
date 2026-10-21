@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { FALLBACK_PRODUCTS } from "./fallback-products";
+import { INITIAL_PRODUCT_REVIEWS, seedInitialReviewsIfNeeded } from "./reviews-seed";
 
 let _schemaInitialized = false;
 let _schemaPromise: Promise<void> | null = null;
@@ -440,7 +441,10 @@ const _mockOrderItems: any[] = [
 ];
 
 const _mockReturns: any[] = [];
-const _mockReviews: any[] = [];
+const _mockReviews: any[] = INITIAL_PRODUCT_REVIEWS.map((r) => ({
+  ...r,
+  images: typeof r.images === "string" ? JSON.parse(r.images) : r.images,
+}));
 const _mockDesignSubmissions: any[] = [];
 const _mockInventoryTransactions: any[] = [];
 const _mockInvoices: any[] = [];
@@ -881,7 +885,8 @@ export function getSql() {
       if (
         (lower.startsWith("select count") || lower.includes("(select count(*)")) &&
         !lower.includes("from coupon_usage") &&
-        !lower.includes("from coupons")
+        !lower.includes("from coupons") &&
+        !lower.includes("from reviews")
       ) {
         return [
           {
@@ -906,7 +911,7 @@ export function getSql() {
       }
 
       // SELECT from products
-      if (lower.includes("from products") && !lower.includes("delete from")) {
+      if (lower.includes("from products") && !lower.includes("from reviews") && !lower.includes("delete from")) {
         if (lower.includes("select 1")) {
           return _mockProducts.length > 0 ? [{ 1: 1 }] : [];
         }
@@ -995,6 +1000,184 @@ export function getSql() {
       // SELECT from order_items
       if (lower.includes("from order_items")) {
         return [..._mockOrderItems];
+      }
+
+      // SELECT from reviews
+      if (lower.includes("from reviews")) {
+        if (lower.startsWith("select count") || lower.includes("count(*)")) {
+          return [{ count: _mockReviews.length }];
+        }
+
+        let results = _mockReviews.map((r) => {
+          const prod = _mockProducts.find(
+            (p) => String(p.id) === String(r.product_id) || String(p.slug) === String(r.product_id),
+          );
+          const prof = _mockProfiles.find((u) => String(u.id) === String(r.user_id));
+          return {
+            ...r,
+            review: r.content ?? r.review ?? "",
+            verified_purchase: Boolean(r.is_verified_buyer),
+            product_name: prod?.name || null,
+            product_slug: prod?.slug || null,
+            product_images: prod?.images || [],
+            customer_email: prof?.email || null,
+            customer_name: prof?.full_name || r.author_name || null,
+          };
+        });
+
+        // Filter by user_id
+        if (lower.includes("user_id =") || lower.includes("r.user_id =")) {
+          const uVal = values.find((v) => typeof v === "string" && (v.startsWith("usr_") || v.includes("@") || v.length > 10));
+          if (uVal) {
+            results = results.filter((r) => String(r.user_id) === String(uVal));
+          }
+        }
+
+        // Filter by id
+        if (lower.includes("where id =") || lower.includes("where r.id =")) {
+          const idVal = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+          if (idVal) {
+            return results.filter((r) => String(r.id) === String(idVal));
+          }
+        }
+
+        // Filter by product_id
+        if (lower.includes("product_id =") || lower.includes("r.product_id =")) {
+          const pVal = values.find((v) => typeof v === "string" && (v.startsWith("prod-") || v.includes("tee") || v.length > 3));
+          if (pVal) {
+            const pValStr = String(pVal).toLowerCase();
+            const matchedProd = _mockProducts.find(
+              (p) => String(p.id).toLowerCase() === pValStr || String(p.slug).toLowerCase() === pValStr,
+            );
+            results = results.filter((r) => {
+              const rPid = String(r.product_id).toLowerCase();
+              return rPid === pValStr || (matchedProd && rPid === String(matchedProd.id).toLowerCase());
+            });
+          }
+        }
+
+        // Filter by approved status
+        if (lower.includes("status = 'approved'") || lower.includes("status = 'approved'")) {
+          results = results.filter(
+            (r) => String(r.status).toLowerCase() === "approved",
+          );
+        }
+
+        // Filter by is_sample
+        if (lower.includes("is_sample = 0") || lower.includes("is_sample is null") || lower.includes("is_sample = false")) {
+          results = results.filter((r) => !r.is_sample);
+        }
+
+        results.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+        return results;
+      }
+
+      // INSERT INTO reviews
+      if (lower.includes("insert into reviews")) {
+        const colMatch = queryStr.match(/insert\s+into\s+reviews\s*\(([^)]+)\)/i);
+        let colNames: string[] = [];
+        if (colMatch && colMatch[1]) {
+          colNames = colMatch[1].split(",").map((c) => c.trim().toLowerCase());
+        }
+
+        const getVal = (name: string, fallbackIdx: number) => {
+          if (colNames.length > 0) {
+            const idx = colNames.indexOf(name.toLowerCase());
+            if (idx !== -1 && idx < values.length) return values[idx];
+          }
+          return values[fallbackIdx];
+        };
+
+        const id = getVal("id", 0) ? String(getVal("id", 0)) : `rev_${Date.now()}`;
+        const productId = getVal("product_id", 1) ? String(getVal("product_id", 1)) : "";
+        const userId = getVal("user_id", 2) ? String(getVal("user_id", 2)) : null;
+        const authorName = getVal("author_name", 3) ? String(getVal("author_name", 3)) : "Customer";
+        const rating = Number(getVal("rating", 4)) || 5;
+        const title = getVal("title", 5) ? String(getVal("title", 5)) : null;
+        const content = getVal("content", 6) ? String(getVal("content", 6)) : "";
+        const isVerifiedBuyer = Boolean(getVal("is_verified_buyer", 7));
+        const status = getVal("status", 8) ? String(getVal("status", 8)) : "approved";
+        const rawImages = getVal("images", 9);
+        let images: any[] = [];
+        try {
+          images = typeof rawImages === "string" ? JSON.parse(rawImages) : (Array.isArray(rawImages) ? rawImages : []);
+        } catch {
+          images = [];
+        }
+        const adminNote = getVal("admin_note", 10) ? String(getVal("admin_note", 10)) : null;
+        const isSample = Boolean(getVal("is_sample", 11));
+        const createdAt = getVal("created_at", 12) ? String(getVal("created_at", 12)) : new Date().toISOString();
+        const updatedAt = getVal("updated_at", 13) ? String(getVal("updated_at", 13)) : new Date().toISOString();
+
+        const existingIdx = _mockReviews.findIndex((r) => r.id === id);
+        const item = {
+          id,
+          product_id: productId,
+          user_id: userId,
+          author_name: authorName,
+          rating,
+          title,
+          content,
+          is_verified_buyer: isVerifiedBuyer ? 1 : 0,
+          status,
+          images,
+          admin_note: adminNote,
+          is_sample: isSample ? 1 : 0,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        };
+        if (existingIdx !== -1) {
+          _mockReviews[existingIdx] = item;
+        } else {
+          _mockReviews.push(item);
+        }
+        return [{ id }];
+      }
+
+      // UPDATE reviews
+      if (lower.includes("update reviews")) {
+        const revId = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+        if (revId) {
+          const rev = _mockReviews.find((r) => r.id === revId);
+          if (rev) {
+            if (lower.includes("status =")) {
+              const statusVal = values.find((v) => ["approved", "pending", "rejected", "hidden"].includes(String(v)));
+              if (statusVal) rev.status = statusVal;
+            }
+            if (lower.includes("rating =")) {
+              const ratVal = values.find((v) => typeof v === "number" && v >= 1 && v <= 5);
+              if (ratVal !== undefined) rev.rating = ratVal;
+            }
+            if (lower.includes("title =")) {
+              const titleVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_"));
+              if (titleVal !== undefined) rev.title = titleVal;
+            }
+            if (lower.includes("content =")) {
+              const contentVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_"));
+              if (contentVal !== undefined) rev.content = contentVal;
+            }
+            if (lower.includes("admin_note =")) {
+              const noteVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v));
+              if (noteVal !== undefined) rev.admin_note = noteVal;
+            }
+            rev.updated_at = new Date().toISOString();
+            return [rev];
+          }
+        }
+        return [];
+      }
+
+      // DELETE FROM reviews
+      if (lower.includes("delete from reviews")) {
+        const revId = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+        if (revId) {
+          const idx = _mockReviews.findIndex((r) => r.id === revId);
+          if (idx !== -1) {
+            _mockReviews.splice(idx, 1);
+            return [{ id: revId }];
+          }
+        }
+        return [];
       }
 
       // SELECT from invoices
@@ -1451,6 +1634,13 @@ export async function ensureDbSchema() {
               await sql`ALTER TABLE products ADD COLUMN back_showcase_subtitle TEXT`;
             } catch {
               /* column may already exist */
+            }
+
+            // Ensure reviews table and initial authentic reviews are seeded
+            try {
+              await seedInitialReviewsIfNeeded(sql);
+            } catch {
+              /* non-fatal */
             }
           } catch {
             /* tables or columns setup handled */

@@ -53,6 +53,7 @@ type FormState = {
   review: string;
   images: string[];
   verifiedPurchase: boolean;
+  isSample: boolean;
   status: ReviewStatus;
   adminNote: string;
 };
@@ -66,7 +67,8 @@ const emptyForm: FormState = {
   title: "",
   review: "",
   images: [],
-  verifiedPurchase: true,
+  verifiedPurchase: false,
+  isSample: false,
   status: "approved",
   adminNote: "",
 };
@@ -90,6 +92,7 @@ function AdminReviewsPage() {
   const qc = useQueryClient();
 
   const [q, setQ] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"" | "customer" | "sample">("");
   const [status, setStatus] = useState<"" | ReviewStatus>("");
   const [verification, setVerification] = useState<"" | "yes" | "no">("");
   const [ratingFilter, setRatingFilter] = useState("");
@@ -147,13 +150,17 @@ function AdminReviewsPage() {
           title: f.title,
           review: f.review,
           images: f.images,
-          verifiedPurchase: f.verifiedPurchase,
+          isSample: f.isSample,
           status: f.status,
           adminNote: f.adminNote,
         },
       }),
-    onSuccess: () => {
-      toast.success("Review saved");
+    onSuccess: (res: any) => {
+      if (res?.isVerified) {
+        toast.success("Review saved (System verified delivered purchase)");
+      } else {
+        toast.success("Review saved");
+      }
       setForm(null);
       refresh();
     },
@@ -170,6 +177,8 @@ function AdminReviewsPage() {
       : 0;
     return {
       total: all.length,
+      customer: all.filter((r) => !r.is_sample).length,
+      sample: all.filter((r) => Boolean(r.is_sample)).length,
       verified: all.filter((r) => r.verified_purchase).length,
       unverified: all.filter((r) => !r.verified_purchase).length,
       pending: by("pending"),
@@ -183,6 +192,8 @@ function AdminReviewsPage() {
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
     const filtered = all.filter((r) => {
+      if (sourceFilter === "customer" && r.is_sample) return false;
+      if (sourceFilter === "sample" && !r.is_sample) return false;
       if (status && r.status !== status) return false;
       if (verification === "yes" && !r.verified_purchase) return false;
       if (verification === "no" && r.verified_purchase) return false;
@@ -199,7 +210,7 @@ function AdminReviewsPage() {
     else if (sort === "lowest") sorted.sort((a, b) => a.rating - b.rating);
     else sorted.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
     return sorted;
-  }, [all, q, status, verification, ratingFilter, productFilter, sort]);
+  }, [all, q, sourceFilter, status, verification, ratingFilter, productFilter, sort]);
 
   const startEdit = (r: AdminReview) =>
     setForm({
@@ -212,6 +223,7 @@ function AdminReviewsPage() {
       review: r.review ?? "",
       images: r.images ?? [],
       verifiedPurchase: r.verified_purchase,
+      isSample: Boolean(r.is_sample),
       status: r.status,
       adminNote: r.admin_note ?? "",
     });
@@ -263,12 +275,12 @@ function AdminReviewsPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <Stat label="Total" value={stats.total} />
+        <Stat label="Customer" value={stats.customer} />
+        <Stat label="Sample" value={stats.sample} />
         <Stat label="Verified" value={stats.verified} />
-        <Stat label="Not verified" value={stats.unverified} />
         <Stat label="Pending" value={stats.pending} />
         <Stat label="Approved" value={stats.approved} />
         <Stat label="Rejected" value={stats.rejected} />
-        <Stat label="Hidden" value={stats.hidden} />
         <Stat label="Avg rating" value={stats.avg ? stats.avg.toFixed(1) : "—"} />
       </div>
 
@@ -279,6 +291,15 @@ function AdminReviewsPage() {
           placeholder="Search product, customer, text…"
           className="h-9 w-full sm:w-64"
         />
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value as "" | "customer" | "sample")}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">All sources</option>
+          <option value="customer">Customer reviews</option>
+          <option value="sample">Sample content</option>
+        </select>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as "" | ReviewStatus)}
@@ -428,16 +449,16 @@ function AdminReviewsPage() {
             onChange={(e) => setForm({ ...form, review: e.target.value })}
           />
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <label className="text-xs font-medium">
-              Verification
+              Content Source
               <select
-                value={form.verifiedPurchase ? "yes" : "no"}
-                onChange={(e) => setForm({ ...form, verifiedPurchase: e.target.value === "yes" })}
+                value={form.isSample ? "sample" : "customer"}
+                onChange={(e) => setForm({ ...form, isSample: e.target.value === "sample" })}
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
-                <option value="yes">Verified purchase</option>
-                <option value="no">Not verified</option>
+                <option value="customer">Customer Review (Public)</option>
+                <option value="sample">Sample Content (Staging only)</option>
               </select>
             </label>
             <label className="text-xs font-medium">
@@ -454,6 +475,21 @@ function AdminReviewsPage() {
                 ))}
               </select>
             </label>
+            <div className="text-xs font-medium">
+              <span>Purchase Verification</span>
+              <div className="mt-1 flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-xs">
+                {form.verifiedPurchase ? (
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-500">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Verified Purchase
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Unverified (Order-checked)</span>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Verified only if user has a confirmed delivered order. Manual claims disabled.
+              </p>
+            </div>
           </div>
 
           <Input
@@ -556,6 +592,15 @@ function AdminReviewsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold">{r.product?.name ?? "Product"}</span>
+                    {r.is_sample ? (
+                      <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-500">
+                        Sample Content
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-sky-500/15 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold text-sky-400">
+                        Customer Review
+                      </span>
+                    )}
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         REVIEW_STATUS_TONE[r.status] ?? ""
@@ -565,11 +610,11 @@ function AdminReviewsPage() {
                     </span>
                     {r.verified_purchase ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                        <ShieldCheck className="h-3 w-3" /> Verified
+                        <ShieldCheck className="h-3 w-3" /> Verified Buyer
                       </span>
                     ) : (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        Not verified
+                        Unverified
                       </span>
                     )}
                   </div>
