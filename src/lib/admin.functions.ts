@@ -12,7 +12,13 @@ import {
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
 import { logServerSyncEvent } from "@/lib/server-logger";
-import { sendOrderShipped, sendOrderDelivered, sendPaymentConfirmation } from "@/lib/email";
+import {
+  sendOrderShipped,
+  sendOrderDelivered,
+  sendPaymentConfirmation,
+  sendOrderCancelled,
+  sendRefundProcessed,
+} from "@/lib/email";
 import {
   addInventory,
   removeInventory,
@@ -1909,7 +1915,7 @@ export async function executeOrderShippedTransition(
     `;
     if (orderRow.length > 0) {
       const o = orderRow[0] as any;
-      sendOrderShipped({
+      await sendOrderShipped({
         to: String(o.shipping_email || ""),
         orderNumber: String(o.order_number || ""),
         orderId: String(o.id || ""),
@@ -1918,7 +1924,7 @@ export async function executeOrderShippedTransition(
         courierName: shippingDetails?.courierName ?? (o.courier_name || null),
         trackingNumber: shippingDetails?.trackingNumber ?? (o.tracking_number || null),
         trackingUrl: shippingDetails?.trackingUrl ?? (o.tracking_url || null),
-      }).catch((e) => console.warn("[Admin] Shipped email failed:", e));
+      });
     }
   } catch (emailErr) {
     console.warn("[Admin] Shipped email dispatch lookup failed (non-fatal):", emailErr);
@@ -1983,11 +1989,16 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
       });
     }
 
-    // Fire transactional emails on non-Shipped key status transitions (Delivered, Paid)
-    if (data.status === "Delivered" || data.paymentStatus === "Paid") {
+    // Fire transactional emails on status transitions (Delivered, Cancelled, Refunded, Paid)
+    if (
+      data.status === "Delivered" ||
+      data.status === "Cancelled" ||
+      data.status === "Refunded" ||
+      data.paymentStatus === "Paid"
+    ) {
       try {
         const orderRow = await sql`
-          SELECT id, order_number, shipping_email, shipping_name, user_id, total_amount, currency, payment_method
+          SELECT id, order_number, shipping_email, shipping_name, user_id, total_amount, currency, payment_method, admin_notes
           FROM orders WHERE id::text = ${String(data.orderId)} LIMIT 1
         `;
         if (orderRow.length > 0) {
@@ -2000,17 +2011,26 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
             userId: o.user_id ? String(o.user_id) : null,
           };
           if (data.status === "Delivered") {
-            sendOrderDelivered(baseOpts).catch((e) =>
-              console.warn("[Admin] Delivered email failed:", e),
-            );
+            await sendOrderDelivered(baseOpts);
+          } else if (data.status === "Cancelled") {
+            await sendOrderCancelled({
+              ...baseOpts,
+              reason: data.adminNotes || "Order cancelled by store administrator",
+            });
+          } else if (data.status === "Refunded") {
+            await sendRefundProcessed({
+              ...baseOpts,
+              refundAmount: Number(o.total_amount || 0).toLocaleString("en-IN"),
+              currency: String(o.currency || "₹"),
+            });
           } else if (data.paymentStatus === "Paid") {
-            sendPaymentConfirmation({
+            await sendPaymentConfirmation({
               ...baseOpts,
               total: Number(o.total_amount || 0).toLocaleString("en-IN"),
               currency: "₹",
               paymentMethod: String(o.payment_method || "COD"),
               transactionId: null,
-            }).catch((e) => console.warn("[Admin] Payment confirmation email failed:", e));
+            });
           }
         }
       } catch (emailErr) {

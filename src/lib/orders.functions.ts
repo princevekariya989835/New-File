@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
-import { ensureDbSchema, getSql } from "@/lib/db";
-import { sendOrderConfirmation, sendAdminNewOrderNotification } from "@/lib/email";
+import {
+  sendOrderConfirmation,
+  sendAdminNewOrderNotification,
+  sendAdminPaymentEventNotification,
+  sendOrderCancelled,
+} from "@/lib/email";
 import {
   deductOrderInventory,
   restoreOrderInventory,
@@ -771,60 +775,64 @@ export const placeOrder = createServerFn({ method: "POST" })
       console.warn("[Invoice] Auto generation warning on placeOrder:", invErr);
     }
 
-    // Send customer order confirmation via Brevo (fire and forget)
-    sendOrderConfirmation({
-      to: data.shippingEmail,
-      orderNumber,
-      orderId,
-      invoiceNumber: invoiceNumber ?? undefined,
-      customerName: data.shippingName,
-      shippingAddress: data.shippingAddress,
-      items: items.map((i) => ({
-        name: i.productName,
-        quantity: i.quantity,
-        size: i.selectedSize ?? null,
-        color: i.selectedColor ?? null,
-        price: i.price.toLocaleString("en-IN"),
-      })),
-      subtotal: subtotal.toLocaleString("en-IN"),
-      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
-      discountCode: appliedCoupon ? appliedCoupon.code : null,
-      shippingCharge: shipping.toLocaleString("en-IN"),
-      total: total.toLocaleString("en-IN"),
-      currency: "₹",
-      paymentMethod: "Cash on Delivery (COD)",
-      paymentStatus: "Confirmed",
-      userId: customerUserId,
-    }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
-
-    // Send store owner / admin notification privately (resolves ADMIN_NOTIFICATION_EMAIL securely)
-    sendAdminNewOrderNotification({
-      orderNumber,
-      orderId,
-      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      customerName: data.shippingName,
-      customerEmail: data.shippingEmail,
-      customerPhone: data.shippingPhone || null,
-      shippingAddress: data.shippingAddress,
-      paymentMethod: "Cash on Delivery (COD)",
-      paymentStatus: "Pending",
-      subtotal: subtotal.toLocaleString("en-IN"),
-      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      shippingCharge: shipping.toLocaleString("en-IN"),
-      total: total.toLocaleString("en-IN"),
-      currency: data.currency,
-      hasCustomDesign: items.some((i) => !!i.designSubmissionId),
-      items: items.map((i) => ({
-        name: i.productName,
-        quantity: i.quantity,
-        size: i.selectedSize || null,
-        color: i.selectedColor || null,
-        price: i.price.toLocaleString("en-IN"),
-        subtotal: i.subtotal.toLocaleString("en-IN"),
-        isCustomDesign: !!i.designSubmissionId,
-      })),
-    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+    // Dispatch customer order confirmation and admin notifications (awaited to ensure Cloudflare Worker delivers)
+    try {
+      await Promise.allSettled([
+        sendOrderConfirmation({
+          to: data.shippingEmail,
+          orderNumber,
+          orderId,
+          invoiceNumber: invoiceNumber ?? undefined,
+          customerName: data.shippingName,
+          shippingAddress: data.shippingAddress,
+          items: items.map((i) => ({
+            name: i.productName,
+            quantity: i.quantity,
+            size: i.selectedSize ?? null,
+            color: i.selectedColor ?? null,
+            price: i.price.toLocaleString("en-IN"),
+          })),
+          subtotal: subtotal.toLocaleString("en-IN"),
+          discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
+          discountCode: appliedCoupon ? appliedCoupon.code : null,
+          shippingCharge: shipping.toLocaleString("en-IN"),
+          total: total.toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Cash on Delivery (COD)",
+          paymentStatus: "Confirmed",
+          userId: customerUserId,
+        }),
+        sendAdminNewOrderNotification({
+          orderNumber,
+          orderId,
+          createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          customerName: data.shippingName,
+          customerEmail: data.shippingEmail,
+          customerPhone: data.shippingPhone || null,
+          shippingAddress: data.shippingAddress,
+          paymentMethod: "Cash on Delivery (COD)",
+          paymentStatus: "Pending",
+          subtotal: subtotal.toLocaleString("en-IN"),
+          discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          shippingCharge: shipping.toLocaleString("en-IN"),
+          total: total.toLocaleString("en-IN"),
+          currency: data.currency,
+          hasCustomDesign: items.some((i) => !!i.designSubmissionId),
+          items: items.map((i) => ({
+            name: i.productName,
+            quantity: i.quantity,
+            size: i.selectedSize || null,
+            color: i.selectedColor || null,
+            price: i.price.toLocaleString("en-IN"),
+            subtotal: i.subtotal.toLocaleString("en-IN"),
+            isCustomDesign: !!i.designSubmissionId,
+          })),
+        }),
+      ]);
+    } catch (err) {
+      console.warn("[Order Service] Order email notice:", err);
+    }
 
     // Automated Forward Shipment fulfillment via Zippyy
     syncOrderToZippyy(orderId).catch((err) =>
@@ -1344,69 +1352,81 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       console.warn("[Invoice] Auto generation warning on verifyOnlineOrderPayment:", invErr);
     }
 
-    // Dispatch customer confirmation email via Brevo (fire and forget)
-    sendOrderConfirmation({
-      to: String(order.shipping_email),
-      orderNumber: String(order.order_number),
-      orderId: String(order.id),
-      invoiceNumber: invoiceNumber ?? undefined,
-      customerName: String(order.shipping_name),
-      shippingAddress: String(order.shipping_address),
-      items: (orderItems as any[]).map((i) => ({
-        name: i.product_name,
-        quantity: Number(i.quantity || 1),
-        size: i.selected_size ?? null,
-        color: i.selected_color ?? null,
-        price: Number(i.price || 0).toLocaleString("en-IN"),
-      })),
-      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount:
-        Number(order.discount_amount || 0) > 0
-          ? Number(order.discount_amount).toLocaleString("en-IN")
-          : null,
-      discountCode: order.discount_code || null,
-      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-      currency: "₹",
-      paymentMethod: "Online Payment (Razorpay)",
-      paymentStatus: "Paid",
-      userId: String(authCtx.userId),
-    }).catch((err) =>
-      console.warn("[Order Service] Customer email notice on online payment:", err),
-    );
-
-    // Send store owner / admin notification
-    // Send store owner / admin notification privately (resolves ADMIN_NOTIFICATION_EMAIL securely)
-    sendAdminNewOrderNotification({
-      orderNumber: String(order.order_number),
-      orderId: String(order.id),
-      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      customerName: String(order.shipping_name),
-      customerEmail: String(order.shipping_email),
-      customerPhone: order.shipping_phone || null,
-      shippingAddress: String(order.shipping_address),
-      paymentMethod: "Online Payment (Razorpay)",
-      paymentStatus: "Paid",
-      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount:
-        Number(order.discount_amount || 0) > 0
-          ? Number(order.discount_amount).toLocaleString("en-IN")
-          : null,
-      couponCode: order.discount_code || null,
-      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-      currency: "INR",
-      hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
-      items: (orderItems as any[]).map((i) => ({
-        name: i.product_name,
-        quantity: Number(i.quantity || 1),
-        size: i.selected_size || null,
-        color: i.selected_color || null,
-        price: Number(i.price || 0).toLocaleString("en-IN"),
-        subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
-        isCustomDesign: !!i.design_submission_id,
-      })),
-    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+    // Dispatch customer confirmation, admin order notification, and admin payment confirmation (awaited)
+    try {
+      await Promise.allSettled([
+        sendOrderConfirmation({
+          to: String(order.shipping_email),
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          invoiceNumber: invoiceNumber ?? undefined,
+          customerName: String(order.shipping_name),
+          shippingAddress: String(order.shipping_address),
+          items: (orderItems as any[]).map((i) => ({
+            name: i.product_name,
+            quantity: Number(i.quantity || 1),
+            size: i.selected_size ?? null,
+            color: i.selected_color ?? null,
+            price: Number(i.price || 0).toLocaleString("en-IN"),
+          })),
+          subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+          discountAmount:
+            Number(order.discount_amount || 0) > 0
+              ? Number(order.discount_amount).toLocaleString("en-IN")
+              : null,
+          discountCode: order.discount_code || null,
+          shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+          total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Online Payment (Razorpay)",
+          paymentStatus: "Paid",
+          userId: String(authCtx.userId),
+        }),
+        sendAdminNewOrderNotification({
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          customerName: String(order.shipping_name),
+          customerEmail: String(order.shipping_email),
+          customerPhone: order.shipping_phone || null,
+          shippingAddress: String(order.shipping_address),
+          paymentMethod: "Online Payment (Razorpay)",
+          paymentStatus: "Paid",
+          subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+          discountAmount:
+            Number(order.discount_amount || 0) > 0
+              ? Number(order.discount_amount).toLocaleString("en-IN")
+              : null,
+          couponCode: order.discount_code || null,
+          shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+          total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "INR",
+          hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
+          items: (orderItems as any[]).map((i) => ({
+            name: i.product_name,
+            quantity: Number(i.quantity || 1),
+            size: i.selected_size || null,
+            color: i.selected_color || null,
+            price: Number(i.price || 0).toLocaleString("en-IN"),
+            subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
+            isCustomDesign: !!i.design_submission_id,
+          })),
+        }),
+        sendAdminPaymentEventNotification({
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          customerName: String(order.shipping_name),
+          customerEmail: String(order.shipping_email),
+          amount: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Online Payment (Razorpay)",
+          transactionId: data.razorpayPaymentId || null,
+          status: "success",
+        }),
+      ]);
+    } catch (err) {
+      console.warn("[Order Service] Online payment emails notice:", err);
+    }
 
     // Automated Forward Shipment fulfillment via Zippyy
     syncOrderToZippyy(String(order.id)).catch((err) =>
@@ -1440,6 +1460,31 @@ export const recordPaymentFailure = createServerFn({ method: "POST" })
         WHERE id::text = ${data.orderId}
           AND payment_status = 'Pending'
       `;
+
+      // Notify administrator of failed payment event
+      try {
+        const orderRows = await sql`
+          SELECT id, order_number, shipping_name, shipping_email, total_amount, currency
+          FROM orders WHERE id::text = ${data.orderId} LIMIT 1
+        `;
+        if (orderRows.length > 0) {
+          const ord = orderRows[0];
+          await sendAdminPaymentEventNotification({
+            orderNumber: String(ord.order_number || ord.id),
+            orderId: String(ord.id),
+            customerName: String(ord.shipping_name || "Customer"),
+            customerEmail: String(ord.shipping_email || ""),
+            amount: Number(ord.total_amount || 0).toLocaleString("en-IN"),
+            currency: String(ord.currency || "₹"),
+            paymentMethod: "Online Payment (Razorpay)",
+            status: "failed",
+            failureReason: data.reason,
+          });
+        }
+      } catch (adminNoticeErr) {
+        console.warn("[Orders] Payment failure admin notification warning:", adminNoticeErr);
+      }
+
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message };
@@ -1475,5 +1520,30 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
       );
     }
     const res = await restoreOrderInventory(data.orderId, data.reason, authCtx.userId);
+
+    // Send customer cancellation confirmation
+    try {
+      const emailRows = await sql`
+        SELECT id, order_number, shipping_email, shipping_name, total_amount, payment_status
+        FROM orders WHERE id::text = ${data.orderId} LIMIT 1
+      `;
+      if (emailRows.length > 0) {
+        const o = emailRows[0];
+        if (o.shipping_email) {
+          await sendOrderCancelled({
+            to: String(o.shipping_email),
+            orderNumber: String(o.order_number || o.id),
+            orderId: String(o.id),
+            customerName: String(o.shipping_name || "Customer"),
+            reason: data.reason,
+            refundNote: o.payment_status === "Paid" ? "Your payment refund will be initiated within 24-48 business hours." : null,
+            userId: authCtx.userId ? String(authCtx.userId) : null,
+          });
+        }
+      }
+    } catch (cancelEmailErr) {
+      console.warn("[Orders] Cancellation email notice:", cancelEmailErr);
+    }
+
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });

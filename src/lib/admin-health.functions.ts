@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { assertAdmin } from "@/lib/admin-utils";
 import { getSql, ensureDbSchema, getDatabaseUrl } from "@/lib/db";
+import { getBrevoApiKey, getEmailMode, getEmailFrom } from "@/lib/env.server";
 
 export type ComponentHealth = {
   name: string;
@@ -244,6 +245,26 @@ export const adminGetSystemHealth = createServerFn({ method: "GET" })
         message: `Failed to query profiles: ${err?.message || String(err)}`,
       });
     }
+
+    // 10. Brevo Transactional Email System
+    const brevoKey = getBrevoApiKey();
+    const emailMode = getEmailMode();
+    const sender = getEmailFrom();
+    components.push({
+      name: "Brevo Transactional Email",
+      key: "email_brevo",
+      status: brevoKey ? "healthy" : "warning",
+      latencyMs: 0,
+      message: brevoKey
+        ? `Brevo API Key active (${emailMode} mode) • Sender: ${sender}`
+        : `Brevo API Key not configured. Configure BREVO_API_KEY in Cloudflare / environment.`,
+      details: {
+        configured: Boolean(brevoKey),
+        mode: emailMode,
+        sender,
+        provider: "Brevo (Exclusive)",
+      },
+    });
 
     const hasError = components.some((c) => c.status === "error");
     const hasWarning = components.some((c) => c.status === "warning");

@@ -4,6 +4,7 @@ import { assertAdmin, assertPermission, assertSuperAdmin, logAudit } from "@/lib
 import { getSql } from "@/lib/db";
 import { invalidatePublicWebsiteConfigCache } from "@/lib/website-config.functions";
 import { invalidateCatalogCache } from "@/lib/catalog";
+import { sendAdminTestEmail } from "@/lib/email";
 
 export type StoreSettings = {
   id: string;
@@ -569,4 +570,74 @@ export const toggleMaintenanceMode = createServerFn({ method: "POST" })
         ? "Store is now in Maintenance Mode."
         : "Store is now LIVE and accessible to customers.",
     };
+  });
+
+/**
+ * Diagnostic: Send a test email via Brevo to verify edge worker delivery end-to-end
+ */
+export const adminSendTestEmailServerFn = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: { recipientEmail: string }) => ({
+    recipientEmail: String(d.recipientEmail || "").trim().toLowerCase(),
+  }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+
+    if (!data.recipientEmail || !data.recipientEmail.includes("@")) {
+      return { success: false, error: "Valid recipient email address is required" };
+    }
+
+    const result = await sendAdminTestEmail(data.recipientEmail);
+
+    await logAudit(
+      context,
+      `Dispatched Brevo test email to ${data.recipientEmail} (${result.sent ? "Sent" : "Failed"})`,
+      "Settings",
+      "brevo_test",
+      { recipient: data.recipientEmail, sent: result.sent, messageId: result.messageId, reason: result.reason },
+      { module: "settings", targetName: "Brevo Email Test" },
+    );
+
+    return {
+      success: result.sent,
+      messageId: result.messageId,
+      error: result.reason,
+    };
+  });
+
+/**
+ * Diagnostic: Fetch the latest 50 email audit logs
+ */
+export const adminGetEmailLogsServerFn = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const sql = getSql();
+
+    try {
+      const logs = await sql`
+        SELECT id, event_type, recipient_email, subject, status, message_id, error_message, created_at, sent_at
+        FROM email_logs
+        ORDER BY created_at DESC
+        LIMIT 50
+      `;
+
+      return {
+        success: true,
+        logs: logs.map((l: any) => ({
+          id: String(l.id),
+          eventType: String(l.event_type || ""),
+          recipientEmail: String(l.recipient_email || ""),
+          subject: String(l.subject || ""),
+          status: String(l.status || ""),
+          messageId: l.message_id ? String(l.message_id) : null,
+          errorMessage: l.error_message ? String(l.error_message) : null,
+          createdAt: l.created_at ? new Date(l.created_at).toISOString() : "",
+          sentAt: l.sent_at ? new Date(l.sent_at).toISOString() : null,
+        })),
+      };
+    } catch (err: any) {
+      console.warn("[Admin Email Logs] Failed to retrieve email logs:", err);
+      return { success: false, logs: [], error: err?.message || "Failed to load email logs" };
+    }
   });

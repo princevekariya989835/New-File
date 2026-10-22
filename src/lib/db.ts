@@ -123,6 +123,7 @@ const _mockProfiles: any[] = [
 ];
 
 const _mockEmailOtps: any[] = [];
+const _mockEmailLogs: any[] = [];
 
 const _mockCoupons: any[] = [
   {
@@ -251,8 +252,6 @@ const _mockCouponUsage: any[] = [
     used_at: new Date(Date.now() - 1 * 86400000).toISOString(),
   },
 ];
-
-const _mockEmailLogs: any[] = [];
 
 const _mockOrders: any[] = [
   {
@@ -1514,6 +1513,40 @@ export function getSql() {
         }
       }
 
+      // SELECT / INSERT from email_logs
+      if (lower.includes("email_logs")) {
+        if (lower.startsWith("select")) {
+          const orderIdVal = values.find((v) => typeof v === "string" && (v.startsWith("ord_") || v.startsWith("ORD")));
+          const emailTypeVal = values.find((v) => typeof v === "string" && v.includes("_"));
+          let matches = [..._mockEmailLogs];
+          if (orderIdVal) {
+            matches = matches.filter((l) => l.order_id === orderIdVal);
+          }
+          if (emailTypeVal) {
+            matches = matches.filter((l) => l.email_type === emailTypeVal);
+          }
+          return matches.slice(0, 50);
+        }
+        if (lower.startsWith("insert")) {
+          const newLog = {
+            id: values[0] ? String(values[0]) : `eml_${Date.now()}`,
+            user_id: values[1] ? String(values[1]) : null,
+            order_id: values[2] ? String(values[2]) : null,
+            email_type: values[3] ? String(values[3]) : "UNKNOWN",
+            recipient: values[4] ? String(values[4]) : "",
+            sender: values[5] ? String(values[5]) : "order@riotous.store",
+            status: values[6] ? String(values[6]) : "sent",
+            provider: values[7] ? String(values[7]) : "brevo",
+            provider_message_id: values[8] ? String(values[8]) : null,
+            error_message: values[9] ? String(values[9]) : null,
+            created_at: values[10] ? String(values[10]) : new Date().toISOString(),
+            sent_at: values[11] ? String(values[11]) : null,
+          };
+          _mockEmailLogs.unshift(newLog);
+          return [newLog];
+        }
+      }
+
       return [];
     };
 
@@ -1597,6 +1630,39 @@ export async function ensureDbSchema() {
             `;
             await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets (token_hash)`;
             await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets (email, expires_at)`;
+
+            // Ensure email_logs and email_otps exist for Brevo integration
+            await sql`
+              CREATE TABLE IF NOT EXISTS email_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                order_id TEXT,
+                email_type TEXT NOT NULL,
+                recipient TEXT NOT NULL,
+                sender TEXT NOT NULL,
+                status TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'brevo',
+                provider_message_id TEXT,
+                error_message TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                sent_at TEXT
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`;
+
+            await sql`
+              CREATE TABLE IF NOT EXISTS email_otps (
+                id TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                otp TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_otps_lookup ON email_otps (email, purpose, expires_at)`;
 
             // Ensure orders table has invoice fields for fast query lookup
             try {

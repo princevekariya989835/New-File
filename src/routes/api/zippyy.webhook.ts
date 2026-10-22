@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { getZippyyConfig } from "@/lib/zippyy/client";
 import type { ZippyyWebhookPayload } from "@/lib/zippyy/types";
+import { sendOrderShipped, sendOutForDelivery, sendOrderDelivered } from "@/lib/email";
 
 export const Route = createFileRoute("/api/zippyy/webhook")({
   server: {
@@ -111,6 +112,40 @@ export const Route = createFileRoute("/api/zippyy/webhook")({
                     updated_at = NOW()
                   WHERE id = ${orderId} OR order_number = ${orderId}
                 `;
+
+                // Dispatch customer notification email on tracking status update (idempotent)
+                try {
+                  const orderRows = await sql`
+                    SELECT id, order_number, shipping_name, shipping_email, user_id FROM orders
+                    WHERE id = ${orderId} OR order_number = ${orderId} LIMIT 1
+                  `;
+                  if (orderRows.length > 0) {
+                    const ord = orderRows[0];
+                    const emailTo = String(ord.shipping_email || "");
+                    if (emailTo) {
+                      const baseOpts = {
+                        to: emailTo,
+                        orderNumber: String(ord.order_number || ord.id),
+                        orderId: String(ord.id),
+                        customerName: String(ord.shipping_name || "Customer"),
+                        userId: ord.user_id ? String(ord.user_id) : null,
+                      };
+                      if (isDelivered) {
+                        await sendOrderDelivered(baseOpts);
+                      } else if (internalStatus === "Out for Delivery") {
+                        await sendOutForDelivery(baseOpts);
+                      } else if (internalStatus === "In Transit" || event === "PICKED_UP") {
+                        await sendOrderShipped({
+                          ...baseOpts,
+                          courierName: data.courierName || "Delhivery",
+                          trackingNumber: awb || null,
+                        });
+                      }
+                    }
+                  }
+                } catch (emailErr) {
+                  console.warn("[Zippyy Webhook] Email dispatch warning:", emailErr);
+                }
               }
 
               // 3. Log event to shipment_tracking_events

@@ -8,7 +8,7 @@ import {
 } from "@/lib/returns-utils";
 import type { ReturnHistoryEntry, ReturnRecord } from "@/lib/returns-shared";
 import { ensureDbSchema, getSql } from "@/lib/db";
-import { sendReturnRequested } from "@/lib/email";
+import { sendReturnRequested, sendAdminReturnRequestNotification } from "@/lib/email";
 
 export type { ReturnableItem, ReturnableOrder };
 
@@ -197,19 +197,34 @@ export const requestReturn = createServerFn({ method: "POST" })
       );
     `;
 
-    // Send return-requested email via Brevo (fire and forget)
+    // Send customer return confirmation and store owner notification via Brevo (awaited)
     const customerEmail = String(order.shipping_email || "");
-    if (customerEmail) {
-      sendReturnRequested({
-        to: customerEmail,
-        orderNumber: String(order.order_number || order.id),
-        returnNumber,
-        orderId: String(order.id),
-        customerName: customerEmail,
-        productName: String(item.product_name || ""),
-        reason: data.reason,
-        userId: authCtx.userId ? String(authCtx.userId) : null,
-      }).catch((e) => console.warn("[Returns] Return-requested email failed (non-fatal):", e));
+    try {
+      await Promise.allSettled([
+        customerEmail
+          ? sendReturnRequested({
+              to: customerEmail,
+              orderNumber: String(order.order_number || order.id),
+              returnNumber,
+              orderId: String(order.id),
+              customerName: String(order.shipping_name || customerEmail),
+              productName: String(item.product_name || ""),
+              reason: data.reason,
+              userId: authCtx.userId ? String(authCtx.userId) : null,
+            })
+          : Promise.resolve({ sent: false }),
+        sendAdminReturnRequestNotification({
+          returnNumber,
+          orderNumber: String(order.order_number || order.id),
+          customerName: String(order.shipping_name || customerEmail || "Customer"),
+          customerEmail,
+          productName: String(item.product_name || ""),
+          reason: data.reason,
+          quantity: data.quantity,
+        }),
+      ]);
+    } catch (e) {
+      console.warn("[Returns] Return email dispatches warning:", e);
     }
 
     return {

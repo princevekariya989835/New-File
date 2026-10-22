@@ -2,9 +2,9 @@
  * RIOTOUS Transactional Email Index
  * Server-only convenience functions. Never import from client components.
  *
- * All email functions are fire-and-forget safe — they never throw.
- * Hook these into business flows (auth, orders, shipping, returns) without
- * wrapping in try/catch; they handle all errors internally.
+ * All email functions use Brevo exclusively and are structured to never throw,
+ * returning structured { sent: boolean; messageId?: string; reason?: string } objects.
+ * Callers must await these promises to prevent Cloudflare Worker runtime cancellation.
  */
 
 import {
@@ -13,8 +13,10 @@ import {
   BREVO_SENDER_AUTH,
   BREVO_SENDER_ORDERS,
   BREVO_REPLY_TO,
+  maskEmail,
 } from "./brevo";
-import { getAdminNotificationEmail } from "@/lib/env.server";
+import { getAdminNotificationEmail, getEmailMode, getEmailFrom } from "@/lib/env.server";
+import { getSql } from "@/lib/db";
 
 import {
   templateLoginOtp,
@@ -25,6 +27,7 @@ import {
   templateOrderShipped,
   templateOutForDelivery,
   templateOrderDelivered,
+  templateOrderCancelled,
   templateReturnRequested,
   templateReturnApproved,
   templateReturnRejected,
@@ -33,10 +36,55 @@ import {
   templatePasswordChanged,
   templateAdminNewRegistration,
   templateAdminNewOrder,
+  templateAdminPaymentEvent,
+  templateAdminNewReview,
+  templateAdminReturnRequested,
+  templateAdminSupportInquiry,
+  templateAdminTestEmail,
   type OrderItem,
 } from "./templates";
 
 export type { OrderItem };
+
+// ─── ADMIN EMAIL RESOLVER ─────────────────────────────────────────────────────
+
+/**
+ * Resolves the private administrator recipient email address securely on the server.
+ * Priority:
+ * 1. Environment secret (ADMIN_NOTIFICATION_EMAIL / ADMIN_EMAIL / STORE_OWNER_EMAIL)
+ * 2. store_settings table in database (notification_email or store_email)
+ *
+ * Kept strictly server-side: NEVER exposed in frontend code or client responses.
+ */
+export async function resolveAdminNotificationEmail(): Promise<string | null> {
+  // 1. Check server environment / Cloudflare worker secrets
+  const envEmail = getAdminNotificationEmail();
+  if (envEmail && envEmail.includes("@")) {
+    return envEmail.trim();
+  }
+
+  // 2. Fallback to store_settings configured in Admin panel
+  try {
+    const sql = getSql();
+    const rows = await sql`
+      SELECT notification_email, store_email FROM store_settings WHERE id = 'default' LIMIT 1
+    `;
+    if (rows && rows.length > 0) {
+      const notifyEmail = rows[0].notification_email;
+      if (notifyEmail && typeof notifyEmail === "string" && notifyEmail.includes("@")) {
+        return notifyEmail.trim();
+      }
+      const storeEmail = rows[0].store_email;
+      if (storeEmail && typeof storeEmail === "string" && storeEmail.includes("@")) {
+        return storeEmail.trim();
+      }
+    }
+  } catch {
+    /* non-fatal fallback */
+  }
+
+  return null;
+}
 
 // ─── AUTH EMAILS ──────────────────────────────────────────────────────────────
 
@@ -149,9 +197,8 @@ export async function sendWelcomeEmail(opts: {
 // ─── ADMIN NOTIFICATION EMAILS ────────────────────────────────────────────────
 
 /**
- * Sends a private notification to ADMIN_NOTIFICATION_EMAIL when a new customer registers.
- * Idempotent per customer ID to prevent duplicate emails from retries.
- * Server-only: recipient is never exposed to the client.
+ * Sends a private notification to the store owner when a new customer registers.
+ * Idempotent per customer ID.
  */
 export async function sendAdminNewCustomerNotification(opts: {
   customerName?: string | null;
@@ -160,10 +207,10 @@ export async function sendAdminNewCustomerNotification(opts: {
   registeredAt?: string;
   ipAddress?: string;
 }) {
-  const adminEmail = getAdminNotificationEmail();
+  const adminEmail = await resolveAdminNotificationEmail();
   if (!adminEmail) {
-    console.warn("[Admin Notification] ADMIN_NOTIFICATION_EMAIL is not configured. Email notification skipped.");
-    return { sent: false, reason: "ADMIN_NOTIFICATION_EMAIL not configured" };
+    console.warn("[Admin Notification] Admin notification email not configured. Registration alert skipped.");
+    return { sent: false, reason: "Admin notification email not configured" };
   }
 
   // Idempotency: verify this customer registration hasn't already been notified
@@ -195,9 +242,8 @@ export async function sendAdminNewCustomerNotification(opts: {
 }
 
 /**
- * Sends a private notification to ADMIN_NOTIFICATION_EMAIL for newly confirmed or placed orders.
+ * Sends a private notification to the store owner for newly placed or confirmed orders.
  * Idempotent per order ID.
- * Server-only: recipient is strictly loaded from server secrets.
  */
 export async function sendAdminNewOrderNotification(opts: {
   orderNumber: string;
@@ -226,10 +272,10 @@ export async function sendAdminNewOrderNotification(opts: {
     isCustomDesign?: boolean;
   }>;
 }) {
-  const adminEmail = getAdminNotificationEmail();
+  const adminEmail = await resolveAdminNotificationEmail();
   if (!adminEmail) {
-    console.warn("[Admin Notification] ADMIN_NOTIFICATION_EMAIL is not configured. Email notification skipped.");
-    return { sent: false, reason: "ADMIN_NOTIFICATION_EMAIL not configured" };
+    console.warn("[Admin Notification] Admin notification email not configured. Order alert skipped.");
+    return { sent: false, reason: "Admin notification email not configured" };
   }
 
   // Idempotency check: only send once per order
@@ -253,6 +299,169 @@ export async function sendAdminNewOrderNotification(opts: {
     meta: {
       emailType: "ADMIN_ORDER_NOTIFICATION",
       orderId: opts.orderId,
+    },
+  });
+}
+
+/**
+ * Sends a private notification to the store owner on payment events (success or failure).
+ */
+export async function sendAdminPaymentEventNotification(opts: {
+  orderNumber: string;
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  amount: number | string;
+  currency?: string;
+  paymentMethod: string;
+  transactionId?: string | null;
+  status: "success" | "failed";
+  failureReason?: string | null;
+  timestamp?: string;
+}) {
+  const adminEmail = await resolveAdminNotificationEmail();
+  if (!adminEmail) {
+    return { sent: false, reason: "Admin notification email not configured" };
+  }
+
+  const emailType = opts.status === "success" ? "ADMIN_PAYMENT_SUCCESS" : "ADMIN_PAYMENT_FAILED";
+  // Idempotency check for successful payment alerts
+  if (opts.status === "success" && (await hasEmailBeenSent(opts.orderId, emailType))) {
+    return { sent: true };
+  }
+
+  const tpl = templateAdminPaymentEvent(opts);
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_ORDERS,
+    to: [{ email: adminEmail, name: "RIOTOUS Administrator" }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: {
+      emailType,
+      orderId: opts.orderId,
+    },
+  });
+}
+
+/**
+ * Sends a private notification to the store owner when a customer leaves a review.
+ */
+export async function sendAdminNewReviewNotification(opts: {
+  reviewId: string;
+  productName: string;
+  productId: string;
+  authorName: string;
+  customerEmail?: string | null;
+  rating: number;
+  title?: string | null;
+  reviewText: string;
+  isVerifiedPurchase?: boolean;
+}) {
+  const adminEmail = await resolveAdminNotificationEmail();
+  if (!adminEmail) {
+    return { sent: false, reason: "Admin notification email not configured" };
+  }
+
+  const tpl = templateAdminNewReview(opts);
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_AUTH,
+    to: [{ email: adminEmail, name: "RIOTOUS Administrator" }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: {
+      emailType: "ADMIN_REVIEW_NOTIFICATION",
+      userId: opts.customerEmail ?? null,
+    },
+  });
+}
+
+/**
+ * Sends a private notification to the store owner when a customer requests a return.
+ */
+export async function sendAdminReturnRequestNotification(opts: {
+  returnNumber: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  productName?: string | null;
+  reason: string;
+  quantity: number;
+}) {
+  const adminEmail = await resolveAdminNotificationEmail();
+  if (!adminEmail) {
+    return { sent: false, reason: "Admin notification email not configured" };
+  }
+
+  const tpl = templateAdminReturnRequested(opts);
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_ORDERS,
+    to: [{ email: adminEmail, name: "RIOTOUS Administrator" }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: {
+      emailType: "ADMIN_RETURN_NOTIFICATION",
+      orderId: opts.orderNumber,
+    },
+  });
+}
+
+/**
+ * Sends a private notification to the store owner when a customer submits a support inquiry.
+ */
+export async function sendAdminSupportInquiryNotification(opts: {
+  inquiryId: string;
+  requestType: string;
+  customerName?: string | null;
+  customerEmail: string;
+  orderName?: string | null;
+  reason?: string | null;
+  details: string;
+}) {
+  const adminEmail = await resolveAdminNotificationEmail();
+  if (!adminEmail) {
+    return { sent: false, reason: "Admin notification email not configured" };
+  }
+
+  const tpl = templateAdminSupportInquiry(opts);
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_AUTH,
+    to: [{ email: adminEmail, name: "RIOTOUS Administrator" }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: {
+      emailType: "ADMIN_SUPPORT_INQUIRY",
+    },
+  });
+}
+
+/**
+ * Sends a test email to verify Brevo integration end-to-end.
+ */
+export async function sendAdminTestEmail(targetEmail: string) {
+  const tpl = templateAdminTestEmail({
+    recipient: targetEmail,
+    sentAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    environment: getEmailMode(),
+    senderEmail: getEmailFrom(),
+  });
+
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_ORDERS,
+    to: [{ email: targetEmail }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: {
+      emailType: "ADMIN_TEST_VERIFICATION",
     },
   });
 }
@@ -382,9 +591,32 @@ export async function sendOrderDelivered(opts: {
   });
 }
 
+/** Send order cancellation notice to customer. */
+export async function sendOrderCancelled(opts: {
+  to: string;
+  orderNumber: string;
+  orderId: string;
+  customerName: string;
+  reason?: string | null;
+  refundNote?: string | null;
+  userId?: string | null;
+}) {
+  if (await hasEmailBeenSent(opts.orderId, "ORDER_CANCELLED")) return { sent: true };
+  const tpl = templateOrderCancelled(opts);
+  return sendBrevoEmail({
+    sender: BREVO_SENDER_ORDERS,
+    to: [{ email: opts.to, name: opts.customerName }],
+    subject: tpl.subject,
+    htmlContent: tpl.html,
+    textContent: tpl.text,
+    replyTo: BREVO_REPLY_TO,
+    meta: { emailType: "ORDER_CANCELLED", orderId: opts.orderId, userId: opts.userId },
+  });
+}
+
 // ─── RETURN / REFUND EMAILS ───────────────────────────────────────────────────
 
-/** Send return-requested notification. */
+/** Send return-requested notification to customer. */
 export async function sendReturnRequested(opts: {
   to: string;
   orderNumber: string;
@@ -413,7 +645,7 @@ export async function sendReturnRequested(opts: {
   });
 }
 
-/** Send return-approved notification. */
+/** Send return-approved notification to customer. */
 export async function sendReturnApproved(opts: {
   to: string;
   orderNumber: string;
@@ -440,7 +672,7 @@ export async function sendReturnApproved(opts: {
   });
 }
 
-/** Send return-rejected notification. */
+/** Send return-rejected notification to customer. */
 export async function sendReturnRejected(opts: {
   to: string;
   orderNumber: string;
@@ -467,7 +699,7 @@ export async function sendReturnRejected(opts: {
   });
 }
 
-/** Send refund-processed notification. */
+/** Send refund-processed notification to customer. */
 export async function sendRefundProcessed(opts: {
   to: string;
   orderNumber: string;
@@ -492,4 +724,10 @@ export async function sendRefundProcessed(opts: {
 }
 
 // Re-export low-level helpers for advanced use
-export { sendBrevoEmail, hasEmailBeenSent, BREVO_SENDER_AUTH, BREVO_SENDER_ORDERS };
+export {
+  sendBrevoEmail,
+  hasEmailBeenSent,
+  BREVO_SENDER_AUTH,
+  BREVO_SENDER_ORDERS,
+  maskEmail,
+};

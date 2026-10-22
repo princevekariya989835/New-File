@@ -559,3 +559,246 @@ export function templateAdminNewOrder(d: {
   const text = `[Admin Order Alert] Order #${d.orderNumber}\n\nTotal: ${cur} ${d.total}\nPayment: ${d.paymentMethod} (${d.paymentStatus || "Pending"})\nCustomer: ${d.customerName} (${d.customerEmail})\nPhone: ${d.customerPhone || "N/A"}\nShip To: ${d.shippingAddress}\n\nItems:\n${items.map((i) => `- ${i.quantity}x ${i.name} (${i.size || ""}/${i.color || ""}) - ${cur} ${i.price}`).join("\n")}\n\nManage in admin: ${BRAND_URL}/admin/orders\n\n--\n${BRAND_FOOTER}`;
   return { subject, html: base({ title: subject, preheader: `New order #${d.orderNumber} for ${cur} ${d.total}`, body }), text };
 }
+
+// ─── 17. CUSTOMER ORDER CANCELLED ─────────────────────────────────────────────
+export function templateOrderCancelled(d: {
+  orderNumber: string;
+  customerName: string;
+  reason?: string | null;
+  refundNote?: string | null;
+}): EmailTemplateResult {
+  const subject = `Your RIOTOUS Order Has Been Cancelled — #${d.orderNumber}`;
+  const body = `
+    <h1 style="font-size:21px;font-weight:700;margin:0 0 8px;color:#09090b;">Order Cancelled</h1>
+    <p style="font-size:14px;color:#52525b;margin:0 0 20px;">Hi ${esc(d.customerName)}, Order <strong>#${esc(d.orderNumber)}</strong> has been cancelled.</p>
+    <div class="card card-red">
+      <strong style="font-size:13px;color:#991b1b;">Cancellation Details</strong>
+      <p style="margin:6px 0 0;font-size:13px;color:#991b1b;line-height:1.5;">
+        ${d.reason ? `Reason: ${esc(d.reason)}` : "The order was cancelled per your request or store policy."}
+      </p>
+    </div>
+    ${
+      d.refundNote
+        ? `<div class="card card-green" style="margin-top:16px;">
+        <strong style="font-size:13px;color:#166534;">Refund Information</strong>
+        <p style="margin:6px 0 0;font-size:13px;color:#166534;line-height:1.5;">${esc(d.refundNote)}</p>
+      </div>`
+        : ""
+    }
+    <p style="font-size:13px;color:#71717a;line-height:1.5;margin-top:20px;">
+      If you have any questions or this was done in error, please reach out to our team at
+      <a href="mailto:${SUPPORT_EMAIL}" style="color:#ef4444;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+    </p>`;
+  const text = `RIOTOUS Order Cancelled — #${d.orderNumber}\n\nHi ${d.customerName},\nOrder #${d.orderNumber} has been cancelled.\nReason: ${d.reason || "Per customer request / store policy"}\n${d.refundNote ? `Refund: ${d.refundNote}\n` : ""}Contact: ${SUPPORT_EMAIL}\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: `Order #${d.orderNumber} cancelled`, body }), text };
+}
+
+// ─── 18. ADMIN NOTIFICATION: PAYMENT EVENT ────────────────────────────────────
+export function templateAdminPaymentEvent(d: {
+  orderNumber: string;
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  amount: number | string;
+  currency?: string;
+  paymentMethod: string;
+  transactionId?: string | null;
+  status: "success" | "failed";
+  failureReason?: string | null;
+  timestamp?: string;
+}): EmailTemplateResult {
+  const cur = d.currency || "₹";
+  const isSuccess = d.status === "success";
+  const subject = isSuccess
+    ? `[Payment Confirmed] Order #${d.orderNumber} — ${cur} ${d.amount}`
+    : `[Payment Alert] Payment Failed for Order #${d.orderNumber} (${cur} ${d.amount})`;
+  const time = d.timestamp || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+  const body = `
+    <div style="display:inline-block;background:${isSuccess ? "#f0fdf4" : "#fef2f2"};border:1px solid ${isSuccess ? "#bbf7d0" : "#fecaca"};color:${isSuccess ? "#16a34a" : "#ef4444"};font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;">
+      ${isSuccess ? "Payment Received" : "Payment Warning"}
+    </div>
+    <h1 style="font-size:22px;font-weight:800;margin:0 0 6px;color:#09090b;">
+      ${isSuccess ? "Payment Successful ✅" : "Payment Failed ⚠️"}
+    </h1>
+    <p style="font-size:13px;color:#71717a;margin:0 0 20px;">
+      Recorded at ${esc(time)} for Order <strong>#${esc(d.orderNumber)}</strong>
+    </p>
+    <div class="card ${isSuccess ? "card-green" : "card-red"}">
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.8;">
+        <tr><td style="color:#71717a;width:130px;">Amount:</td><td style="font-weight:800;font-size:16px;color:${isSuccess ? "#15803d" : "#991b1b"};">${cur} ${d.amount}</td></tr>
+        <tr><td style="color:#71717a;">Payment Method:</td><td style="font-weight:600;">${esc(d.paymentMethod)}</td></tr>
+        ${d.transactionId ? `<tr><td style="color:#71717a;">Transaction ID:</td><td style="font-family:monospace;font-size:12px;">${esc(d.transactionId)}</td></tr>` : ""}
+        ${!isSuccess && d.failureReason ? `<tr><td style="color:#991b1b;">Failure Reason:</td><td style="color:#991b1b;font-weight:600;">${esc(d.failureReason)}</td></tr>` : ""}
+      </table>
+    </div>
+    <div class="card">
+      <strong style="font-size:13px;display:block;margin-bottom:8px;">Customer Information</strong>
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.7;">
+        <tr><td style="color:#71717a;width:130px;">Name:</td><td style="font-weight:600;">${esc(d.customerName)}</td></tr>
+        <tr><td style="color:#71717a;">Email:</td><td><a href="mailto:${esc(d.customerEmail)}" style="color:#ef4444;text-decoration:none;">${esc(d.customerEmail)}</a></td></tr>
+        <tr><td style="color:#71717a;">Order ID:</td><td style="font-family:monospace;color:#71717a;">${esc(d.orderId)}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:28px 0 0;">
+      <a href="${BRAND_URL}/admin/orders" class="btn-dark" style="font-size:13px;padding:12px 28px;">View Orders in Admin Panel ↗</a>
+    </div>`;
+
+  const text = `[Payment Alert] ${isSuccess ? "Payment Successful" : "Payment Failed"}\n\nOrder: #${d.orderNumber}\nAmount: ${cur} ${d.amount}\nMethod: ${d.paymentMethod}\nStatus: ${d.status}\nCustomer: ${d.customerName} (${d.customerEmail})\n${d.transactionId ? `Transaction ID: ${d.transactionId}\n` : ""}${d.failureReason ? `Failure Reason: ${d.failureReason}\n` : ""}\nView orders: ${BRAND_URL}/admin/orders\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: `Payment ${d.status} for order #${d.orderNumber}`, body }), text };
+}
+
+// ─── 19. ADMIN NOTIFICATION: CUSTOMER REVIEW ──────────────────────────────────
+export function templateAdminNewReview(d: {
+  reviewId: string;
+  productName: string;
+  productId: string;
+  authorName: string;
+  customerEmail?: string | null;
+  rating: number;
+  title?: string | null;
+  reviewText: string;
+  isVerifiedPurchase?: boolean;
+  createdAt?: string;
+}): EmailTemplateResult {
+  const stars = "★".repeat(Math.min(5, Math.max(1, d.rating))) + "☆".repeat(Math.max(0, 5 - d.rating));
+  const subject = `[New Review] ${stars} on ${d.productName} by ${d.authorName}`;
+  const body = `
+    <div style="display:inline-block;background:#fef2f2;border:1px solid #fecaca;color:#ef4444;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;">
+      Customer Feedback
+    </div>
+    <h1 style="font-size:21px;font-weight:700;margin:0 0 8px;color:#09090b;">New Product Review</h1>
+    <p style="font-size:14px;color:#52525b;margin:0 0 20px;">A customer submitted a review for <strong>${esc(d.productName)}</strong>.</p>
+    <div class="card">
+      <div style="font-size:22px;color:#f59e0b;letter-spacing:2px;margin-bottom:10px;">${stars}</div>
+      ${d.title ? `<strong style="font-size:15px;color:#09090b;display:block;margin-bottom:6px;">${esc(d.title)}</strong>` : ""}
+      <p style="font-size:14px;line-height:1.6;color:#3f3f46;margin:0 0 16px;white-space:pre-wrap;">${esc(d.reviewText)}</p>
+      <div style="border-top:1px solid #e4e4e7;padding-top:12px;font-size:12px;color:#71717a;line-height:1.7;">
+        <div><strong>Author:</strong> ${esc(d.authorName)} ${d.customerEmail ? `(${esc(d.customerEmail)})` : ""}</div>
+        <div><strong>Verified Buyer:</strong> ${d.isVerifiedPurchase ? "Yes ✅" : "No"}</div>
+        <div><strong>Product:</strong> ${esc(d.productName)} (ID: ${esc(d.productId)})</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin:28px 0 0;">
+      <a href="${BRAND_URL}/admin/reviews" class="btn-dark" style="font-size:13px;padding:12px 28px;">Moderate Reviews in Admin ↗</a>
+    </div>`;
+
+  const text = `[New Review] ${stars} on ${d.productName}\n\nBy: ${d.authorName} ${d.customerEmail ? `(${d.customerEmail})` : ""}\nVerified: ${d.isVerifiedPurchase ? "Yes" : "No"}\n${d.title ? `Title: ${d.title}\n` : ""}Review:\n${d.reviewText}\n\nModerate: ${BRAND_URL}/admin/reviews\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: `New ${d.rating}★ review on ${d.productName}`, body }), text };
+}
+
+// ─── 20. ADMIN NOTIFICATION: RETURN REQUESTED ─────────────────────────────────
+export function templateAdminReturnRequested(d: {
+  returnNumber: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  productName?: string | null;
+  reason: string;
+  quantity: number;
+  requestedAt?: string;
+}): EmailTemplateResult {
+  const subject = `[Return Alert] Request #${d.returnNumber} for Order #${d.orderNumber}`;
+  const time = d.requestedAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const body = `
+    <div style="display:inline-block;background:#fffbeb;border:1px solid #fde68a;color:#b45309;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;">
+      Return Request Pending
+    </div>
+    <h1 style="font-size:21px;font-weight:700;margin:0 0 8px;color:#09090b;">Customer Return Request</h1>
+    <p style="font-size:14px;color:#52525b;margin:0 0 20px;">A customer has submitted a return request at ${esc(time)}.</p>
+    <div class="card card-amber">
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.8;">
+        <tr><td style="color:#71717a;width:130px;">Return Number:</td><td style="font-weight:700;color:#09090b;">#${esc(d.returnNumber)}</td></tr>
+        <tr><td style="color:#71717a;">Order Number:</td><td style="font-weight:600;">#${esc(d.orderNumber)}</td></tr>
+        ${d.productName ? `<tr><td style="color:#71717a;">Item:</td><td>${esc(d.productName)} (Qty: ${d.quantity})</td></tr>` : ""}
+        <tr><td style="color:#71717a;">Return Reason:</td><td style="font-weight:600;color:#92400e;">${esc(d.reason)}</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <strong style="font-size:13px;display:block;margin-bottom:8px;">Customer Contact</strong>
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.7;">
+        <tr><td style="color:#71717a;width:130px;">Customer:</td><td style="font-weight:600;">${esc(d.customerName)}</td></tr>
+        <tr><td style="color:#71717a;">Email:</td><td><a href="mailto:${esc(d.customerEmail)}" style="color:#ef4444;text-decoration:none;">${esc(d.customerEmail)}</a></td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;margin:28px 0 0;">
+      <a href="${BRAND_URL}/admin/returns" class="btn-dark" style="font-size:13px;padding:12px 28px;">Review in Admin Panel ↗</a>
+    </div>`;
+
+  const text = `[Return Alert] Request #${d.returnNumber} for Order #${d.orderNumber}\n\nCustomer: ${d.customerName} (${d.customerEmail})\nReason: ${d.reason}\n${d.productName ? `Item: ${d.productName} (Qty: ${d.quantity})\n` : ""}Review: ${BRAND_URL}/admin/returns\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: `Return #${d.returnNumber} for order #${d.orderNumber}`, body }), text };
+}
+
+// ─── 21. ADMIN NOTIFICATION: SUPPORT INQUIRY ──────────────────────────────────
+export function templateAdminSupportInquiry(d: {
+  inquiryId: string;
+  requestType: string;
+  customerName?: string | null;
+  customerEmail: string;
+  orderName?: string | null;
+  reason?: string | null;
+  details: string;
+  submittedAt?: string;
+}): EmailTemplateResult {
+  const subject = `[Support Inquiry] ${esc(d.requestType.toUpperCase())}: ${esc(d.customerEmail)}`;
+  const time = d.submittedAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const body = `
+    <div style="display:inline-block;background:#fef2f2;border:1px solid #fecaca;color:#ef4444;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;">
+      Customer Inquiry
+    </div>
+    <h1 style="font-size:21px;font-weight:700;margin:0 0 8px;color:#09090b;">New Support Request</h1>
+    <p style="font-size:14px;color:#52525b;margin:0 0 20px;">Submitted at ${esc(time)}.</p>
+    <div class="card">
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.8;margin-bottom:12px;">
+        <tr><td style="color:#71717a;width:130px;">Inquiry Type:</td><td style="font-weight:700;text-transform:uppercase;color:#ef4444;">${esc(d.requestType)}</td></tr>
+        <tr><td style="color:#71717a;">Customer Email:</td><td><a href="mailto:${esc(d.customerEmail)}" style="color:#ef4444;text-decoration:none;">${esc(d.customerEmail)}</a></td></tr>
+        ${d.customerName ? `<tr><td style="color:#71717a;">Customer Name:</td><td style="font-weight:600;">${esc(d.customerName)}</td></tr>` : ""}
+        ${d.orderName ? `<tr><td style="color:#71717a;">Order Reference:</td><td style="font-weight:600;">#${esc(d.orderName)}</td></tr>` : ""}
+        ${d.reason ? `<tr><td style="color:#71717a;">Topic:</td><td>${esc(d.reason)}</td></tr>` : ""}
+        <tr><td style="color:#71717a;">Inquiry ID:</td><td style="font-family:monospace;color:#71717a;">${esc(d.inquiryId)}</td></tr>
+      </table>
+      <div style="border-top:1px solid #e4e4e7;padding-top:12px;">
+        <strong style="font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Message Content:</strong>
+        <p style="font-size:14px;line-height:1.6;color:#18181b;margin:0;white-space:pre-wrap;">${esc(d.details)}</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin:28px 0 0;">
+      <a href="mailto:${esc(d.customerEmail)}" class="btn-dark" style="font-size:13px;padding:12px 28px;">Reply Directly via Email ↗</a>
+    </div>`;
+
+  const text = `[Support Inquiry] ${d.requestType.toUpperCase()}\n\nFrom: ${d.customerEmail} (${d.customerName || "Customer"})\n${d.orderName ? `Order: #${d.orderName}\n` : ""}${d.reason ? `Topic: ${d.reason}\n` : ""}Details:\n${d.details}\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: `New support request from ${d.customerEmail}`, body }), text };
+}
+
+// ─── 22. ADMIN TEST EMAIL ─────────────────────────────────────────────────────
+export function templateAdminTestEmail(d: {
+  recipient: string;
+  sentAt: string;
+  environment: string;
+  senderEmail: string;
+}): EmailTemplateResult {
+  const subject = `[RIOTOUS Test] Brevo Transactional Email System Operational`;
+  const body = `
+    <div style="display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:4px;margin-bottom:12px;">
+      System Verification
+    </div>
+    <h1 style="font-size:21px;font-weight:700;margin:0 0 8px;color:#09090b;">Brevo Email Integration Active ✅</h1>
+    <p style="font-size:14px;color:#52525b;margin:0 0 20px;">
+      This test email confirms that the RIOTOUS outgoing email pipeline is transmitting successfully through Brevo's official transactional API.
+    </p>
+    <div class="card card-green">
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:1.8;">
+        <tr><td style="color:#166534;width:140px;">Recipient:</td><td style="font-weight:600;color:#166534;">${esc(d.recipient)}</td></tr>
+        <tr><td style="color:#166534;">Sender Identity:</td><td style="font-weight:600;color:#166534;">${esc(d.senderEmail)}</td></tr>
+        <tr><td style="color:#166534;">Provider:</td><td style="font-weight:700;color:#15803d;">Brevo Official (api.brevo.com/v3/smtp/email)</td></tr>
+        <tr><td style="color:#166534;">Environment:</td><td style="font-family:monospace;color:#166534;">${esc(d.environment)}</td></tr>
+        <tr><td style="color:#166534;">Timestamp:</td><td style="color:#166534;">${esc(d.sentAt)}</td></tr>
+      </table>
+    </div>
+    <p style="font-size:13px;color:#71717a;line-height:1.5;">
+      All customer notifications, order confirmations, shipment updates, password resets, and admin alerts are active.
+    </p>`;
+
+  const text = `[RIOTOUS Test] Brevo Transactional Email System Operational\n\nRecipient: ${d.recipient}\nSender: ${d.senderEmail}\nProvider: Brevo Official API\nEnvironment: ${d.environment}\nTimestamp: ${d.sentAt}\n\n--\n${BRAND_FOOTER}`;
+  return { subject, html: base({ title: subject, preheader: "Brevo email integration test succeeded.", body }), text };
+}

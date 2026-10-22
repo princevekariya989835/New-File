@@ -4,6 +4,35 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 10: Complete Brevo Email Integration Audit, Edge Hardening & Multi-Workflow Fix
+- **Date**: 2026-10-22
+- **Objective**: Conduct a complete forensic audit of the transactional email system across RIOTOUS (`riotous.store`), repair Brevo API integration, enforce Brevo exclusively across all workflows (removing secondary fallbacks), harden Cloudflare Workers edge execution context (awaiting all dispatches, preventing premature runtime worker termination), repair customer and admin email triggers, add admin live diagnostics & audit logging, and verify with 100% clean production build.
+- **Files Modified / Created**:
+  - `src/lib/env.server.ts`: Added multi-alias resolution for `BREVO_API_KEY`, `EMAIL_FROM`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, and `ADMIN_NOTIFICATION_EMAIL`. Fixed `getEmailMode()` to default to `"production"` when API key is present instead of trapping emails in development simulation.
+  - `src/lib/email/brevo.ts`: Rewrote to exclusively call official Brevo endpoint `POST https://api.brevo.com/v3/smtp/email`. Added 10-second `AbortController` timeout, safe sender identity resolution, ISO timestamp logging for D1/Postgres cross-compatibility, and masked email utilities.
+  - `src/lib/email/templates.ts`: Added responsive, branded HTML & text templates for order cancellation, admin payment events, admin reviews, admin returns, admin support inquiries, and admin test emails.
+  - `src/lib/email/index.ts`: Implemented `resolveAdminNotificationEmail` (environment secret fallback to store_settings table in database without client leakage) and all dispatchers for customer and admin notifications.
+  - `src/lib/auth.ts`: Awaited all email dispatches in user registration, OTP verification, password reset, and password recovery via `Promise.allSettled`.
+  - `src/lib/orders.functions.ts`: Awaited order confirmations, admin notifications, payment success, payment failures, and cancellations.
+  - `src/routes/api/razorpay.webhook.ts`: Awaited order confirmation, admin order alert, and payment success/failure alerts on webhook processing.
+  - `src/lib/reviews.functions.ts`: Added admin review alert dispatch on customer review submission.
+  - `src/lib/returns.functions.ts` & `src/lib/admin-returns.functions.ts`: Awaited customer return requests, return approvals, rejections, refunds, and dispatched owner notifications.
+  - `src/lib/support.functions.ts`: Added admin support inquiry notification on form submission.
+  - `src/lib/admin.functions.ts` & `src/lib/admin-shipping.functions.ts`: Awaited order shipped, out for delivery, and delivered status dispatches.
+  - `src/routes/tracking.webhook.ts` & `src/routes/api/zippyy.webhook.ts`: Awaited idempotent customer shipment status updates on courier webhook triggers.
+  - `src/lib/admin-settings.functions.ts`: Added `adminSendTestEmailServerFn` and `adminGetEmailLogsServerFn`.
+  - `src/routes/_authenticated/admin/settings.lazy.tsx`: Added "Brevo Transactional Email Gateway" card with live test recipient trigger and "Recent Outgoing Email Logs" table.
+  - `src/lib/admin-health.functions.ts`: Added Brevo Transactional Email component health check to `adminGetSystemHealth`.
+  - `src/lib/db.ts`: Added `email_logs` and `email_otps` table schemas to `ensureDbSchema()` and mock SQL query support.
+  - `.env.example`: Removed `RESEND_API_KEY` and clearly documented all `BREVO_*` variables.
+  - `scripts/test-brevo.mjs`: Created standalone audit and testing CLI script for Brevo API v3.
+- **Tests Performed**:
+  - `node scripts/test-brevo.mjs`: Script verified API parameters, account validation, sender check, and dispatch logic.
+  - `npm run build`: Full production build succeeded with exit code 0, complete TypeScript validation, and clean Nitro Cloudflare module packaging.
+- **Outcome**: Brevo is now the exclusive, rock-solid transactional email gateway across the entire RIOTOUS storefront and admin panel. All outgoing emails are awaited to prevent premature edge execution termination, error handling is isolated so non-critical email failures never abort orders or payments, and administrators have immediate diagnostic testing and audit log visibility.
+
+---
+
 ## Task 9: Complete Admin Panel Reviews Page Audit & Repair
 - **Date**: 2026-10-21
 - **Objective**: Conduct a complete forensic audit of the admin reviews page (`/admin/reviews`), identify root causes of every issue (crashes, broken actions, loading/empty states, missing product data), repair backend APIs, database queries, and frontend UI without redesigning unrelated components or creating fake reviews.

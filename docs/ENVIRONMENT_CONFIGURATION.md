@@ -20,10 +20,11 @@ This document catalogs every environment variable and Cloudflare binding used in
 | **`RAZORPAY_WEBHOOK_SECRET`**| `src/routes/api/razorpay.webhook.ts` | Secret (Local / Prod) | Webhook secret configured in Razorpay Dashboard to sign incoming event payloads. |
 | **`ADMIN_NOTIFICATION_EMAIL`** | `src/lib/env.server.ts` | Secret (Cloudflare Worker Secret / `.dev.vars`) | Administrator destination email address receiving private notices for new registrations and verified orders. Never exposed to client. |
 | **`SITE_URL`** | `src/lib/env.server.ts` | Plain text (`wrangler.json` / `.env`) | Trusted canonical HTTPS site URL (e.g. `https://riotous.store`). Used to construct password reset links; never trusts incoming Host header. |
-| **`BREVO_API_KEY`** | `src/lib/email/brevo.ts` | Secret (Local / Prod) | Brevo (formerly Sendinblue) API v3 key (`xkeysib-...`) for transactional order emails and admin notifications. |
-| **`RESEND_API_KEY`** | `src/lib/email/resend.ts` | Secret (Optional) | Resend API key (`re_...`) used as secondary transactional email delivery provider. |
-| **`EMAIL_FROM`** | `src/lib/email/*` | Plain text (`wrangler.json` / `.env`) | Standard sender name and email (e.g. `RIOTOUS <order@riotous.store>`). |
-| **`EMAIL_MODE`** | `src/lib/email/*` | Plain text (`wrangler.json` / `.env`) | Email execution mode: `'production'` (sends real emails) or `'development'` (logs to console). |
+| **`BREVO_API_KEY`** | `src/lib/email/brevo.ts` | Secret (Local / Prod) | Brevo (formerly Sendinblue) API v3 key (`xkeysib-...`) for all transactional customer and administrative emails. Exclusive provider. |
+| **`BREVO_SENDER_EMAIL`** | `src/lib/env.server.ts` | Plain text / Secret | Verified Brevo sender email (defaults to `order@riotous.store`). |
+| **`BREVO_SENDER_NAME`** | `src/lib/env.server.ts` | Plain text | Verified Brevo sender name (defaults to `RIOTOUS`). |
+| **`EMAIL_FROM`** | `src/lib/email/*` | Plain text (`wrangler.json` / `.env`) | Standard sender name and email (`RIOTOUS <order@riotous.store>`). |
+| **`EMAIL_MODE`** | `src/lib/email/*` | Plain text (`wrangler.json` / `.env`) | Email execution mode: `'production'` (sends real emails via Brevo) or `'development'`. |
 | **`RETURN_EMAIL_FROM`** | `src/lib/email/*` | Plain text (Optional) | Dedicated sender email for return and exchange correspondence. |
 | **`ZIPPYY_BASE_URL`** | `src/lib/zippyy/client.ts` | Plain text (`wrangler.json` / `.env`) | Zippyy logistics API endpoint (`https://sellingpartnerapi-in.zippyy.ai` in prod, `https://api.zippyy.in` in sandbox). |
 | **`ZIPPYY_EMAIL`** | `src/lib/zippyy/client.ts` | Secret (Local / Prod) | Account email for Zippyy logistics OAuth authentication. |

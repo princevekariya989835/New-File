@@ -60,11 +60,15 @@ export function getSiteUrl(): string {
 
 /**
  * Returns the private administrator recipient email address configured in secrets.
- * Must be configured as ADMIN_NOTIFICATION_EMAIL in Cloudflare Worker secrets or .env.
+ * Supports ADMIN_NOTIFICATION_EMAIL, ADMIN_EMAIL, STORE_OWNER_EMAIL, OWNER_EMAIL.
  * Returns null if not configured (callers should log safely without crashing).
  */
 export function getAdminNotificationEmail(): string | null {
-  const email = getServerEnv("ADMIN_NOTIFICATION_EMAIL");
+  const email =
+    getServerEnv("ADMIN_NOTIFICATION_EMAIL") ||
+    getServerEnv("ADMIN_EMAIL") ||
+    getServerEnv("STORE_OWNER_EMAIL") ||
+    getServerEnv("OWNER_EMAIL");
   if (email && email.includes("@")) {
     return email.trim();
   }
@@ -73,21 +77,46 @@ export function getAdminNotificationEmail(): string | null {
 
 /**
  * Returns Brevo API key for transactional emails.
+ * Supports BREVO_API_KEY, BREVO_KEY, BREVO_APIKEY, BREVO_TOKEN.
  */
 export function getBrevoApiKey(): string | undefined {
-  return getServerEnv("BREVO_API_KEY");
+  return (
+    getServerEnv("BREVO_API_KEY") ||
+    getServerEnv("BREVO_KEY") ||
+    getServerEnv("BREVO_APIKEY") ||
+    getServerEnv("BREVO_TOKEN")
+  );
 }
 
 /**
  * Returns verified sender address for transactional emails.
+ * Supports BREVO_SENDER_EMAIL, EMAIL_FROM, BREVO_FROM_EMAIL.
+ * Defaults to "RIOTOUS <order@riotous.store>".
  */
 export function getEmailFrom(): string {
-  return getServerEnv("EMAIL_FROM") || "RIOTOUS <order@riotous.store>";
+  const configured =
+    getServerEnv("EMAIL_FROM") ||
+    getServerEnv("BREVO_SENDER_EMAIL") ||
+    getServerEnv("BREVO_FROM_EMAIL");
+  return configured || "RIOTOUS <order@riotous.store>";
+}
+
+/**
+ * Returns verified sender display name for transactional emails.
+ * Defaults to "RIOTOUS".
+ */
+export function getBrevoSenderName(): string {
+  return getServerEnv("BREVO_SENDER_NAME") || "RIOTOUS";
 }
 
 /**
  * Returns the execution mode for email service ('production' or 'development').
+ * If BREVO_API_KEY is configured and EMAIL_MODE is not explicitly set,
+ * defaults to 'production' so real emails are transmitted via Brevo.
  */
 export function getEmailMode(): string {
-  return getServerEnv("EMAIL_MODE") || "development";
+  const mode = getServerEnv("EMAIL_MODE");
+  if (mode) return mode.toLowerCase();
+  if (getBrevoApiKey()) return "production";
+  return "development";
 }

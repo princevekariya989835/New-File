@@ -282,20 +282,16 @@ export const adminUpdateShipmentStatus = createServerFn({ method: "POST" })
             userId: o.user_id ? String(o.user_id) : null,
           };
           if (data.newStatus === "Shipped") {
-            sendOrderShipped({
+            await sendOrderShipped({
               ...baseOpts,
               courierName: o.courier_name || null,
               trackingNumber: o.tracking_number || null,
               trackingUrl: o.tracking_url || null,
-            }).catch((e) => console.warn("[Shipping] Shipped email failed:", e));
+            });
           } else if (data.newStatus === "Out for Delivery") {
-            sendOutForDelivery(baseOpts).catch((e) =>
-              console.warn("[Shipping] Out-for-delivery email failed:", e),
-            );
+            await sendOutForDelivery(baseOpts);
           } else if (data.newStatus === "Delivered") {
-            sendOrderDelivered(baseOpts).catch((e) =>
-              console.warn("[Shipping] Delivered email failed:", e),
-            );
+            await sendOrderDelivered(baseOpts);
           }
         }
       } catch (emailErr) {

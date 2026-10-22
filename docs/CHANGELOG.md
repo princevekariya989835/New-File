@@ -4,7 +4,34 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ---
 
-## [Current Release] — 2026-10-21
+## [Current Release] — 2026-10-22
+
+### Complete Brevo Email Integration Audit, Edge Workers Hardening & Multi-Workflow Fix
+- **Brevo Exclusive Email Provider**: Completely removed Resend, SendGrid, and other fallbacks. Brevo official API (`POST https://api.brevo.com/v3/smtp/email`) is now the exclusive transactional gateway across RIOTOUS.
+- **Cloudflare Edge Workers Runtime Hardening**:
+  - Awaited all email calls across auth, orders, webhooks, returns, support, and reviews. Replaced fire-and-forget unawaited `.catch(...)` promises that were aborted prematurely when Cloudflare Workers returned HTTP responses.
+  - Added 10-second `AbortController` timeout to prevent hanging worker executions.
+  - Non-critical email failures never block orders, payments, or registrations (`Promise.allSettled` and isolated try/catch blocks).
+- **Environment & Key Resolution**:
+  - Implemented multi-alias resolution for `BREVO_API_KEY`, `BREVO_KEY`, `BREVO_APIKEY`, and `BREVO_TOKEN`.
+  - Added dynamic sender resolution in `getVerifiedSender()` matching `EMAIL_FROM`, `BREVO_SENDER_EMAIL`, or `BREVO_SENDER_NAME`.
+  - Fixed `getEmailMode()` so it defaults to `"production"` whenever `BREVO_API_KEY` is present, eliminating false-positive simulation traps.
+  - Removed misleading `{ sent: true }` when the key is missing; now returns structured `{ sent: false, reason: "..." }`.
+- **Database & Audit Trail**:
+  - Fixed SQL logging parameter in `email_logs`: replaced literal `"NOW()"` string parameter with ISO timestamp strings for cross-compatibility (SQLite/D1 & Postgres).
+  - Added schema creation for `email_logs` and `email_otps` in `ensureDbSchema()`.
+  - Added mock SQL engine support for querying and recording `email_logs`.
+- **Workflows Repaired & Implemented**:
+  - Customer: Welcome email, Registration OTP, Login OTP, Forgot Password OTP/Link, Order Confirmation, Payment Confirmation, Order Shipped, Out for Delivery, Order Delivered, Order Cancelled, Return Requested, Return Approved, Return Rejected, Refund Processed, Password Changed.
+  - Admin Notifications: New Customer Registration, New Order Created, Payment Succeeded / Failed, Customer Review Submitted, Return Request Submitted, Support Inquiry Submitted.
+  - Private Admin Recipient: Server-side resolution via `ADMIN_NOTIFICATION_EMAIL` secret or `store_settings.notification_email` / `store_settings.store_email` in database without frontend leakage.
+- **Admin Diagnostics & Live Verification**:
+  - Added "Test Brevo Email Dispatch" in Admin Panel → Settings → Notifications tab with immediate success/failure feedback and Brevo message ID.
+  - Added "Recent Outgoing Email Logs" table in Admin Settings displaying the last 50 emails.
+  - Added Brevo system health check in `adminGetSystemHealth` (`/admin/system-health`).
+  - Added standalone verification script `scripts/test-brevo.mjs`.
+
+## [Previous Release] — 2026-10-21
 
 ### Complete Admin Panel Reviews Page Audit & Repair
 - **Forensic Audit & Root Causes Fixed**:

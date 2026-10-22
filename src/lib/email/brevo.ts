@@ -3,12 +3,19 @@
  * Server-only. Never import from client components.
  *
  * Uses Brevo Transactional Email API via native fetch().
+ * Official endpoint: POST https://api.brevo.com/v3/smtp/email
  * Compatible with Cloudflare Workers and Node.js runtimes.
- * Falls back to console logging when EMAIL_MODE=development or no BREVO_API_KEY is set.
+ *
+ * Exclusively handles ALL outgoing transactional emails across RIOTOUS.
  */
 
 import { getSql } from "@/lib/db";
-import { getBrevoApiKey, getEmailMode, getEmailFrom } from "@/lib/env.server";
+import {
+  getBrevoApiKey,
+  getEmailMode,
+  getEmailFrom,
+  getBrevoSenderName,
+} from "@/lib/env.server";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +30,7 @@ export interface BrevoRecipient {
 }
 
 export interface SendBrevoEmailOptions {
-  sender: BrevoSender;
+  sender?: BrevoSender;
   to: BrevoRecipient[];
   subject: string;
   htmlContent: string;
@@ -40,14 +47,15 @@ export interface SendBrevoEmailOptions {
 export interface BrevoEmailResult {
   sent: boolean;
   messageId?: string;
+  httpStatus?: number;
   reason?: string;
 }
 
-// ─── Senders ──────────────────────────────────────────────────────────────────
+// ─── Default Senders ──────────────────────────────────────────────────────────
 
 export const BREVO_SENDER_AUTH: BrevoSender = {
   name: "RIOTOUS",
-  email: "welcome@riotous.store",
+  email: "order@riotous.store",
 };
 
 export const BREVO_SENDER_ORDERS: BrevoSender = {
@@ -60,108 +68,219 @@ export const BREVO_REPLY_TO: BrevoRecipient = {
   email: "support@riotous.store",
 };
 
-export function getVerifiedSender(defaultSender: BrevoSender): BrevoSender {
+/**
+ * Masks an email address for safe diagnostics without leaking PII.
+ * Example: "customer@example.com" -> "c***r@example.com"
+ */
+export function maskEmail(email: string): string {
+  if (!email || !email.includes("@")) return "***";
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) {
+    return `${local[0]}***@${domain}`;
+  }
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
+
+/**
+ * Resolves the verified sender identity configured in environment/secrets.
+ * Uses BREVO_SENDER_EMAIL / EMAIL_FROM and BREVO_SENDER_NAME.
+ */
+export function getVerifiedSender(defaultSender?: BrevoSender): BrevoSender {
   const envFrom = getEmailFrom();
+  const configuredName = getBrevoSenderName();
+  const fallback = defaultSender ?? BREVO_SENDER_ORDERS;
+
   if (envFrom) {
     const match = envFrom.match(/^(.*?)\s*<(.+)>$/);
     if (match) {
-      return { name: match[1].trim() || defaultSender.name, email: match[2].trim() };
+      return {
+        name: match[1].trim() || configuredName || fallback.name,
+        email: match[2].trim(),
+      };
     }
     if (envFrom.includes("@")) {
-      return { name: defaultSender.name, email: envFrom.trim() };
+      return {
+        name: configuredName || fallback.name,
+        email: envFrom.trim(),
+      };
     }
   }
-  return defaultSender;
+
+  return {
+    name: configuredName || fallback.name,
+    email: fallback.email,
+  };
 }
 
 // ─── Core Brevo API Call ──────────────────────────────────────────────────────
 
 /**
- * Sends a transactional email via Brevo API.
- * NEVER throws — always returns a result object so callers can handle gracefully.
+ * Sends a transactional email via Brevo Official API:
+ * POST https://api.brevo.com/v3/smtp/email
+ *
+ * NEVER throws — always returns a structured result object so callers can handle gracefully.
+ * Awaited by callers to prevent Cloudflare Worker runtime termination.
  */
 export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<BrevoEmailResult> {
   const apiKey = getBrevoApiKey();
   const emailMode = getEmailMode();
 
-  // Development / no-key mode: log and return success simulation
-  if (!apiKey || emailMode === "development") {
-    const recipientList = opts.to.map((r) => r.email).join(", ");
+  // Validate recipients
+  const validRecipients = (opts.to || [])
+    .map((r) => ({
+      email: String(r.email || "").trim(),
+      name: r.name ? String(r.name).trim() : undefined,
+    }))
+    .filter((r) => r.email && r.email.includes("@"));
+
+  if (validRecipients.length === 0) {
+    const errReason = "No valid recipient email address provided";
+    console.warn(`[Brevo] Send aborted: ${errReason}`);
+    return { sent: false, reason: errReason };
+  }
+
+  const primaryRecipient = validRecipients[0].email;
+  const maskedRecipient = maskEmail(primaryRecipient);
+  const sender = getVerifiedSender(opts.sender);
+
+  // Simulation mode check (explicitly configured via EMAIL_MODE=simulation or mock)
+  if (emailMode === "simulation" || emailMode === "mock") {
     console.info(
-      `[Brevo Dev] EMAIL SIMULATED — To: ${recipientList} | Subject: ${opts.subject} | Type: ${opts.meta?.emailType ?? "UNKNOWN"}`,
+      `[Brevo Sim] EMAIL SIMULATED — To: ${maskedRecipient} | Subject: "${opts.subject}" | Type: ${opts.meta?.emailType ?? "UNKNOWN"}`,
     );
     await logEmail({
       ...opts.meta,
-      recipient: opts.to[0]?.email ?? "",
-      sender: opts.sender.email,
+      recipient: primaryRecipient,
+      sender: sender.email,
       subject: opts.subject,
       status: "simulated",
       provider: "brevo",
+      providerMessageId: `sim_${Date.now()}`,
     });
-    return { sent: true };
+    return { sent: true, messageId: `sim_${Date.now()}`, httpStatus: 200 };
+  }
+
+  // Missing API Key check: Do NOT report false-positive success!
+  if (!apiKey || apiKey.trim() === "") {
+    const reason = "BREVO_API_KEY is not configured on the server";
+    console.warn(`[Brevo] Send skipped for ${maskedRecipient}: ${reason}`);
+    await logEmail({
+      ...opts.meta,
+      recipient: primaryRecipient,
+      sender: sender.email,
+      subject: opts.subject,
+      status: "failed",
+      provider: "brevo",
+      errorMessage: reason,
+    });
+    return { sent: false, reason };
   }
 
   try {
-    const payload = {
-      sender: opts.sender,
-      to: opts.to,
+    const payload: Record<string, unknown> = {
+      sender,
+      to: validRecipients,
       subject: opts.subject,
       htmlContent: opts.htmlContent,
-      textContent: opts.textContent,
       replyTo: opts.replyTo ?? BREVO_REPLY_TO,
     };
 
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    if (opts.textContent) {
+      payload.textContent = opts.textContent;
+    }
 
+    // Abort controller with 10-second timeout to protect Worker execution
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let res: Response;
+    try {
+      res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": apiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    // Parse HTTP response
     if (!res.ok) {
-      const errorText = await res.text().catch(() => "Unknown error");
-      console.warn(`[Brevo] Send failed (${res.status}): ${errorText}`);
+      const errorText = await res.text().catch(() => "Unknown response body");
+      let errorMessage = `HTTP ${res.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson?.message) {
+          errorMessage = `HTTP ${res.status}: ${errorJson.message}`;
+        }
+      } catch {
+        errorMessage = `HTTP ${res.status}: ${errorText.slice(0, 200)}`;
+      }
+
+      console.warn(`[Brevo] Send failed (${res.status}) for ${maskedRecipient}: ${errorMessage}`);
       await logEmail({
         ...opts.meta,
-        recipient: opts.to[0]?.email ?? "",
-        sender: opts.sender.email,
+        recipient: primaryRecipient,
+        sender: sender.email,
         subject: opts.subject,
         status: "failed",
         provider: "brevo",
-        errorMessage: `HTTP ${res.status}: ${errorText.slice(0, 400)}`,
+        errorMessage: errorMessage.slice(0, 400),
       });
-      return { sent: false, reason: `Provider error ${res.status}` };
+
+      return {
+        sent: false,
+        httpStatus: res.status,
+        reason: errorMessage,
+      };
     }
 
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     const messageId = String(body?.messageId ?? "");
 
+    console.info(
+      `[Brevo] Email accepted by Brevo API — To: ${maskedRecipient} | Type: ${opts.meta?.emailType ?? "UNKNOWN"} | MessageID: ${messageId || "N/A"}`,
+    );
+
     await logEmail({
       ...opts.meta,
-      recipient: opts.to[0]?.email ?? "",
-      sender: opts.sender.email,
+      recipient: primaryRecipient,
+      sender: sender.email,
       subject: opts.subject,
       status: "sent",
       provider: "brevo",
-      providerMessageId: messageId,
+      providerMessageId: messageId || undefined,
     });
 
-    return { sent: true, messageId };
+    return {
+      sent: true,
+      messageId: messageId || undefined,
+      httpStatus: res.status,
+    };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[Brevo] Unexpected send error:", err);
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    const message = isAbort
+      ? "Brevo API request timed out after 10s"
+      : err instanceof Error
+        ? err.message
+        : String(err);
+
+    console.error(`[Brevo] Unexpected send error for ${maskedRecipient}:`, message);
     await logEmail({
       ...opts.meta,
-      recipient: opts.to[0]?.email ?? "",
-      sender: opts.sender.email,
+      recipient: primaryRecipient,
+      sender: sender.email,
       subject: opts.subject,
       status: "failed",
       provider: "brevo",
       errorMessage: message.slice(0, 400),
     });
+
     return { sent: false, reason: message };
   }
 }
@@ -185,6 +304,9 @@ async function logEmail(opts: LogEmailOpts) {
   try {
     const sql = getSql();
     const id = `eml_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const nowIso = new Date().toISOString();
+    const sentAt = opts.status === "sent" ? nowIso : null;
+
     await sql`
       INSERT INTO email_logs (
         id, user_id, order_id, email_type, recipient, sender, status,
@@ -200,8 +322,8 @@ async function logEmail(opts: LogEmailOpts) {
         ${opts.provider},
         ${opts.providerMessageId ?? null},
         ${opts.errorMessage ?? null},
-        NOW(),
-        ${opts.status === "sent" ? "NOW()" : null}
+        ${nowIso},
+        ${sentAt}
       )
     `;
   } catch (logErr) {
@@ -217,6 +339,7 @@ async function logEmail(opts: LogEmailOpts) {
  * Use this before triggering state-transition emails to prevent duplicates.
  */
 export async function hasEmailBeenSent(orderId: string, emailType: string): Promise<boolean> {
+  if (!orderId || !emailType) return false;
   try {
     const sql = getSql();
     const rows = await sql`

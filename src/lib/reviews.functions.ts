@@ -7,6 +7,7 @@ import {
   type ReviewSummary,
 } from "@/lib/reviews-shared";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { sendAdminNewReviewNotification } from "@/lib/email";
 
 function toIsoDate(val: any): string {
   if (!val) return new Date().toISOString();
@@ -230,6 +231,27 @@ export const submitReview = createServerFn({ method: "POST" })
         ${isVerified ? 1 : 0}, 'approved', ${JSON.stringify(patch.images)}, 0
       );
     `;
+
+    // Notify store owner of new customer review (awaited)
+    try {
+      const prodRows = await sql`
+        SELECT name FROM products WHERE id = ${data.productId} OR slug = ${data.productId} LIMIT 1
+      `;
+      const productName = prodRows[0]?.name || "Product";
+      await sendAdminNewReviewNotification({
+        reviewId,
+        productName,
+        productId: data.productId,
+        authorName,
+        customerEmail: authCtx.user?.email || null,
+        rating: patch.rating,
+        title: patch.title,
+        reviewText: patch.review || "",
+        isVerifiedPurchase: isVerified,
+      });
+    } catch (reviewEmailErr) {
+      console.warn("[Reviews] Admin review notification notice:", reviewEmailErr);
+    }
 
     return {
       id: reviewId,

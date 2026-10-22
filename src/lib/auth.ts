@@ -154,19 +154,21 @@ export const registerServerFn = createServerFn({ method: "POST" })
       // Set cookie
       await setSessionCookie(token);
 
-      // Fire customer welcome email (non-blocking)
-      sendWelcomeEmail({ to: data.email, name: data.fullName, userId }).catch((err) =>
-        console.warn("[Auth] Customer welcome email notice:", err),
-      );
-
-      // Fire private administrator notification (non-blocking, failsafe)
-      sendAdminNewCustomerNotification({
-        customerId: userId,
-        customerEmail: data.email,
-        customerName: data.fullName,
-        registeredAt: new Date().toISOString(),
-        ipAddress: clientIp,
-      }).catch((err) => console.warn("[Auth] Admin registration notification notice:", err));
+      // Dispatch customer welcome and admin notifications (awaited to ensure Cloudflare Worker delivers)
+      try {
+        await Promise.allSettled([
+          sendWelcomeEmail({ to: data.email, name: data.fullName, userId }),
+          sendAdminNewCustomerNotification({
+            customerId: userId,
+            customerEmail: data.email,
+            customerName: data.fullName,
+            registeredAt: new Date().toISOString(),
+            ipAddress: clientIp,
+          }),
+        ]);
+      } catch (emailErr) {
+        console.warn("[Auth] Registration emails notice:", emailErr);
+      }
 
       logAuthDebug({
         route: "registerServerFn",
@@ -537,15 +539,19 @@ export const requestPasswordResetServerFn = createServerFn({ method: "POST" })
       const siteUrl = getSiteUrl();
       const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
 
-      // Send branded password reset email via Brevo
-      sendPasswordResetEmail({
-        to: data.email,
-        name: userRow.full_name,
-        resetUrl,
-        otp: backupOtp,
-        expirationMinutes: 20,
-        userId: String(userRow.id),
-      }).catch((err) => console.warn("[Auth] Failed to send password reset email:", err));
+      // Send branded password reset email via Brevo (awaited for delivery)
+      try {
+        await sendPasswordResetEmail({
+          to: data.email,
+          name: userRow.full_name,
+          resetUrl,
+          otp: backupOtp,
+          expirationMinutes: 20,
+          userId: String(userRow.id),
+        });
+      } catch (err) {
+        console.warn("[Auth] Failed to send password reset email:", err);
+      }
 
       return GENERIC_RESPONSE;
     } catch (err: any) {
@@ -697,14 +703,18 @@ export const resetPasswordWithTokenServerFn = createServerFn({ method: "POST" })
       const token = signToken(user.id, user.email, user.role, user.fullName);
       await setSessionCookie(token);
 
-      // 4. Send customer password changed security alert (fire-and-forget)
-      sendPasswordChangedNotification({
-        to: user.email,
-        name: user.fullName,
-        changedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-        ipAddress: clientIp,
-        userId: user.id,
-      }).catch((err) => console.warn("[Auth] Password changed notification notice:", err));
+      // 4. Send customer password changed security alert (awaited)
+      try {
+        await sendPasswordChangedNotification({
+          to: user.email,
+          name: user.fullName,
+          changedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          ipAddress: clientIp,
+          userId: user.id,
+        });
+      } catch (err) {
+        console.warn("[Auth] Password changed notification notice:", err);
+      }
 
       logAuthDebug({
         route: "resetPasswordWithTokenServerFn",
@@ -783,9 +793,11 @@ export const sendOtpServerFn = createServerFn({ method: "POST" })
         console.warn("[Auth] OTP DB record notice:", dbOtpErr);
       }
 
-      sendLoginOtp({ to: data.email, otp, expirationMinutes: 10 }).catch((err) =>
-        console.warn("[Auth] Failed to send login OTP email:", err),
-      );
+      try {
+        await sendLoginOtp({ to: data.email, otp, expirationMinutes: 10 });
+      } catch (err) {
+        console.warn("[Auth] Failed to send login OTP email:", err);
+      }
 
       logAuthDebug({
         route: "sendOtpServerFn",
@@ -889,19 +901,21 @@ export const verifyAndRegisterServerFn = createServerFn({ method: "POST" })
       const token = signToken(user.id, user.email, user.role, user.fullName);
       await setSessionCookie(token);
 
-      // Customer welcome email
-      sendWelcomeEmail({ to: data.email, name: data.fullName, userId }).catch((err) =>
-        console.warn("[Auth] Welcome email notice:", err),
-      );
-
-      // Admin notification email
-      sendAdminNewCustomerNotification({
-        customerId: userId,
-        customerEmail: data.email,
-        customerName: data.fullName,
-        registeredAt: new Date().toISOString(),
-        ipAddress: clientIp,
-      }).catch((err) => console.warn("[Auth] Admin registration notification notice:", err));
+      // Dispatch customer welcome and admin notifications (awaited)
+      try {
+        await Promise.allSettled([
+          sendWelcomeEmail({ to: data.email, name: data.fullName, userId }),
+          sendAdminNewCustomerNotification({
+            customerId: userId,
+            customerEmail: data.email,
+            customerName: data.fullName,
+            registeredAt: new Date().toISOString(),
+            ipAddress: clientIp,
+          }),
+        ]);
+      } catch (emailErr) {
+        console.warn("[Auth] Welcome / Admin emails notice:", emailErr);
+      }
 
       logAuthDebug({
         route: "verifyAndRegisterServerFn",
@@ -1018,14 +1032,18 @@ export const verifyAndResetPasswordServerFn = createServerFn({ method: "POST" })
       const token = signToken(user.id, user.email, user.role, user.fullName);
       await setSessionCookie(token);
 
-      // Customer password changed security notification
-      sendPasswordChangedNotification({
-        to: user.email,
-        name: user.fullName,
-        changedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-        ipAddress: clientIp,
-        userId: user.id,
-      }).catch((err) => console.warn("[Auth] Password changed notification notice:", err));
+      // Customer password changed security notification (awaited)
+      try {
+        await sendPasswordChangedNotification({
+          to: user.email,
+          name: user.fullName,
+          changedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          ipAddress: clientIp,
+          userId: user.id,
+        });
+      } catch (err) {
+        console.warn("[Auth] Password changed notification notice:", err);
+      }
 
       logAuthDebug({
         route: "verifyAndResetPasswordServerFn",
