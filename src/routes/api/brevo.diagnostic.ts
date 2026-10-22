@@ -99,6 +99,42 @@ export const Route = createFileRoute("/api/brevo/diagnostic")({
           keyPrefix = apiKey.length > 8 ? `${apiKey.slice(0, 8)}...${apiKey.slice(-3)}` : "***";
         }
 
+        // Determine actual Cloudflare Worker Outbound / Egress IP from the edge
+        const probeOutboundIp = async (targetUrl: string): Promise<{ ip: string | null; colo?: string }> => {
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch(targetUrl, { signal: controller.signal });
+            clearTimeout(timer);
+            if (!res.ok) return { ip: null };
+            if (targetUrl.includes("ipify")) {
+              const data = (await res.json()) as any;
+              return { ip: data?.ip ? String(data.ip).trim() : null };
+            }
+            if (targetUrl.includes("cdn-cgi/trace")) {
+              const txt = await res.text();
+              const ipMatch = txt.match(/ip=([^\r\n]+)/);
+              const coloMatch = txt.match(/colo=([A-Z0-9]+)/);
+              return {
+                ip: ipMatch ? ipMatch[1].trim() : null,
+                colo: coloMatch ? coloMatch[1].trim() : undefined,
+              };
+            }
+            return { ip: (await res.text()).trim() };
+          } catch {
+            return { ip: null };
+          }
+        };
+
+        const [ipifyRes, awsRes, cfTraceRes] = await Promise.all([
+          probeOutboundIp("https://api.ipify.org?format=json"),
+          probeOutboundIp("https://checkip.amazonaws.com"),
+          probeOutboundIp("https://cloudflare.com/cdn-cgi/trace"),
+        ]);
+
+        const verifiedOutboundIp = ipifyRes.ip || awsRes.ip || cfTraceRes.ip || null;
+        const edgeColocation = cfTraceRes.colo || null;
+
         // Test Brevo API Key validity against GET https://api.brevo.com/v3/account
         let brevoAccountStatus: Record<string, unknown> = {
           verified: false,
@@ -192,6 +228,18 @@ export const Route = createFileRoute("/api/brevo/diagnostic")({
                 keyLength: apiKey?.length || 0,
                 keyMasked: keyPrefix,
                 apiEndpoint: "https://api.brevo.com/v3/smtp/email",
+              },
+              workerOutboundEgress: {
+                actualOutboundIpSeenByExternalServices: verifiedOutboundIp,
+                sourceProbes: {
+                  ipify: ipifyRes.ip,
+                  aws: awsRes.ip,
+                  cloudflareTrace: cfTraceRes.ip,
+                },
+                edgeColocation,
+                isDynamicEgress: true,
+                stabilityNote:
+                  "Cloudflare Workers use dynamic anycast edge egress. Outbound IPs rotate across data centers and should not be locked to a single static IP in Brevo.",
               },
               brevoAccountValidation: brevoAccountStatus,
               testDispatchResult,
