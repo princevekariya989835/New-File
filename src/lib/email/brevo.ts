@@ -124,6 +124,7 @@ export function getVerifiedSender(defaultSender?: BrevoSender): BrevoSender {
 export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<BrevoEmailResult> {
   const apiKey = getBrevoApiKey();
   const emailMode = getEmailMode();
+  const emailType = opts.meta?.emailType ?? "TRANSACTIONAL";
 
   // Validate recipients
   const validRecipients = (opts.to || [])
@@ -135,7 +136,7 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
 
   if (validRecipients.length === 0) {
     const errReason = "No valid recipient email address provided";
-    console.warn(`[Brevo] Send aborted: ${errReason}`);
+    console.warn(`[Brevo Trace] Send aborted: ${errReason} (Event: ${emailType})`);
     return { sent: false, reason: errReason };
   }
 
@@ -143,10 +144,14 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
   const maskedRecipient = maskEmail(primaryRecipient);
   const sender = getVerifiedSender(opts.sender);
 
+  console.log(
+    `[Brevo Trace] Initiating email workflow — Event: ${emailType} | To: ${maskedRecipient} | Mode: ${emailMode} | HasKey: ${Boolean(apiKey)} | KeyLen: ${apiKey?.length ?? 0} | Sender: ${sender.email}`,
+  );
+
   // Simulation mode check (explicitly configured via EMAIL_MODE=simulation or mock)
   if (emailMode === "simulation" || emailMode === "mock") {
     console.info(
-      `[Brevo Sim] EMAIL SIMULATED — To: ${maskedRecipient} | Subject: "${opts.subject}" | Type: ${opts.meta?.emailType ?? "UNKNOWN"}`,
+      `[Brevo Trace] EMAIL SIMULATED — Event: ${emailType} | To: ${maskedRecipient} | Subject: "${opts.subject}"`,
     );
     await logEmail({
       ...opts.meta,
@@ -162,8 +167,10 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
 
   // Missing API Key check: Do NOT report false-positive success!
   if (!apiKey || apiKey.trim() === "") {
-    const reason = "BREVO_API_KEY is not configured on the server";
-    console.warn(`[Brevo] Send skipped for ${maskedRecipient}: ${reason}`);
+    const reason = "BREVO_API_KEY secret is not present in runtime environment";
+    console.warn(
+      `[Brevo Trace] DISPATCH BLOCKED: ${reason} (Event: ${emailType} | To: ${maskedRecipient}). Configure BREVO_API_KEY secret in Cloudflare Dashboard or via wrangler.`,
+    );
     await logEmail({
       ...opts.meta,
       recipient: primaryRecipient,
@@ -193,6 +200,10 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+    console.log(
+      `[Brevo Trace] Dispatching HTTP POST https://api.brevo.com/v3/smtp/email — Event: ${emailType} | To: ${maskedRecipient}`,
+    );
+
     let res: Response;
     try {
       res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -209,6 +220,10 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
       clearTimeout(timeoutId);
     }
 
+    console.log(
+      `[Brevo Trace] HTTP Response received — Event: ${emailType} | Status: ${res.status} ${res.statusText}`,
+    );
+
     // Parse HTTP response
     if (!res.ok) {
       const errorText = await res.text().catch(() => "Unknown response body");
@@ -222,7 +237,10 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
         errorMessage = `HTTP ${res.status}: ${errorText.slice(0, 200)}`;
       }
 
-      console.warn(`[Brevo] Send failed (${res.status}) for ${maskedRecipient}: ${errorMessage}`);
+      console.warn(
+        `[Brevo Trace] Brevo API rejected dispatch — Event: ${emailType} | Status: ${res.status} | Sanitized Detail: ${errorMessage}`,
+      );
+
       await logEmail({
         ...opts.meta,
         recipient: primaryRecipient,
@@ -244,7 +262,7 @@ export async function sendBrevoEmail(opts: SendBrevoEmailOptions): Promise<Brevo
     const messageId = String(body?.messageId ?? "");
 
     console.info(
-      `[Brevo] Email accepted by Brevo API — To: ${maskedRecipient} | Type: ${opts.meta?.emailType ?? "UNKNOWN"} | MessageID: ${messageId || "N/A"}`,
+      `[Brevo Trace] Brevo dispatch accepted — Event: ${emailType} | Status: ${res.status} | MessageID: ${messageId || "N/A"} | To: ${maskedRecipient}`,
     );
 
     await logEmail({

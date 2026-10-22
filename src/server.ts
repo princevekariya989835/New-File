@@ -137,7 +137,15 @@ function applySecurityHeaders(response: Response, request: Request): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      setCloudflareEnv(env);
+      const resolvedEnv =
+        env && typeof env === "object" && Object.keys(env).length > 0
+          ? env
+          : (request as any)?.runtime?.cloudflare?.env ||
+            (request as any)?.env ||
+            (globalThis as any)?.__env__ ||
+            (globalThis as any)?.__cf_env__ ||
+            env;
+      setCloudflareEnv(resolvedEnv);
 
       // SEO & Canonical URL Normalization (HTTP 301 Permanent Redirects)
       if (request.method === "GET") {

@@ -17,29 +17,48 @@ import { getCloudflareEnv } from "@/lib/db";
 export function getServerEnv(key: string): string | undefined {
   if (!key || typeof key !== "string") return undefined;
 
+  const extract = (dict: any): string | undefined => {
+    if (!dict || typeof dict !== "object") return undefined;
+    // 1. Exact match
+    if (typeof dict[key] === "string" && dict[key].trim() !== "") {
+      return dict[key].trim();
+    }
+    // 2. Case variations (upper & lower)
+    const upper = key.toUpperCase();
+    if (typeof dict[upper] === "string" && dict[upper].trim() !== "") {
+      return dict[upper].trim();
+    }
+    const lower = key.toLowerCase();
+    if (typeof dict[lower] === "string" && dict[lower].trim() !== "") {
+      return dict[lower].trim();
+    }
+    return undefined;
+  };
+
   // 1. Cloudflare request runtime env
-  const cfEnv = getCloudflareEnv();
-  if (cfEnv && typeof cfEnv[key] === "string" && cfEnv[key].trim() !== "") {
-    return cfEnv[key].trim();
-  }
+  const valCf = extract(getCloudflareEnv());
+  if (valCf) return valCf;
 
   // 2. Global environment bindings (Nitro / Cloudflare worker module)
   if (typeof globalThis !== "undefined") {
     const g = globalThis as any;
-    if (typeof g.__env__?.[key] === "string" && g.__env__[key].trim() !== "") {
-      return g.__env__[key].trim();
-    }
-    if (typeof g.__cf_env__?.[key] === "string" && g.__cf_env__[key].trim() !== "") {
-      return g.__cf_env__[key].trim();
-    }
-    if (typeof g.env?.[key] === "string" && g.env[key].trim() !== "") {
-      return g.env[key].trim();
-    }
+    const valGlobalEnv = extract(g.__env__);
+    if (valGlobalEnv) return valGlobalEnv;
+
+    const valGlobalCfEnv = extract(g.__cf_env__);
+    if (valGlobalCfEnv) return valGlobalCfEnv;
+
+    const valGEnv = extract(g.env);
+    if (valGEnv) return valGEnv;
+
+    const valDirect = extract(g);
+    if (valDirect) return valDirect;
   }
 
   // 3. process.env (Node.js / dev server)
-  if (typeof process !== "undefined" && process.env?.[key] && process.env[key]!.trim() !== "") {
-    return process.env[key]!.trim();
+  if (typeof process !== "undefined" && process.env) {
+    const valProc = extract(process.env);
+    if (valProc) return valProc;
   }
 
   return undefined;
@@ -77,14 +96,19 @@ export function getAdminNotificationEmail(): string | null {
 
 /**
  * Returns Brevo API key for transactional emails.
- * Supports BREVO_API_KEY, BREVO_KEY, BREVO_APIKEY, BREVO_TOKEN.
+ * Supports all common aliases across Brevo and legacy Sendinblue.
  */
 export function getBrevoApiKey(): string | undefined {
   return (
     getServerEnv("BREVO_API_KEY") ||
     getServerEnv("BREVO_KEY") ||
     getServerEnv("BREVO_APIKEY") ||
-    getServerEnv("BREVO_TOKEN")
+    getServerEnv("BREVO_TOKEN") ||
+    getServerEnv("BREVO_SECRET") ||
+    getServerEnv("SENDINBLUE_API_KEY") ||
+    getServerEnv("SIB_API_KEY") ||
+    getServerEnv("BREVO_TRANSACTIONAL_KEY") ||
+    getServerEnv("VITE_BREVO_API_KEY")
   );
 }
 

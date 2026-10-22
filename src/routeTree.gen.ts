@@ -56,6 +56,7 @@ import { Route as AuthenticatedAdminShippingRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminStaffRouteImport } from './routes/_authenticated/admin/staff'
 import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/admin/storefront'
 import { Route as AuthenticatedAdminWebsiteRouteImport } from './routes/_authenticated/admin/website'
+import { Route as ApiBrevoDiagnosticRouteImport } from './routes/api/brevo.diagnostic'
 import { Route as ApiInvoicesOrderIdRouteImport } from './routes/api/invoices.$orderId'
 import { Route as ApiMediaIdRouteImport } from './routes/api/media.$id'
 import { Route as ApiMediaUploadRouteImport } from './routes/api/media.upload'
@@ -366,6 +367,11 @@ const AuthenticatedAdminWebsiteRoute =
     path: '/website',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const ApiBrevoDiagnosticRoute = ApiBrevoDiagnosticRouteImport.update({
+  id: '/api/brevo/diagnostic',
+  path: '/api/brevo/diagnostic',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInvoicesOrderIdRoute = ApiInvoicesOrderIdRouteImport.update({
   id: '/api/invoices/$orderId',
   path: '/api/invoices/$orderId',
@@ -468,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/brevo/diagnostic': typeof ApiBrevoDiagnosticRoute
   '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
@@ -526,6 +533,7 @@ export interface FileRoutesByTo {
   '/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/brevo/diagnostic': typeof ApiBrevoDiagnosticRoute
   '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
@@ -587,6 +595,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/staff': typeof AuthenticatedAdminStaffRoute
   '/_authenticated/admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/admin/website': typeof AuthenticatedAdminWebsiteRoute
+  '/api/brevo/diagnostic': typeof ApiBrevoDiagnosticRoute
   '/api/invoices/$orderId': typeof ApiInvoicesOrderIdRoute
   '/api/media/$id': typeof ApiMediaIdRoute
   '/api/media/upload': typeof ApiMediaUploadRoute
@@ -648,6 +657,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/storefront'
     | '/admin/website'
+    | '/api/brevo/diagnostic'
     | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
@@ -706,6 +716,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/storefront'
     | '/admin/website'
+    | '/api/brevo/diagnostic'
     | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
@@ -766,6 +777,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/staff'
     | '/_authenticated/admin/storefront'
     | '/_authenticated/admin/website'
+    | '/api/brevo/diagnostic'
     | '/api/invoices/$orderId'
     | '/api/media/$id'
     | '/api/media/upload'
@@ -803,6 +815,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   ProductHandleRoute: typeof ProductHandleRoute
   TrackingWebhookRoute: typeof TrackingWebhookRoute
+  ApiBrevoDiagnosticRoute: typeof ApiBrevoDiagnosticRoute
   ApiInvoicesOrderIdRoute: typeof ApiInvoicesOrderIdRoute
   ApiMediaIdRoute: typeof ApiMediaIdRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -1147,6 +1160,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminWebsiteRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/api/brevo/diagnostic': {
+      id: '/api/brevo/diagnostic'
+      path: '/api/brevo/diagnostic'
+      fullPath: '/api/brevo/diagnostic'
+      preLoaderRoute: typeof ApiBrevoDiagnosticRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/invoices/$orderId': {
       id: '/api/invoices/$orderId'
       path: '/api/invoices/$orderId'
@@ -1321,6 +1341,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   ProductHandleRoute: ProductHandleRoute,
   TrackingWebhookRoute: TrackingWebhookRoute,
+  ApiBrevoDiagnosticRoute: ApiBrevoDiagnosticRoute,
   ApiInvoicesOrderIdRoute: ApiInvoicesOrderIdRoute,
   ApiMediaIdRoute: ApiMediaIdRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,
