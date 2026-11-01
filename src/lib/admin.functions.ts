@@ -53,6 +53,10 @@ export type AdminProduct = {
   colorVariants?: ProductColorVariant[];
   tags: string[];
   category: string | null;
+  subcategory?: string | null;
+  collection?: string | null;
+  department: "men" | "women" | "unisex";
+  isFeatured?: boolean;
   sizeStock?: Record<string, number>;
 };
 
@@ -143,6 +147,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
         SELECT 
           p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
           p.images, p.sizes, p.colors, p.color_variants, p.tags, p.stock_quantity, p.is_active, p.category,
+          p.department, p.subcategory, p.collection, p.is_featured,
           p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
           COALESCE(
             (
@@ -375,6 +380,10 @@ export const adminListProducts = createServerFn({ method: "GET" })
         })(),
         tags: Array.isArray(p.tags) ? p.tags : [],
         category: p.category ?? null,
+        subcategory: p.subcategory ?? null,
+        collection: p.collection ?? null,
+        department: (p.department as "men" | "women" | "unisex") || "men",
+        isFeatured: Boolean(p.is_featured),
         sizeStock: sizeStockByProd.get(String(p.id)) || {},
       };
     });
@@ -727,10 +736,10 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
+            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, subcategory, collection, department, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
           ) VALUES (
             ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
-            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
+            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
             ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb
@@ -744,7 +753,7 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
               id, name, slug, description, price, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags
             ) VALUES (
               ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, 'INR',
-              ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
+              ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
               ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
             );
           `;
@@ -932,6 +941,10 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           is_tax_inclusive = ${values.is_tax_inclusive},
           images = ${JSON.stringify(values.images)}::jsonb,
           category = ${values.category},
+          subcategory = ${values.subcategory},
+          collection = ${values.collection},
+          department = ${values.department},
+          is_featured = ${values.is_featured},
           sizes = ${JSON.stringify(values.sizes)}::jsonb,
           colors = ${JSON.stringify(values.colors)}::jsonb,
           color_variants = ${JSON.stringify(values.color_variants || [])}::jsonb,
@@ -956,6 +969,10 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
             price = ${values.price},
             images = ${JSON.stringify(values.images)}::jsonb,
             category = ${values.category},
+          subcategory = ${values.subcategory},
+          collection = ${values.collection},
+          department = ${values.department},
+          is_featured = ${values.is_featured},
             sizes = ${JSON.stringify(values.sizes)}::jsonb,
             colors = ${JSON.stringify(values.colors)}::jsonb,
             color_variants = ${JSON.stringify(values.color_variants || [])}::jsonb,
@@ -1080,6 +1097,414 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
     });
 
     return { ok: true, product: updatedRows[0] };
+  });
+
+export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const validDepts = ["men", "women", "unisex"];
+    const dept = String(raw?.department || "").toLowerCase().trim();
+    if (!validDepts.includes(dept)) {
+      throw new Error("Invalid department. Must be 'men', 'women', or 'unisex'.");
+    }
+    const productIds = Array.isArray(raw?.productIds)
+      ? raw.productIds.map((id: any) => String(id).trim()).filter(Boolean)
+      : [];
+    if (productIds.length === 0) {
+      throw new Error("No products selected for department transfer.");
+    }
+    return {
+      department: dept as "men" | "women" | "unisex",
+      productIds,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "edit");
+    const sql = getSql();
+
+    try {
+      await sql`
+        UPDATE products 
+        SET department = ${data.department}, updated_at = NOW() 
+        WHERE id IN (${data.productIds})
+      `;
+
+      try {
+        await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
+      } catch {
+        /* non-fatal */
+      }
+
+      invalidateCatalogCache();
+
+      await logAudit(context as any, "product.bulk_department_transfer", "products", data.department, {
+        count: data.productIds.length,
+        productIds: data.productIds,
+        department: data.department,
+      });
+
+      logServerSyncEvent("BULK_DEPARTMENT_UPDATE", {
+        operation: "adminBulkUpdateDepartment",
+        department: data.department,
+        count: data.productIds.length,
+        status: "SUCCESS",
+      });
+
+      return { ok: true, count: data.productIds.length, department: data.department };
+    } catch (err: any) {
+      logServerSyncEvent("DATABASE_ERROR", {
+        operation: "adminBulkUpdateDepartment",
+        department: data.department,
+        status: "FAILED",
+        error: err?.message || String(err),
+      });
+      throw new Error(`Bulk department transfer failed: ${err?.message || String(err)}`);
+    }
+  });
+
+export type AdminCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  department: "men" | "women" | "unisex";
+  description: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  productCount: number;
+};
+
+export const adminListCategories = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<AdminCategory[]> => {
+    await assertAdmin(context as any, "products", "view");
+    const sql = getSql();
+    try {
+      const rows = await sql`
+        SELECT 
+          c.id, c.name, c.slug, c.department, c.description, c.image_url, c.is_active, c.display_order,
+          (
+            SELECT count(*) 
+            FROM products p 
+            WHERE LOWER(p.category) = LOWER(c.name) OR LOWER(p.category) = LOWER(c.slug)
+          ) AS product_count
+        FROM categories c
+        ORDER BY c.department ASC, c.display_order ASC, c.name ASC
+      `;
+      return (rows || []).map((r: any) => ({
+        id: String(r.id),
+        name: String(r.name),
+        slug: String(r.slug),
+        department: (r.department as any) || "unisex",
+        description: r.description ? String(r.description) : null,
+        imageUrl: r.image_url ? String(r.image_url) : null,
+        isActive: r.is_active !== 0 && r.is_active !== false,
+        displayOrder: Number(r.display_order || 0),
+        productCount: Number(r.product_count || 0),
+      }));
+    } catch (err: any) {
+      console.warn("adminListCategories error:", err);
+      return [];
+    }
+  });
+
+export const adminCreateCategory = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const name = String(raw?.name || "").trim();
+    if (!name) throw new Error("Category name is required");
+    const validDepts = ["men", "women", "unisex"];
+    const dept = String(raw?.department || "unisex").toLowerCase().trim();
+    return {
+      name,
+      slug: slugify(String(raw?.slug || name)) || slugify(name),
+      department: (validDepts.includes(dept) ? dept : "unisex") as "men" | "women" | "unisex",
+      description: raw?.description ? String(raw.description).trim() : null,
+      imageUrl: raw?.imageUrl ? String(raw.imageUrl).trim() : null,
+      displayOrder: Math.max(0, Number(raw?.displayOrder) || 0),
+      isActive: raw?.isActive !== false,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "create");
+    const sql = getSql();
+    const id = `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    let finalImageUrl = data.imageUrl;
+    if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalImageUrl], userEmail);
+      finalImageUrl = persisted[0] || finalImageUrl;
+    }
+
+    await sql`
+      INSERT INTO categories (id, name, slug, department, description, image_url, display_order, is_active, created_at, updated_at)
+      VALUES (
+        ${id}, ${data.name}, ${data.slug}, ${data.department}, ${data.description},
+        ${finalImageUrl}, ${data.displayOrder}, ${data.isActive ? 1 : 0}, NOW(), NOW()
+      )
+    `;
+
+    invalidateCatalogCache();
+    await logAudit(context as any, "category.create", "category", id, { name: data.name, department: data.department });
+    return { ok: true, id };
+  });
+
+export const adminUpdateCategory = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const id = String(raw?.id || "").trim();
+    if (!id) throw new Error("Category ID is required");
+    const name = String(raw?.name || "").trim();
+    if (!name) throw new Error("Category name is required");
+    const validDepts = ["men", "women", "unisex"];
+    const dept = String(raw?.department || "unisex").toLowerCase().trim();
+    return {
+      id,
+      name,
+      slug: slugify(String(raw?.slug || name)) || slugify(name),
+      department: (validDepts.includes(dept) ? dept : "unisex") as "men" | "women" | "unisex",
+      description: raw?.description ? String(raw.description).trim() : null,
+      imageUrl: raw?.imageUrl ? String(raw.imageUrl).trim() : null,
+      displayOrder: Math.max(0, Number(raw?.displayOrder) || 0),
+      isActive: raw?.isActive !== false,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "edit");
+    const sql = getSql();
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    let finalImageUrl = data.imageUrl;
+    if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalImageUrl], userEmail);
+      finalImageUrl = persisted[0] || finalImageUrl;
+    }
+
+    await sql`
+      UPDATE categories
+      SET 
+        name = ${data.name},
+        slug = ${data.slug},
+        department = ${data.department},
+        description = ${data.description},
+        image_url = ${finalImageUrl},
+        display_order = ${data.displayOrder},
+        is_active = ${data.isActive ? 1 : 0},
+        updated_at = NOW()
+      WHERE id = ${data.id}
+    `;
+
+    invalidateCatalogCache();
+    await logAudit(context as any, "category.update", "category", data.id, { name: data.name, department: data.department });
+    return { ok: true };
+  });
+
+export const adminDeleteCategory = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const id = String(raw?.id || "").trim();
+    if (!id) throw new Error("Category ID is required");
+    return { id };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "delete");
+    const sql = getSql();
+
+    // Check if category is used by products
+    const cats = await sql`SELECT name, slug FROM categories WHERE id = ${data.id} LIMIT 1`;
+    if (cats.length > 0) {
+      const cat = cats[0];
+      const used = await sql`
+        SELECT count(*) as count 
+        FROM products 
+        WHERE LOWER(category) = LOWER(${cat.name}) OR LOWER(category) = LOWER(${cat.slug})
+      `;
+      const count = Number(used[0]?.count || 0);
+      if (count > 0) {
+        throw new Error(`Cannot delete category "${cat.name}" because it is currently assigned to ${count} product(s). Please reassign or update those products first.`);
+      }
+    }
+
+    await sql`DELETE FROM categories WHERE id = ${data.id}`;
+    invalidateCatalogCache();
+    await logAudit(context as any, "category.delete", "category", data.id, {});
+    return { ok: true };
+  });
+
+export type AdminCollection = {
+  id: string;
+  name: string;
+  slug: string;
+  department: "men" | "women" | "unisex";
+  description: string | null;
+  imageUrl: string | null;
+  bannerUrl: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  productCount: number;
+};
+
+export const adminListCollections = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<AdminCollection[]> => {
+    await assertAdmin(context as any, "products", "view");
+    const sql = getSql();
+    try {
+      const rows = await sql`
+        SELECT 
+          c.id, c.name, c.slug, c.department, c.description, c.image_url, c.banner_url, c.is_active, c.display_order,
+          (
+            SELECT count(*) 
+            FROM products p 
+            WHERE LOWER(p.collection) = LOWER(c.name) OR LOWER(p.collection) = LOWER(c.slug)
+          ) AS product_count
+        FROM collections c
+        ORDER BY c.department ASC, c.display_order ASC, c.name ASC
+      `;
+      return (rows || []).map((r: any) => ({
+        id: String(r.id),
+        name: String(r.name),
+        slug: String(r.slug),
+        department: (r.department as any) || "unisex",
+        description: r.description ? String(r.description) : null,
+        imageUrl: r.image_url ? String(r.image_url) : null,
+        bannerUrl: r.banner_url ? String(r.banner_url) : null,
+        isActive: r.is_active !== 0 && r.is_active !== false,
+        displayOrder: Number(r.display_order || 0),
+        productCount: Number(r.product_count || 0),
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+export const adminCreateCollection = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const name = String(raw?.name || "").trim();
+    if (!name) throw new Error("Collection name is required");
+    const validDepts = ["men", "women", "unisex"];
+    const dept = String(raw?.department || "unisex").toLowerCase().trim();
+    return {
+      name,
+      slug: slugify(String(raw?.slug || name)) || slugify(name),
+      department: (validDepts.includes(dept) ? dept : "unisex") as "men" | "women" | "unisex",
+      description: raw?.description ? String(raw.description).trim() : null,
+      imageUrl: raw?.imageUrl ? String(raw.imageUrl).trim() : null,
+      bannerUrl: raw?.bannerUrl ? String(raw.bannerUrl).trim() : null,
+      displayOrder: Math.max(0, Number(raw?.displayOrder) || 0),
+      isActive: raw?.isActive !== false,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "create");
+    const sql = getSql();
+    const id = `col_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    let finalImageUrl = data.imageUrl;
+    if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalImageUrl], userEmail);
+      finalImageUrl = persisted[0] || finalImageUrl;
+    }
+    let finalBannerUrl = data.bannerUrl;
+    if (finalBannerUrl && finalBannerUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalBannerUrl], userEmail);
+      finalBannerUrl = persisted[0] || finalBannerUrl;
+    }
+
+    await sql`
+      INSERT INTO collections (id, name, slug, department, description, image_url, banner_url, display_order, is_active, created_at, updated_at)
+      VALUES (
+        ${id}, ${data.name}, ${data.slug}, ${data.department}, ${data.description},
+        ${finalImageUrl}, ${finalBannerUrl}, ${data.displayOrder}, ${data.isActive ? 1 : 0}, NOW(), NOW()
+      )
+    `;
+
+    invalidateCatalogCache();
+    await logAudit(context as any, "collection.create", "collection", id, { name: data.name, department: data.department });
+    return { ok: true, id };
+  });
+
+export const adminUpdateCollection = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const id = String(raw?.id || "").trim();
+    if (!id) throw new Error("Collection ID is required");
+    const name = String(raw?.name || "").trim();
+    if (!name) throw new Error("Collection name is required");
+    const validDepts = ["men", "women", "unisex"];
+    const dept = String(raw?.department || "unisex").toLowerCase().trim();
+    return {
+      id,
+      name,
+      slug: slugify(String(raw?.slug || name)) || slugify(name),
+      department: (validDepts.includes(dept) ? dept : "unisex") as "men" | "women" | "unisex",
+      description: raw?.description ? String(raw.description).trim() : null,
+      imageUrl: raw?.imageUrl ? String(raw.imageUrl).trim() : null,
+      bannerUrl: raw?.bannerUrl ? String(raw.bannerUrl).trim() : null,
+      displayOrder: Math.max(0, Number(raw?.displayOrder) || 0),
+      isActive: raw?.isActive !== false,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "edit");
+    const sql = getSql();
+    const userEmail = (context as any)?.user?.email || "Admin";
+
+    let finalImageUrl = data.imageUrl;
+    if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalImageUrl], userEmail);
+      finalImageUrl = persisted[0] || finalImageUrl;
+    }
+    let finalBannerUrl = data.bannerUrl;
+    if (finalBannerUrl && finalBannerUrl.startsWith("data:image/")) {
+      const persisted = await persistBase64ImagesToMedia([finalBannerUrl], userEmail);
+      finalBannerUrl = persisted[0] || finalBannerUrl;
+    }
+
+    await sql`
+      UPDATE collections
+      SET 
+        name = ${data.name},
+        slug = ${data.slug},
+        department = ${data.department},
+        description = ${data.description},
+        image_url = ${finalImageUrl},
+        banner_url = ${finalBannerUrl},
+        display_order = ${data.displayOrder},
+        is_active = ${data.isActive ? 1 : 0},
+        updated_at = NOW()
+      WHERE id = ${data.id}
+    `;
+
+    invalidateCatalogCache();
+    await logAudit(context as any, "collection.update", "collection", data.id, { name: data.name, department: data.department });
+    return { ok: true };
+  });
+
+export const adminDeleteCollection = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: any) => {
+    const raw = unwrapInput(d);
+    const id = String(raw?.id || "").trim();
+    if (!id) throw new Error("Collection ID is required");
+    return { id };
+  })
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as any, "products", "delete");
+    const sql = getSql();
+    await sql`DELETE FROM collections WHERE id = ${data.id}`;
+    invalidateCatalogCache();
+    await logAudit(context as any, "collection.delete", "collection", data.id, {});
+    return { ok: true };
   });
 
 export const adminGetProductDetails = createServerFn({ method: "POST" })

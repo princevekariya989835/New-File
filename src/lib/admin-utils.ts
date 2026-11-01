@@ -267,6 +267,10 @@ export type ProductInput = {
   colorVariants?: ProductColorVariant[];
   tags?: string[];
   category?: string;
+  subcategory?: string | null;
+  collection?: string | null;
+  department?: "men" | "women" | "unisex";
+  isFeatured?: boolean | number;
   stock?: number;
   sizeStock?: Record<string, number>;
   images?: string[];
@@ -492,6 +496,12 @@ export function normalizeProductInput(d: ProductInput) {
     color_variants: colorVariants,
     tags: cleanList(d.tags),
     category: d.category?.trim() ? d.category.trim() : "Oversized Tees",
+    subcategory: d.subcategory?.trim() ? d.subcategory.trim() : null,
+    collection: d.collection?.trim() ? d.collection.trim() : null,
+    department: ["men", "women", "unisex"].includes(String(d.department || "men").toLowerCase().trim())
+      ? (String(d.department).toLowerCase().trim() as "men" | "women" | "unisex")
+      : "men",
+    is_featured: d.isFeatured ? 1 : 0,
     stock_quantity: totalStock,
     sizeStock,
     is_active: d.isActive !== false,

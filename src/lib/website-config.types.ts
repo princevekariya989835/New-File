@@ -357,6 +357,8 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
   },
   navigation: [
     { id: "nav_shop", label: "Shop", to: "/shop", enabled: true },
+    { id: "nav_men", label: "Men", to: "/collections/men", enabled: true },
+    { id: "nav_women", label: "Women", to: "/collections/women", enabled: true },
     { id: "nav_design", label: "Design Your Own", to: "/design", enabled: true },
     { id: "nav_about", label: "About", to: "/about", enabled: true },
     { id: "nav_contact", label: "Contact", to: "/contact", enabled: true },

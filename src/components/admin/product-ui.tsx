@@ -56,6 +56,10 @@ export type ProductFormValues = {
   mrp?: string;
   isTaxInclusive?: boolean;
   category: string;
+  subcategory?: string;
+  collection?: string;
+  department: "men" | "women" | "unisex";
+  isFeatured?: boolean;
   images: string[];
   colors: string[];
   colorVariants?: ProductColorVariant[];
@@ -1155,6 +1159,10 @@ const EMPTY_FORM: ProductFormValues = {
   mrp: "",
   isTaxInclusive: true,
   category: "Oversized Tees",
+  subcategory: "",
+  collection: "",
+  department: "men",
+  isFeatured: false,
   images: [],
   colors: ["Black"],
   colorVariants: [],
@@ -1187,6 +1195,10 @@ export function ProductForm({
   const [values, setValues] = useState<ProductFormValues>(() => ({
     ...(initial ?? EMPTY_FORM),
     colorVariants: initial?.colorVariants ?? [],
+    department: initial?.department || "men",
+    subcategory: initial?.subcategory || "",
+    collection: initial?.collection || "",
+    isFeatured: Boolean(initial?.isFeatured),
     mrp: initial?.mrp ?? "",
     isTaxInclusive: initial?.isTaxInclusive !== false,
     highlights: initial?.highlights ?? [],
@@ -1341,10 +1353,10 @@ export function ProductForm({
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">
             1
           </span>
-          Basic Product Information
+          Basic Product Information & Classification
         </h4>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="sm:col-span-2 md:col-span-1">
             <Label className="text-xs font-semibold">Product Name *</Label>
             <Input
               value={values.title}
@@ -1354,16 +1366,52 @@ export function ProductForm({
               required
             />
           </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Department *</Label>
+            <select
+              value={values.department}
+              onChange={(e) => set("department", e.target.value as "men" | "women" | "unisex")}
+              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              required
+            >
+              <option value="men">Men</option>
+              <option value="women">Women</option>
+              <option value="unisex">Unisex (Both Men &amp; Women)</option>
+            </select>
+          </div>
+
           <div>
             <Label className="text-xs font-semibold">Category</Label>
             <Input
               value={values.category}
               onChange={(e) => set("category", e.target.value)}
-              placeholder="e.g. Oversized Tees, Hoodies, Graphic Tees"
+              placeholder="e.g. Oversized Tees, Baby Tees, Hoodies"
               className="mt-1"
             />
           </div>
-          <div className="flex items-center pt-2 sm:col-span-2">
+
+          <div>
+            <Label className="text-xs font-semibold">Subcategory</Label>
+            <Input
+              value={values.subcategory || ""}
+              onChange={(e) => set("subcategory", e.target.value)}
+              placeholder="e.g. Crop, Acid Wash, Graphic"
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Collection</Label>
+            <Input
+              value={values.collection || ""}
+              onChange={(e) => set("collection", e.target.value)}
+              placeholder="e.g. Summer Drop, Anime Series"
+              className="mt-1"
+            />
+          </div>
+
+          <div className="flex flex-col justify-center gap-2 pt-1">
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
               <input
                 type="checkbox"
@@ -1372,6 +1420,15 @@ export function ProductForm({
                 className="h-4 w-4 rounded border-border accent-foreground"
               />
               <span>Active (visible on storefront)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
+              <input
+                type="checkbox"
+                checked={Boolean(values.isFeatured)}
+                onChange={(e) => set("isFeatured", e.target.checked)}
+                className="h-4 w-4 rounded border-border accent-foreground"
+              />
+              <span>Featured product</span>
             </label>
           </div>
         </div>

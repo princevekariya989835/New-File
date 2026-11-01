@@ -49,6 +49,17 @@ export function getRecommendedProducts(
     const node = cand.node;
     let score = 0;
 
+    // 0. Same department preference (or unisex)
+    const currentDept = (currentProduct.department || "men").toLowerCase();
+    const candDept = (node.department || "men").toLowerCase();
+    if (candDept === currentDept) {
+      score += 80;
+    } else if (candDept === "unisex" || currentDept === "unisex") {
+      score += 50;
+    } else {
+      score -= 50;
+    }
+
     const candCategory = String(node.productType || "").toLowerCase().trim();
     // 1. Same product category
     if (candCategory && currentCategory && candCategory === currentCategory) {

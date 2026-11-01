@@ -51,6 +51,8 @@ import {
   Ticket,
   Activity,
   Tag,
+  FolderTree,
+  Sparkles,
 } from "lucide-react";
 
 function AdminPendingShell() {
@@ -65,6 +67,7 @@ function AdminPendingShell() {
             <div className="rounded-lg bg-brand-red text-white font-semibold px-3 py-2">Dashboard</div>
             <div className="px-3 py-2">Orders</div>
             <div className="px-3 py-2">Products</div>
+            <div className="px-3 py-2">Categories</div>
             <div className="px-3 py-2">Inventory</div>
           </nav>
         </aside>
@@ -108,6 +111,8 @@ const NAV: Array<{
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/orders", label: "Orders", icon: Receipt },
   { to: "/admin/products", label: "Products", icon: Package },
+  { to: "/admin/categories", label: "Categories", icon: FolderTree },
+  { to: "/admin/collections", label: "Collections", icon: Sparkles },
   { to: "/admin/inventory", label: "Inventory", icon: Boxes },
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
   { to: "/admin/reviews", label: "Reviews", icon: Star },

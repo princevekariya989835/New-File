@@ -35,6 +35,8 @@ import { toast } from "sonner";
 
 const defaultNav = [
   { to: "/shop", label: "Shop" },
+  { to: "/collections/men", label: "Men" },
+  { to: "/collections/women", label: "Women" },
   { to: "/design", label: "Design Your Own" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
@@ -68,6 +70,17 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       label: n.label || "Link",
       isExternal: Boolean(n.isExternal),
     }));
+
+  if (navItems.length > 0 && !navItems.some((n) => n.to === "/collections/women" || n.label.toLowerCase() === "women")) {
+    const shopIdx = navItems.findIndex((n) => n.to === "/shop" || n.label.toLowerCase() === "shop");
+    const insertIdx = shopIdx >= 0 ? shopIdx + 1 : 1;
+    navItems.splice(
+      insertIdx,
+      0,
+      { to: "/collections/men", label: "Men", isExternal: false },
+      { to: "/collections/women", label: "Women", isExternal: false }
+    );
+  }
 
   const activeNav = config || !isLoading ? (navItems.length > 0 ? navItems : defaultNav) : [];
 

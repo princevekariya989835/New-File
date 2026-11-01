@@ -91,6 +91,10 @@ export interface ProductRow {
   currency: string;
   images: string[];
   category: string | null;
+  subcategory?: string | null;
+  collection?: string | null;
+  department?: "men" | "women" | "unisex";
+  is_featured?: boolean | number;
   sizes: string[];
   colors: string[];
   stock_quantity: number;

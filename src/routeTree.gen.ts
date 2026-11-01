@@ -30,6 +30,8 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as ApiProductsRouteImport } from './routes/api/products'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
+import { Route as CollectionsMenRouteImport } from './routes/collections.men'
+import { Route as CollectionsWomenRouteImport } from './routes/collections.women'
 import { Route as ProductHandleRouteImport } from './routes/product.$handle'
 import { Route as TrackingWebhookRouteImport } from './routes/tracking.webhook'
 import { Route as AuthenticatedAccountFavoritesRouteImport } from './routes/_authenticated/account.favorites'
@@ -39,6 +41,8 @@ import { Route as AuthenticatedAccountReviewsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminActivityRouteImport } from './routes/_authenticated/admin/activity'
 import { Route as AuthenticatedAdminAnalyticsRouteImport } from './routes/_authenticated/admin/analytics'
+import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/admin/categories'
+import { Route as AuthenticatedAdminCollectionsRouteImport } from './routes/_authenticated/admin/collections'
 import { Route as AuthenticatedAdminCouponsRouteImport } from './routes/_authenticated/admin/coupons'
 import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/admin/customers'
 import { Route as AuthenticatedAdminDesignsRouteImport } from './routes/_authenticated/admin/designs'
@@ -171,6 +175,16 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollectionsMenRoute = CollectionsMenRouteImport.update({
+  id: '/collections/men',
+  path: '/collections/men',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionsWomenRoute = CollectionsWomenRouteImport.update({
+  id: '/collections/women',
+  path: '/collections/women',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductHandleRoute = ProductHandleRouteImport.update({
   id: '/product/$handle',
   path: '/product/$handle',
@@ -236,6 +250,18 @@ const AuthenticatedAdminAnalyticsRoute =
   } as any).lazy(() =>
     import('./routes/_authenticated/admin/analytics.lazy').then((d) => d.Route),
   )
+const AuthenticatedAdminCategoriesRoute =
+  AuthenticatedAdminCategoriesRouteImport.update({
+    id: '/categories',
+    path: '/categories',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminCollectionsRoute =
+  AuthenticatedAdminCollectionsRouteImport.update({
+    id: '/collections',
+    path: '/collections',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminCouponsRoute =
   AuthenticatedAdminCouponsRouteImport.update({
     id: '/coupons',
@@ -437,6 +463,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/collections/men': typeof CollectionsMenRoute
+  '/collections/women': typeof CollectionsWomenRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -445,6 +473,8 @@ export interface FileRoutesByFullPath {
   '/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/admin/activity': typeof AuthenticatedAdminActivityRoute
   '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/admin/collections': typeof AuthenticatedAdminCollectionsRoute
   '/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
@@ -494,6 +524,8 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/collections/men': typeof CollectionsMenRoute
+  '/collections/women': typeof CollectionsWomenRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -502,6 +534,8 @@ export interface FileRoutesByTo {
   '/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/admin/activity': typeof AuthenticatedAdminActivityRoute
   '/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/admin/collections': typeof AuthenticatedAdminCollectionsRoute
   '/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
@@ -554,6 +588,8 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth_/callback': typeof AuthCallbackRoute
+  '/collections/men': typeof CollectionsMenRoute
+  '/collections/women': typeof CollectionsWomenRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/_authenticated/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -562,6 +598,8 @@ export interface FileRoutesById {
   '/_authenticated/account/reviews': typeof AuthenticatedAccountReviewsRoute
   '/_authenticated/admin/activity': typeof AuthenticatedAdminActivityRoute
   '/_authenticated/admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
+  '/_authenticated/admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/_authenticated/admin/collections': typeof AuthenticatedAdminCollectionsRoute
   '/_authenticated/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/_authenticated/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/_authenticated/admin/designs': typeof AuthenticatedAdminDesignsRoute
@@ -614,6 +652,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/products'
     | '/auth/callback'
+    | '/collections/men'
+    | '/collections/women'
     | '/product/$handle'
     | '/tracking/webhook'
     | '/account/favorites'
@@ -622,6 +662,8 @@ export interface FileRouteTypes {
     | '/account/reviews'
     | '/admin/activity'
     | '/admin/analytics'
+    | '/admin/categories'
+    | '/admin/collections'
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/designs'
@@ -671,6 +713,8 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/products'
     | '/auth/callback'
+    | '/collections/men'
+    | '/collections/women'
     | '/product/$handle'
     | '/tracking/webhook'
     | '/account/favorites'
@@ -679,6 +723,8 @@ export interface FileRouteTypes {
     | '/account/reviews'
     | '/admin/activity'
     | '/admin/analytics'
+    | '/admin/categories'
+    | '/admin/collections'
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/designs'
@@ -730,6 +776,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/api/products'
     | '/auth_/callback'
+    | '/collections/men'
+    | '/collections/women'
     | '/product/$handle'
     | '/tracking/webhook'
     | '/_authenticated/account/favorites'
@@ -738,6 +786,8 @@ export interface FileRouteTypes {
     | '/_authenticated/account/reviews'
     | '/_authenticated/admin/activity'
     | '/_authenticated/admin/analytics'
+    | '/_authenticated/admin/categories'
+    | '/_authenticated/admin/collections'
     | '/_authenticated/admin/coupons'
     | '/_authenticated/admin/customers'
     | '/_authenticated/admin/designs'
@@ -789,6 +839,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiProductsRoute: typeof ApiProductsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CollectionsMenRoute: typeof CollectionsMenRoute
+  CollectionsWomenRoute: typeof CollectionsWomenRoute
   ProductHandleRoute: typeof ProductHandleRoute
   TrackingWebhookRoute: typeof TrackingWebhookRoute
   ApiMediaIdRoute: typeof ApiMediaIdRoute
@@ -952,6 +1004,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collections/men': {
+      id: '/collections/men'
+      path: '/collections/men'
+      fullPath: '/collections/men'
+      preLoaderRoute: typeof CollectionsMenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collections/women': {
+      id: '/collections/women'
+      path: '/collections/women'
+      fullPath: '/collections/women'
+      preLoaderRoute: typeof CollectionsWomenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/$handle': {
       id: '/product/$handle'
       path: '/product/$handle'
@@ -1013,6 +1079,20 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/admin/analytics'
       preLoaderRoute: typeof AuthenticatedAdminAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/categories': {
+      id: '/_authenticated/admin/categories'
+      path: '/categories'
+      fullPath: '/admin/categories'
+      preLoaderRoute: typeof AuthenticatedAdminCategoriesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/collections': {
+      id: '/_authenticated/admin/collections'
+      path: '/collections'
+      fullPath: '/admin/collections'
+      preLoaderRoute: typeof AuthenticatedAdminCollectionsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/admin/coupons': {
@@ -1210,6 +1290,8 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminActivityRoute: typeof AuthenticatedAdminActivityRoute
   AuthenticatedAdminAnalyticsRoute: typeof AuthenticatedAdminAnalyticsRoute
+  AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
+  AuthenticatedAdminCollectionsRoute: typeof AuthenticatedAdminCollectionsRoute
   AuthenticatedAdminCouponsRoute: typeof AuthenticatedAdminCouponsRoute
   AuthenticatedAdminCustomersRoute: typeof AuthenticatedAdminCustomersRoute
   AuthenticatedAdminDesignsRoute: typeof AuthenticatedAdminDesignsRoute
@@ -1234,6 +1316,8 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
   {
     AuthenticatedAdminActivityRoute: AuthenticatedAdminActivityRoute,
     AuthenticatedAdminAnalyticsRoute: AuthenticatedAdminAnalyticsRoute,
+    AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
+    AuthenticatedAdminCollectionsRoute: AuthenticatedAdminCollectionsRoute,
     AuthenticatedAdminCouponsRoute: AuthenticatedAdminCouponsRoute,
     AuthenticatedAdminCustomersRoute: AuthenticatedAdminCustomersRoute,
     AuthenticatedAdminDesignsRoute: AuthenticatedAdminDesignsRoute,
@@ -1299,6 +1383,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiProductsRoute: ApiProductsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  CollectionsMenRoute: CollectionsMenRoute,
+  CollectionsWomenRoute: CollectionsWomenRoute,
   ProductHandleRoute: ProductHandleRoute,
   TrackingWebhookRoute: TrackingWebhookRoute,
   ApiMediaIdRoute: ApiMediaIdRoute,

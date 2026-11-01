@@ -91,6 +91,10 @@ export interface CatalogProductNode {
   title: string;
   description: string;
   detailsHtml?: string | null;
+  department?: "men" | "women" | "unisex";
+  subcategory?: string | null;
+  collection?: string | null;
+  isFeatured?: boolean;
   highlights?: ProductHighlight[];
   specifications?: ProductSpecification[];
   offers?: ProductOffer[];
@@ -412,6 +416,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       discountAmount,
       discountPercentage,
       isTaxInclusive,
+      department: (row.department as "men" | "women" | "unisex") || "men",
+      subcategory: row.subcategory ?? null,
+      collection: row.collection ?? null,
+      isFeatured: Boolean(row.is_featured),
       handle: row.slug,
       tags: row.tags ?? [],
       productType: row.category ?? "",
@@ -575,7 +583,8 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
       SELECT 
         p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
         p.images,
-        p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+        p.category, p.subcategory, p.collection, p.department, p.is_featured,
+        p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
         COALESCE(
           (
             SELECT jsonb_agg(jsonb_build_object(
@@ -619,6 +628,10 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
           ? JSON.parse(p.images)
           : [],
       category: (p.category as string) || null,
+      subcategory: (p.subcategory as string) || null,
+      collection: (p.collection as string) || null,
+      department: (p.department as "men" | "women" | "unisex") || "men",
+      is_featured: Boolean(p.is_featured),
       sizes: Array.isArray(p.sizes)
         ? p.sizes
         : typeof p.sizes === "string"
@@ -796,7 +809,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
           SELECT 
             p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
             p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
-            p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
+            p.currency, p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(
@@ -989,6 +1002,10 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
             ? JSON.parse(p.images)
             : [],
         category: (p.category as string) || null,
+        subcategory: (p.subcategory as string) || null,
+        collection: (p.collection as string) || null,
+        department: (p.department as "men" | "women" | "unisex") || "men",
+        is_featured: Boolean(p.is_featured),
         sizes: Array.isArray(p.sizes)
           ? p.sizes
           : typeof p.sizes === "string"
@@ -1058,5 +1075,424 @@ export function formatPrice(amount: string | number, currencyCode = "INR") {
     }).format(value);
   } catch {
     return `${currencyCode} ${value.toFixed(0)}`;
+  }
+}
+
+export interface DepartmentProductsInput {
+  department: "men" | "women" | "unisex" | "all";
+  category?: string;
+  subcategory?: string;
+  collection?: string;
+  size?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  availability?: "all" | "in_stock" | "out_of_stock";
+  discountOnly?: boolean;
+  sort?: "featured" | "newest" | "price_asc" | "price_desc" | "best_selling" | "price-asc" | "price-desc" | "best-selling";
+  q?: string;
+  page?: number;
+  limit?: number;
+  includeUnisex?: boolean;
+}
+
+export interface DepartmentProductsResult {
+  products: CatalogProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+  categories: Array<{ id: string; name: string; slug: string; count: number; imageUrl?: string }>;
+  availableSizes: string[];
+  minPrice: number;
+  maxPrice: number;
+}
+
+export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: DepartmentProductsInput) => ({
+    department: (d?.department || "all") as "men" | "women" | "unisex" | "all",
+    category: d?.category ? String(d.category).trim() : undefined,
+    subcategory: d?.subcategory ? String(d.subcategory).trim() : undefined,
+    collection: d?.collection ? String(d.collection).trim() : undefined,
+    size: d?.size ? String(d.size).trim() : undefined,
+    minPrice: typeof d?.minPrice === "number" ? d.minPrice : undefined,
+    maxPrice: typeof d?.maxPrice === "number" ? d.maxPrice : undefined,
+    availability: d?.availability || "all",
+    discountOnly: Boolean(d?.discountOnly),
+    sort: d?.sort || "featured",
+    q: d?.q ? String(d.q).trim() : undefined,
+    page: Math.max(1, Number(d?.page) || 1),
+    limit: Math.min(100, Math.max(1, Number(d?.limit) || 24)),
+    includeUnisex: d?.includeUnisex !== false,
+  }))
+  .handler(async ({ data }): Promise<DepartmentProductsResult> => {
+    const sql = getSql();
+    const {
+      department,
+      category,
+      subcategory,
+      collection,
+      size,
+      minPrice,
+      maxPrice,
+      availability,
+      discountOnly,
+      sort,
+      q,
+      page,
+      limit,
+      includeUnisex,
+    } = data;
+
+    try {
+      // 1. Fetch real sales count from order items for real best-seller sorting
+      const salesMap = new Map<string, number>();
+      try {
+        const orderSales = await sql`
+          SELECT product_id, SUM(quantity) as sold_qty
+          FROM order_items
+          WHERE product_id IS NOT NULL
+          GROUP BY product_id
+        `;
+        for (const row of orderSales || []) {
+          if (row.product_id) {
+            salesMap.set(String(row.product_id).toLowerCase(), Number(row.sold_qty || 0));
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      // 2. Fetch all published products with department data
+      const rows = await sql`
+        SELECT 
+          p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
+          p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured,
+          p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.created_at, p.updated_at
+        FROM products p
+        WHERE p.is_active = 1
+        ORDER BY p.is_featured DESC, p.created_at DESC
+      `;
+
+      const allProductRows: ProductRow[] = (rows || []).map((p: any) => ({
+        id: String(p.id),
+        name: String(p.name),
+        slug: String(p.slug),
+        description: p.description ? String(p.description) : "",
+        details_html: p.details_html ? String(p.details_html) : null,
+        price: Number(p.price) || 0,
+        mrp: p.mrp != null ? Number(p.mrp) : null,
+        compare_at_price: p.compare_at_price != null ? Number(p.compare_at_price) : null,
+        is_tax_inclusive: p.is_tax_inclusive !== false,
+        currency: "INR",
+        images: Array.isArray(p.images)
+          ? p.images
+          : typeof p.images === "string"
+          ? JSON.parse(p.images)
+          : [],
+        category: (p.category as string) || null,
+        subcategory: (p.subcategory as string) || null,
+        collection: (p.collection as string) || null,
+        department: (p.department as "men" | "women" | "unisex") || "men",
+        is_featured: Boolean(p.is_featured),
+        sizes: Array.isArray(p.sizes)
+          ? p.sizes
+          : typeof p.sizes === "string"
+          ? JSON.parse(p.sizes)
+          : ["S", "M", "L", "XL", "XXL"],
+        colors: Array.isArray(p.colors)
+          ? p.colors
+          : typeof p.colors === "string"
+          ? JSON.parse(p.colors)
+          : ["Black"],
+        color_variants: Array.isArray(p.color_variants)
+          ? p.color_variants
+          : typeof p.color_variants === "string"
+          ? JSON.parse(p.color_variants)
+          : [],
+        stock_quantity: Number(p.stock_quantity) || 0,
+        is_active: p.is_active === 1 || p.is_active === true,
+        tags: Array.isArray(p.tags)
+          ? p.tags
+          : typeof p.tags === "string"
+          ? JSON.parse(p.tags)
+          : [],
+        created_at: p.created_at ? String(p.created_at) : undefined,
+        updated_at: p.updated_at ? String(p.updated_at) : undefined,
+      }));
+
+      // 3. Filter by department
+      let filtered = allProductRows.filter((p) => {
+        const pDept = (p.department || "men").toLowerCase();
+        if (department === "all") return true;
+        if (pDept === department) return true;
+        if (includeUnisex && pDept === "unisex") return true;
+        return false;
+      });
+
+      // Compute metadata facets for this department
+      const allSizesSet = new Set<string>();
+      let deptMinPrice = Infinity;
+      let deptMaxPrice = 0;
+      const categoryCounts = new Map<string, number>();
+
+      for (const p of filtered) {
+        if (Array.isArray(p.sizes)) {
+          p.sizes.forEach((s) => allSizesSet.add(s));
+        }
+        if (p.price < deptMinPrice) deptMinPrice = p.price;
+        if (p.price > deptMaxPrice) deptMaxPrice = p.price;
+        if (p.category) {
+          categoryCounts.set(p.category, (categoryCounts.get(p.category) || 0) + 1);
+        }
+      }
+
+      // 4. Apply search query
+      if (q) {
+        const query = q.toLowerCase();
+        filtered = filtered.filter((p) => {
+          const matchName = p.name.toLowerCase().includes(query);
+          const matchSlug = p.slug.toLowerCase().includes(query);
+          const matchCat = (p.category || "").toLowerCase().includes(query);
+          const matchSubcat = (p.subcategory || "").toLowerCase().includes(query);
+          const matchTags = (p.tags || []).some((t) => t.toLowerCase().includes(query));
+          return matchName || matchSlug || matchCat || matchSubcat || matchTags;
+        });
+      }
+
+      // 5. Apply category filter
+      if (category && category !== "all") {
+        const catLow = category.toLowerCase();
+        filtered = filtered.filter(
+          (p) =>
+            (p.category && p.category.toLowerCase() === catLow) ||
+            (p.tags && p.tags.some((t) => t.toLowerCase() === catLow))
+        );
+      }
+
+      // 6. Apply subcategory filter
+      if (subcategory) {
+        const subLow = subcategory.toLowerCase();
+        filtered = filtered.filter((p) => p.subcategory && p.subcategory.toLowerCase() === subLow);
+      }
+
+      // 7. Apply collection filter
+      if (collection) {
+        const colLow = collection.toLowerCase();
+        filtered = filtered.filter((p) => p.collection && p.collection.toLowerCase() === colLow);
+      }
+
+      // 8. Apply size filter
+      if (size) {
+        filtered = filtered.filter((p) => Array.isArray(p.sizes) && p.sizes.includes(size));
+      }
+
+      // 9. Apply price range
+      if (typeof minPrice === "number") {
+        filtered = filtered.filter((p) => p.price >= minPrice);
+      }
+      if (typeof maxPrice === "number") {
+        filtered = filtered.filter((p) => p.price <= maxPrice);
+      }
+
+      // 10. Apply availability
+      if (availability === "in_stock") {
+        filtered = filtered.filter((p) => p.stock_quantity > 0);
+      } else if (availability === "out_of_stock") {
+        filtered = filtered.filter((p) => p.stock_quantity <= 0);
+      }
+
+      // 11. Apply discount only
+      if (discountOnly) {
+        filtered = filtered.filter((p) => p.mrp != null && p.mrp > p.price);
+      }
+
+      // 12. Apply sorting
+      filtered.sort((a, b) => {
+        if (sort === "price_asc" || sort === "price-asc") {
+          return a.price - b.price;
+        }
+        if (sort === "price_desc" || sort === "price-desc") {
+          return b.price - a.price;
+        }
+        if (sort === "newest") {
+          const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return tB - tA;
+        }
+        if (sort === "best_selling" || sort === "best-selling") {
+          const soldA = salesMap.get(a.id.toLowerCase()) || 0;
+          const soldB = salesMap.get(b.id.toLowerCase()) || 0;
+          if (soldB !== soldA) return soldB - soldA;
+          return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0);
+        }
+        // Default "featured"
+        if (Boolean(b.is_featured) !== Boolean(a.is_featured)) {
+          return b.is_featured ? 1 : -1;
+        }
+        return (b.stock_quantity > 0 ? 1 : 0) - (a.stock_quantity > 0 ? 1 : 0);
+      });
+
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const offset = (page - 1) * limit;
+      const pageSlice = filtered.slice(offset, offset + limit);
+      const hasMore = page < totalPages;
+
+      const catalogProducts = pageSlice.map((r) => toCatalogProduct(r, true));
+
+      // Build category list with actual counts
+      let categoryList: Array<{ id: string; name: string; slug: string; count: number; imageUrl?: string }> = [];
+      try {
+        const dbCats = await sql`
+          SELECT id, name, slug, department, image_url
+          FROM categories
+          WHERE is_active = 1
+          ORDER BY display_order ASC, name ASC
+        `;
+        const matched = new Set<string>();
+        for (const cat of dbCats || []) {
+          const cDept = String(cat.department || "unisex").toLowerCase();
+          if (department === "all" || cDept === "unisex" || cDept === department) {
+            const count = categoryCounts.get(cat.name) || 0;
+            categoryList.push({
+              id: cat.id,
+              name: cat.name,
+              slug: cat.slug,
+              count,
+              imageUrl: cat.image_url || undefined,
+            });
+            matched.add(cat.name.toLowerCase());
+          }
+        }
+        for (const [catName, count] of categoryCounts.entries()) {
+          if (!matched.has(catName.toLowerCase())) {
+            categoryList.push({
+              id: `cat_${catName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+              name: catName,
+              slug: catName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+              count,
+            });
+          }
+        }
+      } catch {
+        categoryList = Array.from(categoryCounts.entries()).map(([name, count]) => ({
+          id: `cat_${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          name,
+          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          count,
+        }));
+      }
+
+      return {
+        products: catalogProducts,
+        total,
+        page,
+        limit,
+        totalPages,
+        hasMore,
+        categories: categoryList,
+        availableSizes: Array.from(allSizesSet).sort(),
+        minPrice: Number.isFinite(deptMinPrice) ? deptMinPrice : 0,
+        maxPrice: deptMaxPrice > 0 ? deptMaxPrice : 2999,
+      };
+    } catch (err: any) {
+      console.error("[fetchDepartmentProductsServerFn] Error:", err);
+      return {
+        products: [],
+        total: 0,
+        page: 1,
+        limit,
+        totalPages: 1,
+        hasMore: false,
+        categories: [],
+        availableSizes: ["S", "M", "L", "XL", "XXL"],
+        minPrice: 0,
+        maxPrice: 2999,
+      };
+    }
+  });
+
+export async function fetchDepartmentProducts(input: DepartmentProductsInput): Promise<DepartmentProductsResult> {
+  try {
+    return await fetchDepartmentProductsServerFn({ data: input });
+  } catch (err) {
+    console.warn("fetchDepartmentProducts error:", err);
+    return {
+      products: [],
+      total: 0,
+      page: 1,
+      limit: input.limit || 24,
+      totalPages: 1,
+      hasMore: false,
+      categories: [],
+      availableSizes: ["S", "M", "L", "XL", "XXL"],
+      minPrice: 0,
+      maxPrice: 2999,
+    };
+  }
+}
+
+export const fetchCategoriesByDepartmentServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { department?: "men" | "women" | "unisex" | "all" }) => ({
+    department: d?.department || "all",
+  }))
+  .handler(async ({ data }) => {
+    const sql = getSql();
+    try {
+      const rows = await sql`
+        SELECT id, name, slug, department, description, image_url, display_order, is_active
+        FROM categories
+        WHERE is_active = 1
+        ORDER BY display_order ASC, name ASC
+      `;
+      const dept = data.department;
+      return (rows || []).filter((r: any) => {
+        if (dept === "all") return true;
+        const d = String(r.department || "unisex").toLowerCase();
+        return d === "unisex" || d === dept;
+      });
+    } catch {
+      return [];
+    }
+  });
+
+export async function fetchCategoriesByDepartment(department?: "men" | "women" | "unisex" | "all") {
+  try {
+    return await fetchCategoriesByDepartmentServerFn({ data: { department } });
+  } catch {
+    return [];
+  }
+}
+
+export const fetchCollectionsByDepartmentServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { department?: "men" | "women" | "unisex" | "all" }) => ({
+    department: d?.department || "all",
+  }))
+  .handler(async ({ data }) => {
+    const sql = getSql();
+    try {
+      const rows = await sql`
+        SELECT id, name, slug, department, description, image_url, banner_url, display_order, is_active
+        FROM collections
+        WHERE is_active = 1
+        ORDER BY display_order ASC, name ASC
+      `;
+      const dept = data.department;
+      return (rows || []).filter((r: any) => {
+        if (dept === "all") return true;
+        const d = String(r.department || "unisex").toLowerCase();
+        return d === "unisex" || d === dept;
+      });
+    } catch {
+      return [];
+    }
+  });
+
+export async function fetchCollectionsByDepartment(department?: "men" | "women" | "unisex" | "all") {
+  try {
+    return await fetchCollectionsByDepartmentServerFn({ data: { department } });
+  } catch {
+    return [];
   }
 }

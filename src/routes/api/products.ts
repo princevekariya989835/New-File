@@ -24,9 +24,18 @@ export const Route = createFileRoute("/api/products")({
           const url = new URL(request.url);
           const limitParam = url.searchParams.get("limit");
           const categoryParam = url.searchParams.get("category");
+          const departmentParam = url.searchParams.get("department");
           const limit = Math.min(200, Math.max(1, Number(limitParam) || 50));
 
           let products = await getPublishedProducts(limit);
+
+          if (departmentParam && departmentParam.trim().toLowerCase() !== "all") {
+            const dept = departmentParam.trim().toLowerCase();
+            products = products.filter((p) => {
+              const d = (p.node.department || "men").toLowerCase();
+              return d === dept || d === "unisex";
+            });
+          }
 
           if (categoryParam && categoryParam.trim().toLowerCase() !== "all") {
             const cat = categoryParam.trim().toLowerCase();
