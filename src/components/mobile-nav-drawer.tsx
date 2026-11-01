@@ -198,20 +198,35 @@ export function MobileNavDrawer({
 
           {/* C. Primary Navigation */}
           <nav className="space-y-1.5" aria-label="Main Navigation">
-            {/* Shop Row - Highlighted in soft red */}
+            {/* Men Collection Row */}
             <Link
-              to="/shop"
+              to="/collections/men"
               onClick={onClose}
-              className="flex items-center justify-between px-3.5 py-3 rounded-xl bg-[#fef2f2] border border-red-100/70 text-[#e50914] hover:bg-red-100/60 transition-colors group"
+              className="flex items-center justify-between px-3.5 py-2.5 rounded-lg hover:bg-zinc-50 transition-colors group"
             >
               <div className="flex items-center gap-3">
-                <ShoppingBag className="h-5 w-5 text-[#e50914] stroke-[1.75]" />
-                <span className="text-[15px] font-bold text-zinc-900 group-hover:text-[#e50914] transition-colors">
-                  Shop
+                <span className="text-[14.5px] font-semibold text-zinc-900 group-hover:text-[#e50914] transition-colors">
+                  Men
                 </span>
               </div>
-              <ChevronRight className="h-4 w-4 text-[#e50914] stroke-[2]" />
+              <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-colors" />
             </Link>
+            <div className="border-b border-zinc-100 mx-3.5" />
+
+            {/* Women Collection Row */}
+            <Link
+              to="/collections/women"
+              onClick={onClose}
+              className="flex items-center justify-between px-3.5 py-2.5 rounded-lg hover:bg-zinc-50 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-[14.5px] font-semibold text-zinc-900 group-hover:text-[#e50914] transition-colors">
+                  Women
+                </span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-zinc-400 group-hover:text-zinc-600 transition-colors" />
+            </Link>
+            <div className="border-b border-zinc-100 mx-3.5" />
 
             {/* Design Your Own Row */}
             <Link

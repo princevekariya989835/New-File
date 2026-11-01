@@ -180,14 +180,6 @@ export function WomenCollectionPage() {
     catalogRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const defaultCategoryImages: Record<string, string> = {
-    "oversized tees": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80",
-    "baby tees": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80",
-    "crop tees": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=800&q=80",
-    "regular fit tees": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80",
-    "hoodies": "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=800&q=80",
-  };
-
   return (
     <div className="min-h-screen bg-white text-[#111111]">
       {/* ======================================================== */}
@@ -266,76 +258,6 @@ export function WomenCollectionPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================================== */}
-      {/* SECTION 2: SHOP BY CATEGORY                             */}
-      {/* ======================================================== */}
-      <section className="border-b border-[#F3F3F3] bg-white py-16 md:py-24">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-12">
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-[#ED171F]">
-                Curated Aesthetics
-              </span>
-              <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl">
-                SHOP BY CATEGORY
-              </h2>
-            </div>
-            <button
-              onClick={() => {
-                updateSearch({ category: undefined });
-                scrollToCatalog();
-              }}
-              className="text-xs font-bold uppercase tracking-wider text-[#111111] hover:text-[#ED171F] flex items-center gap-1.5 transition"
-            >
-              View All Categories <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {categories.map((cat: any) => {
-              const img =
-                cat.image_url ||
-                defaultCategoryImages[cat.name.toLowerCase()] ||
-                "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80";
-              const isSelected = searchParams.category?.toLowerCase() === cat.name.toLowerCase();
-
-              return (
-                <div
-                  key={cat.id}
-                  onClick={() => {
-                    updateSearch({ category: cat.name });
-                    scrollToCatalog();
-                  }}
-                  className={`group relative aspect-[3/4] cursor-pointer overflow-hidden rounded-2xl bg-[#F3F3F3] transition-all duration-300 hover:shadow-xl ${
-                    isSelected ? "ring-3 ring-[#ED171F]" : ""
-                  }`}
-                >
-                  <img
-                    src={img}
-                    alt={cat.name}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-108"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition duration-300 group-hover:from-black/90" />
-                  <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#ED171F]">
-                      Category
-                    </span>
-                    <h3 className="font-bold text-sm sm:text-base uppercase tracking-wide leading-tight mt-0.5">
-                      {cat.name}
-                    </h3>
-                    <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-white/80 transition-transform duration-300 group-hover:translate-x-1">
-                      <span>Explore</span>
-                      <ArrowRight className="h-3 w-3 text-[#ED171F]" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>

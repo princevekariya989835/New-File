@@ -6,6 +6,13 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-11-01
 
+### Remove 'Shop by Category' Section & Remove SHOP from Main Navigation
+- **Removed 'Shop by Category' Section**: Completely removed the section heading, category image cards, descriptions, explore links, and extra vertical spacing from both Men's (`src/routes/collections.men.tsx`) and Women's (`src/routes/collections.women.tsx`) collection pages. Trending products and collection product listings now follow directly and seamlessly after the Hero section.
+- **Preserved Catalog Filtering & Backend**: Retained all catalog category pills, dropdown filters, search, sorting, and administrative category management.
+- **Navigation Update (SHOP Removed)**: Removed the SHOP navigation item from both desktop navigation (`src/components/site-header.tsx`) and the mobile navigation drawer (`src/components/mobile-nav-drawer.tsx`).
+- **New Main Navigation Structure**: Updated to `MEN | WOMEN | DESIGN YOUR OWN | ABOUT | CONTACT` across both desktop and mobile views.
+- **Storefront & Route Preservation**: Retained `/shop` route, product detail pages, search dialog, cart drawer, and user account interfaces without interruption.
+
 ### Fix Bulk Department Transfer D1_ERROR & SQLite Row Value Misuse
 - **D1 / SQLite Query Transformation Fix**: Resolved `D1_ERROR: row value misused: SQLITE_ERROR` in `src/lib/db.ts` (`transformPgSqlToD1`). When parameterized arrays were passed to `WHERE id IN (${productIds})`, double parentheses `IN ((?, ?))` were generated, which SQLite misinterprets as row-value tuples. Added `inParenMatch` logic to strip existing `IN (` and generate clean, single-parenthesized `WHERE id IN (?, ?)` with separate value bindings.
 - **Safe Chunked Parameter Execution**: In `src/lib/admin.functions.ts` (`adminBulkUpdateDepartment`), chunked updates into batches of 50 product IDs to prevent exceeding SQLite/D1 parameter limits when transferring 5, 10, 20, 50, or 100+ products.

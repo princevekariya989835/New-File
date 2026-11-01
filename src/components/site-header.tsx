@@ -35,7 +35,6 @@ import {
 import { toast } from "sonner";
 
 const defaultNav = [
-  { to: "/shop", label: "Shop" },
   { to: "/collections/men", label: "Men" },
   { to: "/collections/women", label: "Women" },
   { to: "/design", label: "Design Your Own" },
@@ -65,22 +64,22 @@ export function SiteHeader({ customConfig }: { customConfig?: WebsiteConfig }) {
       : [];
 
   const navItems = rawNavItems
-    .filter((n) => n && n.enabled !== false)
+    .filter((n) => n && n.enabled !== false && n.to !== "/shop" && n.label?.toLowerCase() !== "shop")
     .map((n) => ({
       to: n.to || "/",
       label: n.label || "Link",
       isExternal: Boolean(n.isExternal),
     }));
 
-  if (navItems.length > 0 && !navItems.some((n) => n.to === "/collections/women" || n.label.toLowerCase() === "women")) {
-    const shopIdx = navItems.findIndex((n) => n.to === "/shop" || n.label.toLowerCase() === "shop");
-    const insertIdx = shopIdx >= 0 ? shopIdx + 1 : 1;
-    navItems.splice(
-      insertIdx,
-      0,
-      { to: "/collections/men", label: "Men", isExternal: false },
-      { to: "/collections/women", label: "Women", isExternal: false }
-    );
+  if (navItems.length > 0) {
+    const hasMen = navItems.some((n) => n.to === "/collections/men" || n.label.toLowerCase() === "men");
+    const hasWomen = navItems.some((n) => n.to === "/collections/women" || n.label.toLowerCase() === "women");
+    if (!hasMen || !hasWomen) {
+      const prepend: { to: string; label: string; isExternal: boolean }[] = [];
+      if (!hasMen) prepend.push({ to: "/collections/men", label: "Men", isExternal: false });
+      if (!hasWomen) prepend.push({ to: "/collections/women", label: "Women", isExternal: false });
+      navItems.unshift(...prepend);
+    }
   }
 
   const activeNav = config || !isLoading ? (navItems.length > 0 ? navItems : defaultNav) : [];

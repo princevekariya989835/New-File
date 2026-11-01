@@ -4,6 +4,15 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 13: Remove 'Shop by Category' Section & Remove SHOP from Main Navigation
+- **Date**: 2026-11-01
+- **Objective**: Remove the 'Shop by Category' section from both Men's and Women's collection pages and update the main navigation structure to `MEN | WOMEN | DESIGN YOUR OWN | ABOUT | CONTACT` on desktop and mobile, without disrupting catalog filtering, product routes, or backend systems.
+- **Files Modified**: `src/routes/collections.men.tsx`, `src/routes/collections.women.tsx`, `src/components/site-header.tsx`, `src/components/mobile-nav-drawer.tsx`, `docs/CHANGELOG.md`, `docs/TASK_HISTORY.md`.
+- **Tests Performed**: Automated test suite confirming removal of 'Shop by Category' from both collection pages, verification of new navigation structure (`MEN | WOMEN | DESIGN YOUR OWN | ABOUT | CONTACT`), full TypeScript validation (`npx tsc --noEmit`), and clean production build (`npm run build`).
+- **Outcome**: Clean, modern editorial appearance on Men and Women collection landing pages with zero redundant gaps, and streamlined navigation directing traffic straight to Men and Women departments.
+
+---
+
 ## Task 12: Fix Bulk Department Transfer D1_ERROR & SQLite Row Value Misuse
 - **Date**: 2026-11-01
 - **Objective**: Fix the `D1_ERROR: row value misused: SQLITE_ERROR` occurring during bulk department transfers in the admin dashboard, ensure parameterized SQL is constructed safely for Cloudflare D1 and Neon PostgreSQL, preserve all product inventory and variant data, and verify with comprehensive automated tests.
