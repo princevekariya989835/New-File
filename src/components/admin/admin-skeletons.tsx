@@ -2,144 +2,140 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function AdminDashboardSkeleton() {
   return (
-    <div className="space-y-8 animate-pulse" aria-label="Loading dashboard panels">
-      {/* Header Skeleton */}
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-44 rounded-lg" />
-        <Skeleton className="h-4 w-80 max-w-full rounded" />
+    <div
+      className="space-y-6 max-w-[1600px] mx-auto pb-8 animate-pulse"
+      aria-label="Loading dashboard panels"
+    >
+      {/* 1. Welcome Banner Skeleton */}
+      <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-28 rounded" />
+          <Skeleton className="h-9 w-48 rounded-lg" />
+          <Skeleton className="h-4 w-72 rounded" />
+        </div>
+        <div className="hidden sm:flex items-center gap-6">
+          <div className="space-y-1 text-right">
+            <Skeleton className="h-3 w-24 rounded ml-auto" />
+            <Skeleton className="h-3 w-20 rounded ml-auto" />
+            <Skeleton className="h-1 w-10 rounded ml-auto" />
+          </div>
+          <div className="space-y-1 text-right">
+            <Skeleton className="h-3 w-32 rounded ml-auto" />
+            <Skeleton className="h-8 w-28 rounded-lg ml-auto" />
+            <Skeleton className="h-3 w-36 rounded ml-auto" />
+          </div>
+        </div>
       </div>
 
-      {/* 4 Stat Cards Skeleton */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* 2. 4 KPI Stat Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="rounded-xl border bg-card p-4 space-y-3 shadow-xs">
+          <div
+            key={i}
+            className="rounded-2xl border border-zinc-200/80 bg-white p-5 space-y-4 shadow-xs"
+          >
             <div className="flex items-center justify-between">
-              <Skeleton className="h-3.5 w-24 rounded" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <Skeleton className="h-3.5 w-24 rounded" />
+              </div>
               <Skeleton className="h-4 w-4 rounded-full" />
             </div>
             <Skeleton className="h-8 w-32 rounded-md" />
-            <Skeleton className="h-3 w-48 max-w-full rounded" />
+            <div className="flex items-center justify-between pt-1">
+              <Skeleton className="h-3 w-28 rounded" />
+              <Skeleton className="h-5 w-16 rounded" />
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Sales Chart Skeleton */}
-      <section className="rounded-xl border bg-card p-4 space-y-4 shadow-xs">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-4 w-36 rounded" />
-          <Skeleton className="h-3 w-20 rounded" />
-        </div>
-        <div className="h-64 w-full flex items-end gap-2 pt-6 px-2">
-          {[40, 65, 30, 85, 45, 90, 60, 75, 50, 95, 70, 80, 60, 85].map((h, idx) => (
-            <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-              <Skeleton className="w-full rounded-t-sm" style={{ height: `${h}%` }} />
-              <Skeleton className="h-2.5 w-6 rounded" />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 2-Column: Recent Orders & Best Sellers */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent Orders Panel */}
-        <section className="rounded-xl border bg-card p-4 lg:col-span-2 space-y-4 shadow-xs">
+      {/* 3. Sales Overview & Promotions Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section className="lg:col-span-2 rounded-2xl border border-zinc-200/80 bg-white p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <Skeleton className="h-4 w-32 rounded" />
-            <Skeleton className="h-3.5 w-16 rounded" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-32 rounded" />
+                <Skeleton className="h-3 w-44 rounded" />
+              </div>
+            </div>
+            <Skeleton className="h-7 w-28 rounded-lg" />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2.5 text-left">
-                    <Skeleton className="h-3 w-14 rounded" />
-                  </th>
-                  <th className="py-2.5 text-left">
-                    <Skeleton className="h-3 w-20 rounded" />
-                  </th>
-                  <th className="py-2.5 text-left">
-                    <Skeleton className="h-3 w-16 rounded" />
-                  </th>
-                  <th className="py-2.5 text-left">
-                    <Skeleton className="h-3 w-14 rounded" />
-                  </th>
-                  <th className="py-2.5 text-right">
-                    <Skeleton className="h-3 w-12 ml-auto rounded" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <tr key={i}>
-                    <td className="py-3">
-                      <Skeleton className="h-4 w-20 rounded" />
-                    </td>
-                    <td className="py-3">
-                      <Skeleton className="h-4 w-28 rounded" />
-                    </td>
-                    <td className="py-3">
-                      <Skeleton className="h-3 w-24 rounded" />
-                    </td>
-                    <td className="py-3">
-                      <Skeleton className="h-5 w-16 rounded-full" />
-                    </td>
-                    <td className="py-3 text-right">
-                      <Skeleton className="h-4 w-16 ml-auto rounded" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Best Sellers Panel */}
-        <section className="rounded-xl border bg-card p-4 space-y-4 shadow-xs">
-          <Skeleton className="h-4 w-28 rounded" />
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-3 py-1">
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <Skeleton className="h-4 w-3/4 rounded" />
-                  <Skeleton className="h-3 w-1/2 rounded" />
-                </div>
-                <Skeleton className="h-4 w-16 shrink-0 rounded" />
+          <div className="h-64 w-full flex items-end gap-2 pt-6 px-2">
+            {[30, 45, 25, 60, 35, 75, 50, 65, 40, 85, 55, 70, 50, 80].map((h, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                <Skeleton className="w-full rounded-t-sm" style={{ height: `${h}%` }} />
+                <Skeleton className="h-2 w-6 rounded" />
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 space-y-4 shadow-xs flex flex-col justify-between">
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-10 rounded-xl bg-zinc-800" />
+            <Skeleton className="h-3 w-20 rounded bg-zinc-800" />
+            <Skeleton className="h-6 w-44 rounded bg-zinc-800" />
+            <Skeleton className="h-4 w-56 rounded bg-zinc-800" />
+          </div>
+          <Skeleton className="h-9 w-36 rounded-xl bg-zinc-800 mt-6" />
         </section>
       </div>
 
-      {/* 2-Column: Stock Alerts & Newest Customers */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Stock Alerts Panel */}
-        <section className="rounded-xl border bg-card p-4 space-y-4 shadow-xs">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-4 rounded-full" />
-            <Skeleton className="h-4 w-28 rounded" />
+      {/* 4. Recent Orders & Inventory Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <section className="lg:col-span-3 rounded-2xl border border-zinc-200/80 bg-white p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-3 w-36 rounded" />
+              </div>
+            </div>
+            <Skeleton className="h-7 w-20 rounded-lg" />
           </div>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-3 py-1">
-                <Skeleton className="h-4 w-48 rounded" />
-                <Skeleton className="h-5 w-20 rounded-full" />
+          <div className="space-y-3 pt-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between py-2 border-b border-zinc-50"
+              >
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-3 w-20 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+                <Skeleton className="h-5 w-16 rounded-full" />
               </div>
             ))}
           </div>
-          <Skeleton className="h-3.5 w-28 rounded mt-2" />
         </section>
 
-        {/* Newest Customers Panel */}
-        <section className="rounded-xl border bg-card p-4 space-y-4 shadow-xs">
-          <Skeleton className="h-4 w-36 rounded" />
-          <div className="space-y-3">
+        <section className="lg:col-span-2 rounded-2xl border border-zinc-200/80 bg-white p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-3 w-36 rounded" />
+              </div>
+            </div>
+            <Skeleton className="h-7 w-20 rounded-lg" />
+          </div>
+          <div className="space-y-3 pt-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-3 py-1">
-                <div className="space-y-1.5 min-w-0 flex-1">
-                  <Skeleton className="h-4 w-32 rounded" />
-                  <Skeleton className="h-3 w-44 rounded" />
+              <div
+                key={i}
+                className="flex items-center justify-between py-2 border-b border-zinc-50"
+              >
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-4 w-24 rounded" />
                 </div>
-                <Skeleton className="h-4 w-20 shrink-0 rounded" />
+                <Skeleton className="h-4 w-8 rounded" />
+                <Skeleton className="h-5 w-16 rounded-md" />
               </div>
             ))}
           </div>

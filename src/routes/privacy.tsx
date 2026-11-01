@@ -7,9 +7,43 @@ export const Route = createFileRoute("/privacy")({
       { title: "Privacy Policy | RIOTOUS Official Streetwear Store" },
       {
         name: "description",
-        content: "Privacy policy detailing how RIOTOUS collects and protects your data.",
+        content:
+          "Privacy policy detailing how RIOTOUS collects, secures, and handles customer data and checkout transactions.",
       },
+      { name: "robots", content: "index, follow" },
       { property: "og:title", content: "Privacy Policy | RIOTOUS Official Streetwear Store" },
+      {
+        property: "og:description",
+        content:
+          "Privacy policy detailing how RIOTOUS collects, secures, and handles customer data and checkout transactions.",
+      },
+      { property: "og:url", content: "https://riotous.store/privacy" },
+      { property: "og:image", content: "https://riotous.store/assets/riotous-logo.png" },
+      { name: "twitter:image", content: "https://riotous.store/assets/riotous-logo.png" },
+    ],
+    links: [{ rel: "canonical", href: "https://riotous.store/privacy" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://riotous.store/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Privacy Policy",
+              item: "https://riotous.store/privacy",
+            },
+          ],
+        }),
+      },
     ],
   }),
   component: PrivacyPage,

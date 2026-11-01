@@ -10,16 +10,12 @@ export function ProductCardSkeleton() {
       </div>
 
       {/* Product Metadata */}
-      <div className="space-y-2 px-1">
-        <div className="flex items-center justify-between gap-2">
-          <Skeleton className="h-4 w-3/5 rounded bg-muted/60" />
+      <div className="space-y-1.5 w-full text-left">
+        <Skeleton className="h-3 w-1/4 rounded bg-muted/40" />
+        <Skeleton className="h-4 w-4/5 rounded bg-muted/60" />
+        <div className="flex items-center gap-2 pt-0.5">
           <Skeleton className="h-4 w-1/4 rounded bg-muted/70" />
-        </div>
-        <Skeleton className="h-3 w-2/5 rounded bg-muted/40" />
-        <div className="flex items-center gap-1.5 pt-1">
-          <div className="h-3.5 w-3.5 rounded-full bg-muted/60" />
-          <div className="h-3.5 w-3.5 rounded-full bg-muted/60" />
-          <div className="h-3.5 w-3.5 rounded-full bg-muted/60" />
+          <Skeleton className="h-3 w-1/5 rounded bg-muted/40" />
         </div>
       </div>
     </div>

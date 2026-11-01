@@ -123,24 +123,24 @@ export const adminUpdateReturn = createServerFn({ method: "POST" })
 
           if (to) {
             if (data.status === "Approved") {
-              sendReturnApproved({
+              await sendReturnApproved({
                 ...baseOpts,
                 instructions: data.pickupDetails ?? undefined,
-              }).catch((e) => console.warn("[AdminReturns] Approved email failed:", e));
+              });
             } else if (data.status === "Rejected") {
-              sendReturnRejected({
+              await sendReturnRejected({
                 ...baseOpts,
                 reason: data.rejectionReason ?? undefined,
-              }).catch((e) => console.warn("[AdminReturns] Rejected email failed:", e));
+              });
             } else if (data.status === "Refunded") {
               const refundAmt = data.refundAmount ?? Number(r.refund_amount || 0);
-              sendRefundProcessed({
+              await sendRefundProcessed({
                 ...baseOpts,
                 returnNumber,
                 refundAmount: refundAmt,
                 currency: String(r.currency || "₹"),
                 refundReference: data.refundReference ?? r.refund_reference ?? null,
-              }).catch((e) => console.warn("[AdminReturns] Refund email failed:", e));
+              });
             }
           }
         }

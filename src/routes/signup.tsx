@@ -8,6 +8,7 @@ export const Route = createFileRoute("/signup")({
         redirect: typeof (search as any)?.redirect === "string" ? (search as any).redirect : undefined,
         mode: "signup",
       },
+      statusCode: 301,
       replace: true,
     });
   },

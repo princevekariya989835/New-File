@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { hasAdminPanelAccess } from "@/lib/auth.types";
-import { verifyAndDecodeToken } from "@/lib/auth.server";
 import { testZippyyAuthentication } from "@/lib/zippyy/client";
 
 function getSessionTokenFromRequest(request: Request): string | null {
@@ -34,10 +33,11 @@ function getSessionTokenFromRequest(request: Request): string | null {
   return null;
 }
 
-function isAuthorized(request: Request): boolean {
+async function isAuthorized(request: Request): Promise<boolean> {
   // Check 1: User is authenticated as staff/admin via session token/cookie
   const token = getSessionTokenFromRequest(request);
   if (token) {
+    const { verifyAndDecodeToken } = await import("@/lib/auth.server");
     const user = verifyAndDecodeToken(token);
     if (user && hasAdminPanelAccess(user)) {
       return true;
@@ -49,10 +49,7 @@ function isAuthorized(request: Request): boolean {
     const url = new URL(request.url);
     const queryKey = url.searchParams.get("key");
     const headerKey = request.headers.get("x-zippyy-test-key");
-    if (
-      queryKey === "riotous-zippyy-test-2026" ||
-      headerKey === "riotous-zippyy-test-2026"
-    ) {
+    if (queryKey === "riotous-zippyy-test-2026" || headerKey === "riotous-zippyy-test-2026") {
       return true;
     }
   } catch {}
@@ -69,7 +66,7 @@ export const Route = createFileRoute("/api/zippyy/auth-test")({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
-        if (!isAuthorized(request)) {
+        if (!(await isAuthorized(request))) {
           return new Response(
             JSON.stringify(
               {
@@ -95,13 +92,12 @@ export const Route = createFileRoute("/api/zippyy/auth-test")({
       },
 
       POST: async ({ request }: { request: Request }) => {
-        if (!isAuthorized(request)) {
+        if (!(await isAuthorized(request))) {
           return new Response(
             JSON.stringify(
               {
                 success: false,
-                error:
-                  "Unauthorized: Admin authentication is required to test Zippyy credentials.",
+                error: "Unauthorized: Admin authentication is required to test Zippyy credentials.",
               },
               null,
               2,

@@ -19,7 +19,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+<<<<<<< HEAD
 import { Pencil, Plus, Trash2, ArrowRightLeft, CheckSquare, Square, Check, X, ShieldAlert } from "lucide-react";
+=======
+import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+>>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
 import { AdminEraseDataButton } from "@/components/admin/admin-erase-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/products")({
@@ -251,6 +255,14 @@ function ProductsPage() {
             stock: String(editing.totalInventory),
             sizeStock: editing.sizeStock,
             isActive: editing.status === "ACTIVE",
+            sku: editing.sku ?? "",
+            slug: editing.slug ?? "",
+            frontShowcaseImage: editing.frontShowcaseImage ?? "",
+            backShowcaseImage: editing.backShowcaseImage ?? "",
+            frontShowcaseTitle: editing.frontShowcaseTitle ?? "FRONT",
+            frontShowcaseSubtitle: editing.frontShowcaseSubtitle ?? "Minimal & Clean",
+            backShowcaseTitle: editing.backShowcaseTitle ?? "BACK",
+            backShowcaseSubtitle: editing.backShowcaseSubtitle ?? "Bold Statement",
           }}
           onCancel={() => setEditing(null)}
           onSubmit={async (values) => {
@@ -465,6 +477,7 @@ function ProductsPage() {
           <p className="text-xs mt-1">Try resetting the department or status filters above.</p>
         </div>
       ) : (
+<<<<<<< HEAD
         <div className="space-y-2.5">
           {visible.map((p) => {
             const isSelected = selectedProductIds.includes(p.id);
@@ -623,6 +636,73 @@ function ProductsPage() {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+=======
+        <div className="space-y-3">
+          {visible.map((p) => (
+            <div
+              key={p.id}
+              className="flex flex-col gap-4 rounded-xl border bg-card p-4 lg:flex-row lg:items-center"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                {p.featuredImage ? (
+                  <img
+                    src={p.featuredImage}
+                    alt={p.title}
+                    className="h-16 w-16 rounded bg-muted object-cover"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded bg-muted" />
+                )}
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{p.title}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{money(p.price)}</span>
+                    {p.mrp && Number(p.mrp) > Number(p.price) && (
+                      <>
+                        <span className="line-through text-muted-foreground/75">
+                          MRP: {money(p.mrp)}
+                        </span>
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">
+                          {Math.round(((Number(p.mrp) - Number(p.price)) / Number(p.mrp)) * 100)}% OFF
+                        </span>
+                      </>
+                    )}
+                    <span>{p.category ? ` · ${p.category}` : ""} · Stock: {p.totalInventory}</span>
+                    {p.sku && (
+                      <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        SKU: {p.sku}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {p.sizes.map((s) => (
+                      <Badge key={`s-${s}`} variant="outline" className="text-[10px]">
+                        {s}
+                      </Badge>
+                    ))}
+                    {p.colors.map((c) => (
+                      <Badge key={`c-${c}`} variant="secondary" className="text-[10px]">
+                        {c}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Link
+                      to="/admin/inventory"
+                      className="inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      Manage size / colour stock →
+                    </Link>
+                    <a
+                      href={`/product/${p.slug || p.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> View on store
+                    </a>
+                  </div>
+>>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
                 </div>
               </div>
             );

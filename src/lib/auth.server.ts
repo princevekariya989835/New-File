@@ -1,4 +1,5 @@
 import { getCloudflareEnv } from "@/lib/db";
+import { getServerEnv } from "@/lib/env.server";
 import type { AuthUser } from "@/lib/auth.types";
 
 /**
@@ -7,29 +8,15 @@ import type { AuthUser } from "@/lib/auth.types";
  * Fails safely if missing — NEVER falls back to default secrets or payment keys.
  */
 export function getAuthSecret(): string {
-  // 1. Cloudflare request runtime env
+  const secret = getServerEnv("AUTH_SECRET");
+  if (secret && secret.trim() !== "") {
+    return secret.trim();
+  }
+
+  // Fallback check on db cloudflare bindings
   const cfEnv = getCloudflareEnv();
   if (cfEnv && typeof cfEnv.AUTH_SECRET === "string" && cfEnv.AUTH_SECRET.trim() !== "") {
     return cfEnv.AUTH_SECRET.trim();
-  }
-
-  // 2. Global environment bindings (Nitro / Cloudflare module)
-  if (typeof globalThis !== "undefined") {
-    const g = globalThis as any;
-    if (typeof g.__env__?.AUTH_SECRET === "string" && g.__env__.AUTH_SECRET.trim() !== "") {
-      return g.__env__.AUTH_SECRET.trim();
-    }
-    if (typeof g.__cf_env__?.AUTH_SECRET === "string" && g.__cf_env__.AUTH_SECRET.trim() !== "") {
-      return g.__cf_env__.AUTH_SECRET.trim();
-    }
-    if (typeof g.env?.AUTH_SECRET === "string" && g.env.AUTH_SECRET.trim() !== "") {
-      return g.env.AUTH_SECRET.trim();
-    }
-  }
-
-  // 3. process.env (Node.js / dev server)
-  if (typeof process !== "undefined" && process.env?.AUTH_SECRET && process.env.AUTH_SECRET.trim() !== "") {
-    return process.env.AUTH_SECRET.trim();
   }
 
   throw new Error("AUTH_SECRET is not configured on the server. Please set AUTH_SECRET in your environment variables.");
@@ -264,6 +251,61 @@ export async function hashPassword(password: string): Promise<string> {
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   } catch {
     return password;
+  }
+}
+
+/**
+ * Generates an unpredictable, cryptographically secure 32-byte (64 hex characters) single-use reset token.
+ */
+export function generateSecureResetToken(): string {
+  try {
+    if (typeof process !== "undefined" && process.versions?.node) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const crypto = require("node:crypto");
+      if (crypto && typeof crypto.randomBytes === "function") {
+        return crypto.randomBytes(32).toString("hex");
+      }
+    }
+  } catch {
+    // Edge fallback
+  }
+
+  const bytes = new Uint8Array(32);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Computes a SHA-256 hash of a reset token for secure in-database storage.
+ * Only the hash is stored in the database, never the raw token.
+ */
+export async function hashToken(token: string): Promise<string> {
+  try {
+    if (typeof process !== "undefined" && process.versions?.node) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const crypto = require("node:crypto");
+      if (crypto && typeof crypto.createHash === "function") {
+        return crypto.createHash("sha256").update(token).digest("hex");
+      }
+    }
+  } catch {
+    // Edge fallback
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(token);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return pureJsHmacSha256("token_hash_salt", token);
   }
 }
 

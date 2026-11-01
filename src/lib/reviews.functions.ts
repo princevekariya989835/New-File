@@ -7,6 +7,22 @@ import {
   type ReviewSummary,
 } from "@/lib/reviews-shared";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { sendAdminNewReviewNotification } from "@/lib/email";
+
+function toIsoDate(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === "string") {
+    const s = val.trim();
+    if (s.includes(" ") && !s.includes("T")) {
+      const parsed = new Date(s.replace(" ", "T") + "Z");
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
+    }
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  const parsed = new Date(val);
+  return !isNaN(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
+}
 
 export type ProductReviewsResult = {
   summary: ReviewSummary;
@@ -21,9 +37,11 @@ export const getProductReviews = createServerFn({ method: "POST" })
       const sql = getSql();
       const rows = await sql`
         SELECT r.id, r.product_id, r.user_id, r.author_name, r.rating, r.title, r.content as review,
-          r.is_verified_buyer as verified_purchase, r.status, r.images, r.created_at
+          r.is_verified_buyer as verified_purchase, r.status, r.images, r.created_at, r.is_sample
         FROM reviews r
-        WHERE r.product_id = ${data.productId} AND (r.status = 'approved' OR r.status = 'Approved')
+        WHERE (r.product_id = ${data.productId} OR r.product_id IN (SELECT id FROM products WHERE slug = ${data.productId}))
+          AND (r.status = 'approved' OR r.status = 'Approved')
+          AND (r.is_sample = 0 OR r.is_sample IS NULL OR r.is_sample = false)
         ORDER BY r.created_at DESC
       `;
 
@@ -37,13 +55,14 @@ export const getProductReviews = createServerFn({ method: "POST" })
         review: r.review || "",
         verified_purchase: Boolean(r.verified_purchase),
         verifiedPurchase: Boolean(r.verified_purchase),
+        is_sample: Boolean(r.is_sample),
         images: Array.isArray(r.images)
           ? r.images
           : typeof r.images === "string"
             ? JSON.parse(r.images)
             : [],
-        created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
-        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        created_at: toIsoDate(r.created_at),
+        createdAt: toIsoDate(r.created_at),
       }));
 
       return { summary: summarize(reviews.map((r) => r.rating)), reviews };
@@ -65,9 +84,10 @@ export const getReviewEligibility = createServerFn({ method: "POST" })
     const sql = getSql();
     const authCtx = context as any;
     const mine = await sql`
-      SELECT id, product_id, rating, title, content as review, images, is_verified_buyer as verified_purchase, status, created_at, updated_at
+      SELECT id, product_id, rating, title, content as review, images, is_verified_buyer as verified_purchase, status, created_at, updated_at, is_sample
       FROM reviews
-      WHERE user_id = ${authCtx.userId} AND product_id = ${data.productId}
+      WHERE user_id = ${authCtx.userId}
+        AND (product_id = ${data.productId} OR product_id IN (SELECT id FROM products WHERE slug = ${data.productId}))
       LIMIT 1
     `;
 
@@ -75,7 +95,9 @@ export const getReviewEligibility = createServerFn({ method: "POST" })
       SELECT i.id
       FROM order_items i
       JOIN orders o ON i.order_id = o.id
-      WHERE i.product_id = ${data.productId} AND o.user_id = ${authCtx.userId} AND o.status = 'Delivered'
+      WHERE (i.product_id = ${data.productId} OR i.product_id IN (SELECT id FROM products WHERE slug = ${data.productId}))
+        AND o.user_id = ${authCtx.userId}
+        AND (o.status = 'Delivered' OR o.status = 'delivered')
       LIMIT 1
     `;
 
@@ -88,6 +110,7 @@ export const getReviewEligibility = createServerFn({ method: "POST" })
           review: mine[0].review || null,
           images: Array.isArray(mine[0].images) ? mine[0].images : [],
           verified_purchase: Boolean(mine[0].verified_purchase),
+          is_sample: Boolean(mine[0].is_sample),
           status: mine[0].status,
           created_at: new Date(mine[0].created_at).toISOString(),
           updated_at: new Date(mine[0].updated_at).toISOString(),
@@ -152,14 +175,20 @@ export const submitReview = createServerFn({ method: "POST" })
     const authCtx = context as any;
 
     const existing = await sql`
-      SELECT id FROM reviews WHERE user_id = ${authCtx.userId} AND product_id = ${data.productId} LIMIT 1
+      SELECT id FROM reviews
+      WHERE user_id = ${authCtx.userId}
+        AND (product_id = ${data.productId} OR product_id IN (SELECT id FROM products WHERE slug = ${data.productId}))
+      LIMIT 1
     `;
 
+    // Only mark review as verified when confirmed by a delivered purchase in the system
     const purchased = await sql`
       SELECT i.id
       FROM order_items i
       JOIN orders o ON i.order_id = o.id
-      WHERE i.product_id = ${data.productId} AND o.user_id = ${authCtx.userId} AND o.status = 'Delivered'
+      WHERE (i.product_id = ${data.productId} OR i.product_id IN (SELECT id FROM products WHERE slug = ${data.productId}))
+        AND o.user_id = ${authCtx.userId}
+        AND (o.status = 'Delivered' OR o.status = 'delivered')
       LIMIT 1
     `;
     const isVerified = purchased.length > 0;
@@ -173,7 +202,8 @@ export const submitReview = createServerFn({ method: "POST" })
           title = ${patch.title},
           content = ${patch.review || ""},
           images = ${JSON.stringify(patch.images)},
-          is_verified_buyer = ${isVerified},
+          is_verified_buyer = ${isVerified ? 1 : 0},
+          is_sample = 0,
           updated_at = NOW()
         WHERE id = ${reviewId}
       `;
@@ -185,6 +215,7 @@ export const submitReview = createServerFn({ method: "POST" })
         review: patch.review,
         images: patch.images,
         verified_purchase: isVerified,
+        is_sample: false,
         status: "approved",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -194,12 +225,33 @@ export const submitReview = createServerFn({ method: "POST" })
     const reviewId = `rev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     await sql`
       INSERT INTO reviews (
-        id, product_id, user_id, author_name, rating, title, content, is_verified_buyer, status, images
+        id, product_id, user_id, author_name, rating, title, content, is_verified_buyer, status, images, is_sample
       ) VALUES (
         ${reviewId}, ${data.productId}, ${authCtx.userId}, ${authorName}, ${patch.rating}, ${patch.title}, ${patch.review || ""},
-        ${isVerified}, 'approved', ${JSON.stringify(patch.images)}
+        ${isVerified ? 1 : 0}, 'approved', ${JSON.stringify(patch.images)}, 0
       );
     `;
+
+    // Notify store owner of new customer review (awaited)
+    try {
+      const prodRows = await sql`
+        SELECT name FROM products WHERE id = ${data.productId} OR slug = ${data.productId} LIMIT 1
+      `;
+      const productName = prodRows[0]?.name || "Product";
+      await sendAdminNewReviewNotification({
+        reviewId,
+        productName,
+        productId: data.productId,
+        authorName,
+        customerEmail: authCtx.user?.email || null,
+        rating: patch.rating,
+        title: patch.title,
+        reviewText: patch.review || "",
+        isVerifiedPurchase: isVerified,
+      });
+    } catch (reviewEmailErr) {
+      console.warn("[Reviews] Admin review notification notice:", reviewEmailErr);
+    }
 
     return {
       id: reviewId,
@@ -209,6 +261,7 @@ export const submitReview = createServerFn({ method: "POST" })
       review: patch.review,
       images: patch.images,
       verified_purchase: isVerified,
+      is_sample: false,
       status: "approved",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

@@ -1,6 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
 import { isStaffRole, type AuthUser } from "@/lib/auth.types";
-import { verifyAndDecodeToken } from "@/lib/auth.server";
 import { getSql } from "@/lib/db";
 
 export type AuthenticatedContext = {
@@ -181,6 +180,7 @@ export const requireAuth = createMiddleware({ type: "function" })
     // Server cryptographic verification of token
     let user: AuthUser | null = null;
     if (token) {
+      const { verifyAndDecodeToken } = await import("@/lib/auth.server");
       user = verifyAndDecodeToken(token);
     }
 

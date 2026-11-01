@@ -1542,7 +1542,7 @@ export function AdminStorefrontManagement() {
                 <Input
                   id="foot-sub"
                   value={editorConfig.footer.subheading || ""}
-                  placeholder="Not the trend."
+                  placeholder="Join our community"
                   onChange={(e) =>
                     setEditorConfig({
                       ...editorConfig,

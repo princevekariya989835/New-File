@@ -17,10 +17,13 @@ import {
   CreditCard,
   ChevronRight,
   Info,
+  Download,
+  FileText,
 } from "lucide-react";
 import { SiteLoader } from "@/components/site-loader";
 import { toast } from "sonner";
 import { getMyOrders, cancelMyOrder, type CustomerOrder } from "@/lib/orders.functions";
+import { getCustomerInvoicePdf } from "@/lib/invoice.functions";
 import { formatPrice } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +35,9 @@ import {
 } from "@/components/ui/dialog";
 import { CancelOrderModal } from "@/components/orders/cancel-order-modal";
 
-export const Route = createLazyFileRoute("/_authenticated/account/orders")({ component: OrdersPage });
+export const Route = createLazyFileRoute("/_authenticated/account/orders")({
+  component: OrdersPage,
+});
 
 const STATUS_STEPS = ["Pending", "Confirmed", "Processing", "Shipped", "Delivered"];
 
@@ -51,10 +56,41 @@ function OrdersPage() {
   const qc = useQueryClient();
   const fetchOrders = useServerFn(getMyOrders);
   const cancelOrderFn = useServerFn(cancelMyOrder);
+  const downloadInvoiceFn = useServerFn(getCustomerInvoicePdf);
 
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<CustomerOrder | null>(null);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+
+  const handleDownloadInvoice = async (orderId: string, orderNumber: string) => {
+    if (downloadingInvoiceId) return;
+    try {
+      setDownloadingInvoiceId(orderId);
+      const res = await downloadInvoiceFn({ data: { orderId } });
+      const rawBase64 = res.base64 || res.pdfBase64;
+      if (!res.success || !rawBase64) {
+        throw new Error((res as any).error || "Unable to generate invoice. Please try again.");
+      }
+      const byteChars = atob(rawBase64);
+      const byteArr = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename || `RIOTOUS-Invoice-${orderNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded invoice ${res.invoiceNumber}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to download invoice");
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["my-orders"],
@@ -71,7 +107,7 @@ function OrdersPage() {
       setCancellingId(null);
       setOrderToCancel(null);
       if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) =>
+        setSelectedOrder((prev: CustomerOrder | null) =>
           prev
             ? {
                 ...prev,
@@ -169,7 +205,9 @@ function OrdersPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
             <Package className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="mt-5 text-xl font-bold text-foreground">You haven't placed any orders yet</h2>
+          <h2 className="mt-5 text-xl font-bold text-foreground">
+            You haven't placed any orders yet
+          </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Explore our latest oversized streetwear collection and start crafting your look.
           </p>
@@ -296,7 +334,9 @@ function OrdersPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{li.title}</p>
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {li.title}
+                          </p>
                           <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {li.size && (
                               <span className="rounded bg-secondary px-1.5 py-0.5 font-medium">
@@ -341,6 +381,27 @@ function OrdersPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full text-xs font-semibold gap-1.5 hover:border-foreground/40"
+                      disabled={downloadingInvoiceId === o.id}
+                      onClick={() => handleDownloadInvoice(o.id, o.name)}
+                    >
+                      {downloadingInvoiceId === o.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Preparing PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3.5 w-3.5 text-brand-red" />
+                          <span>
+                            {o.invoiceNumber ? `Invoice (${o.invoiceNumber})` : "Download Invoice"}
+                          </span>
+                        </>
+                      )}
+                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -477,8 +538,9 @@ function OrdersPage() {
                     <Truck className="h-4 w-4" /> Shipment In Transit
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Courier: <strong>{selectedOrder.courierName || "Standard Delivery"}</strong> · Tracking
-                    No: <strong className="font-mono">{selectedOrder.trackingNumber}</strong>
+                    Courier: <strong>{selectedOrder.courierName || "Standard Delivery"}</strong> ·
+                    Tracking No:{" "}
+                    <strong className="font-mono">{selectedOrder.trackingNumber}</strong>
                   </p>
                 </div>
                 {selectedOrder.trackingUrl && (
@@ -525,9 +587,19 @@ function OrdersPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{item.title}</p>
                       <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {item.size && <span>Size: <strong>{item.size}</strong></span>}
-                        {item.color && <span>Color: <strong>{item.color}</strong></span>}
-                        <span>Qty: <strong>{item.quantity}</strong></span>
+                        {item.size && (
+                          <span>
+                            Size: <strong>{item.size}</strong>
+                          </span>
+                        )}
+                        {item.color && (
+                          <span>
+                            Color: <strong>{item.color}</strong>
+                          </span>
+                        )}
+                        <span>
+                          Qty: <strong>{item.quantity}</strong>
+                        </span>
                       </div>
                     </div>
                     <div className="text-right text-sm">
@@ -549,16 +621,24 @@ function OrdersPage() {
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span>
-                    {formatPrice(selectedOrder.subtotal.amount, selectedOrder.subtotal.currencyCode)}
+                    {formatPrice(
+                      selectedOrder.subtotal.amount,
+                      selectedOrder.subtotal.currencyCode,
+                    )}
                   </span>
                 </div>
                 {parseFloat(selectedOrder.discount.amount) > 0 && (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
                     <span>
-                      Discount {selectedOrder.discount.code ? `(${selectedOrder.discount.code})` : ""}
+                      Discount{" "}
+                      {selectedOrder.discount.code ? `(${selectedOrder.discount.code})` : ""}
                     </span>
                     <span>
-                      -{formatPrice(selectedOrder.discount.amount, selectedOrder.discount.currencyCode)}
+                      -
+                      {formatPrice(
+                        selectedOrder.discount.amount,
+                        selectedOrder.discount.currencyCode,
+                      )}
                     </span>
                   </div>
                 )}
@@ -577,13 +657,18 @@ function OrdersPage() {
                   <div className="flex justify-between text-muted-foreground">
                     <span>Estimated Tax</span>
                     <span>
-                      {formatPrice(selectedOrder.taxAmount.amount, selectedOrder.taxAmount.currencyCode)}
+                      {formatPrice(
+                        selectedOrder.taxAmount.amount,
+                        selectedOrder.taxAmount.currencyCode,
+                      )}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-border pt-2 text-base font-black text-foreground">
                   <span>Total Paid</span>
-                  <span>{formatPrice(selectedOrder.total.amount, selectedOrder.total.currencyCode)}</span>
+                  <span>
+                    {formatPrice(selectedOrder.total.amount, selectedOrder.total.currencyCode)}
+                  </span>
                 </div>
                 {selectedOrder.paymentMethod && (
                   <p className="text-xs text-muted-foreground pt-1 flex items-center gap-1.5">
@@ -605,6 +690,70 @@ function OrdersPage() {
                   <p className="text-muted-foreground">Phone: {selectedOrder.shipping.phone}</p>
                 )}
                 <p className="text-muted-foreground">Email: {selectedOrder.shipping.email}</p>
+              </div>
+            </div>
+
+            {/* Tax Invoice & Official Receipt Card */}
+            <div className="border-t border-border pt-4">
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-brand-red" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Official Tax Invoice &amp; Receipt
+                    </span>
+                  </div>
+                  {selectedOrder.invoiceNumber ? (
+                    <span className="font-mono text-xs font-bold text-foreground bg-secondary px-2.5 py-0.5 rounded-full">
+                      {selectedOrder.invoiceNumber}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                      Generated upon order confirmation
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Download the formal GST tax invoice with detailed tax breakdown (CGST/SGST/IGST),
+                  authorized signatory stamp, and permanent transaction snapshot.
+                </p>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="text-[11px] text-muted-foreground">
+                    {selectedOrder.invoiceDate ? (
+                      <span>
+                        Issued on:{" "}
+                        <strong className="text-foreground">
+                          {new Date(selectedOrder.invoiceDate).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </strong>
+                      </span>
+                    ) : (
+                      <span>Format: PDF (A4 size compliant)</span>
+                    )}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    className="gap-2 rounded-full bg-brand-red text-white hover:bg-brand-red/90 text-xs font-semibold"
+                    disabled={downloadingInvoiceId === selectedOrder.id}
+                    onClick={() => handleDownloadInvoice(selectedOrder.id, selectedOrder.name)}
+                  >
+                    {downloadingInvoiceId === selectedOrder.id ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating PDF...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3.5 w-3.5" /> Download Invoice PDF
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 

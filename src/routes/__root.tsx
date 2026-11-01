@@ -16,6 +16,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { MobileBottomOfferBar } from "@/components/home/mobile-bottom-offer-bar";
 import { FloatingWhatsApp } from "@/components/floating-whatsapp";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { useCartSync } from "@/hooks/use-cart-sync";
 import { useCatalogSync } from "@/lib/catalog-sync";
 import { publishedWebsiteConfigQuery } from "@/hooks/use-website-config";
@@ -111,19 +112,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { rel: "icon", href: "/favicon.png", sizes: "192x192", type: "image/png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap",
-        media: "print",
-        onLoad: "this.media='all'",
-      },
       {
         rel: "preload",
-        as: "image",
-        href: "/assets/hero-model.jpg",
-        fetchPriority: "high",
+        as: "font",
+        type: "font/woff2",
+        href: "/assets/fonts/archivo-black.woff2",
+        crossOrigin: "anonymous",
       },
       {
         rel: "preload",
@@ -138,19 +132,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         type: "text/javascript",
         children: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-1KHJNXYQ2E');
 
 (function() {
   function loadGtag() {
-    if (window.__gtagLoaded) return;
+    if (typeof window === 'undefined' || window.__gtagLoaded) return;
+    var match = document.cookie.match(/(?:^|;\\s*)riotous_cookie_consent=([^;]+)/);
+    if (!match || match[1] !== 'all') return;
     window.__gtagLoaded = true;
+    gtag('js', new Date());
+    gtag('config', 'G-1KHJNXYQ2E');
     var s = document.createElement('script');
     s.src = 'https://www.googletagmanager.com/gtag/js?id=G-1KHJNXYQ2E';
     s.async = true;
     s.fetchPriority = 'low';
     document.head.appendChild(s);
   }
+  window.__triggerAnalyticsConsent = loadGtag;
   if (typeof window !== 'undefined') {
     if ('requestIdleCallback' in window) {
       requestIdleCallback(function() { setTimeout(loadGtag, 2000); });
@@ -160,6 +157,7 @@ gtag('config', 'G-1KHJNXYQ2E');
     ['pointerdown', 'touchstart', 'scroll', 'keydown'].forEach(function(ev) {
       window.addEventListener(ev, loadGtag, { once: true, passive: true });
     });
+    window.addEventListener('cookie_consent_accepted', loadGtag);
   }
 })();`,
       },
@@ -208,17 +206,26 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col relative w-full max-w-full overflow-x-hidden md:overflow-x-visible">
-      <SiteHeader />
-      <main className={isAuthPage ? "flex-1 flex flex-col w-full max-w-full" : isCheckoutPage ? "flex-1 pt-16 md:pt-20 w-full max-w-full" : "flex-1 pt-16 md:pt-20 w-full max-w-full"}>
+      {!isAdminPage && <SiteHeader />}
+      <main
+        className={
+          isAuthPage || isAdminPage
+            ? "flex-1 flex flex-col w-full max-w-full"
+            : isCheckoutPage
+              ? "flex-1 pt-16 md:pt-20 w-full max-w-full"
+              : "flex-1 pt-16 md:pt-20 w-full max-w-full"
+        }
+      >
         <Outlet />
       </main>
-      {!isAuthPage && (
+      {!isAuthPage && !isAdminPage && (
         <div className={isCheckoutPage ? "hidden md:block" : ""}>
           <SiteFooter />
         </div>
       )}
       {showMobileOfferBar && <MobileBottomOfferBar />}
       <FloatingWhatsApp />
+      {!isAdminPage && <CookieConsentBanner />}
       <Toaster position="top-center" />
     </div>
   );

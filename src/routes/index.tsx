@@ -46,16 +46,30 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Premium DTF printed streetwear made in India. Custom apparel for creators, dreamers, and streetwear lovers.",
+          "Premium DTF printed streetwear made in India. Heavyweight oversized graphic tees and custom apparel for creators.",
       },
-      { property: "og:title", content: "RIOTOUS — Premium DTF Streetwear" },
+      { name: "robots", content: "index, follow" },
+      { property: "og:title", content: "RIOTOUS — We Don't Follow Trends. We Print Them." },
       {
         property: "og:description",
-        content: "Premium DTF printed streetwear made in India. Custom apparel for creators.",
+        content:
+          "Premium DTF printed streetwear made in India. Heavyweight oversized graphic tees and custom apparel for creators.",
       },
-      { property: "og:url", content: "/" },
+      { property: "og:url", content: "https://riotous.store/" },
+      { property: "og:image", content: "https://riotous.store/assets/hero-model.jpg" },
+      { name: "twitter:image", content: "https://riotous.store/assets/hero-model.jpg" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [
+      { rel: "canonical", href: "https://riotous.store/" },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/assets/hero-model-mobile.jpg",
+        imageSrcSet: "/assets/hero-model-mobile.jpg 640w, /assets/hero-model.jpg 1024w",
+        imageSizes: "(max-width: 640px) 100vw, 480px",
+        fetchPriority: "high",
+      },
+    ],
     scripts: [
       {
         type: "application/ld+json",
@@ -67,8 +81,9 @@ export const Route = createFileRoute("/")({
               "@id": "https://riotous.store/#organization",
               name: "RIOTOUS",
               url: "https://riotous.store",
-              logo: "https://riotous.store/favicon.ico",
+              logo: "https://riotous.store/assets/riotous-logo.png",
               description: "Premium DTF printed streetwear made in India.",
+              sameAs: ["https://www.instagram.com/riotous_store"],
             },
             {
               "@type": "WebSite",
@@ -76,6 +91,11 @@ export const Route = createFileRoute("/")({
               name: "RIOTOUS",
               url: "https://riotous.store",
               publisher: { "@id": "https://riotous.store/#organization" },
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://riotous.store/shop?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
             },
           ],
         }),

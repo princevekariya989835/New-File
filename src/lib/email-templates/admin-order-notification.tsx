@@ -116,8 +116,6 @@ export const template = {
   subject: (d: Record<string, any>) =>
     `New order ${d.orderNumber ?? ""} — ${d.total ?? ""} ${d.currency ?? "INR"}${d.hasCustomDesign ? " (custom design)" : ""}`,
   displayName: "Admin order notification",
-  // Fixed recipient: every order notification goes to the store owner.
-  to: "princevekariya9898@gmail.com",
   previewData: {
     orderNumber: "RIO-ABCD1234",
     createdAt: new Date().toLocaleString("en-IN"),

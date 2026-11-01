@@ -12,67 +12,64 @@ interface SitemapEntry {
   lastmod?: string;
 }
 
-async function fetchPublicPaths(): Promise<SitemapEntry[]> {
+async function fetchPublicPaths(): Promise<{ entries: SitemapEntry[]; latestModDate?: string }> {
   const entries: SitemapEntry[] = [];
-  const categories = new Set<string>();
+  let latestModDate: string | undefined;
+
+  const registerModDate = (dateStr?: string | null) => {
+    if (!dateStr) return;
+    try {
+      const iso = new Date(dateStr).toISOString().split("T")[0];
+      if (!latestModDate || iso > latestModDate) {
+        latestModDate = iso;
+      }
+      return iso;
+    } catch {
+      return undefined;
+    }
+  };
 
   try {
     const sql = getSql();
     const rows = await sql`
-      SELECT slug, category, updated_at FROM products WHERE is_active = true LIMIT 1000
+      SELECT slug, updated_at FROM products WHERE is_active = true AND status = 'published' OR (is_active = true AND status IS NULL) LIMIT 1000
     `;
 
     const productList =
       Array.isArray(rows) && rows.length > 0
-        ? (rows as Array<{ slug: string; category: string | null; updated_at?: string | null }>)
-        : FALLBACK_PRODUCTS.map((p) => ({ slug: p.slug, category: p.category, updated_at: (p as any).updated_at }));
+        ? (rows as Array<{ slug: string; updated_at?: string | null }>)
+        : FALLBACK_PRODUCTS.map((p) => ({ slug: p.slug, updated_at: (p as any).updated_at }));
 
     for (const row of productList) {
-      if (row.slug) {
-        const lastmod = row.updated_at ? new Date(row.updated_at).toISOString().split("T")[0] : undefined;
+      if (row.slug && row.slug.trim()) {
+        const cleanSlug = row.slug.trim();
+        const lastmod = registerModDate(row.updated_at);
         entries.push({
-          path: `/product/${encodeURIComponent(row.slug)}`,
+          path: `/product/${encodeURIComponent(cleanSlug)}`,
           changefreq: "weekly",
           priority: "0.8",
           ...(lastmod ? { lastmod } : {}),
         });
       }
-      if (row.category) categories.add(row.category);
     }
 
-    for (const category of categories) {
-      entries.push({
-        path: `/shop?category=${encodeURIComponent(category)}`,
-        changefreq: "weekly",
-        priority: "0.7",
-      });
-    }
-
-    return entries;
+    return { entries, latestModDate };
   } catch {
     // If database is offline, generate sitemap from fallback catalog
     for (const p of FALLBACK_PRODUCTS) {
-      if (p.slug) {
-        const lastmod = (p as any).updated_at ? new Date((p as any).updated_at).toISOString().split("T")[0] : undefined;
+      if (p.slug && p.slug.trim()) {
+        const cleanSlug = p.slug.trim();
+        const lastmod = registerModDate((p as any).updated_at);
         entries.push({
-          path: `/product/${encodeURIComponent(p.slug)}`,
+          path: `/product/${encodeURIComponent(cleanSlug)}`,
           changefreq: "weekly",
           priority: "0.8",
           ...(lastmod ? { lastmod } : {}),
         });
       }
-      if (p.category) categories.add(p.category);
     }
 
-    for (const category of categories) {
-      entries.push({
-        path: `/shop?category=${encodeURIComponent(category)}`,
-        changefreq: "weekly",
-        priority: "0.7",
-      });
-    }
-
-    return entries;
+    return { entries, latestModDate };
   }
 }
 
@@ -80,9 +77,21 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
+        const { entries: productEntries, latestModDate } = await fetchPublicPaths();
+
         const staticEntries: SitemapEntry[] = [
-          { path: "/", changefreq: "daily", priority: "1.0" },
-          { path: "/shop", changefreq: "daily", priority: "0.9" },
+          {
+            path: "/",
+            changefreq: "daily",
+            priority: "1.0",
+            ...(latestModDate ? { lastmod: latestModDate } : {}),
+          },
+          {
+            path: "/shop",
+            changefreq: "daily",
+            priority: "0.9",
+            ...(latestModDate ? { lastmod: latestModDate } : {}),
+          },
           { path: "/design", changefreq: "monthly", priority: "0.8" },
           { path: "/about", changefreq: "monthly", priority: "0.6" },
           { path: "/contact", changefreq: "monthly", priority: "0.6" },
@@ -92,7 +101,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/refund-policy", changefreq: "monthly", priority: "0.4" },
         ];
 
-        const entries = [...staticEntries, ...(await fetchPublicPaths())];
+        const entries = [...staticEntries, ...productEntries];
 
         const seen = new Set<string>();
         const urls = entries
@@ -120,7 +129,8 @@ export const Route = createFileRoute("/sitemap.xml")({
         return new Response(xml, {
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "public, max-age=3600, stale-while-revalidate=7200",
+            "X-Robots-Tag": "noindex",
             "Last-Modified": new Date().toUTCString(),
           },
         });

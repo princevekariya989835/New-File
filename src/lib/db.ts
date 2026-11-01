@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { FALLBACK_PRODUCTS } from "./fallback-products";
+import { INITIAL_PRODUCT_REVIEWS, seedInitialReviewsIfNeeded } from "./reviews-seed";
 
 let _schemaInitialized = false;
 let _schemaPromise: Promise<void> | null = null;
@@ -88,10 +89,21 @@ let _mockVariants: any[] = FALLBACK_PRODUCTS.flatMap((p) =>
 const _mockProfiles: any[] = [
   {
     id: "usr_admin_default",
-    email: "princevekariya9898@gmail.com",
-    password_hash: "28e75cfdc4bbd91da3c6046e9fc0a316b2cf771f286b2bb6ee8119eb1ea1e459",
-    full_name: "Prince Vekariya",
+    email: "admin@riotous.store",
+    password_hash: "d943405c9b0bde48dc8e01bdca39b7abeca89bb34f6b816679c7dbf4b60666f1",
+    full_name: "RIOTOUS Admin",
     role: "Super Admin",
+    status: "Active",
+    permissions: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "usr_admin_manager",
+    email: "manager@riotous.store",
+    password_hash: "dfd45f8f00eccb2c37b055d5f7c551c4593c2eb3a02090e651f077f796fbdf0f",
+    full_name: "Store Manager",
+    role: "Admin",
     status: "Active",
     permissions: {},
     created_at: new Date().toISOString(),
@@ -100,7 +112,7 @@ const _mockProfiles: any[] = [
   {
     id: "usr_demo_customer",
     email: "customer@example.com",
-    password_hash: "28e75cfdc4bbd91da3c6046e9fc0a316b2cf771f286b2bb6ee8119eb1ea1e459",
+    password_hash: "f6455149509965b4fe7682593abc635d04f87d17a3662a12b4c64b823791cb14",
     full_name: "Demo Customer",
     role: "customer",
     status: "Active",
@@ -110,7 +122,8 @@ const _mockProfiles: any[] = [
   },
 ];
 
-let _mockEmailOtps: any[] = [];
+const _mockEmailOtps: any[] = [];
+const _mockEmailLogs: any[] = [];
 
 const _mockCoupons: any[] = [
   {
@@ -239,8 +252,6 @@ const _mockCouponUsage: any[] = [
     used_at: new Date(Date.now() - 1 * 86400000).toISOString(),
   },
 ];
-
-const _mockEmailLogs: any[] = [];
 
 const _mockOrders: any[] = [
   {
@@ -429,13 +440,20 @@ const _mockOrderItems: any[] = [
 ];
 
 const _mockReturns: any[] = [];
-const _mockReviews: any[] = [];
+const _mockReviews: any[] = INITIAL_PRODUCT_REVIEWS.map((r) => ({
+  ...r,
+  images: typeof r.images === "string" ? JSON.parse(r.images) : r.images,
+}));
 const _mockDesignSubmissions: any[] = [];
 const _mockInventoryTransactions: any[] = [];
+const _mockInvoices: any[] = [];
+const _mockInvoiceSequences = new Map<number, number>([[2026, 2]]);
 let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
 let _mockProductOffers: any[] = [];
 const _mockWebsiteMedia = new Map<string, any>();
+const _mockRateLimits = new Map<string, any>();
+const _mockPasswordResets = new Map<string, any>();
 
 export function removeMockProduct(productIdOrSlug: string): boolean {
   if (!productIdOrSlug) return false;
@@ -446,9 +464,15 @@ export function removeMockProduct(productIdOrSlug: string): boolean {
   if (idx !== -1) {
     const [removed] = _mockProducts.splice(idx, 1);
     _mockVariants = _mockVariants.filter((v) => String(v.product_id) !== String(removed.id));
-    _mockProductHighlights = _mockProductHighlights.filter((h) => String(h.product_id) !== String(removed.id));
-    _mockProductSpecifications = _mockProductSpecifications.filter((s) => String(s.product_id) !== String(removed.id));
-    _mockProductOffers = _mockProductOffers.filter((o) => String(o.product_id) !== String(removed.id));
+    _mockProductHighlights = _mockProductHighlights.filter(
+      (h) => String(h.product_id) !== String(removed.id),
+    );
+    _mockProductSpecifications = _mockProductSpecifications.filter(
+      (s) => String(s.product_id) !== String(removed.id),
+    );
+    _mockProductOffers = _mockProductOffers.filter(
+      (o) => String(o.product_id) !== String(removed.id),
+    );
     return true;
   }
   return false;
@@ -469,13 +493,41 @@ export function getDatabaseUrl(): string | null {
 
 // Known columns containing serialized JSON that should be parsed when returned
 const JSON_COLUMNS = new Set([
-  "images", "sizes", "colors", "color_variants", "tags", "features",
-  "care_instructions", "manufacturing_info", "size_measurements",
-  "product_variants", "variants", "product_images", "sizeStock",
-  "highlights", "specifications", "offers",
-  "items", "canvases", "preview_images", "product_ids", "category_names",
-  "excluded_product_ids", "excluded_category_names", "config", "details",
-  "headers", "mapping", "permissions", "eligible_products", "eligible_categories",
+  "images",
+  "sizes",
+  "colors",
+  "color_variants",
+  "tags",
+  "features",
+  "care_instructions",
+  "manufacturing_info",
+  "size_measurements",
+  "product_variants",
+  "variants",
+  "product_images",
+  "sizeStock",
+  "highlights",
+  "specifications",
+  "offers",
+  "items",
+  "canvases",
+  "preview_images",
+  "product_ids",
+  "category_names",
+  "excluded_product_ids",
+  "excluded_category_names",
+  "config",
+  "details",
+  "headers",
+  "mapping",
+  "permissions",
+  "eligible_products",
+  "eligible_categories",
+  "seller_details",
+  "customer_details",
+  "items_snapshot",
+  "totals_snapshot",
+  "tax_breakup",
 ]);
 
 function parseJsonFields(row: any): any {
@@ -573,11 +625,26 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
   rawSql = rawSql.replace(/\bNOW\(\)/gi, "CURRENT_TIMESTAMP");
 
   // Date compatibility transformations for SQLite / D1
-  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*CURRENT_DATE\s*\)/gi, "date('now', 'start of month')");
-  rawSql = rawSql.replace(/DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*([^)]+)\s*\)/gi, "date($1, 'start of month')");
-  rawSql = rawSql.replace(/TO_CHAR\s*\(\s*([^,]+)\s*,\s*['"]YYYY-MM-DD['"]\s*\)/gi, "substr($1, 1, 10)");
-  rawSql = rawSql.replace(/CURRENT_DATE\s*-\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '-$1 days')");
-  rawSql = rawSql.replace(/CURRENT_DATE\s*\+\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi, "date('now', '+$1 days')");
+  rawSql = rawSql.replace(
+    /DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*CURRENT_DATE\s*\)/gi,
+    "date('now', 'start of month')",
+  );
+  rawSql = rawSql.replace(
+    /DATE_TRUNC\s*\(\s*['"]month['"]\s*,\s*([^)]+)\s*\)/gi,
+    "date($1, 'start of month')",
+  );
+  rawSql = rawSql.replace(
+    /TO_CHAR\s*\(\s*([^,]+)\s*,\s*['"]YYYY-MM-DD['"]\s*\)/gi,
+    "substr($1, 1, 10)",
+  );
+  rawSql = rawSql.replace(
+    /CURRENT_DATE\s*-\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi,
+    "date('now', '-$1 days')",
+  );
+  rawSql = rawSql.replace(
+    /CURRENT_DATE\s*\+\s*INTERVAL\s*['"]([0-9]+)\s*days['"]/gi,
+    "date('now', '+$1 days')",
+  );
   rawSql = rawSql.replace(/\bCURRENT_DATE\b/gi, "date('now')");
 
   // to_regclass -> sqlite_master table check
@@ -605,7 +672,10 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
  * Creates a tagged-template `sql` execution interface wrapping Cloudflare D1.
  */
 function createD1Sql(d1: any) {
-  const d1Sql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+  const d1Sql = async (
+    strings: TemplateStringsArray | string[] | string,
+    ...values: any[]
+  ): Promise<any[]> => {
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) {
       return [];
@@ -617,7 +687,14 @@ function createD1Sql(d1: any) {
       const rows = res.results || [];
       return rows.map((r: any) => parseJsonFields(r));
     } catch (err: any) {
-      console.error("[Cloudflare D1 Query Error]:", err?.message || err, "\nSQL:", sql, "\nBindings:", bindings);
+      console.error(
+        "[Cloudflare D1 Query Error]:",
+        err?.message || err,
+        "\nSQL:",
+        sql,
+        "\nBindings:",
+        bindings,
+      );
       throw err;
     }
   };
@@ -646,15 +723,27 @@ export function getLocalD1Token(forceRefresh: boolean = false): string | null {
       let os: any = null;
 
       if (typeof (process as any).getBuiltinModule === "function") {
-        fs = (process as any).getBuiltinModule("fs") || (process as any).getBuiltinModule("node:fs");
-        path = (process as any).getBuiltinModule("path") || (process as any).getBuiltinModule("node:path");
-        os = (process as any).getBuiltinModule("os") || (process as any).getBuiltinModule("node:os");
+        fs =
+          (process as any).getBuiltinModule("fs") || (process as any).getBuiltinModule("node:fs");
+        path =
+          (process as any).getBuiltinModule("path") ||
+          (process as any).getBuiltinModule("node:path");
+        os =
+          (process as any).getBuiltinModule("os") || (process as any).getBuiltinModule("node:os");
       }
 
       if (fs && path && os) {
         const home = os.homedir();
         const candidatePaths = [
-          path.join(home, "AppData", "Roaming", "xdg.config", ".wrangler", "config", "default.toml"),
+          path.join(
+            home,
+            "AppData",
+            "Roaming",
+            "xdg.config",
+            ".wrangler",
+            "config",
+            "default.toml",
+          ),
           path.join(home, ".config", ".wrangler", "config", "default.toml"),
           path.join(home, ".wrangler", "config", "default.toml"),
         ];
@@ -681,35 +770,47 @@ function createD1RestSql() {
   const accountId = "f243cdf7bf870b1000051f76985db609";
   const databaseId = "7487ac0f-706e-4560-baf8-e79031b2dd5e";
 
-  const restSql = async (strings: TemplateStringsArray | string[] | string, ...values: any[]): Promise<any[]> => {
+  const restSql = async (
+    strings: TemplateStringsArray | string[] | string,
+    ...values: any[]
+  ): Promise<any[]> => {
     let token = getLocalD1Token();
     if (!token) return [];
 
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) return [];
 
-    let res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    let res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ sql, params: bindings }),
       },
-      body: JSON.stringify({ sql, params: bindings }),
-    });
+    );
 
     let data: any = await res.json();
-    if (res.status === 401 || (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))) {
+    if (
+      res.status === 401 ||
+      (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))
+    ) {
       // Token expired, force re-reading from wrangler config
       token = getLocalD1Token(true);
       if (token) {
-        res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+        res = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ sql, params: bindings }),
           },
-          body: JSON.stringify({ sql, params: bindings }),
-        });
+        );
         data = await res.json();
       }
     }
@@ -732,7 +833,7 @@ let _cachedSql: any = null;
 let _cachedSqlMode: string | null = null;
 
 export function getSql() {
-  const useNeon = (typeof process !== "undefined" && process.env?.USE_NEON === "true");
+  const useNeon = typeof process !== "undefined" && process.env?.USE_NEON === "true";
   const localD1Token = getLocalD1Token();
 
   // 1. In local Node.js development, connect to the real Cloudflare D1 database via REST
@@ -783,7 +884,8 @@ export function getSql() {
       if (
         (lower.startsWith("select count") || lower.includes("(select count(*)")) &&
         !lower.includes("from coupon_usage") &&
-        !lower.includes("from coupons")
+        !lower.includes("from coupons") &&
+        !lower.includes("from reviews")
       ) {
         return [
           {
@@ -808,20 +910,29 @@ export function getSql() {
       }
 
       // SELECT from products
-      if (lower.includes("from products") && !lower.includes("delete from")) {
+      if (lower.includes("from products") && !lower.includes("from reviews") && !lower.includes("delete from")) {
         if (lower.includes("select 1")) {
           return _mockProducts.length > 0 ? [{ 1: 1 }] : [];
         }
         const mapProd = (p: any, isActiveOnly = false) => {
           const prodVariants = _mockVariants.filter((v) => String(v.product_id) === String(p.id));
           const prodHighlights = _mockProductHighlights
-            .filter((h) => String(h.product_id) === String(p.id) && (!isActiveOnly || h.is_active !== false))
+            .filter(
+              (h) =>
+                String(h.product_id) === String(p.id) && (!isActiveOnly || h.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
           const prodSpecs = _mockProductSpecifications
-            .filter((s) => String(s.product_id) === String(p.id) && (!isActiveOnly || s.is_active !== false))
+            .filter(
+              (s) =>
+                String(s.product_id) === String(p.id) && (!isActiveOnly || s.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
           const prodOffers = _mockProductOffers
-            .filter((o) => String(o.product_id) === String(p.id) && (!isActiveOnly || o.is_active !== false))
+            .filter(
+              (o) =>
+                String(o.product_id) === String(p.id) && (!isActiveOnly || o.is_active !== false),
+            )
             .sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
 
           return {
@@ -836,10 +947,14 @@ export function getSql() {
           };
         };
 
-        if (lower.includes("where") && (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))) {
+        if (
+          lower.includes("where") &&
+          (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))
+        ) {
           const matchVal = values[0] ? String(values[0]).toLowerCase() : "";
           const found = _mockProducts.find(
-            (p) => String(p.slug).toLowerCase() === matchVal || String(p.id).toLowerCase() === matchVal,
+            (p) =>
+              String(p.slug).toLowerCase() === matchVal || String(p.id).toLowerCase() === matchVal,
           );
           return found ? [mapProd(found, false)] : [];
         }
@@ -852,7 +967,9 @@ export function getSql() {
         if (lower.includes("where")) {
           const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
           if (emailVal) {
-            const found = _mockProfiles.find((p) => p.email.toLowerCase() === String(emailVal).toLowerCase());
+            const found = _mockProfiles.find(
+              (p) => p.email.toLowerCase() === String(emailVal).toLowerCase(),
+            );
             return found ? [found] : [];
           }
           const idVal = values[0] ? String(values[0]) : "";
@@ -866,20 +983,308 @@ export function getSql() {
       if (lower.includes("from coupons")) {
         if (lower.includes("where") && lower.includes("code =")) {
           const codeVal = values[0] ? String(values[0]).toUpperCase() : "";
-          const found = _mockCoupons.find((c) => c.code.toUpperCase() === codeVal && c.is_active && !c.deleted_at);
+          const found = _mockCoupons.find(
+            (c) => c.code.toUpperCase() === codeVal && c.is_active && !c.deleted_at,
+          );
           return found ? [found] : [];
         }
         return _mockCoupons.filter((c) => !c.deleted_at);
       }
 
       // SELECT from orders
-      if (lower.includes("from orders")) {
+      if (lower.includes("from orders") && !lower.includes("from reviews")) {
         return [..._mockOrders];
       }
 
       // SELECT from order_items
-      if (lower.includes("from order_items")) {
+      if (lower.includes("from order_items") && !lower.includes("from reviews")) {
         return [..._mockOrderItems];
+      }
+
+      // SELECT from reviews
+      if (lower.includes("from reviews") && !lower.includes("delete from")) {
+        if (lower.startsWith("select count") || lower.includes("count(*)")) {
+          return [{ count: _mockReviews.length }];
+        }
+
+        let results = _mockReviews.map((r) => {
+          const prod = _mockProducts.find(
+            (p) => String(p.id) === String(r.product_id) || String(p.slug) === String(r.product_id),
+          );
+          const prof = _mockProfiles.find((u) => String(u.id) === String(r.user_id));
+          return {
+            ...r,
+            review: r.content ?? r.review ?? "",
+            verified_purchase: Boolean(r.is_verified_buyer),
+            matched_product_id: prod?.id || null,
+            product_name: prod?.name || null,
+            product_slug: prod?.slug || null,
+            product_images: prod?.images || [],
+            customer_email: prof?.email || null,
+            customer_name: prof?.full_name || r.author_name || null,
+            matched_order_id: null,
+          };
+        });
+
+        // Filter by user_id
+        if (lower.includes("user_id =") || lower.includes("r.user_id =")) {
+          const uVal = values.find((v) => typeof v === "string" && (v.startsWith("usr_") || v.includes("@") || v.length > 10));
+          if (uVal) {
+            results = results.filter((r) => String(r.user_id) === String(uVal));
+          }
+        }
+
+        // Filter by id
+        if (lower.includes("where id =") || lower.includes("where r.id =")) {
+          const idVal = values.find((v) => typeof v === "string" && v.startsWith("rev_"));
+          if (idVal) {
+            return results.filter((r) => String(r.id) === String(idVal));
+          }
+        }
+
+        // Filter by product_id
+        if (lower.includes("product_id =") || lower.includes("r.product_id =")) {
+          const pVal = values.find((v) => typeof v === "string" && (v.startsWith("prod-") || v.includes("tee") || v.length > 3));
+          if (pVal) {
+            const pValStr = String(pVal).toLowerCase();
+            const matchedProd = _mockProducts.find(
+              (p) => String(p.id).toLowerCase() === pValStr || String(p.slug).toLowerCase() === pValStr,
+            );
+            results = results.filter((r) => {
+              const rPid = String(r.product_id).toLowerCase();
+              return rPid === pValStr || (matchedProd && rPid === String(matchedProd.id).toLowerCase());
+            });
+          }
+        }
+
+        // Filter by approved status
+        if (lower.includes("status = 'approved'") || lower.includes("status = 'approved'")) {
+          results = results.filter(
+            (r) => String(r.status).toLowerCase() === "approved",
+          );
+        }
+
+        // Filter by is_sample
+        if (lower.includes("is_sample = 0") || lower.includes("is_sample is null") || lower.includes("is_sample = false")) {
+          results = results.filter((r) => !r.is_sample);
+        }
+
+        results.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+        return results;
+      }
+
+      // INSERT INTO reviews
+      if (lower.includes("insert into reviews")) {
+        const colMatch = queryStr.match(/insert\s+into\s+reviews\s*\(([^)]+)\)/i);
+        let colNames: string[] = [];
+        if (colMatch && colMatch[1]) {
+          colNames = colMatch[1].split(",").map((c) => c.trim().toLowerCase());
+        }
+
+        const getVal = (name: string, fallbackIdx: number) => {
+          if (colNames.length > 0) {
+            const idx = colNames.indexOf(name.toLowerCase());
+            if (idx !== -1 && idx < values.length) return values[idx];
+          }
+          return values[fallbackIdx];
+        };
+
+        const id = getVal("id", 0) ? String(getVal("id", 0)) : `rev_${Date.now()}`;
+        const productId = getVal("product_id", 1) ? String(getVal("product_id", 1)) : "";
+        const userId = getVal("user_id", 2) ? String(getVal("user_id", 2)) : null;
+        const authorName = getVal("author_name", 3) ? String(getVal("author_name", 3)) : "Customer";
+        const rating = Number(getVal("rating", 4)) || 5;
+        const title = getVal("title", 5) ? String(getVal("title", 5)) : null;
+        const content = getVal("content", 6) ? String(getVal("content", 6)) : "";
+        const rawImages = getVal("images", 7);
+        let images: any[] = [];
+        try {
+          images = typeof rawImages === "string" ? JSON.parse(rawImages) : (Array.isArray(rawImages) ? rawImages : []);
+        } catch {
+          images = [];
+        }
+        const isVerifiedBuyer = Boolean(getVal("is_verified_buyer", 8));
+        const status = getVal("status", 9) ? String(getVal("status", 9)) : "approved";
+        const adminNote = getVal("admin_note", 10) ? String(getVal("admin_note", 10)) : null;
+        const isSample = Boolean(getVal("is_sample", 11));
+        const createdAt = getVal("created_at", 12) ? String(getVal("created_at", 12)) : new Date().toISOString();
+        const updatedAt = getVal("updated_at", 13) ? String(getVal("updated_at", 13)) : new Date().toISOString();
+
+        const existingIdx = _mockReviews.findIndex((r) => r.id === id);
+        const item = {
+          id,
+          product_id: productId,
+          user_id: userId,
+          author_name: authorName,
+          rating,
+          title,
+          content,
+          is_verified_buyer: isVerifiedBuyer ? 1 : 0,
+          status,
+          images,
+          admin_note: adminNote,
+          is_sample: isSample ? 1 : 0,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        };
+        if (existingIdx !== -1) {
+          _mockReviews[existingIdx] = item;
+        } else {
+          _mockReviews.push(item);
+        }
+        return [{ id }];
+      }
+
+      // UPDATE reviews
+      if (lower.includes("update reviews")) {
+        const revId =
+          values.find((v) => typeof v === "string" && (v.startsWith("rev_") || v.startsWith("rev-"))) ||
+          (typeof values[values.length - 1] === "string" ? values[values.length - 1] : null);
+        if (revId) {
+          const rev = _mockReviews.find((r) => r.id === revId);
+          if (rev) {
+            const statusMatch = queryStr.match(/status\s*=\s*'([^']+)'/i);
+            if (statusMatch) {
+              rev.status = statusMatch[1].toLowerCase();
+            } else if (lower.includes("status =")) {
+              const statusVal = values.find((v) => ["approved", "pending", "rejected", "hidden"].includes(String(v).toLowerCase()));
+              if (statusVal) rev.status = String(statusVal).toLowerCase();
+            }
+
+            const noteMatch = queryStr.match(/admin_note\s*=\s*'([^']+)'/i);
+            if (noteMatch) {
+              rev.admin_note = noteMatch[1];
+            } else if (lower.includes("admin_note =")) {
+              const noteVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
+              if (noteVal !== undefined) rev.admin_note = noteVal;
+            }
+
+            if (lower.includes("rating =")) {
+              const ratVal = values.find((v) => typeof v === "number" && v >= 1 && v <= 5);
+              if (ratVal !== undefined) rev.rating = ratVal;
+            }
+            const titleMatch = queryStr.match(/title\s*=\s*'([^']+)'/i);
+            if (titleMatch) {
+              rev.title = titleMatch[1];
+            } else if (lower.includes("title =")) {
+              const titleVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
+              if (titleVal !== undefined) rev.title = titleVal;
+            }
+
+            const contentMatch = queryStr.match(/content\s*=\s*'([^']+)'/i);
+            if (contentMatch) {
+              rev.content = contentMatch[1];
+            } else if (lower.includes("content =")) {
+              const contentVal = values.find((v) => typeof v === "string" && !v.startsWith("rev_") && !["approved", "pending", "rejected", "hidden"].includes(v.toLowerCase()));
+              if (contentVal !== undefined) rev.content = contentVal;
+            }
+            if (lower.includes("is_verified_buyer =")) {
+              const verVal = values.find((v) => typeof v === "number" && (v === 0 || v === 1));
+              if (verVal !== undefined) rev.is_verified_buyer = verVal;
+            }
+            rev.updated_at = new Date().toISOString();
+            return [rev];
+          }
+        }
+        return [];
+      }
+
+      // DELETE FROM reviews
+      if (lower.includes("delete from reviews")) {
+        const idMatch = queryStr.match(/where\s+(?:r\.)?id\s*=\s*'([^']+)'/i);
+        const revId =
+          (idMatch && idMatch[1]) ||
+          values.find((v) => typeof v === "string" && (v.startsWith("rev_") || v.startsWith("rev-"))) ||
+          (typeof values[values.length - 1] === "string" ? values[values.length - 1] : null);
+        if (revId) {
+          const idx = _mockReviews.findIndex((r) => String(r.id) === String(revId));
+          if (idx !== -1) {
+            _mockReviews.splice(idx, 1);
+            return [{ id: revId }];
+          }
+        }
+        return [];
+      }
+
+      // SELECT from invoices
+      if (lower.includes("from invoices")) {
+        if (lower.includes("where order_id =") || lower.includes("where order_id::text =")) {
+          const oId = values[0] ? String(values[0]) : "";
+          const found = _mockInvoices.find((inv) => inv.order_id === oId);
+          return found ? [parseJsonFields(found)] : [];
+        }
+        return _mockInvoices.map((inv) => parseJsonFields(inv));
+      }
+
+      // INSERT INTO invoices
+      if (lower.includes("insert into invoices")) {
+        const id = values[0] ? String(values[0]) : `inv_${Date.now()}`;
+        const orderId = values[1] ? String(values[1]) : "";
+        const orderNumber = values[2] ? String(values[2]) : "";
+        const invoiceNumber = values[3] ? String(values[3]) : "";
+        const invoiceDate = values[4] ? String(values[4]) : new Date().toISOString();
+        const invoiceTitle = values[5] ? String(values[5]) : "TAX INVOICE";
+        const sellerDetails = values[6] ?? {};
+        const customerDetails = values[7] ?? {};
+        const itemsSnapshot = values[8] ?? [];
+        const totalsSnapshot = values[9] ?? {};
+        const taxBreakup = values[10] ?? {};
+        const currency = values[11] || "INR";
+        const paymentMethod = values[12] || "COD";
+        const paymentStatus = values[13] || "Paid";
+        const placeOfSupply = values[14] || "";
+        const stateCode = values[15] || "";
+
+        const newInv = {
+          id,
+          order_id: orderId,
+          order_number: orderNumber,
+          invoice_number: invoiceNumber,
+          invoice_date: invoiceDate,
+          invoice_title: invoiceTitle,
+          seller_details: sellerDetails,
+          customer_details: customerDetails,
+          items_snapshot: itemsSnapshot,
+          totals_snapshot: totalsSnapshot,
+          tax_breakup: taxBreakup,
+          currency,
+          payment_method: paymentMethod,
+          payment_status: paymentStatus,
+          place_of_supply: placeOfSupply,
+          state_code: stateCode,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const existingIdx = _mockInvoices.findIndex((inv) => inv.order_id === orderId);
+        if (existingIdx !== -1) {
+          _mockInvoices[existingIdx] = newInv;
+        } else {
+          _mockInvoices.push(newInv);
+        }
+
+        const o = _mockOrders.find((ord) => ord.id === orderId);
+        if (o) {
+          o.invoice_number = invoiceNumber;
+          o.invoice_date = invoiceDate;
+        }
+
+        return [{ id }];
+      }
+
+      // SELECT from invoice_sequences
+      if (lower.includes("from invoice_sequences")) {
+        const yr = values[0] ? Number(values[0]) : new Date().getFullYear();
+        const seq = _mockInvoiceSequences.get(yr) || 0;
+        return [{ year: yr, last_seq: seq }];
+      }
+
+      // INSERT INTO invoice_sequences
+      if (lower.includes("insert into invoice_sequences")) {
+        const yr = values[0] ? Number(values[0]) : new Date().getFullYear();
+        const current = (_mockInvoiceSequences.get(yr) || 0) + 1;
+        _mockInvoiceSequences.set(yr, current);
+        return [{ year: yr, last_seq: current }];
       }
 
       // INSERT INTO website_media
@@ -919,27 +1324,43 @@ export function getSql() {
 
       // UPDATE products
       if (lower.includes("update products")) {
-        const idVal = values[values.length - 1] ?? values[values.length - 2];
-        const matchVal = String(idVal || "").toLowerCase().trim();
-        const found = _mockProducts.find(
-          (p) => String(p.id).toLowerCase() === matchVal || String(p.slug).toLowerCase() === matchVal,
-        );
+        let found: any = null;
+        for (let i = values.length - 1; i >= 0; i--) {
+          const val = String(values[i] || "")
+            .toLowerCase()
+            .trim();
+          if (!val) continue;
+          found = _mockProducts.find(
+            (p) => String(p.id).toLowerCase() === val || String(p.slug).toLowerCase() === val,
+          );
+          if (found) break;
+        }
+
         if (found) {
-          for (const v of values) {
-            if (Array.isArray(v)) {
-              if (v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
-                found.images = [...v];
-              }
-            } else if (typeof v === "string" && v.startsWith("[")) {
-              try {
-                const parsed = JSON.parse(v);
-                if (Array.isArray(parsed) && parsed.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http") || item.startsWith("data:")))) {
-                  found.images = [...parsed];
+          const assignmentRegex =
+            /([a-zA-Z0-9_]+)\s*=\s*(?:COALESCE\(\s*)?(__VAL_(\d+)__|NULL|null|NOW\(\)|now\(\))/g;
+          let match: RegExpExecArray | null;
+          while ((match = assignmentRegex.exec(queryStr)) !== null) {
+            const field = match[1].toLowerCase();
+            const token = match[2];
+            const valIdxStr = match[3];
+
+            if (token === "NULL" || token === "null") {
+              found[field] = null;
+            } else if (valIdxStr !== undefined) {
+              const valIdx = parseInt(valIdxStr, 10);
+              let val = values[valIdx];
+              if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
+                try {
+                  val = JSON.parse(val);
+                } catch {
+                  /* keep as string */
                 }
-              } catch {}
+              }
+              found[field] = val;
             }
           }
-          if (values[0] !== undefined && typeof values[0] === "string") found.name = values[0];
+
           found.updated_at = new Date().toISOString();
           return [found];
         }
@@ -953,17 +1374,31 @@ export function getSql() {
         const slug = values[2] ? String(values[2]) : id;
         let images: string[] = [];
         for (const v of values) {
-          if (Array.isArray(v) && v.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+          if (
+            Array.isArray(v) &&
+            v.some(
+              (item) =>
+                typeof item === "string" && (item.startsWith("/") || item.startsWith("http")),
+            )
+          ) {
             images = [...v];
             break;
           } else if (typeof v === "string" && v.startsWith("[")) {
             try {
               const p = JSON.parse(v);
-              if (Array.isArray(p) && p.some((item) => typeof item === "string" && (item.startsWith("/") || item.startsWith("http")))) {
+              if (
+                Array.isArray(p) &&
+                p.some(
+                  (item) =>
+                    typeof item === "string" && (item.startsWith("/") || item.startsWith("http")),
+                )
+              ) {
                 images = [...p];
                 break;
               }
-            } catch {}
+            } catch {
+              /* non-fatal */
+            }
           }
         }
         const newProd = {
@@ -981,6 +1416,135 @@ export function getSql() {
         };
         _mockProducts.push(newProd);
         return [{ id }];
+      }
+
+      // SELECT / INSERT / UPDATE / DELETE from rate_limits
+      if (lower.includes("rate_limits")) {
+        if (lower.startsWith("select")) {
+          const keyVal = values.find((v) => typeof v === "string");
+          if (keyVal && _mockRateLimits.has(keyVal)) {
+            return [{ ..._mockRateLimits.get(keyVal) }];
+          }
+          return [];
+        }
+        if (lower.startsWith("insert") || lower.startsWith("update")) {
+          const keyVal = values[0] ? String(values[0]) : "";
+          if (keyVal) {
+            const attempts = typeof values[1] === "number" ? values[1] : 1;
+            const firstAttempt = typeof values[2] === "number" ? values[2] : Date.now();
+            const lastAttempt = typeof values[3] === "number" ? values[3] : Date.now();
+            const blockedUntil = typeof values[4] === "number" ? values[4] : null;
+            const expiresAt = typeof values[5] === "number" ? values[5] : Date.now() + 15 * 60 * 1000;
+            _mockRateLimits.set(keyVal, {
+              key: keyVal,
+              attempts,
+              first_attempt_at: firstAttempt,
+              last_attempt_at: lastAttempt,
+              blocked_until: blockedUntil,
+              expires_at: expiresAt,
+            });
+          }
+          return [];
+        }
+        if (lower.startsWith("delete")) {
+          const keyVal = values.find((v) => typeof v === "string");
+          if (keyVal) _mockRateLimits.delete(keyVal);
+          return [];
+        }
+      }
+
+      // SELECT / INSERT / UPDATE / DELETE from password_resets
+      if (lower.includes("password_resets")) {
+        if (lower.startsWith("select")) {
+          const hashVal = values.find((v) => typeof v === "string" && v.length === 64);
+          if (hashVal) {
+            for (const r of _mockPasswordResets.values()) {
+              if (r.token_hash === hashVal) return [{ ...r }];
+            }
+          }
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          if (emailVal) {
+            const matches: any[] = [];
+            for (const r of _mockPasswordResets.values()) {
+              if (r.email.toLowerCase() === emailVal.toLowerCase()) matches.push({ ...r });
+            }
+            return matches;
+          }
+          return Array.from(_mockPasswordResets.values());
+        }
+        if (lower.startsWith("insert")) {
+          const id = String(values[0] || `pr_${Date.now()}`);
+          const userId = values[1] ? String(values[1]) : null;
+          const email = String(values[2] || "").toLowerCase();
+          const tokenHash = String(values[3] || "");
+          const expiresAt = String(values[4] || "");
+          const usedAt = values[5] ? String(values[5]) : null;
+          const ip = values[6] ? String(values[6]) : null;
+          _mockPasswordResets.set(id, {
+            id,
+            user_id: userId,
+            email,
+            token_hash: tokenHash,
+            expires_at: expiresAt,
+            used_at: usedAt,
+            ip_address: ip,
+            created_at: new Date().toISOString(),
+          });
+          return [];
+        }
+        if (lower.startsWith("update")) {
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          const idVal = values.find((v) => typeof v === "string" && v.startsWith("pr_"));
+          for (const [id, r] of _mockPasswordResets.entries()) {
+            if ((idVal && id === idVal) || (emailVal && r.email.toLowerCase() === emailVal.toLowerCase())) {
+              r.used_at = new Date().toISOString();
+            }
+          }
+          return [];
+        }
+        if (lower.startsWith("delete")) {
+          const emailVal = values.find((v) => typeof v === "string" && v.includes("@"));
+          if (emailVal) {
+            for (const [id, r] of _mockPasswordResets.entries()) {
+              if (r.email.toLowerCase() === emailVal.toLowerCase()) _mockPasswordResets.delete(id);
+            }
+          }
+          return [];
+        }
+      }
+
+      // SELECT / INSERT from email_logs
+      if (lower.includes("email_logs")) {
+        if (lower.startsWith("select")) {
+          const orderIdVal = values.find((v) => typeof v === "string" && (v.startsWith("ord_") || v.startsWith("ORD")));
+          const emailTypeVal = values.find((v) => typeof v === "string" && v.includes("_"));
+          let matches = [..._mockEmailLogs];
+          if (orderIdVal) {
+            matches = matches.filter((l) => l.order_id === orderIdVal);
+          }
+          if (emailTypeVal) {
+            matches = matches.filter((l) => l.email_type === emailTypeVal);
+          }
+          return matches.slice(0, 50);
+        }
+        if (lower.startsWith("insert")) {
+          const newLog = {
+            id: values[0] ? String(values[0]) : `eml_${Date.now()}`,
+            user_id: values[1] ? String(values[1]) : null,
+            order_id: values[2] ? String(values[2]) : null,
+            email_type: values[3] ? String(values[3]) : "UNKNOWN",
+            recipient: values[4] ? String(values[4]) : "",
+            sender: values[5] ? String(values[5]) : "order@riotous.store",
+            status: values[6] ? String(values[6]) : "sent",
+            provider: values[7] ? String(values[7]) : "brevo",
+            provider_message_id: values[8] ? String(values[8]) : null,
+            error_message: values[9] ? String(values[9]) : null,
+            created_at: values[10] ? String(values[10]) : new Date().toISOString(),
+            sent_at: values[11] ? String(values[11]) : null,
+          };
+          _mockEmailLogs.unshift(newLog);
+          return [newLog];
+        }
       }
 
       return [];
@@ -1006,6 +1570,174 @@ export async function ensureDbSchema() {
       try {
         const rows = await sql`SELECT 1 FROM products LIMIT 1`;
         if (rows && rows.length > 0) {
+            // Ensure invoices and invoice_sequences tables exist
+          try {
+            await sql`
+              CREATE TABLE IF NOT EXISTS invoices (
+                id TEXT PRIMARY KEY,
+                order_id TEXT UNIQUE NOT NULL,
+                order_number TEXT NOT NULL,
+                invoice_number TEXT UNIQUE NOT NULL,
+                invoice_date TEXT NOT NULL,
+                invoice_title TEXT NOT NULL DEFAULT 'TAX INVOICE',
+                seller_details TEXT NOT NULL DEFAULT '{}',
+                customer_details TEXT NOT NULL DEFAULT '{}',
+                items_snapshot TEXT NOT NULL DEFAULT '[]',
+                totals_snapshot TEXT NOT NULL DEFAULT '{}',
+                tax_breakup TEXT NOT NULL DEFAULT '{}',
+                currency TEXT NOT NULL DEFAULT 'INR',
+                payment_method TEXT NOT NULL DEFAULT 'COD',
+                payment_status TEXT NOT NULL DEFAULT 'Pending',
+                place_of_supply TEXT,
+                state_code TEXT,
+                pdf_storage_key TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`
+              CREATE TABLE IF NOT EXISTS invoice_sequences (
+                year INTEGER PRIMARY KEY,
+                last_seq INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+
+            // Ensure rate_limits and password_resets tables exist for authentication security
+            await sql`
+              CREATE TABLE IF NOT EXISTS rate_limits (
+                key TEXT PRIMARY KEY,
+                attempts INTEGER NOT NULL DEFAULT 1,
+                first_attempt_at INTEGER NOT NULL,
+                last_attempt_at INTEGER NOT NULL,
+                blocked_until INTEGER DEFAULT NULL,
+                expires_at INTEGER NOT NULL
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON rate_limits (expires_at)`;
+
+            await sql`
+              CREATE TABLE IF NOT EXISTS password_resets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                email TEXT NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
+                used_at TEXT DEFAULT NULL,
+                ip_address TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets (token_hash)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets (email, expires_at)`;
+
+            // Ensure email_logs and email_otps exist for Brevo integration
+            await sql`
+              CREATE TABLE IF NOT EXISTS email_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                order_id TEXT,
+                email_type TEXT NOT NULL,
+                recipient TEXT NOT NULL,
+                sender TEXT NOT NULL,
+                status TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'brevo',
+                provider_message_id TEXT,
+                error_message TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                sent_at TEXT
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_created ON email_logs (created_at DESC)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_type ON email_logs (email_type)`;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_logs_order ON email_logs (order_id)`;
+
+            await sql`
+              CREATE TABLE IF NOT EXISTS email_otps (
+                id TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                otp TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+              )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS idx_email_otps_lookup ON email_otps (email, purpose, expires_at)`;
+
+            // Ensure orders table has invoice fields for fast query lookup
+            try {
+              await sql`ALTER TABLE orders ADD COLUMN invoice_number TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE orders ADD COLUMN invoice_date TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`CREATE INDEX IF NOT EXISTS idx_orders_invoice_number ON orders (invoice_number)`;
+            } catch {
+              /* index may already exist */
+            }
+
+            // Ensure products table has sku and seo fields for rich product page content
+            try {
+              await sql`ALTER TABLE products ADD COLUMN sku TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN seo_title TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN seo_description TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            // Ensure products table has dedicated showcase fields for FRONT & BACK images
+            try {
+              await sql`ALTER TABLE products ADD COLUMN front_showcase_image TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN back_showcase_image TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN front_showcase_title TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN front_showcase_subtitle TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN back_showcase_title TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN back_showcase_subtitle TEXT`;
+            } catch {
+              /* column may already exist */
+            }
+
+            // Ensure reviews table and initial authentic reviews are seeded
+            try {
+              await seedInitialReviewsIfNeeded(sql);
+            } catch {
+              /* non-fatal */
+            }
+          } catch {
+            /* tables or columns setup handled */
+          }
           _schemaInitialized = true;
           return;
         }

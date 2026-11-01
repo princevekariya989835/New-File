@@ -193,7 +193,9 @@ export function AuthPage() {
         toast.error(res.error || "Failed to send reset code.");
         return;
       }
-      toast.success(`Password reset code sent to ${email.trim()}`);
+      toast.success(
+        res.message || "If an account exists, password recovery instructions have been sent.",
+      );
       setMode("forgot_verify");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send reset code.");
@@ -418,7 +420,9 @@ export function AuthPage() {
             {mode === "forgot_verify" && (
               <>
                 <h2>Set New Password</h2>
-                <p className="subtitle">Enter the 6-digit code sent to {email}</p>
+                <p className="subtitle">
+                  Enter the 6-digit code sent to {email}, or use the recovery link in your email.
+                </p>
 
                 <form onSubmit={handleVerifyAndResetPassword}>
                   <div>

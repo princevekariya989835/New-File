@@ -1,8 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
-import { ensureDbSchema, getSql } from "@/lib/db";
-import { sendOrderConfirmation } from "@/lib/email";
-import { sendTemplateEmail } from "@/lib/email-templates/send-email";
+import {
+  sendOrderConfirmation,
+  sendAdminNewOrderNotification,
+  sendAdminPaymentEventNotification,
+  sendOrderCancelled,
+} from "@/lib/email";
 import {
   deductOrderInventory,
   restoreOrderInventory,
@@ -11,11 +14,6 @@ import {
 import { validateAndCalculateCoupon } from "@/lib/coupons.functions";
 import { calculateBuy2Get1Discount } from "@/lib/promotions";
 import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
-import {
-  createRazorpayOrder,
-  verifyRazorpayPaymentSignature,
-  getRazorpayKeyId,
-} from "@/lib/razorpay.server";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
 
@@ -92,14 +90,23 @@ export function getFallbackProductImageByName(name: string | null): string | nul
   if (!name) return null;
   const cleanName = name.toLowerCase().trim();
   // 1. Exact or substring match
-  let fb = FALLBACK_PRODUCTS.find((p) => {
+  const fb = FALLBACK_PRODUCTS.find((p) => {
     const pName = p.name.toLowerCase().trim();
     return pName === cleanName || cleanName.includes(pName) || pName.includes(cleanName);
   });
   if (fb?.images?.[0]) return fb.images[0];
 
   // 2. Score by matching distinctive words
-  const GENERIC = new Set(["tee", "shirt", "t-shirt", "graphic", "oversized", "tee-shirt", "cotton", "printed"]);
+  const GENERIC = new Set([
+    "tee",
+    "shirt",
+    "t-shirt",
+    "graphic",
+    "oversized",
+    "tee-shirt",
+    "cotton",
+    "printed",
+  ]);
   const words = cleanName
     .split(/[\s\-_]+/)
     .map((w) => w.trim())
@@ -149,10 +156,7 @@ export function resolveOrderItemImage(options: {
 
   // Priority 2: Stored order product image snapshot (historical snapshot)
   // Must NOT be a broken placeholder, numeric corrupted count, or object string
-  if (
-    options.orderProductImage &&
-    typeof options.orderProductImage === "string"
-  ) {
+  if (options.orderProductImage && typeof options.orderProductImage === "string") {
     const trimmed = options.orderProductImage.trim();
     const isCorrupted =
       trimmed.length < 4 ||
@@ -226,6 +230,8 @@ export type CustomerOrder = {
   shippedAt: string | null;
   deliveredAt: string | null;
   cancelledAt: string | null;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
   lineItems: OrderLineItem[];
 };
 
@@ -261,7 +267,9 @@ export const getMyOrders = createServerFn({ method: "GET" })
       const sql = getSql();
       const authCtx = context as any;
       const userId = String(authCtx.userId || "");
-      const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+      const userEmail = String(authCtx.user?.email || "")
+        .toLowerCase()
+        .trim();
 
       // Opportunistic safe link: if legacy orders exist with matching verified email but unassigned user_id, associate them
       if (userId && userEmail) {
@@ -277,34 +285,99 @@ export const getMyOrders = createServerFn({ method: "GET" })
         }
       }
 
-      const orders = await sql`
-        SELECT id, order_number, created_at, subtotal, discount_amount, discount_code,
-          shipping_charge, tax_amount, total_amount, currency, status, payment_status,
-          payment_method, shipping_name, shipping_email, shipping_phone, shipping_address,
-          billing_address, courier_name, tracking_number, tracking_url,
-          shipped_at, delivered_at, cancelled_at
-        FROM orders
-        WHERE user_id::text = ${userId}
-           OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
-           OR (user_id::text = ${userEmail})
-        ORDER BY created_at DESC
-      `;
+      let orders: any[] = [];
+      try {
+        // Primary query: loads orders and joins invoices table to ensure invoice data is always available
+        orders = await sql`
+          SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+            o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+            o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+            o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+            o.shipped_at, o.delivered_at, o.cancelled_at, o.invoice_number, o.invoice_date,
+            inv.invoice_number as inv_table_invoice_number, inv.invoice_date as inv_table_invoice_date
+          FROM orders o
+          LEFT JOIN invoices inv ON o.id::text = inv.order_id::text
+          WHERE o.user_id::text = ${userId}
+             OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+             OR (o.user_id::text = ${userEmail})
+          ORDER BY o.created_at DESC
+        `;
+      } catch (colErr: any) {
+        console.warn(
+          "[Orders] Primary orders query with invoice columns failed, falling back to base columns + invoices join:",
+          colErr?.message,
+        );
+        try {
+          // Fallback 1: If orders table does not yet have invoice_number/invoice_date columns,
+          // retrieve base fields and join invoices table so invoice details are still populated seamlessly
+          orders = await sql`
+            SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+              o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+              o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+              o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+              o.shipped_at, o.delivered_at, o.cancelled_at,
+              inv.invoice_number as inv_table_invoice_number, inv.invoice_date as inv_table_invoice_date
+            FROM orders o
+            LEFT JOIN invoices inv ON o.id::text = inv.order_id::text
+            WHERE o.user_id::text = ${userId}
+               OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+               OR (o.user_id::text = ${userEmail})
+            ORDER BY o.created_at DESC
+          `;
+        } catch (joinErr: any) {
+          console.warn(
+            "[Orders] Invoices join query failed, falling back to basic orders select:",
+            joinErr?.message,
+          );
+          // Fallback 2: Base columns only without joining invoices
+          orders = await sql`
+            SELECT o.id, o.order_number, o.created_at, o.subtotal, o.discount_amount, o.discount_code,
+              o.shipping_charge, o.tax_amount, o.total_amount, o.currency, o.status, o.payment_status,
+              o.payment_method, o.shipping_name, o.shipping_email, o.shipping_phone, o.shipping_address,
+              o.billing_address, o.courier_name, o.tracking_number, o.tracking_url,
+              o.shipped_at, o.delivered_at, o.cancelled_at
+            FROM orders o
+            WHERE o.user_id::text = ${userId}
+               OR (o.user_id IS NULL AND LOWER(o.shipping_email) = ${userEmail})
+               OR (o.user_id::text = ${userEmail})
+            ORDER BY o.created_at DESC
+          `;
+        }
+      }
 
-      if (orders.length === 0) return [];
+      if (!orders || orders.length === 0) return [];
 
-      const items = await sql`
-        SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
-          i.design_submission_id, d.preview_data_url, p.images as product_images_json
-        FROM order_items i
-        LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
-        LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
-        WHERE i.order_id IN (
-          SELECT id FROM orders
-          WHERE user_id::text = ${userId}
-             OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
-             OR (user_id::text = ${userEmail})
-        )
-      `;
+      const orderIds = orders.map((o: any) => String(o.id));
+      let items: any[] = [];
+      try {
+        items = await sql`
+          SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
+            i.design_submission_id, d.preview_data_url, p.images as product_images_json
+          FROM order_items i
+          LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+          LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
+          WHERE i.order_id::text = ANY(${orderIds}::text[])
+        `;
+      } catch (itemErr: any) {
+        console.warn("[Orders] Items by ANY failed, falling back to IN query:", itemErr?.message);
+        try {
+          items = await sql`
+            SELECT i.order_id, i.product_id, i.product_name, i.product_image, i.quantity, i.price, i.selected_size, i.selected_color,
+              i.design_submission_id, d.preview_data_url, p.images as product_images_json
+            FROM order_items i
+            LEFT JOIN design_submissions d ON i.design_submission_id::text = d.id::text
+            LEFT JOIN products p ON (i.product_id::text = p.id::text OR i.product_id::text = p.slug::text OR (i.product_id IS NULL AND LOWER(p.name) = LOWER(i.product_name)))
+            WHERE i.order_id IN (
+              SELECT id FROM orders
+              WHERE user_id::text = ${userId}
+                 OR (user_id IS NULL AND LOWER(shipping_email) = ${userEmail})
+                 OR (user_id::text = ${userEmail})
+            )
+          `;
+        } catch {
+          items = [];
+        }
+      }
 
       const itemsByOrderId = new Map<string, OrderLineItem[]>();
       for (const item of items as any[]) {
@@ -332,6 +405,8 @@ export const getMyOrders = createServerFn({ method: "GET" })
 
       return orders.map((o: any) => {
         const currency = o.currency || "INR";
+        const invNumber = o.invoice_number || o.inv_table_invoice_number || null;
+        const invDate = o.invoice_date || o.inv_table_invoice_date || null;
         return {
           id: String(o.id),
           name: o.order_number,
@@ -361,6 +436,8 @@ export const getMyOrders = createServerFn({ method: "GET" })
           shippedAt: o.shipped_at ? new Date(o.shipped_at).toISOString() : null,
           deliveredAt: o.delivered_at ? new Date(o.delivered_at).toISOString() : null,
           cancelledAt: o.cancelled_at ? new Date(o.cancelled_at).toISOString() : null,
+          invoiceNumber: invNumber,
+          invoiceDate: invDate ? new Date(invDate).toISOString() : null,
           lineItems: itemsByOrderId.get(String(o.id)) || [],
         };
       });
@@ -380,14 +457,23 @@ export const placeOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
-    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
+    if (d.items.length > 50)
+      throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
+      shippingPhone: d.shippingPhone
+        ? String(d.shippingPhone)
+            .replace(/[^\d+\-\s()]/g, "")
+            .slice(0, 20)
+        : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      shipping: Number.isFinite(d.shipping)
+        ? Number(d.shipping)
+        : d?.shipping !== undefined && Number.isFinite(Number(d.shipping))
+          ? Number(d.shipping)
+          : undefined,
       discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
       subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
       taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
@@ -536,8 +622,15 @@ export const placeOrder = createServerFn({ method: "POST" })
     const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
 
     // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
-    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const clientShipping = Number.isFinite(Number(data.shipping))
+      ? Number(data.shipping)
+      : undefined;
+    const shipping =
+      finalSubtotal >= 1999 || finalSubtotal === 0
+        ? 0
+        : clientShipping !== undefined && clientShipping >= 0
+          ? clientShipping
+          : 79;
     const taxAmount = 0;
     const total = Math.max(0, finalSubtotal + shipping + taxAmount);
     const finalAmount = total;
@@ -589,7 +682,11 @@ export const placeOrder = createServerFn({ method: "POST" })
 
       if (!updateRes || updateRes.length === 0) {
         // Rollback inventory reservation if coupon slot was snatched concurrently
-        await restoreOrderInventory(orderId, "Coupon limit reached during checkout", authCtx.userId).catch(() => {});
+        await restoreOrderInventory(
+          orderId,
+          "Coupon limit reached during checkout",
+          authCtx.userId,
+        ).catch(() => {});
         throw new Error("The coupon has reached its maximum usage limit or has expired.");
       }
     }
@@ -602,7 +699,7 @@ export const placeOrder = createServerFn({ method: "POST" })
         payment_method, stock_state, shipping_name, shipping_email, shipping_phone, shipping_address
       ) VALUES (
         ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount}, ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
-        ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)}, ${eligibleAmount}, ${subtotal}, ${finalSubtotal},
+        ${appliedCoupon ? appliedCoupon.discountType : b2g1Discount > 0 ? "B2G1" : null}, ${appliedCoupon ? appliedCoupon.discountValue : b2g1Discount > 0 ? b2g1Discount : null}, ${eligibleAmount}, ${subtotal}, ${finalSubtotal},
         ${shipping}, ${taxAmount}, ${total}, ${data.currency}, 'Pending', 'Pending', 'COD', 'Deducted',
         ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
       );
@@ -666,60 +763,76 @@ export const placeOrder = createServerFn({ method: "POST" })
       })),
     };
 
-    // Send customer order confirmation via Brevo (fire and forget)
-    sendOrderConfirmation({
-      to: data.shippingEmail,
-      orderNumber,
-      orderId,
-      customerName: data.shippingName,
-      shippingAddress: data.shippingAddress,
-      items: items.map((i) => ({
-        name: i.productName,
-        quantity: i.quantity,
-        size: i.selectedSize ?? null,
-        color: i.selectedColor ?? null,
-        price: i.price.toLocaleString("en-IN"),
-      })),
-      subtotal: subtotal.toLocaleString("en-IN"),
-      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
-      discountCode: appliedCoupon ? appliedCoupon.code : null,
-      shippingCharge: shipping.toLocaleString("en-IN"),
-      total: total.toLocaleString("en-IN"),
-      currency: "₹",
-      paymentMethod: "Cash on Delivery (COD)",
-      paymentStatus: "Confirmed",
-      userId: customerUserId,
-    }).catch((err) => console.warn("[Order Service] Customer email notice:", err));
+    // Automatically generate invoice for the order
+    let invoiceNumber: string | null = null;
+    let invoiceDate: string | null = null;
+    try {
+      const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
+      const inv = await getOrCreateInvoiceForOrder(orderId);
+      invoiceNumber = inv.invoiceNumber;
+      invoiceDate = inv.invoiceDate;
+    } catch (invErr) {
+      console.warn("[Invoice] Auto generation warning on placeOrder:", invErr);
+    }
 
-    // Send store owner / admin notification via legacy template (fire and forget)
-    const adminTemplateData = {
-      orderNumber,
-      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      customerName: data.shippingName,
-      customerEmail: data.shippingEmail,
-      customerPhone: data.shippingPhone || null,
-      shippingAddress: data.shippingAddress,
-      paymentMethod: "Cash on Delivery (COD)",
-      subtotal: subtotal.toLocaleString("en-IN"),
-      discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
-      couponCode: appliedCoupon ? appliedCoupon.code : null,
-      shippingCharge: shipping.toLocaleString("en-IN"),
-      total: total.toLocaleString("en-IN"),
-      currency: data.currency,
-      hasCustomDesign: items.some((i) => !!i.designSubmissionId),
-      items: items.map((i) => ({
-        name: i.productName,
-        quantity: i.quantity,
-        size: i.selectedSize || null,
-        color: i.selectedColor || null,
-        price: i.price.toLocaleString("en-IN"),
-        subtotal: i.subtotal.toLocaleString("en-IN"),
-        isCustomDesign: !!i.designSubmissionId,
-      })),
-    };
-    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-      templateData: adminTemplateData,
-    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+    // Dispatch customer order confirmation and admin notifications (awaited to ensure Cloudflare Worker delivers)
+    try {
+      await Promise.allSettled([
+        sendOrderConfirmation({
+          to: data.shippingEmail,
+          orderNumber,
+          orderId,
+          invoiceNumber: invoiceNumber ?? undefined,
+          customerName: data.shippingName,
+          shippingAddress: data.shippingAddress,
+          items: items.map((i) => ({
+            name: i.productName,
+            quantity: i.quantity,
+            size: i.selectedSize ?? null,
+            color: i.selectedColor ?? null,
+            price: i.price.toLocaleString("en-IN"),
+          })),
+          subtotal: subtotal.toLocaleString("en-IN"),
+          discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
+          discountCode: appliedCoupon ? appliedCoupon.code : null,
+          shippingCharge: shipping.toLocaleString("en-IN"),
+          total: total.toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Cash on Delivery (COD)",
+          paymentStatus: "Confirmed",
+          userId: customerUserId,
+        }),
+        sendAdminNewOrderNotification({
+          orderNumber,
+          orderId,
+          createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          customerName: data.shippingName,
+          customerEmail: data.shippingEmail,
+          customerPhone: data.shippingPhone || null,
+          shippingAddress: data.shippingAddress,
+          paymentMethod: "Cash on Delivery (COD)",
+          paymentStatus: "Pending",
+          subtotal: subtotal.toLocaleString("en-IN"),
+          discountAmount: safeDiscountAmount > 0 ? safeDiscountAmount.toLocaleString("en-IN") : null,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          shippingCharge: shipping.toLocaleString("en-IN"),
+          total: total.toLocaleString("en-IN"),
+          currency: data.currency,
+          hasCustomDesign: items.some((i) => !!i.designSubmissionId),
+          items: items.map((i) => ({
+            name: i.productName,
+            quantity: i.quantity,
+            size: i.selectedSize || null,
+            color: i.selectedColor || null,
+            price: i.price.toLocaleString("en-IN"),
+            subtotal: i.subtotal.toLocaleString("en-IN"),
+            isCustomDesign: !!i.designSubmissionId,
+          })),
+        }),
+      ]);
+    } catch (err) {
+      console.warn("[Order Service] Order email notice:", err);
+    }
 
     // Automated Forward Shipment fulfillment via Zippyy
     syncOrderToZippyy(orderId).catch((err) =>
@@ -730,6 +843,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       ok: true,
       orderId,
       orderNumber,
+      invoiceNumber: invoiceNumber ?? undefined,
+      invoiceDate: invoiceDate ?? undefined,
       subtotal,
       total,
       finalAmount,
@@ -749,14 +864,23 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const address = str(d?.shippingAddress, 1000);
     if (!name || !email || !address) throw new Error("Missing shipping details");
     if (!Array.isArray(d.items) || d.items.length === 0) throw new Error("Your bag is empty");
-    if (d.items.length > 50) throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
+    if (d.items.length > 50)
+      throw new Error("Order item limit exceeded (maximum 50 items allowed per order).");
     return {
       shippingName: name,
       shippingEmail: email,
-      shippingPhone: d.shippingPhone ? String(d.shippingPhone).replace(/[^\d+\-\s()]/g, "").slice(0, 20) : null,
+      shippingPhone: d.shippingPhone
+        ? String(d.shippingPhone)
+            .replace(/[^\d+\-\s()]/g, "")
+            .slice(0, 20)
+        : null,
       shippingAddress: address,
       currency: str(d.currency, 8) || "INR",
-      shipping: Number.isFinite(d.shipping) ? Number(d.shipping) : (d?.shipping !== undefined && Number.isFinite(Number(d.shipping)) ? Number(d.shipping) : undefined),
+      shipping: Number.isFinite(d.shipping)
+        ? Number(d.shipping)
+        : d?.shipping !== undefined && Number.isFinite(Number(d.shipping))
+          ? Number(d.shipping)
+          : undefined,
       discountAmount: Number.isFinite(Number(d?.discountAmount)) ? Number(d.discountAmount) : 0,
       subtotal: Number.isFinite(Number(d?.subtotal)) ? Number(d.subtotal) : undefined,
       taxAmount: Number.isFinite(Number(d?.taxAmount)) ? Number(d.taxAmount) : 0,
@@ -905,8 +1029,15 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
     const finalSubtotal = Math.max(0, subtotal - safeDiscountAmount);
 
     // Respect client dynamic shipping quote (e.g. ₹45) or free shipping >= 1999, fallback to 79
-    const clientShipping = Number.isFinite(Number(data.shipping)) ? Number(data.shipping) : undefined;
-    const shipping = finalSubtotal >= 1999 || finalSubtotal === 0 ? 0 : (clientShipping !== undefined && clientShipping >= 0 ? clientShipping : 79);
+    const clientShipping = Number.isFinite(Number(data.shipping))
+      ? Number(data.shipping)
+      : undefined;
+    const shipping =
+      finalSubtotal >= 1999 || finalSubtotal === 0
+        ? 0
+        : clientShipping !== undefined && clientShipping >= 0
+          ? clientShipping
+          : 79;
     const taxAmount = 0;
     const total = Math.max(0, finalSubtotal + shipping + taxAmount);
     const finalAmount = total;
@@ -926,7 +1057,10 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
 
     // Create Razorpay Order via official API
     let razorpayOrder: any;
+    let activeRazorpayKeyId = "";
     try {
+      const { createRazorpayOrder, getRazorpayKeyId } = await import("@/lib/razorpay.server");
+      activeRazorpayKeyId = getRazorpayKeyId();
       razorpayOrder = await createRazorpayOrder({
         amountInPaise,
         currency: "INR",
@@ -940,7 +1074,9 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       });
     } catch (rzpErr: any) {
       console.error("[Orders] Failed to create Razorpay order:", rzpErr);
-      throw new Error(rzpErr.message || "Failed to initialize payment with Razorpay. Please try again.");
+      throw new Error(
+        rzpErr.message || "Failed to initialize payment with Razorpay. Please try again.",
+      );
     }
 
     // Record order in database in Pending payment state
@@ -955,15 +1091,22 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
         ) VALUES (
           ${orderId}, ${customerUserId}, ${orderNumber}, ${subtotal}, ${safeDiscountAmount},
           ${discountCode}, ${appliedCoupon ? appliedCoupon.id : null},
-          ${appliedCoupon ? appliedCoupon.discountType : (b2g1Discount > 0 ? 'B2G1' : null)}, ${appliedCoupon ? appliedCoupon.discountValue : (b2g1Discount > 0 ? b2g1Discount : null)},
+          ${appliedCoupon ? appliedCoupon.discountType : b2g1Discount > 0 ? "B2G1" : null}, ${appliedCoupon ? appliedCoupon.discountValue : b2g1Discount > 0 ? b2g1Discount : null},
           ${eligibleAmount}, ${subtotal}, ${finalSubtotal}, ${shipping}, ${taxAmount}, ${total}, ${data.currency},
           'Pending', 'Pending', 'Online Payment', 'Pending', ${razorpayOrder.id}, 'Razorpay',
           ${data.shippingName}, ${data.shippingEmail}, ${data.shippingPhone}, ${data.shippingAddress}
         );
       `;
     } catch (insertErr: any) {
-      if (insertErr?.message?.includes("payment_gateway") || insertErr?.message?.includes("razorpay") || insertErr?.message?.includes("column")) {
-        console.warn("[Orders] Adding missing columns to orders relation dynamically:", insertErr?.message);
+      if (
+        insertErr?.message?.includes("payment_gateway") ||
+        insertErr?.message?.includes("razorpay") ||
+        insertErr?.message?.includes("column")
+      ) {
+        console.warn(
+          "[Orders] Adding missing columns to orders relation dynamically:",
+          insertErr?.message,
+        );
         try {
           await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'Razorpay'`;
           await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT`;
@@ -1012,7 +1155,7 @@ export const createOnlineOrder = createServerFn({ method: "POST" })
       orderId,
       orderNumber,
       razorpayOrderId: razorpayOrder.id,
-      razorpayKeyId: getRazorpayKeyId(),
+      razorpayKeyId: activeRazorpayKeyId,
       amount: amountInPaise,
       currency: "INR",
       customerName: data.shippingName,
@@ -1045,10 +1188,16 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     razorpaySignature: String(d?.razorpaySignature || "").trim(),
   }))
   .handler(async ({ data, context }) => {
-    if (!data.orderId || !data.razorpayOrderId || !data.razorpayPaymentId || !data.razorpaySignature) {
+    if (
+      !data.orderId ||
+      !data.razorpayOrderId ||
+      !data.razorpayPaymentId ||
+      !data.razorpaySignature
+    ) {
       throw new Error("Missing required payment verification parameters.");
     }
 
+    const { verifyRazorpayPaymentSignature } = await import("@/lib/razorpay.server");
     const isValid = verifyRazorpayPaymentSignature({
       razorpayOrderId: data.razorpayOrderId,
       razorpayPaymentId: data.razorpayPaymentId,
@@ -1057,7 +1206,9 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
 
     if (!isValid) {
       console.error("[Orders] Invalid Razorpay signature:", data);
-      throw new Error("Payment signature verification failed. Please contact support if your money was debited.");
+      throw new Error(
+        "Payment signature verification failed. Please contact support if your money was debited.",
+      );
     }
 
     await ensureDbSchema();
@@ -1084,11 +1235,16 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
     }
 
     // IDOR check: verify that the user verifying the payment owns the order (or has matching email for guest checkout)
-    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+    const userEmail = String(authCtx.user?.email || "")
+      .toLowerCase()
+      .trim();
     if (
       order.user_id &&
       String(order.user_id) !== String(authCtx.userId) &&
-      (!userEmail || String(order.shipping_email || "").toLowerCase().trim() !== userEmail)
+      (!userEmail ||
+        String(order.shipping_email || "")
+          .toLowerCase()
+          .trim() !== userEmail)
     ) {
       throw new Error("Unauthorized: You do not have permission to verify this order.");
     }
@@ -1186,60 +1342,91 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       ON CONFLICT (user_id) DO UPDATE SET items = '[]'::jsonb, updated_at = NOW();
     `;
 
-    // Dispatch customer confirmation email via Brevo (fire and forget)
-    sendOrderConfirmation({
-      to: String(order.shipping_email),
-      orderNumber: String(order.order_number),
-      orderId: String(order.id),
-      customerName: String(order.shipping_name),
-      shippingAddress: String(order.shipping_address),
-      items: (orderItems as any[]).map((i) => ({
-        name: i.product_name,
-        quantity: Number(i.quantity || 1),
-        size: i.selected_size ?? null,
-        color: i.selected_color ?? null,
-        price: Number(i.price || 0).toLocaleString("en-IN"),
-      })),
-      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
-      discountCode: order.discount_code || null,
-      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-      currency: "₹",
-      paymentMethod: "Online Payment (Razorpay)",
-      paymentStatus: "Paid",
-      userId: String(authCtx.userId),
-    }).catch((err) => console.warn("[Order Service] Customer email notice on online payment:", err));
+    // Automatically generate invoice for the paid online order
+    let invoiceNumber: string | null = null;
+    try {
+      const { getOrCreateInvoiceForOrder } = await import("@/lib/invoice/invoice.server");
+      const inv = await getOrCreateInvoiceForOrder(String(order.id));
+      invoiceNumber = inv.invoiceNumber;
+    } catch (invErr) {
+      console.warn("[Invoice] Auto generation warning on verifyOnlineOrderPayment:", invErr);
+    }
 
-    // Send store owner / admin notification
-    const adminTemplateData = {
-      orderNumber: String(order.order_number),
-      createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-      customerName: String(order.shipping_name),
-      customerEmail: String(order.shipping_email),
-      customerPhone: order.shipping_phone || null,
-      shippingAddress: String(order.shipping_address),
-      paymentMethod: "Online Payment (Razorpay)",
-      subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-      discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
-      couponCode: order.discount_code || null,
-      shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-      total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-      currency: "INR",
-      hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
-      items: (orderItems as any[]).map((i) => ({
-        name: i.product_name,
-        quantity: Number(i.quantity || 1),
-        size: i.selected_size || null,
-        color: i.selected_color || null,
-        price: Number(i.price || 0).toLocaleString("en-IN"),
-        subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
-        isCustomDesign: !!i.design_submission_id,
-      })),
-    };
-    sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-      templateData: adminTemplateData,
-    }).catch((err) => console.warn("[Order Service] Admin email notice:", err));
+    // Dispatch customer confirmation, admin order notification, and admin payment confirmation (awaited)
+    try {
+      await Promise.allSettled([
+        sendOrderConfirmation({
+          to: String(order.shipping_email),
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          invoiceNumber: invoiceNumber ?? undefined,
+          customerName: String(order.shipping_name),
+          shippingAddress: String(order.shipping_address),
+          items: (orderItems as any[]).map((i) => ({
+            name: i.product_name,
+            quantity: Number(i.quantity || 1),
+            size: i.selected_size ?? null,
+            color: i.selected_color ?? null,
+            price: Number(i.price || 0).toLocaleString("en-IN"),
+          })),
+          subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+          discountAmount:
+            Number(order.discount_amount || 0) > 0
+              ? Number(order.discount_amount).toLocaleString("en-IN")
+              : null,
+          discountCode: order.discount_code || null,
+          shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+          total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Online Payment (Razorpay)",
+          paymentStatus: "Paid",
+          userId: String(authCtx.userId),
+        }),
+        sendAdminNewOrderNotification({
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          customerName: String(order.shipping_name),
+          customerEmail: String(order.shipping_email),
+          customerPhone: order.shipping_phone || null,
+          shippingAddress: String(order.shipping_address),
+          paymentMethod: "Online Payment (Razorpay)",
+          paymentStatus: "Paid",
+          subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+          discountAmount:
+            Number(order.discount_amount || 0) > 0
+              ? Number(order.discount_amount).toLocaleString("en-IN")
+              : null,
+          couponCode: order.discount_code || null,
+          shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+          total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "INR",
+          hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
+          items: (orderItems as any[]).map((i) => ({
+            name: i.product_name,
+            quantity: Number(i.quantity || 1),
+            size: i.selected_size || null,
+            color: i.selected_color || null,
+            price: Number(i.price || 0).toLocaleString("en-IN"),
+            subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
+            isCustomDesign: !!i.design_submission_id,
+          })),
+        }),
+        sendAdminPaymentEventNotification({
+          orderNumber: String(order.order_number),
+          orderId: String(order.id),
+          customerName: String(order.shipping_name),
+          customerEmail: String(order.shipping_email),
+          amount: Number(order.total_amount || 0).toLocaleString("en-IN"),
+          currency: "₹",
+          paymentMethod: "Online Payment (Razorpay)",
+          transactionId: data.razorpayPaymentId || null,
+          status: "success",
+        }),
+      ]);
+    } catch (err) {
+      console.warn("[Order Service] Online payment emails notice:", err);
+    }
 
     // Automated Forward Shipment fulfillment via Zippyy
     syncOrderToZippyy(String(order.id)).catch((err) =>
@@ -1250,6 +1437,7 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       ok: true,
       orderId: String(order.id),
       orderNumber: String(order.order_number),
+      invoiceNumber: invoiceNumber ?? undefined,
       total: Number(order.total_amount || 0),
     };
   });
@@ -1272,6 +1460,31 @@ export const recordPaymentFailure = createServerFn({ method: "POST" })
         WHERE id::text = ${data.orderId}
           AND payment_status = 'Pending'
       `;
+
+      // Notify administrator of failed payment event
+      try {
+        const orderRows = await sql`
+          SELECT id, order_number, shipping_name, shipping_email, total_amount, currency
+          FROM orders WHERE id::text = ${data.orderId} LIMIT 1
+        `;
+        if (orderRows.length > 0) {
+          const ord = orderRows[0];
+          await sendAdminPaymentEventNotification({
+            orderNumber: String(ord.order_number || ord.id),
+            orderId: String(ord.id),
+            customerName: String(ord.shipping_name || "Customer"),
+            customerEmail: String(ord.shipping_email || ""),
+            amount: Number(ord.total_amount || 0).toLocaleString("en-IN"),
+            currency: String(ord.currency || "₹"),
+            paymentMethod: "Online Payment (Razorpay)",
+            status: "failed",
+            failureReason: data.reason,
+          });
+        }
+      } catch (adminNoticeErr) {
+        console.warn("[Orders] Payment failure admin notification warning:", adminNoticeErr);
+      }
+
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message };
@@ -1288,7 +1501,9 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     await ensureDbSchema();
     const sql = getSql();
     const authCtx = context as any;
-    const userEmail = String(authCtx.user?.email || "").toLowerCase().trim();
+    const userEmail = String(authCtx.user?.email || "")
+      .toLowerCase()
+      .trim();
     const rows = await sql`
       SELECT id, user_id, status, order_number FROM orders
       WHERE id::text = ${data.orderId}
@@ -1297,13 +1512,38 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
           OR user_id::text = ${userEmail})
       LIMIT 1
     `;
-    if (rows.length === 0) throw new Error("Order not found or you are not authorized to cancel it");
+    if (rows.length === 0)
+      throw new Error("Order not found or you are not authorized to cancel it");
     if (["Shipped", "Delivered", "Cancelled", "Returned"].includes(rows[0].status)) {
       throw new Error(
         `Order cannot be cancelled because it is already ${rows[0].status.toLowerCase()}`,
       );
     }
     const res = await restoreOrderInventory(data.orderId, data.reason, authCtx.userId);
+
+    // Send customer cancellation confirmation
+    try {
+      const emailRows = await sql`
+        SELECT id, order_number, shipping_email, shipping_name, total_amount, payment_status
+        FROM orders WHERE id::text = ${data.orderId} LIMIT 1
+      `;
+      if (emailRows.length > 0) {
+        const o = emailRows[0];
+        if (o.shipping_email) {
+          await sendOrderCancelled({
+            to: String(o.shipping_email),
+            orderNumber: String(o.order_number || o.id),
+            orderId: String(o.id),
+            customerName: String(o.shipping_name || "Customer"),
+            reason: data.reason,
+            refundNote: o.payment_status === "Paid" ? "Your payment refund will be initiated within 24-48 business hours." : null,
+            userId: authCtx.userId ? String(authCtx.userId) : null,
+          });
+        }
+      }
+    } catch (cancelEmailErr) {
+      console.warn("[Orders] Cancellation email notice:", cancelEmailErr);
+    }
+
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });
-

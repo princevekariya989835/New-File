@@ -150,8 +150,9 @@ async function executeZippyyLogin(config: ZippyyAuthConfig): Promise<string> {
         "x-api-version": "1",
       },
       body: JSON.stringify({
-        emailAddress,
-        password,
+        emailAddress: emailAddress,
+        email: emailAddress,
+        password: password,
       }),
     });
   } catch (netErr: any) {
@@ -300,8 +301,20 @@ export async function zippyyRequest<T>(
   }
 
   if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(errorBody.message || `Zippyy API request failed with HTTP ${res.status}`);
+    let errorDetail = "";
+    try {
+      const errorBody = await res.json();
+      if (Array.isArray(errorBody.message)) {
+        errorDetail = errorBody.message.join("; ");
+      } else if (typeof errorBody.message === "string") {
+        errorDetail = errorBody.message;
+      } else if (errorBody.error) {
+        errorDetail = typeof errorBody.error === "string" ? errorBody.error : JSON.stringify(errorBody.error);
+      }
+    } catch {
+      errorDetail = res.statusText;
+    }
+    throw new Error(errorDetail || `Zippyy API request failed with HTTP ${res.status}`);
   }
 
   return res.json();

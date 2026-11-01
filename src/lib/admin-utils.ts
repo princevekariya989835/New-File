@@ -256,6 +256,8 @@ export type ProductOfferInput = {
 
 export type ProductInput = {
   title: string;
+  sku?: string | null;
+  slug?: string | null;
   description?: string;
   detailsHtml?: string | null;
   price: string | number;
@@ -297,6 +299,12 @@ export type ProductInput = {
     sleeve: string | number;
     toFitChest?: string | number;
   }>;
+  frontShowcaseImage?: string | null;
+  backShowcaseImage?: string | null;
+  frontShowcaseTitle?: string | null;
+  frontShowcaseSubtitle?: string | null;
+  backShowcaseTitle?: string | null;
+  backShowcaseSubtitle?: string | null;
 };
 
 function cleanList(list?: string[]) {
@@ -484,6 +492,8 @@ export function normalizeProductInput(d: ProductInput) {
 
   return {
     name: title,
+    sku: d.sku?.trim() ? d.sku.trim() : null,
+    slug: d.slug?.trim() ? slugify(d.slug.trim()) : null,
     description: d.description?.trim() ? d.description.trim() : null,
     details_html: d.detailsHtml?.trim() ? d.detailsHtml.trim() : null,
     price,
@@ -512,6 +522,12 @@ export function normalizeProductInput(d: ProductInput) {
     care_instructions: careInstructions,
     manufacturing_info: manufacturingInfo,
     size_measurements: sizeMeasurements,
+    front_showcase_image: d.frontShowcaseImage?.trim() ? d.frontShowcaseImage.trim() : null,
+    back_showcase_image: d.backShowcaseImage?.trim() ? d.backShowcaseImage.trim() : null,
+    front_showcase_title: d.frontShowcaseTitle?.trim() ? d.frontShowcaseTitle.trim() : null,
+    front_showcase_subtitle: d.frontShowcaseSubtitle?.trim() ? d.frontShowcaseSubtitle.trim() : null,
+    back_showcase_title: d.backShowcaseTitle?.trim() ? d.backShowcaseTitle.trim() : null,
+    back_showcase_subtitle: d.backShowcaseSubtitle?.trim() ? d.backShowcaseSubtitle.trim() : null,
   };
 }
 

@@ -20,7 +20,12 @@
   ],
   "vars": {
     "EMAIL_FROM": "RIOTOUS <order@riotous.store>",
-    "EMAIL_MODE": "production"
+    "EMAIL_MODE": "production",
+    "ZIPPYY_BASE_URL": "https://sellingpartnerapi-in.zippyy.ai",
+    "ZIPPYY_PICKUP_PINCODE": "395006",
+    "ZIPPYY_LOCATION_ID": "1ee605b9-d07e-47d4-a887-64a9e728ef50",
+    "ZIPPYY_DEFAULT_WAREHOUSE_ID": "1ee605b9-d07e-47d4-a887-64a9e728ef50",
+    "ZIPPYY_SANDBOX_MODE": "false"
   },
   "observability": {
     "enabled": true

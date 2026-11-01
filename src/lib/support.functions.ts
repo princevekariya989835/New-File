@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth-middleware";
 import { ensureDbSchema, getSql } from "@/lib/db";
+import { sendAdminSupportInquiryNotification } from "@/lib/email";
 
 export type SupportRequest = {
   id: string;
@@ -79,6 +80,22 @@ export const submitSupportRequest = createServerFn({ method: "POST" })
         ${reqId}, ${authCtx.userId}, ${data.request_type}, ${data.order_name || null}, ${data.reason || null}, ${data.details}, ${data.contact_email || authCtx.user?.email || "Customer"}
       );
     `;
+
+    // Notify store owner of customer support inquiry (awaited)
+    const customerEmail = data.contact_email || authCtx.user?.email || "customer@riotous.store";
+    try {
+      await sendAdminSupportInquiryNotification({
+        inquiryId: reqId,
+        requestType: data.request_type,
+        customerName: authCtx.user?.fullName || null,
+        customerEmail,
+        orderName: data.order_name || null,
+        reason: data.reason || null,
+        details: data.details,
+      });
+    } catch (supportEmailErr) {
+      console.warn("[Support] Admin inquiry notification warning:", supportEmailErr);
+    }
 
     return { ok: true, id: reqId };
   });

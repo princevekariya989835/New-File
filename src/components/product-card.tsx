@@ -162,25 +162,25 @@ export function ProductCard({
           />
         </button>
       </div>
-      <div className="mt-3.5 flex flex-col px-1">
+      <div className="mt-3 flex flex-col w-full text-left">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate leading-none">
+          {p.productType || <BrandName />}
+        </p>
         <h2
-          className="line-clamp-2 h-10 sm:h-11 text-sm font-medium leading-snug text-foreground overflow-hidden"
+          className="mt-1.5 line-clamp-2 text-sm sm:text-base font-semibold leading-snug text-foreground"
           title={p.title}
         >
           {p.title}
         </h2>
-        <p className="mt-1 h-4 truncate text-xs text-muted-foreground leading-normal">{p.productType || <BrandName />}</p>
         <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <div className="flex items-baseline gap-1.5 sm:gap-2">
-            <span className="whitespace-nowrap text-sm font-bold text-foreground sm:text-base">
-              {formatPrice(price.amount, price.currencyCode)}
+          <span className="whitespace-nowrap text-sm font-bold text-foreground sm:text-base">
+            {formatPrice(price.amount, price.currencyCode)}
+          </span>
+          {hasValidMrp && (
+            <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
+              {formatPrice(mrpNumber!, price.currencyCode)}
             </span>
-            {hasValidMrp && (
-              <span className="whitespace-nowrap text-xs font-normal text-muted-foreground line-through">
-                {formatPrice(mrpNumber!, price.currencyCode)}
-              </span>
-            )}
-          </div>
+          )}
           {hasValidMrp && discountPercentage != null && discountPercentage > 0 && (
             <span className="whitespace-nowrap text-xs font-bold text-brand-red">
               {discountPercentage}% OFF

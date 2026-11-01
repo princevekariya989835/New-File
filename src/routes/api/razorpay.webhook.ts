@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { verifyRazorpayWebhookSignature } from "@/lib/razorpay.server";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { deductOrderInventory } from "@/lib/inventory.service";
-import { sendOrderConfirmation } from "@/lib/email";
-import { sendTemplateEmail } from "@/lib/email-templates/send-email";
+import {
+  sendOrderConfirmation,
+  sendAdminNewOrderNotification,
+  sendAdminPaymentEventNotification,
+} from "@/lib/email";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 
 export const Route = createFileRoute("/api/razorpay/webhook")({
@@ -21,6 +23,7 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
             });
           }
 
+          const { verifyRazorpayWebhookSignature } = await import("@/lib/razorpay.server");
           const isValid = verifyRazorpayWebhookSignature({
             rawBody,
             signature,
@@ -67,7 +70,9 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
 
                 if (order.payment_status !== "Paid") {
                   const expectedPaise = Math.round(Number(order.total_amount || 0) * 100);
-                  const actualPaise = paymentEntity?.amount ? Number(paymentEntity.amount) : expectedPaise;
+                  const actualPaise = paymentEntity?.amount
+                    ? Number(paymentEntity.amount)
+                    : expectedPaise;
                   if (actualPaise < expectedPaise) {
                     console.error("[Razorpay Webhook] Captured amount is less than order total:", {
                       expectedPaise,
@@ -146,60 +151,82 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                     }
                   }
 
-                  // Send customer confirmation email
-                  sendOrderConfirmation({
-                    to: String(order.shipping_email),
-                    orderNumber: String(order.order_number),
-                    orderId: String(order.id),
-                    customerName: String(order.shipping_name),
-                    shippingAddress: String(order.shipping_address),
-                    items: (orderItems as any[]).map((i) => ({
-                      name: i.product_name,
-                      quantity: Number(i.quantity || 1),
-                      size: i.selected_size ?? null,
-                      color: i.selected_color ?? null,
-                      price: Number(i.price || 0).toLocaleString("en-IN"),
-                    })),
-                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-                    discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
-                    discountCode: order.discount_code || null,
-                    shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-                    total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-                    currency: "₹",
-                    paymentMethod: "Online Payment (Razorpay)",
-                    paymentStatus: "Paid",
-                    userId: String(order.user_id || ""),
-                  }).catch((err) => console.warn("[Razorpay Webhook] Customer email error:", err));
-
-                  // Send admin notification
-                  const adminTemplateData = {
-                    orderNumber: String(order.order_number),
-                    createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-                    customerName: String(order.shipping_name),
-                    customerEmail: String(order.shipping_email),
-                    customerPhone: order.shipping_phone || null,
-                    shippingAddress: String(order.shipping_address),
-                    paymentMethod: "Online Payment (Razorpay)",
-                    subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
-                    discountAmount: Number(order.discount_amount || 0) > 0 ? Number(order.discount_amount).toLocaleString("en-IN") : null,
-                    couponCode: order.discount_code || null,
-                    shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
-                    total: Number(order.total_amount || 0).toLocaleString("en-IN"),
-                    currency: "INR",
-                    hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
-                    items: (orderItems as any[]).map((i) => ({
-                      name: i.product_name,
-                      quantity: Number(i.quantity || 1),
-                      size: i.selected_size || null,
-                      color: i.selected_color || null,
-                      price: Number(i.price || 0).toLocaleString("en-IN"),
-                      subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
-                      isCustomDesign: !!i.design_submission_id,
-                    })),
-                  };
-                  sendTemplateEmail("admin-order-notification", "princevekariya9898@gmail.com", {
-                    templateData: adminTemplateData,
-                  }).catch((err) => console.warn("[Razorpay Webhook] Admin email notice:", err));
+                  // Dispatch customer confirmation, admin order notification, and payment success alert (awaited)
+                  try {
+                    await Promise.allSettled([
+                      sendOrderConfirmation({
+                        to: String(order.shipping_email),
+                        orderNumber: String(order.order_number),
+                        orderId: String(order.id),
+                        customerName: String(order.shipping_name),
+                        shippingAddress: String(order.shipping_address),
+                        items: (orderItems as any[]).map((i) => ({
+                          name: i.product_name,
+                          quantity: Number(i.quantity || 1),
+                          size: i.selected_size ?? null,
+                          color: i.selected_color ?? null,
+                          price: Number(i.price || 0).toLocaleString("en-IN"),
+                        })),
+                        subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString(
+                          "en-IN",
+                        ),
+                        discountAmount:
+                          Number(order.discount_amount || 0) > 0
+                            ? Number(order.discount_amount).toLocaleString("en-IN")
+                            : null,
+                        discountCode: order.discount_code || null,
+                        shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+                        total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+                        currency: "₹",
+                        paymentMethod: "Online Payment (Razorpay)",
+                        paymentStatus: "Paid",
+                        userId: String(order.user_id || ""),
+                      }),
+                      sendAdminNewOrderNotification({
+                        orderNumber: String(order.order_number),
+                        orderId: String(order.id),
+                        createdAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+                        customerName: String(order.shipping_name),
+                        customerEmail: String(order.shipping_email),
+                        customerPhone: order.shipping_phone || null,
+                        shippingAddress: String(order.shipping_address),
+                        paymentMethod: "Online Payment (Razorpay)",
+                        paymentStatus: "Paid",
+                        subtotal: Number(order.subtotal || order.total_amount || 0).toLocaleString("en-IN"),
+                        discountAmount:
+                          Number(order.discount_amount || 0) > 0
+                            ? Number(order.discount_amount).toLocaleString("en-IN")
+                            : null,
+                        couponCode: order.discount_code || null,
+                        shippingCharge: Number(order.shipping_charge || 0).toLocaleString("en-IN"),
+                        total: Number(order.total_amount || 0).toLocaleString("en-IN"),
+                        currency: "INR",
+                        hasCustomDesign: (orderItems as any[]).some((i) => !!i.design_submission_id),
+                        items: (orderItems as any[]).map((i) => ({
+                          name: i.product_name,
+                          quantity: Number(i.quantity || 1),
+                          size: i.selected_size || null,
+                          color: i.selected_color || null,
+                          price: Number(i.price || 0).toLocaleString("en-IN"),
+                          subtotal: Number(i.subtotal || 0).toLocaleString("en-IN"),
+                          isCustomDesign: !!i.design_submission_id,
+                        })),
+                      }),
+                      sendAdminPaymentEventNotification({
+                        orderNumber: String(order.order_number),
+                        orderId: String(order.id),
+                        customerName: String(order.shipping_name),
+                        customerEmail: String(order.shipping_email),
+                        amount: Number(order.total_amount || 0).toLocaleString("en-IN"),
+                        currency: "₹",
+                        paymentMethod: "Online Payment (Razorpay)",
+                        transactionId: rzpPaymentId || null,
+                        status: "success",
+                      }),
+                    ]);
+                  } catch (err) {
+                    console.warn("[Razorpay Webhook] Email notice error:", err);
+                  }
 
                   // Automated Forward Shipment fulfillment via Zippyy
                   syncOrderToZippyy(String(order.id)).catch((err) =>
@@ -222,6 +249,30 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
                 WHERE razorpay_order_id::text = ${rzpOrderId}
                   AND payment_status = 'Pending'
               `;
+
+              // Send admin alert for failed webhook payment
+              try {
+                const failedOrders = await sql`
+                  SELECT id, order_number, shipping_name, shipping_email, total_amount, currency
+                  FROM orders WHERE razorpay_order_id::text = ${rzpOrderId} LIMIT 1
+                `;
+                if (failedOrders.length > 0) {
+                  const fo = failedOrders[0];
+                  await sendAdminPaymentEventNotification({
+                    orderNumber: String(fo.order_number || fo.id),
+                    orderId: String(fo.id),
+                    customerName: String(fo.shipping_name || "Customer"),
+                    customerEmail: String(fo.shipping_email || ""),
+                    amount: Number(fo.total_amount || 0).toLocaleString("en-IN"),
+                    currency: String(fo.currency || "₹"),
+                    paymentMethod: "Online Payment (Razorpay)",
+                    status: "failed",
+                    failureReason: errorDesc,
+                  });
+                }
+              } catch (failEmailErr) {
+                console.warn("[Razorpay Webhook] Failed payment admin alert warning:", failEmailErr);
+              }
             }
           }
 
@@ -231,10 +282,13 @@ export const Route = createFileRoute("/api/razorpay/webhook")({
           });
         } catch (error: any) {
           console.error("[Razorpay Webhook] Error processing webhook:", error);
-          return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ error: error?.message || "Internal server error" }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
       },
     },
