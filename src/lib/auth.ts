@@ -454,7 +454,7 @@ export const requestPasswordResetServerFn = createServerFn({ method: "POST" })
     };
 
     if (!data.email || !data.email.includes("@")) {
-      return { ok: false, error: "Please enter a valid email address." };
+      return { ok: false, error: "Please enter a valid email address.", message: "Please enter a valid email address." };
     }
 
     try {

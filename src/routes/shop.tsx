@@ -27,6 +27,7 @@ type ShopSearch = {
   q?: string;
   size?: string;
   sort?: string;
+  category?: string;
 };
 
 export const Route = createFileRoute("/shop")({
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/shop")({
     q: typeof search.q === "string" ? search.q : undefined,
     size: typeof search.size === "string" ? search.size : undefined,
     sort: typeof search.sort === "string" ? search.sort : undefined,
+    category: typeof search.category === "string" ? search.category : undefined,
   }),
   head: () => ({
     meta: [
@@ -159,6 +161,10 @@ function ShopPage() {
 
   const filtered = useMemo(() => {
     let list = products;
+    if (searchParams.category?.trim()) {
+      const cat = searchParams.category.toLowerCase().trim();
+      list = list.filter((p) => p.node.productType?.toLowerCase() === cat);
+    }
     if (q.trim()) {
       const term = q.toLowerCase().trim();
       list = list.filter(
@@ -196,7 +202,7 @@ function ShopPage() {
       arr.sort((a, b) => a.node.title.localeCompare(b.node.title));
     }
     return arr;
-  }, [products, sort, size, q]);
+  }, [products, sort, size, q, searchParams.category]);
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">

@@ -136,7 +136,7 @@ export const Route = createFileRoute("/product/$handle")({
                 rel: "preload",
                 as: "image",
                 href: rawImg,
-                fetchPriority: "high",
+                fetchPriority: "high" as const,
               },
             ]
           : []),

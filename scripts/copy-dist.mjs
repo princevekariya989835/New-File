@@ -37,6 +37,13 @@ if (fs.existsSync(outputDir)) {
         if (config.assets && typeof config.assets === "object") {
           config.assets.directory = "../public";
         }
+        const rootWrangler = JSON.parse(fs.readFileSync(path.join(root, "wrangler.json"), "utf8"));
+        if (rootWrangler.vars) {
+          config.vars = { ...rootWrangler.vars, ...config.vars };
+        }
+        if (rootWrangler.observability) {
+          config.observability = rootWrangler.observability;
+        }
         fs.writeFileSync(wPath, JSON.stringify(config, null, 2), "utf8");
       } catch (err) {
         console.warn(`Could not patch ${wPath}:`, err);

@@ -48,45 +48,13 @@ import {
   Ticket,
   Activity,
   Tag,
-<<<<<<< HEAD
   FolderTree,
   Sparkles,
-=======
   ChevronDown,
->>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
 } from "lucide-react";
 
 function AdminPendingShell() {
   return (
-<<<<<<< HEAD
-    <div className="min-h-screen pt-16 md:pt-20">
-      <div className="mx-auto flex max-w-[1600px]">
-        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] w-60 shrink-0 border-r bg-card/40 md:block p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ShieldCheck className="h-4 w-4 text-brand-red" /> Admin
-          </div>
-          <nav className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
-            <div className="rounded-lg bg-brand-red text-white font-semibold px-3 py-2">Dashboard</div>
-            <div className="px-3 py-2">Orders</div>
-            <div className="px-3 py-2">Products</div>
-            <div className="px-3 py-2">Categories</div>
-            <div className="px-3 py-2">Inventory</div>
-          </nav>
-        </aside>
-        <div className="min-w-0 flex-1">
-          <div className="sticky top-16 z-40 flex items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur md:top-20">
-            <span className="text-sm font-semibold text-foreground">Store Management Console</span>
-            <div className="h-8 w-8 rounded-full bg-brand-red/80 text-xs font-bold text-white flex items-center justify-center">
-              A
-            </div>
-          </div>
-          <main className="px-4 py-6 md:px-6">
-            <div className="rounded-2xl border border-border/60 bg-card p-6">
-              <h1 className="text-2xl font-bold tracking-tight">Admin Console</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Connecting to management console…</p>
-            </div>
-          </main>
-=======
     <div className="min-h-screen flex bg-[#0c0c0e]">
       {/* Dark Sidebar Skeleton */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#0c0c0e] border-r border-zinc-800/60 h-screen sticky top-0 p-4">
@@ -95,7 +63,6 @@ function AdminPendingShell() {
           <span className="block text-[9px] font-bold tracking-[0.25em] text-zinc-500 uppercase mt-1">
             ADMIN PANEL
           </span>
->>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
         </div>
         <div className="mt-2 flex flex-col gap-1 text-sm">
           <div className="rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold px-3.5 py-2.5 text-xs shadow-md shadow-red-950/40">

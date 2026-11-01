@@ -1931,8 +1931,6 @@ export function ProductForm({
               className="mt-1"
             />
           </div>
-<<<<<<< HEAD
-
           <div>
             <Label className="text-xs font-semibold">Subcategory</Label>
             <Input
@@ -1953,8 +1951,6 @@ export function ProductForm({
             />
           </div>
 
-          <div className="flex flex-col justify-center gap-2 pt-1">
-=======
           <div>
             <Label className="text-xs font-semibold">SKU (Stock Keeping Unit)</Label>
             <Input
@@ -1964,6 +1960,7 @@ export function ProductForm({
               className="mt-1"
             />
           </div>
+
           <div>
             <Label className="text-xs font-semibold">URL Slug / Handle</Label>
             <Input
@@ -1973,8 +1970,8 @@ export function ProductForm({
               className="mt-1"
             />
           </div>
-          <div className="flex items-center pt-2 sm:col-span-2">
->>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
+
+          <div className="flex flex-col justify-center gap-2 pt-1 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none font-medium">
               <input
                 type="checkbox"

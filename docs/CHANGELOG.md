@@ -4,7 +4,17 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ---
 
-## [Current Release] — 2026-10-22
+## [Current Release] — 2026-11-01
+
+### Complete Cloudflare Workers Build & Deployment Audit
+- **Git Merge Conflict Resolution**: Resolved unmerged raw git conflict markers in src/lib/catalog.ts, src/lib/admin.functions.ts, src/components/admin/product-ui.tsx, src/routes/_authenticated/admin/products.tsx, and src/routes/_authenticated/admin/route.tsx.
+- **TypeScript Compiler Repairs**: Fixed missing imports, ProductRow types, logServerSyncEvent payloads, ShopSearch search params, and link fetchPriority type casting.
+- **Cloudflare Nitro Wrangler Sync**: Updated scripts/copy-dist.mjs to sync all vars and observability from root wrangler.json to .output/server/wrangler.json.
+- **Verification**: Confirmed clean npm ci, 0 errors on npx tsc --noEmit, successful npm run build, and valid bindings via npx wrangler deploy --dry-run.
+
+---
+
+## [Previous Release] — 2026-10-22
 
 ### Complete Brevo Email Integration Audit, Edge Workers Hardening & Multi-Workflow Fix
 - **Brevo Exclusive Email Provider**: Completely removed Resend, SendGrid, and other fallbacks. Brevo official API (`POST https://api.brevo.com/v3/smtp/email`) is now the exclusive transactional gateway across RIOTOUS.

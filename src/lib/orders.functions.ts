@@ -16,6 +16,7 @@ import { calculateBuy2Get1Discount } from "@/lib/promotions";
 import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
+import { getSql, ensureDbSchema } from "@/lib/db";
 
 export function extractPrimaryImage(images: unknown): string | null {
   if (!images) return null;

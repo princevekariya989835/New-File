@@ -821,12 +821,8 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
           SELECT 
             p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
             p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
-<<<<<<< HEAD
             p.currency, p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-=======
-            p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
             p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle,
->>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
             COALESCE(
               (
                 SELECT jsonb_agg(jsonb_build_object(

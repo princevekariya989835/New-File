@@ -819,18 +819,11 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-<<<<<<< HEAD
-            id, name, slug, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, subcategory, collection, department, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements
-          ) VALUES (
-            ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
-            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
-=======
-            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements,
+            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, subcategory, collection, department, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements,
             front_showcase_image, back_showcase_image, front_showcase_title, front_showcase_subtitle, back_showcase_title, back_showcase_subtitle
           ) VALUES (
             ${productId}, ${values.name}, ${slug}, ${values.sku || null}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
-            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${JSON.stringify(values.sizes)}::jsonb,
->>>>>>> 2e4fc30eb76ab4ab444db0a5117c250fd34c5de6
+            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
             ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb,
@@ -1273,19 +1266,23 @@ export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
         department: data.department,
       });
 
-      logServerSyncEvent("BULK_DEPARTMENT_UPDATE", {
+      logServerSyncEvent("ADMIN_MUTATION", {
         operation: "adminBulkUpdateDepartment",
-        department: data.department,
-        count: data.productIds.length,
         status: "SUCCESS",
+        details: {
+          department: data.department,
+          count: data.productIds.length,
+        },
       });
 
       return { ok: true, count: data.productIds.length, department: data.department };
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "adminBulkUpdateDepartment",
-        department: data.department,
         status: "FAILED",
+        details: {
+          department: data.department,
+        },
         error: err?.message || String(err),
       });
       throw new Error(`Bulk department transfer failed: ${err?.message || String(err)}`);

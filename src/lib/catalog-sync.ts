@@ -7,7 +7,8 @@ export type CatalogSyncEvent =
   | { type: "PRODUCT_DELETED"; productId: string; timestamp: number }
   | { type: "PRODUCT_STATUS_CHANGED"; productId: string; status: "ACTIVE" | "DRAFT"; timestamp: number }
   | { type: "INVENTORY_CHANGED"; productId?: string; variantId?: string; timestamp: number }
-  | { type: "WEBSITE_CONFIG_UPDATED"; timestamp: number };
+  | { type: "WEBSITE_CONFIG_UPDATED"; timestamp: number }
+  | { type: "CATALOG_MUTATION"; mutationType?: string; timestamp: number };
 
 const CHANNEL_NAME = "riotous_catalog_sync";
 
