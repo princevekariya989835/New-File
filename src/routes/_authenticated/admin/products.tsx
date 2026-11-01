@@ -104,8 +104,16 @@ function ProductsPage() {
     mutationFn: async ({ productIds, department }: { productIds: string[]; department: "men" | "women" | "unisex" }) => {
       return await bulkDeptFn({ data: { productIds, department } });
     },
-    onSuccess: (res) => {
-      toast.success(`Successfully moved ${res?.count || selectedProductIds.length} products to ${bulkTargetDept.toUpperCase()}`);
+    onSuccess: (res: any) => {
+      if (res?.failedCount && res.failedCount > 0) {
+        toast.warning(
+          `Moved ${res.count} product(s) to ${bulkTargetDept.toUpperCase()} (${res.failedCount} failed/not found)`,
+        );
+      } else {
+        toast.success(
+          `Successfully moved ${res?.count || selectedProductIds.length} product(s) to ${bulkTargetDept.toUpperCase()}`,
+        );
+      }
       broadcastCatalogUpdate({
         type: "CATALOG_MUTATION",
         mutationType: "BULK_DEPARTMENT_UPDATE",

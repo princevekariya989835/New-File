@@ -1225,14 +1225,20 @@ export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: any) => {
     const raw = unwrapInput(d);
-    const validDepts = ["men", "women", "unisex"];
+    const validDepts = ["men", "women", "unisex"] as const;
     const dept = String(raw?.department || "").toLowerCase().trim();
-    if (!validDepts.includes(dept)) {
+    if (!validDepts.includes(dept as any)) {
       throw new Error("Invalid department. Must be 'men', 'women', or 'unisex'.");
     }
-    const productIds = Array.isArray(raw?.productIds)
-      ? raw.productIds.map((id: any) => String(id).trim()).filter(Boolean)
-      : [];
+    const rawIds = Array.isArray(raw?.productIds) ? raw.productIds : [];
+    // Sanitize, filter empty/null, and deduplicate product IDs
+    const productIds: string[] = Array.from(
+      new Set(
+        rawIds
+          .map((id: any) => (id !== null && id !== undefined ? String(id).trim() : ""))
+          .filter((id: string): id is string => id.length > 0),
+      ),
+    );
     if (productIds.length === 0) {
       throw new Error("No products selected for department transfer.");
     }
@@ -1243,14 +1249,49 @@ export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     await assertAdmin(context as any, "products", "edit");
+    await ensureDbSchema();
     const sql = getSql();
 
+    const CHUNK_SIZE = 50;
+    const allUpdatedRows: any[] = [];
+
     try {
-      await sql`
-        UPDATE products 
-        SET department = ${data.department}, updated_at = NOW() 
-        WHERE id IN (${data.productIds})
-      `;
+      // Chunk execution into batches of 50 to guarantee never hitting parameter limits
+      for (let i = 0; i < data.productIds.length; i += CHUNK_SIZE) {
+        const chunk = data.productIds.slice(i, i + CHUNK_SIZE);
+        const rows = await sql`
+          UPDATE products 
+          SET department = ${data.department}, updated_at = NOW() 
+          WHERE id IN (${chunk})
+          RETURNING id, name, department
+        `;
+        if (Array.isArray(rows)) {
+          allUpdatedRows.push(...rows);
+        }
+      }
+
+      // Safe verification if RETURNING returns empty on non-standard engines
+      if (allUpdatedRows.length === 0) {
+        for (let i = 0; i < data.productIds.length; i += CHUNK_SIZE) {
+          const chunk = data.productIds.slice(i, i + CHUNK_SIZE);
+          const verified = await sql`
+            SELECT id, name, department FROM products 
+            WHERE id IN (${chunk}) AND department = ${data.department}
+          `;
+          if (Array.isArray(verified)) {
+            allUpdatedRows.push(...verified);
+          }
+        }
+      }
+
+      const updatedIdSet = new Set<string>(allUpdatedRows.map((r: any) => String(r.id)));
+      const failedIds: string[] = data.productIds.filter((id: string) => !updatedIdSet.has(id));
+
+      if (allUpdatedRows.length === 0) {
+        throw new Error(
+          `No products were updated. None of the ${data.productIds.length} selected product IDs were found in the database.`,
+        );
+      }
 
       try {
         await sql`UPDATE store_settings SET updated_at = NOW() WHERE id = 'default'`;
@@ -1261,8 +1302,11 @@ export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
       invalidateCatalogCache();
 
       await logAudit(context as any, "product.bulk_department_transfer", "products", data.department, {
-        count: data.productIds.length,
+        count: allUpdatedRows.length,
+        totalRequested: data.productIds.length,
         productIds: data.productIds,
+        updatedIds: Array.from(updatedIdSet),
+        failedIds,
         department: data.department,
       });
 
@@ -1271,17 +1315,26 @@ export const adminBulkUpdateDepartment = createServerFn({ method: "POST" })
         status: "SUCCESS",
         details: {
           department: data.department,
-          count: data.productIds.length,
+          count: allUpdatedRows.length,
+          failedCount: failedIds.length,
         },
       });
 
-      return { ok: true, count: data.productIds.length, department: data.department };
+      return {
+        ok: true,
+        count: allUpdatedRows.length,
+        totalRequested: data.productIds.length,
+        failedCount: failedIds.length,
+        failedIds,
+        department: data.department,
+      };
     } catch (err: any) {
       logServerSyncEvent("DATABASE_ERROR", {
         operation: "adminBulkUpdateDepartment",
         status: "FAILED",
         details: {
           department: data.department,
+          productIds: data.productIds,
         },
         error: err?.message || String(err),
       });

@@ -4,6 +4,15 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 12: Fix Bulk Department Transfer D1_ERROR & SQLite Row Value Misuse
+- **Date**: 2026-11-01
+- **Objective**: Fix the `D1_ERROR: row value misused: SQLITE_ERROR` occurring during bulk department transfers in the admin dashboard, ensure parameterized SQL is constructed safely for Cloudflare D1 and Neon PostgreSQL, preserve all product inventory and variant data, and verify with comprehensive automated tests.
+- **Files Modified**: `src/lib/db.ts`, `src/lib/admin.functions.ts`, `src/routes/_authenticated/admin/products.tsx`, `docs/CHANGELOG.md`, `docs/TASK_HISTORY.md`.
+- **Tests Performed**: Automated test suite verifying D1 SQL translation without double parens, input validation (empty array rejection, duplicate removal, invalid department rejection), multi-product transfers (Men to Women, Women to Men, Unisex), and data preservation (zero mutation of price, inventory, sizes, or variants).
+- **Outcome**: Administrators can now select and transfer any number of products (5, 10, 20, 50, 100+) between Men, Women, and Unisex with zero SQL errors and instant catalog reflection.
+
+---
+
 ## Task 11: Complete Cloudflare Workers Build & Deployment Audit
 - **Date**: 2026-11-01
 - **Objective**: Investigate and fix all existing build, compilation, type checking, and deployment issues affecting the RIOTOUS Cloudflare Workers hosting and Neon PostgreSQL / D1 database runtime.

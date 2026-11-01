@@ -6,6 +6,14 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-11-01
 
+### Fix Bulk Department Transfer D1_ERROR & SQLite Row Value Misuse
+- **D1 / SQLite Query Transformation Fix**: Resolved `D1_ERROR: row value misused: SQLITE_ERROR` in `src/lib/db.ts` (`transformPgSqlToD1`). When parameterized arrays were passed to `WHERE id IN (${productIds})`, double parentheses `IN ((?, ?))` were generated, which SQLite misinterprets as row-value tuples. Added `inParenMatch` logic to strip existing `IN (` and generate clean, single-parenthesized `WHERE id IN (?, ?)` with separate value bindings.
+- **Safe Chunked Parameter Execution**: In `src/lib/admin.functions.ts` (`adminBulkUpdateDepartment`), chunked updates into batches of 50 product IDs to prevent exceeding SQLite/D1 parameter limits when transferring 5, 10, 20, 50, or 100+ products.
+- **Strict Validation & Deduplication**: Added input sanitization to strip empty/null values, remove duplicate IDs via `Set`, strictly validate target department (`men`, `women`, `unisex`), and require admin permissions (`assertAdmin(context, 'products', 'edit')`).
+- **Data Preservation & Audit**: Confirmed queries ONLY update `department` and `updated_at`. Product IDs, names, slugs, prices, inventory, variants, sizes, and orders remain 100% untouched.
+- **Mock SQL Support**: Updated `mockSql` in `src/lib/db.ts` to support array-based multi-product ID updates for local development and offline unit tests.
+- **Frontend Feedback**: Updated `src/routes/_authenticated/admin/products.tsx` to handle partial/failed counts, show warning toasts if any product is not found, and display clear loading/confirmation states.
+
 ### Complete Cloudflare Workers Build & Deployment Audit
 - **Git Merge Conflict Resolution**: Resolved unmerged raw git conflict markers in src/lib/catalog.ts, src/lib/admin.functions.ts, src/components/admin/product-ui.tsx, src/routes/_authenticated/admin/products.tsx, and src/routes/_authenticated/admin/route.tsx.
 - **TypeScript Compiler Repairs**: Fixed missing imports, ProductRow types, logServerSyncEvent payloads, ShopSearch search params, and link fetchPriority type casting.

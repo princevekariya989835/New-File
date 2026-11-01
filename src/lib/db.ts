@@ -579,12 +579,23 @@ function transformPgSqlToD1(strings: TemplateStringsArray | string[] | string, v
         const val = values[i];
         if (Array.isArray(val)) {
           const anyMatch = rawSql.match(/(=?\s*ANY\s*\(\s*)$/i);
+          const inParenMatch = rawSql.match(/(\b(?:NOT\s+)?IN\s*\(\s*)$/i);
           if (anyMatch) {
             rawSql = rawSql.slice(0, -anyMatch[1].length);
             if (val.length === 0) {
               rawSql += "IN (NULL)";
             } else {
               rawSql += `IN (${val.map(() => "?").join(", ")})`;
+              finalBindings.push(...val);
+            }
+            stripNextClosingParen = true;
+          } else if (inParenMatch) {
+            const matchedKeyword = inParenMatch[1].trim().replace(/\($/, "").trim().toUpperCase();
+            rawSql = rawSql.slice(0, -inParenMatch[1].length);
+            if (val.length === 0) {
+              rawSql += `${matchedKeyword} (NULL)`;
+            } else {
+              rawSql += `${matchedKeyword} (${val.map(() => "?").join(", ")})`;
               finalBindings.push(...val);
             }
             stripNextClosingParen = true;
@@ -1324,45 +1335,64 @@ export function getSql() {
 
       // UPDATE products
       if (lower.includes("update products")) {
-        let found: any = null;
+        const targets: any[] = [];
         for (let i = values.length - 1; i >= 0; i--) {
-          const val = String(values[i] || "")
-            .toLowerCase()
-            .trim();
-          if (!val) continue;
-          found = _mockProducts.find(
-            (p) => String(p.id).toLowerCase() === val || String(p.slug).toLowerCase() === val,
-          );
-          if (found) break;
-        }
-
-        if (found) {
-          const assignmentRegex =
-            /([a-zA-Z0-9_]+)\s*=\s*(?:COALESCE\(\s*)?(__VAL_(\d+)__|NULL|null|NOW\(\)|now\(\))/g;
-          let match: RegExpExecArray | null;
-          while ((match = assignmentRegex.exec(queryStr)) !== null) {
-            const field = match[1].toLowerCase();
-            const token = match[2];
-            const valIdxStr = match[3];
-
-            if (token === "NULL" || token === "null") {
-              found[field] = null;
-            } else if (valIdxStr !== undefined) {
-              const valIdx = parseInt(valIdxStr, 10);
-              let val = values[valIdx];
-              if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
-                try {
-                  val = JSON.parse(val);
-                } catch {
-                  /* keep as string */
+          const v = values[i];
+          if (Array.isArray(v)) {
+            const idSet = new Set(v.map((x) => String(x || "").toLowerCase().trim()).filter(Boolean));
+            for (const p of _mockProducts) {
+              if (idSet.has(String(p.id).toLowerCase()) || idSet.has(String(p.slug).toLowerCase())) {
+                if (!targets.some((t) => t.id === p.id)) {
+                  targets.push(p);
                 }
               }
-              found[field] = val;
+            }
+          } else {
+            const val = String(v || "").toLowerCase().trim();
+            if (!val) continue;
+            const match = _mockProducts.find(
+              (p) => String(p.id).toLowerCase() === val || String(p.slug).toLowerCase() === val,
+            );
+            if (match && !targets.some((t) => t.id === match.id)) {
+              targets.push(match);
+              break;
             }
           }
+        }
 
-          found.updated_at = new Date().toISOString();
-          return [found];
+        if (targets.length > 0) {
+          const assignmentRegex =
+            /([a-zA-Z0-9_]+)\s*=\s*(?:COALESCE\(\s*)?(__VAL_(\d+)__|NULL|null|NOW\(\)|now\(\))/g;
+          const assignments: { field: string; token: string; valIdx?: number }[] = [];
+          let match: RegExpExecArray | null;
+          while ((match = assignmentRegex.exec(queryStr)) !== null) {
+            assignments.push({
+              field: match[1].toLowerCase(),
+              token: match[2],
+              valIdx: match[3] !== undefined ? parseInt(match[3], 10) : undefined,
+            });
+          }
+
+          for (const target of targets) {
+            for (const { field, token, valIdx } of assignments) {
+              if (token === "NULL" || token === "null") {
+                target[field] = null;
+              } else if (valIdx !== undefined) {
+                let val = values[valIdx];
+                if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
+                  try {
+                    val = JSON.parse(val);
+                  } catch {
+                    /* keep as string */
+                  }
+                }
+                target[field] = val;
+              }
+            }
+            target.updated_at = new Date().toISOString();
+          }
+
+          return targets;
         }
         return [];
       }
