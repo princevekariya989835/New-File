@@ -122,10 +122,10 @@ export function getRecommendedProducts(
 export function ProductRecommendations({ currentProduct }: ProductRecommendationsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Use cached catalog products query
+  // Use cached catalog products query (lean 12 items for recommendations)
   const { data: rawProducts } = useQuery({
-    queryKey: ["products", "catalog", 50],
-    queryFn: () => fetchProducts(50),
+    queryKey: ["products", "catalog", 12],
+    queryFn: () => fetchProducts(12),
     staleTime: 1000 * 60 * 5,
   });
 

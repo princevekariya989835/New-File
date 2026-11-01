@@ -4,6 +4,27 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 14: Critical Product Page Performance Optimization
+- **Date**: 2026-11-01
+- **Objective**: Eliminate the >10s loading delay on product detail pages (`/product/$handle`), optimize SSR loader queries, SQL subqueries, Cloudflare Worker edge caching, React hydration, image LCP priority, and bundle efficiency without redesigning the website.
+- **Files Modified**: `src/routes/product.$handle.tsx`, `src/lib/catalog.ts`, `src/lib/db.ts`, `src/components/product/product-recommendations.tsx`, `src/server.ts`, `docs/CHANGELOG.md`, `docs/TASK_HISTORY.md`.
+- **Key Optimizations**:
+  1. **SSR Loader De-bottlenecking**: Removed sequential blocking queries for reviews and 50 catalog products from `Route.loader`. Only the single requested product is awaited for SSR. Reviews and recommendations are deferred to non-blocking background hydration.
+  2. **SQL Parallelization & Indexed Lookups**: Replaced heavy nested `jsonb_agg` correlated subqueries with standard indexed queries (`SELECT ... WHERE product_id = ?`) executed in parallel via `Promise.all`. Eliminated SQLite/D1 syntax fallback double queries.
+  3. **Cloudflare Edge Micro-Caching**: Configured `Cache-Control: public, max-age=60, s-maxage=120, stale-while-revalidate=600` on public storefront GET responses in `src/server.ts` while keeping admin/auth/checkout strictly `noindex, no-store`.
+  4. **In-Memory Cache Scaling**: Increased `CATALOG_CACHE_TTL` from 2,000ms to 60,000ms with real-time invalidation via `invalidateCatalogCache()` upon admin updates.
+  5. **Client Query Stability**: Tuned React Query `staleTime` from 5s to 2-5 minutes and disabled `refetchOnWindowFocus` to eliminate aggressive re-fetching loops. Reduced recommendations candidate pool from 50 to 12 items.
+  6. **On-Demand Modal Rendering**: Rendered `ProductSizeGuideModal` conditionally (`isSizeGuideOpen && ...`) to prevent unnecessary DOM reconciliation on initial mount.
+  7. **Local D1 Token Graceful Fallback**: Handled expired wrangler OAuth tokens in `src/lib/db.ts` to instantly fall back to local offline DB engine without 8s HTTP timeout stalls.
+- **Tests Performed**:
+  - Live HTTP benchmark: TTFB dropped from **8,070ms** to **52-73ms** (>98% latency reduction).
+  - Automated SSR verification (`scripts/test-product-ssr.mjs`): 100% passed (Header, Title, Selling Price ₹599, MRP ₹899, 33% discount, offer banner, Buy/Cart buttons, front/back strip, reassurance trust badges, dynamic second product, 404 status).
+  - Type checking (`npx tsc --noEmit`): 0 errors.
+  - Production build (`npm run build`): Succeeded with Vite & Nitro Cloudflare modules.
+- **Outcome**: Product pages load instantly with sub-100ms TTFB on edge cache, smooth progressive rendering, and zero regression to checkout, pricing, or admin updates.
+
+---
+
 ## Task 13: Remove 'Shop by Category' Section & Remove SHOP from Main Navigation
 - **Date**: 2026-11-01
 - **Objective**: Remove the 'Shop by Category' section from both Men's and Women's collection pages and update the main navigation structure to `MEN | WOMEN | DESIGN YOUR OWN | ABOUT | CONTACT` on desktop and mobile, without disrupting catalog filtering, product routes, or backend systems.

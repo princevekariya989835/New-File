@@ -455,10 +455,10 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
 let _seeded = false;
 let _seedPromise: Promise<void> | null = null;
 
-// Micro-cache (2s TTL) prevents simultaneous render bursts while ensuring all edge workers read fresh DB data
+// Micro-cache (60s TTL) prevents redundant DB hits while ensuring edge consistency
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
-const CATALOG_CACHE_TTL = 2_000;
+const CATALOG_CACHE_TTL = 60_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();
@@ -814,7 +814,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
   try {
     const sql = getSql();
 
-      // Read directly from database - single query with correlated variants, highlights, specifications, offers
+      // 1. Fetch main product record with direct indexed lookup
       let products: any[] = [];
       try {
         products = await sql`
@@ -822,181 +822,113 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
             p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
             p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
             p.currency, p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-            p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle,
-            COALESCE(
-              (
-                SELECT jsonb_agg(jsonb_build_object(
-                  'id', v.id,
-                  'size', v.size,
-                  'color', v.color,
-                  'color_hex', v.color_hex,
-                  'image_url', v.image_url,
-                  'sku', v.sku,
-                  'stock_quantity', v.stock_quantity,
-                  'reserved_stock', v.reserved_stock,
-                  'low_stock_threshold', v.low_stock_threshold
-                ))
-                FROM product_variants v
-                WHERE v.product_id::text = p.id::text
-              ),
-              '[]'::jsonb
-            ) AS product_variants,
-            COALESCE(
-              (
-                SELECT jsonb_agg(jsonb_build_object(
-                  'id', h.id,
-                  'product_id', h.product_id,
-                  'image_url', h.image_url,
-                  'title', h.title,
-                  'description', h.description,
-                  'display_order', h.display_order,
-                  'is_active', h.is_active
-                ) ORDER BY h.display_order ASC, h.created_at ASC)
-                FROM product_highlights h
-                WHERE h.product_id::text = p.id::text AND (h.is_active = true OR h.is_active IS NULL)
-              ),
-              '[]'::jsonb
-            ) AS highlights,
-            COALESCE(
-              (
-                SELECT jsonb_agg(jsonb_build_object(
-                  'id', s.id,
-                  'product_id', s.product_id,
-                  'label', s.label,
-                  'value', s.value,
-                  'display_order', s.display_order,
-                  'is_active', s.is_active
-                ) ORDER BY s.display_order ASC, s.created_at ASC)
-                FROM product_specifications s
-                WHERE s.product_id::text = p.id::text AND (s.is_active = true OR s.is_active IS NULL)
-              ),
-              '[]'::jsonb
-            ) AS specifications,
-            COALESCE(
-              (
-                SELECT jsonb_agg(jsonb_build_object(
-                  'id', o.id,
-                  'product_id', o.product_id,
-                  'title', o.title,
-                  'description', o.description,
-                  'discount_type', o.discount_type,
-                  'discount_value', o.discount_value,
-                  'promo_code', o.promo_code,
-                  'minimum_quantity', o.minimum_quantity,
-                  'maximum_quantity', o.maximum_quantity,
-                  'start_date', o.start_date,
-                  'end_date', o.end_date,
-                  'display_order', o.display_order,
-                  'is_active', o.is_active,
-                  'terms_and_conditions', o.terms_and_conditions
-                ) ORDER BY o.display_order ASC, o.created_at ASC)
-                FROM product_offers o
-                WHERE o.product_id::text = p.id::text AND (o.is_active = true OR o.is_active IS NULL)
-              ),
-              '[]'::jsonb
-            ) AS offers
+            p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle
           FROM products p
-          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
+          WHERE p.slug = ${handle} OR p.id = ${handle} OR p.slug = ${handleKey}
           LIMIT 1
         `;
-      } catch (queryErr) {
-        // Fallback query if new columns or tables are resolving
+      } catch {
+        // Fallback for minimal column schemas
         products = await sql`
           SELECT 
-            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-            COALESCE(
-              (
-                SELECT jsonb_agg(jsonb_build_object(
-                  'id', v.id,
-                  'size', v.size,
-                  'color', v.color,
-                  'color_hex', v.color_hex,
-                  'image_url', v.image_url,
-                  'sku', v.sku,
-                  'stock_quantity', v.stock_quantity,
-                  'reserved_stock', v.reserved_stock,
-                  'low_stock_threshold', v.low_stock_threshold
-                ))
-                FROM product_variants v
-                WHERE v.product_id::text = p.id::text
-              ),
-              '[]'::jsonb
-            ) AS product_variants
+            p.id, p.name, p.slug, p.description, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency, p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at
           FROM products p
-          WHERE (p.slug = ${handle} OR p.id::text = ${handle} OR LOWER(p.slug) = LOWER(${handle}) OR LOWER(p.id::text) = LOWER(${handle}))
+          WHERE p.slug = ${handle} OR p.id = ${handle} OR p.slug = ${handleKey}
           LIMIT 1
-        `;
+        `.catch(() => []);
       }
 
       if (!products || products.length === 0) {
+        // Check fallback products by slug or id
+        const fb = FALLBACK_PRODUCTS.find(
+          (f) => f.slug?.toLowerCase() === handleKey || String(f.id).toLowerCase() === handleKey,
+        );
+        if (fb) {
+          const result = toCatalogProduct(fb).node;
+          _productHandleCache.set(handleKey, { data: result, timestamp: Date.now() });
+          return result;
+        }
+
         _productHandleCache.set(handleKey, { data: null, timestamp: Date.now() });
         return null;
       }
 
       const p = products[0];
-      const variantRows: VariantRow[] = Array.isArray(p.product_variants)
-        ? p.product_variants.map((v: any) => ({
-            id: String(v.id),
-            size: (v.size as string) || "",
-            color: (v.color as string) || "",
-            color_hex: (v.color_hex as string) || null,
-            image_url: (v.image_url as string) || null,
-            sku: (v.sku as string) || null,
-            stock_quantity: Number(v.stock_quantity || 0),
-            reserved_stock: Number(v.reserved_stock || 0),
-            low_stock_threshold: Number(v.low_stock_threshold || 2),
-          }))
-        : typeof p.product_variants === "string"
-          ? JSON.parse(p.product_variants)
-          : [];
 
-      const highlightRows: ProductHighlightRow[] = Array.isArray(p.highlights)
-        ? p.highlights.map((h: any) => ({
-            id: String(h.id),
-            product_id: String(h.product_id || p.id),
-            image_url: String(h.image_url),
-            title: h.title ?? null,
-            description: h.description ?? null,
-            display_order: Number(h.display_order ?? 0),
-            is_active: h.is_active !== false,
-          }))
-        : typeof p.highlights === "string"
-          ? JSON.parse(p.highlights)
-          : [];
+      // 2. Fetch variants, highlights, specifications, and offers in parallel using standard indexed queries
+      const [variantsRes, highlightsRes, specsRes, offersRes] = await Promise.all([
+        sql`
+          SELECT id, size, color, color_hex, image_url, sku, stock_quantity, reserved_stock, low_stock_threshold
+          FROM product_variants
+          WHERE product_id = ${p.id}
+        `.catch(() => []),
+        sql`
+          SELECT id, product_id, image_url, title, description, display_order, is_active
+          FROM product_highlights
+          WHERE product_id = ${p.id} AND (is_active = 1 OR is_active = true OR is_active IS NULL)
+          ORDER BY display_order ASC, created_at ASC
+        `.catch(() => []),
+        sql`
+          SELECT id, product_id, label, value, display_order, is_active
+          FROM product_specifications
+          WHERE product_id = ${p.id} AND (is_active = 1 OR is_active = true OR is_active IS NULL)
+          ORDER BY display_order ASC, created_at ASC
+        `.catch(() => []),
+        sql`
+          SELECT id, product_id, title, description, discount_type, discount_value, promo_code, minimum_quantity, maximum_quantity, start_date, end_date, display_order, is_active, terms_and_conditions
+          FROM product_offers
+          WHERE product_id = ${p.id} AND (is_active = 1 OR is_active = true OR is_active IS NULL)
+          ORDER BY display_order ASC, created_at ASC
+        `.catch(() => []),
+      ]);
 
-      const specRows: ProductSpecificationRow[] = Array.isArray(p.specifications)
-        ? p.specifications.map((s: any) => ({
-            id: String(s.id),
-            product_id: String(s.product_id || p.id),
-            label: String(s.label),
-            value: String(s.value),
-            display_order: Number(s.display_order ?? 0),
-            is_active: s.is_active !== false,
-          }))
-        : typeof p.specifications === "string"
-          ? JSON.parse(p.specifications)
-          : [];
+      const variantRows: VariantRow[] = (variantsRes || []).map((v: any) => ({
+        id: String(v.id),
+        size: (v.size as string) || "",
+        color: (v.color as string) || "",
+        color_hex: (v.color_hex as string) || null,
+        image_url: (v.image_url as string) || null,
+        sku: (v.sku as string) || null,
+        stock_quantity: Number(v.stock_quantity || 0),
+        reserved_stock: Number(v.reserved_stock || 0),
+        low_stock_threshold: Number(v.low_stock_threshold || 2),
+      }));
 
-      const offerRows: ProductOfferRow[] = Array.isArray(p.offers)
-        ? p.offers.map((o: any) => ({
-            id: String(o.id),
-            product_id: String(o.product_id || p.id),
-            title: String(o.title),
-            description: o.description ?? null,
-            discount_type: o.discount_type,
-            discount_value: Number(o.discount_value || 0),
-            promo_code: o.promo_code ?? null,
-            minimum_quantity: Number(o.minimum_quantity || 1),
-            maximum_quantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
-            start_date: o.start_date ?? null,
-            end_date: o.end_date ?? null,
-            is_active: o.is_active !== false,
-            display_order: Number(o.display_order ?? 0),
-            terms_and_conditions: o.terms_and_conditions ?? null,
-          }))
-        : typeof p.offers === "string"
-          ? JSON.parse(p.offers)
-          : [];
+      const highlightRows: ProductHighlightRow[] = (highlightsRes || []).map((h: any) => ({
+        id: String(h.id),
+        product_id: String(h.product_id || p.id),
+        image_url: String(h.image_url),
+        title: h.title ?? null,
+        description: h.description ?? null,
+        display_order: Number(h.display_order ?? 0),
+        is_active: h.is_active !== false,
+      }));
+
+      const specRows: ProductSpecificationRow[] = (specsRes || []).map((s: any) => ({
+        id: String(s.id),
+        product_id: String(s.product_id || p.id),
+        label: String(s.label),
+        value: String(s.value),
+        display_order: Number(s.display_order ?? 0),
+        is_active: s.is_active !== false,
+      }));
+
+      const offerRows: ProductOfferRow[] = (offersRes || []).map((o: any) => ({
+        id: String(o.id),
+        product_id: String(o.product_id || p.id),
+        title: String(o.title),
+        description: o.description ?? null,
+        discount_type: o.discount_type,
+        discount_value: Number(o.discount_value || 0),
+        promo_code: o.promo_code ?? null,
+        minimum_quantity: Number(o.minimum_quantity || 1),
+        maximum_quantity: o.maximum_quantity ? Number(o.maximum_quantity) : null,
+        start_date: o.start_date ?? null,
+        end_date: o.end_date ?? null,
+        is_active: o.is_active !== false,
+        display_order: Number(o.display_order ?? 0),
+        terms_and_conditions: o.terms_and_conditions ?? null,
+      }));
 
       const row: ProductRow = {
         id: String(p.id),

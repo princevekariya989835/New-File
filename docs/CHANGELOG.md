@@ -6,6 +6,14 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ## [Current Release] — 2026-11-01
 
+### Critical Product Page Performance Optimization
+- **SSR Loader De-bottlenecking**: Removed sequential blocking queries for reviews and 50 catalog products from `Route.loader` in `src/routes/product.$handle.tsx`. The server now awaits only the single requested product for critical SSR delivery, deferring reviews and recommendations to non-blocking client-side hydration.
+- **Parallel Indexed SQL Queries**: Replaced heavy correlated `jsonb_agg` subqueries in `getProductByHandleDirect` (`src/lib/catalog.ts`) with standard indexed queries (`SELECT ... WHERE product_id = ?`) executed in parallel via `Promise.all`. This eliminated SQLite/D1 syntax fallback double-query penalties and reduced database query time from seconds to milliseconds.
+- **Cloudflare Edge Micro-Caching**: Added `Cache-Control: public, max-age=60, s-maxage=120, stale-while-revalidate=600` for public storefront pages in `src/server.ts`, allowing Cloudflare edge data centers to serve cached SSR HTML in sub-50ms while ensuring private/admin routes remain strictly `noindex, no-store`.
+- **In-Memory Cache Scaling**: Scaled `CATALOG_CACHE_TTL` from 2,000ms to 60,000ms with real-time invalidation via `invalidateCatalogCache()` upon any admin mutation.
+- **Client Query & Render Stability**: Increased React Query `staleTime` to 2–5 minutes, disabled `refetchOnWindowFocus` on product and review queries, reduced recommendation pool size from 50 to 12 items, and rendered `ProductSizeGuideModal` on-demand (`isSizeGuideOpen && ...`).
+- **Local Dev D1 Fallback**: Handled expired wrangler OAuth tokens gracefully in `src/lib/db.ts` to instantly fall back to the offline mock engine, preventing 8-second HTTP timeout loops during local development.
+
 ### Remove 'Shop by Category' Section & Remove SHOP from Main Navigation
 - **Removed 'Shop by Category' Section**: Completely removed the section heading, category image cards, descriptions, explore links, and extra vertical spacing from both Men's (`src/routes/collections.men.tsx`) and Women's (`src/routes/collections.women.tsx`) collection pages. Trending products and collection product listings now follow directly and seamlessly after the Hero section.
 - **Preserved Catalog Filtering & Backend**: Retained all catalog category pills, dropdown filters, search, sorting, and administrative category management.

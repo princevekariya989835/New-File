@@ -726,7 +726,9 @@ export function getLocalD1Token(forceRefresh: boolean = false): string | null {
   if (typeof process !== "undefined" && process.env?.CLOUDFLARE_API_TOKEN) {
     return process.env.CLOUDFLARE_API_TOKEN.trim();
   }
-  if (!forceRefresh && _cachedRestToken) return _cachedRestToken;
+  if (!forceRefresh && _cachedRestToken) {
+    return _cachedRestToken === "EXPIRED" ? null : _cachedRestToken;
+  }
   try {
     if (typeof process !== "undefined" && process.versions?.node) {
       let fs: any = null;
@@ -786,44 +788,58 @@ function createD1RestSql() {
     ...values: any[]
   ): Promise<any[]> => {
     let token = getLocalD1Token();
-    if (!token) return [];
+    if (!token) {
+      const fallbackSql = getSql();
+      return fallbackSql(strings, ...values);
+    }
 
     const { sql, bindings, skip } = transformPgSqlToD1(strings, values);
     if (skip || !sql) return [];
 
-    let res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sql, params: bindings }),
         },
-        body: JSON.stringify({ sql, params: bindings }),
-      },
-    );
+      );
+    } catch {
+      _cachedRestToken = "EXPIRED";
+      _cachedSql = null;
+      _cachedSqlMode = null;
+      const fallbackSql = getSql();
+      return fallbackSql(strings, ...values);
+    }
 
-    let data: any = await res.json();
+    let data: any;
+    try {
+      data = await res.json();
+    } catch {
+      data = { errors: [{ message: "Invalid JSON response" }] };
+    }
+
     if (
       res.status === 401 ||
-      (data.errors && data.errors.some((e: any) => e.code === 10000 || e.code === 7403))
+      (data.errors &&
+        data.errors.some(
+          (e: any) =>
+            e.code === 10000 ||
+            e.code === 7403 ||
+            String(e.message || "").toLowerCase().includes("auth"),
+        ))
     ) {
-      // Token expired, force re-reading from wrangler config
-      token = getLocalD1Token(true);
-      if (token) {
-        res = await fetch(
-          `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${databaseId}/query`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ sql, params: bindings }),
-          },
-        );
-        data = await res.json();
-      }
+      // Local D1 token expired, invalidate and immediately fall back to local engine
+      _cachedRestToken = "EXPIRED";
+      _cachedSql = null;
+      _cachedSqlMode = null;
+      const fallbackSql = getSql();
+      return fallbackSql(strings, ...values);
     }
 
     if (data.errors && data.errors.length > 0) {

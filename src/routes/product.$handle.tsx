@@ -40,9 +40,9 @@ const productQuery = (handle: string) => ({
     if (!p) throw notFound();
     return p;
   },
-  staleTime: 1000 * 5,
-  gcTime: 1000 * 60 * 5,
-  refetchOnWindowFocus: true,
+  staleTime: 1000 * 60 * 2,
+  gcTime: 1000 * 60 * 10,
+  refetchOnWindowFocus: false,
 });
 
 function formatProductPageTitle(title: string): string {
@@ -61,24 +61,20 @@ function formatProductPageTitle(title: string): string {
 
 export const Route = createFileRoute("/product/$handle")({
   loader: async ({ context, params }) => {
+    // Critical SSR: Only await the single requested product for instant response
     const p = await context.queryClient.ensureQueryData(productQuery(params.handle));
+
+    // Non-blocking prefetch in background: Do not delay HTML delivery
     if (p?.productId) {
-      await context.queryClient
+      context.queryClient
         .prefetchQuery({
           queryKey: ["reviews", p.productId],
           queryFn: () => getProductReviews({ data: { productId: p.productId } }),
-          staleTime: 1000 * 60 * 2,
+          staleTime: 1000 * 60 * 5,
         })
         .catch(() => {});
     }
-    // Prefetch catalog for instant SSR & client recommendations
-    await context.queryClient
-      .prefetchQuery({
-        queryKey: ["products", "catalog", 50],
-        queryFn: () => fetchProducts(50),
-        staleTime: 1000 * 60 * 5,
-      })
-      .catch(() => {});
+
     return p;
   },
   head: ({ loaderData }) => {
@@ -283,7 +279,9 @@ function ProductPage() {
   const { data: reviewsData } = useQuery({
     queryKey: ["reviews", p.productId],
     queryFn: () => getProductReviews({ data: { productId: p.productId } }),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
   });
 
   const variants = p.variants.edges.map((v) => v.node);
@@ -1011,13 +1009,15 @@ function ProductPage() {
       {/* 6. COMPLETE YOUR FIT / RELATED PRODUCTS (Phase 15) */}
       <ProductRecommendations currentProduct={p} />
 
-      {/* 7. DYNAMIC SIZE GUIDE MODAL */}
-      <ProductSizeGuideModal
-        isOpen={isSizeGuideOpen}
-        onClose={() => setIsSizeGuideOpen(false)}
-        measurements={p.sizeMeasurements}
-        productTitle={p.title}
-      />
+      {/* 7. DYNAMIC SIZE GUIDE MODAL - Rendered on-demand */}
+      {isSizeGuideOpen && (
+        <ProductSizeGuideModal
+          isOpen={isSizeGuideOpen}
+          onClose={() => setIsSizeGuideOpen(false)}
+          measurements={p.sizeMeasurements}
+          productTitle={p.title}
+        />
+      )}
 
       {/* 8. MOBILE STICKY PURCHASE BAR (Phase 16) */}
       <ProductStickyBar

@@ -86,14 +86,30 @@ function applySecurityHeaders(response: Response, request: Request): Response {
     headers.set("Last-Modified", new Date().toUTCString());
   }
 
+  // Edge Micro-Caching for Public Storefront Pages (Product, Catalog, Collections, Homepage)
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const isPublicStorefrontPage =
+    request.method === "GET" &&
+    response.status === 200 &&
+    (path === "/" ||
+      path === "/shop" ||
+      path.startsWith("/collections/") ||
+      path.startsWith("/product/"));
+
+  if (isPublicStorefrontPage && !headers.has("cache-control")) {
+    headers.set(
+      "Cache-Control",
+      "public, max-age=60, s-maxage=120, stale-while-revalidate=600",
+    );
+  }
+
   // Ensure 404 responses have X-Robots-Tag: noindex
   if (response.status === 404 && !headers.has("x-robots-tag")) {
     headers.set("X-Robots-Tag", "noindex, nofollow");
   }
 
   // Ensure private routes have HTTP-level X-Robots-Tag protection
-  const url = new URL(request.url);
-  const path = url.pathname;
   if (
     path.startsWith("/admin") ||
     path.startsWith("/account") ||
