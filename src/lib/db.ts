@@ -451,6 +451,61 @@ const _mockInvoiceSequences = new Map<number, number>([[2026, 2]]);
 let _mockProductHighlights: any[] = [];
 let _mockProductSpecifications: any[] = [];
 let _mockProductOffers: any[] = [];
+let _mockFeaturedCollections: any[] = [
+  {
+    id: "men_best_sellers",
+    title: "Men's Best Sellers",
+    slug: "men/best-sellers",
+    department: "men",
+    collection_type: "best_sellers",
+    description: "Verified customer favorites and top-selling heavyweight streetwear for men.",
+    banner_url: null,
+    is_enabled: 1,
+    display_order: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "men_latest_edition",
+    title: "Men's Latest Edition",
+    slug: "men/latest-edition",
+    department: "men",
+    collection_type: "latest_edition",
+    description: "Fresh seasonal drops, limited releases, and oversized DTF graphic tees for men.",
+    banner_url: null,
+    is_enabled: 1,
+    display_order: 2,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "women_best_sellers",
+    title: "Women's Best Sellers",
+    slug: "women/best-sellers",
+    department: "women",
+    collection_type: "best_sellers",
+    description: "Curated best-selling streetwear, relaxed silhouettes, and everyday statement tees for women.",
+    banner_url: null,
+    is_enabled: 1,
+    display_order: 3,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "women_latest_edition",
+    title: "Women's Latest Edition",
+    slug: "women/latest-edition",
+    department: "women",
+    collection_type: "latest_edition",
+    description: "New seasonal arrivals, cropped fits, baby tees, and oversized streetwear for women.",
+    banner_url: null,
+    is_enabled: 1,
+    display_order: 4,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+let _mockFeaturedCollectionItems: any[] = [];
 const _mockWebsiteMedia = new Map<string, any>();
 const _mockRateLimits = new Map<string, any>();
 const _mockPasswordResets = new Map<string, any>();
@@ -1668,6 +1723,108 @@ export function getSql() {
         }
       }
 
+      // SELECT / UPDATE from featured_collections
+      if (lower.includes("featured_collections")) {
+        if (lower.startsWith("select")) {
+          const idVal = values.find((v) => typeof v === "string" && (v.includes("best_sellers") || v.includes("latest_edition")));
+          if (idVal) {
+            return _mockFeaturedCollections.filter((c) => c.id === idVal);
+          }
+          return [..._mockFeaturedCollections];
+        }
+        if (lower.startsWith("update")) {
+          const idVal = values.find((v) => typeof v === "string" && (v.includes("best_sellers") || v.includes("latest_edition")));
+          if (idVal) {
+            const col = _mockFeaturedCollections.find((c) => c.id === idVal);
+            if (col) {
+              const enabledVal = values.find((v) => typeof v === "boolean" || v === 1 || v === 0);
+              if (enabledVal !== undefined) col.is_enabled = Number(enabledVal);
+              col.updated_at = new Date().toISOString();
+            }
+          }
+          return [];
+        }
+      }
+
+      // SELECT / INSERT / DELETE from featured_collection_items
+      if (lower.includes("featured_collection_items")) {
+        if (lower.startsWith("select")) {
+          let colIdVal = values.find(
+            (v) =>
+              typeof v === "string" &&
+              (v.includes("best_sellers") || v.includes("latest_edition")),
+          );
+          if (!colIdVal) {
+            const m = queryStr.match(/collection_id\s*=\s*['"]?([a-zA-Z0-9_-]+)['"]?/i);
+            if (m) colIdVal = m[1];
+          }
+          let items = [..._mockFeaturedCollectionItems];
+          if (colIdVal) {
+            items = items.filter((it) => it.collection_id === colIdVal);
+          }
+          items.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+          if (lower.includes("join products")) {
+            return items.map((it) => {
+              const prod = _mockProducts.find((p) => String(p.id) === String(it.product_id));
+              return {
+                ...it,
+                id: prod?.id || it.product_id,
+                name: prod?.name || "Streetwear Product",
+                slug: prod?.slug || "streetwear-product",
+                description: prod?.description || "Heavyweight cotton streetwear tee.",
+                price: prod?.price || 599,
+                mrp: prod?.mrp || 899,
+                compare_at_price: prod?.compare_at_price || 899,
+                department: prod?.department || "men",
+                category: prod?.category || "Tees",
+                images: prod?.images || ["/placeholder-tee.jpg"],
+                sizes: prod?.sizes || ["S", "M", "L", "XL", "XXL"],
+                colors: prod?.colors || ["Black"],
+                color_variants: prod?.color_variants || [],
+                tags: prod?.tags || ["Trending"],
+                stock_quantity: prod?.stock_quantity ?? 25,
+                is_active: prod?.is_active ?? 1,
+                is_featured: prod?.is_featured ?? 0,
+              };
+            });
+          }
+          return items;
+        }
+        if (lower.startsWith("insert")) {
+          const colIdMatch = queryStr.match(/['"](men_best_sellers|men_latest_edition|women_best_sellers|women_latest_edition)['"]/i);
+          const colId = values.find((v) => typeof v === "string" && (v.includes("best_sellers") || v.includes("latest_edition"))) || (colIdMatch ? colIdMatch[1] : values[1]);
+          const prodId = values.find((v) => typeof v === "string" && (v.startsWith("prod") || (v !== colId && !v.startsWith("fci_")))) || values[2];
+          const orderVal = values.find((v) => typeof v === "number");
+          const id = values.find((v) => typeof v === "string" && v.startsWith("fci_")) || `fci_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          const newItem = {
+            id,
+            collection_id: colId,
+            product_id: prodId,
+            display_order: Number(orderVal ?? 0),
+            created_at: new Date().toISOString(),
+          };
+          _mockFeaturedCollectionItems.push(newItem);
+          return [newItem];
+        }
+        if (lower.startsWith("delete")) {
+          let colIdVal = values.find(
+            (v) =>
+              typeof v === "string" &&
+              (v.includes("best_sellers") || v.includes("latest_edition")),
+          );
+          if (!colIdVal) {
+            const m = queryStr.match(/collection_id\s*=\s*['"]?([a-zA-Z0-9_-]+)['"]?/i);
+            if (m) colIdVal = m[1];
+          }
+          if (colIdVal) {
+            _mockFeaturedCollectionItems = _mockFeaturedCollectionItems.filter(
+              (it) => it.collection_id !== colIdVal,
+            );
+          }
+          return [];
+        }
+      }
+
       return [];
     };
 
@@ -1859,6 +2016,50 @@ export async function ensureDbSchema() {
               await sql`CREATE INDEX IF NOT EXISTS idx_product_variants_prod_stock ON product_variants (product_id, stock_quantity)`;
             } catch {
               /* indexes setup handled */
+            }
+
+            // Featured Collections Tables & Seed
+            try {
+              await sql`
+                CREATE TABLE IF NOT EXISTS featured_collections (
+                  id TEXT PRIMARY KEY,
+                  title TEXT NOT NULL,
+                  slug TEXT UNIQUE NOT NULL,
+                  department TEXT NOT NULL,
+                  collection_type TEXT NOT NULL,
+                  description TEXT,
+                  banner_url TEXT,
+                  is_enabled INTEGER NOT NULL DEFAULT 1,
+                  display_order INTEGER NOT NULL DEFAULT 0,
+                  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+              `;
+              await sql`CREATE INDEX IF NOT EXISTS idx_featured_collections_dept ON featured_collections (department, collection_type, is_enabled)`;
+              await sql`
+                CREATE TABLE IF NOT EXISTS featured_collection_items (
+                  id TEXT PRIMARY KEY,
+                  collection_id TEXT NOT NULL REFERENCES featured_collections(id) ON DELETE CASCADE,
+                  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                  display_order INTEGER NOT NULL DEFAULT 0,
+                  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE(collection_id, product_id)
+                )
+              `;
+              await sql`CREATE INDEX IF NOT EXISTS idx_fci_collection_order ON featured_collection_items (collection_id, display_order ASC)`;
+              await sql`CREATE INDEX IF NOT EXISTS idx_fci_product_id ON featured_collection_items (product_id)`;
+
+              await sql`
+                INSERT INTO featured_collections (id, title, slug, department, collection_type, description, is_enabled, display_order)
+                VALUES 
+                  ('men_best_sellers', 'Men''s Best Sellers', 'men/best-sellers', 'men', 'best_sellers', 'Verified customer favorites and top-selling heavyweight streetwear for men.', 1, 1),
+                  ('men_latest_edition', 'Men''s Latest Edition', 'men/latest-edition', 'men', 'latest_edition', 'Fresh seasonal drops, limited releases, and oversized DTF graphic tees for men.', 1, 2),
+                  ('women_best_sellers', 'Women''s Best Sellers', 'women/best-sellers', 'women', 'best_sellers', 'Curated best-selling streetwear, relaxed silhouettes, and everyday statement tees for women.', 1, 3),
+                  ('women_latest_edition', 'Women''s Latest Edition', 'women/latest-edition', 'women', 'latest_edition', 'New seasonal arrivals, cropped fits, baby tees, and oversized streetwear for women.', 1, 4)
+                ON CONFLICT (id) DO NOTHING
+              `;
+            } catch {
+              /* featured collections setup handled */
             }
 
             // Ensure reviews table and initial authentic reviews are seeded

@@ -50,6 +50,7 @@ import {
   Tag,
   FolderTree,
   Sparkles,
+  Flame,
   ChevronDown,
 } from "lucide-react";
 
@@ -120,6 +121,7 @@ const NAV: NavItem[] = [
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/categories", label: "Categories", icon: FolderTree },
   { to: "/admin/collections", label: "Collections", icon: Sparkles },
+  { to: "/admin/featured-collections", label: "Featured Collections", icon: Flame },
   { to: "/admin/inventory", label: "Inventory", icon: Boxes },
   { to: "/admin/returns", label: "Returns", icon: RotateCcw },
   { to: "/admin/reviews", label: "Reviews", icon: Star },

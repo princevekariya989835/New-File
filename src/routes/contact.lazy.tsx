@@ -20,7 +20,8 @@ function ContactPage() {
   const rawPhone = cntTxt?.phone || config?.general?.contactPhone || config?.settings?.storePhone || "+91 90998 66791";
   const supportPhone = rawPhone.includes("98765") ? "+91 90998 66791" : rawPhone;
   const businessHours = cntTxt?.businessHours || "Mon — Sat · 10:00 — 19:00 IST";
-  const instagram = cntTxt?.instagram || "@riotous_store";
+  const rawInstagram = cntTxt?.instagram || "@riotous.store_";
+  const instagram = rawInstagram.includes("riotous_store") ? "@riotous.store_" : rawInstagram;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +70,9 @@ function ContactPage() {
               <ContactRow icon={Phone} label="Helpline" value={supportPhone} />
             </a>
             <a
-              href="https://www.instagram.com/riotous_store"
+              href="https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw=="
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="block hover:opacity-85 transition-opacity"
             >
               <ContactRow icon={Instagram} label="Instagram" value={instagram} />

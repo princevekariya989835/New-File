@@ -506,7 +506,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
       },
     ],
     socialLinks: {
-      instagram: "https://www.instagram.com/riotous_store",
+      instagram: "https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw==",
       youtube: "https://youtube.com",
       facebook: "https://facebook.com",
       twitter: "",
@@ -569,7 +569,7 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     phone: "+91 90998 66791",
     address: "Studio RIOTOUS, Surat, Gujarat, India",
     businessHours: "Mon — Sat · 10:00 — 19:00 IST",
-    instagram: "@riotous_store",
+    instagram: "@riotous.store_",
     wholesaleText:
       "Looking for custom runs, band merch, or wholesale orders? Let's talk.",
   },

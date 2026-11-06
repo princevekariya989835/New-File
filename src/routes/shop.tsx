@@ -166,7 +166,7 @@ function ShopPage() {
   const handleQueryChange = (val: string) => {
     setQ(val);
     navigate({
-      search: (prev) => ({
+      search: (prev: any) => ({
         ...prev,
         q: val.trim() ? val : undefined,
       }),
@@ -272,7 +272,7 @@ function ShopPage() {
 
   const handlePageChange = (newPage: number) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: any) => ({
         ...prev,
         page: newPage === 1 ? undefined : newPage,
       }),
@@ -355,7 +355,7 @@ function ShopPage() {
                     value={searchParams.category || "all"}
                     onValueChange={(val) => {
                       navigate({
-                        search: (prev) => ({
+                        search: (prev: any) => ({
                           ...prev,
                           category: val === "all" ? undefined : val,
                         }),
@@ -432,7 +432,7 @@ function ShopPage() {
                 type="button"
                 onClick={() =>
                   navigate({
-                    search: (prev) => ({ ...prev, department: undefined }),
+                    search: (prev: any) => ({ ...prev, department: undefined }),
                     replace: true,
                   })
                 }
@@ -450,7 +450,7 @@ function ShopPage() {
                 type="button"
                 onClick={() =>
                   navigate({
-                    search: (prev) => ({ ...prev, category: undefined }),
+                    search: (prev: any) => ({ ...prev, category: undefined }),
                     replace: true,
                   })
                 }

@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useRef } from "react";
 import {
   fetchDepartmentProducts,
   fetchCategoriesByDepartment,
   type CatalogProduct,
 } from "@/lib/catalog";
+import { getPublicFeaturedCollection } from "@/lib/featured-collections.functions";
 import { ProductCard } from "@/components/product-card";
 import { ShopSkeleton } from "@/components/shop/shop-skeleton";
 import {
@@ -131,9 +133,37 @@ export function MenCollectionPage() {
     [productsQ.data?.bestSellers]
   );
 
+  const getColFn = useServerFn(getPublicFeaturedCollection);
+  const menBsQ = useQuery({
+    queryKey: ["public", "featured-collection", "men_best_sellers"],
+    queryFn: () => getColFn({ data: { id: "men_best_sellers" } }),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
+  });
+  const menLeQ = useQuery({
+    queryKey: ["public", "featured-collection", "men_latest_edition"],
+    queryFn: () => getColFn({ data: { id: "men_latest_edition" } }),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
+  });
+
+  const displayBestSellers = useMemo(() => {
+    if (menBsQ.data?.isEnabled && menBsQ.data?.products && menBsQ.data.products.length > 0) {
+      return menBsQ.data.products.slice(0, 4);
+    }
+    return bestSellers.slice(0, 4);
+  }, [menBsQ.data, bestSellers]);
+
+  const displayLatestEdition = useMemo(() => {
+    if (menLeQ.data?.isEnabled && menLeQ.data?.products && menLeQ.data.products.length > 0) {
+      return menLeQ.data.products.slice(0, 4);
+    }
+    return newArrivals.slice(0, 4);
+  }, [menLeQ.data, newArrivals]);
+
   const updateSearch = (newParams: Partial<MenSearch>) => {
     navigate({
-      search: (prev) => ({
+      search: (prev: any) => ({
         ...prev,
         ...newParams,
         page: newParams.page !== undefined ? newParams.page : 1,
@@ -263,33 +293,30 @@ export function MenCollectionPage() {
       )}
 
       {/* ======================================================== */}
-      {/* SECTION 4: NEW ARRIVALS                                  */}
+      {/* SECTION 4: LATEST EDITION                                */}
       {/* ======================================================== */}
-      {newArrivals.length > 0 && (
+      {displayLatestEdition.length > 0 && (
         <section className="border-b border-[#F3F3F3] bg-white py-16 md:py-24">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-12">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#ED171F]">
-                  <Clock className="h-3.5 w-3.5" /> Latest Season
+                  <Clock className="h-3.5 w-3.5" /> Latest Season Drops
                 </div>
                 <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl">
-                  NEW ARRIVALS
+                  LATEST EDITION
                 </h2>
               </div>
-              <button
-                onClick={() => {
-                  updateSearch({ sort: "newest" });
-                  scrollToCatalog();
-                }}
+              <Link
+                to="/collections/men/latest-edition"
                 className="text-xs font-bold uppercase tracking-wider text-[#111111] hover:text-[#ED171F] flex items-center gap-1.5 transition"
               >
-                View Latest Drops <ArrowRight className="h-4 w-4" />
-              </button>
+                View Latest Edition <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-              {newArrivals.map((product) => (
+              {displayLatestEdition.map((product) => (
                 <ProductCard key={product.node.id} product={product} />
               ))}
             </div>
@@ -298,9 +325,9 @@ export function MenCollectionPage() {
       )}
 
       {/* ======================================================== */}
-      {/* SECTION 5: BEST SELLERS (Real Order Sales)               */}
+      {/* SECTION 5: BEST SELLERS                                  */}
       {/* ======================================================== */}
-      {bestSellers.length > 0 && (
+      {displayBestSellers.length > 0 && (
         <section className="border-b border-[#F3F3F3] bg-[#F3F3F3]/50 py-16 md:py-24">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-12">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
@@ -312,19 +339,16 @@ export function MenCollectionPage() {
                   BEST SELLERS
                 </h2>
               </div>
-              <button
-                onClick={() => {
-                  updateSearch({ sort: "best-selling" });
-                  scrollToCatalog();
-                }}
+              <Link
+                to="/collections/men/best-sellers"
                 className="text-xs font-bold uppercase tracking-wider text-[#111111] hover:text-[#ED171F] flex items-center gap-1.5 transition"
               >
-                Shop All Best Sellers <ArrowRight className="h-4 w-4" />
-              </button>
+                Shop Best Sellers <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-              {bestSellers.map((product) => (
+              {displayBestSellers.map((product) => (
                 <ProductCard key={product.node.id} product={product} />
               ))}
             </div>

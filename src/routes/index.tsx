@@ -83,7 +83,7 @@ export const Route = createFileRoute("/")({
               url: "https://riotous.store",
               logo: "https://riotous.store/assets/riotous-logo.png",
               description: "Premium DTF printed streetwear made in India.",
-              sameAs: ["https://www.instagram.com/riotous_store"],
+              sameAs: ["https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw=="],
             },
             {
               "@type": "WebSite",

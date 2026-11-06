@@ -46,6 +46,7 @@ import { Route as AuthenticatedAdminCollectionsRouteImport } from './routes/_aut
 import { Route as AuthenticatedAdminCouponsRouteImport } from './routes/_authenticated/admin/coupons'
 import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/admin/customers'
 import { Route as AuthenticatedAdminDesignsRouteImport } from './routes/_authenticated/admin/designs'
+import { Route as AuthenticatedAdminFeaturedCollectionsRouteImport } from './routes/_authenticated/admin/featured-collections'
 import { Route as AuthenticatedAdminHealthRouteImport } from './routes/_authenticated/admin/health'
 import { Route as AuthenticatedAdminInventoryRouteImport } from './routes/_authenticated/admin/inventory'
 import { Route as AuthenticatedAdminMarketingRouteImport } from './routes/_authenticated/admin/marketing'
@@ -72,6 +73,10 @@ import { Route as ApiStorefrontNavigationRouteImport } from './routes/api/storef
 import { Route as ApiStorefrontSettingsRouteImport } from './routes/api/storefront/settings'
 import { Route as ApiZippyyAuthTestRouteImport } from './routes/api/zippyy.auth-test'
 import { Route as ApiZippyyWebhookRouteImport } from './routes/api/zippyy.webhook'
+import { Route as CollectionsMenBestSellersRouteImport } from './routes/collections.men.best-sellers'
+import { Route as CollectionsMenLatestEditionRouteImport } from './routes/collections.men.latest-edition'
+import { Route as CollectionsWomenBestSellersRouteImport } from './routes/collections.women.best-sellers'
+import { Route as CollectionsWomenLatestEditionRouteImport } from './routes/collections.women.latest-edition'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -286,6 +291,16 @@ const AuthenticatedAdminDesignsRoute =
     path: '/designs',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminFeaturedCollectionsRoute =
+  AuthenticatedAdminFeaturedCollectionsRouteImport.update({
+    id: '/featured-collections',
+    path: '/featured-collections',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/featured-collections.lazy').then(
+      (d) => d.Route,
+    ),
+  )
 const AuthenticatedAdminHealthRoute =
   AuthenticatedAdminHealthRouteImport.update({
     id: '/health',
@@ -455,6 +470,30 @@ const ApiZippyyWebhookRoute = ApiZippyyWebhookRouteImport.update({
   path: '/api/zippyy/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollectionsMenBestSellersRoute =
+  CollectionsMenBestSellersRouteImport.update({
+    id: '/best-sellers',
+    path: '/best-sellers',
+    getParentRoute: () => CollectionsMenRoute,
+  } as any)
+const CollectionsMenLatestEditionRoute =
+  CollectionsMenLatestEditionRouteImport.update({
+    id: '/latest-edition',
+    path: '/latest-edition',
+    getParentRoute: () => CollectionsMenRoute,
+  } as any)
+const CollectionsWomenBestSellersRoute =
+  CollectionsWomenBestSellersRouteImport.update({
+    id: '/best-sellers',
+    path: '/best-sellers',
+    getParentRoute: () => CollectionsWomenRoute,
+  } as any)
+const CollectionsWomenLatestEditionRoute =
+  CollectionsWomenLatestEditionRouteImport.update({
+    id: '/latest-edition',
+    path: '/latest-edition',
+    getParentRoute: () => CollectionsWomenRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -477,8 +516,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/collections/men': typeof CollectionsMenRoute
-  '/collections/women': typeof CollectionsWomenRoute
+  '/collections/men': typeof CollectionsMenRouteWithChildren
+  '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -492,6 +531,7 @@ export interface FileRoutesByFullPath {
   '/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
+  '/admin/featured-collections': typeof AuthenticatedAdminFeaturedCollectionsRoute
   '/admin/health': typeof AuthenticatedAdminHealthRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -518,6 +558,10 @@ export interface FileRoutesByFullPath {
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
+  '/collections/men/best-sellers': typeof CollectionsMenBestSellersRoute
+  '/collections/men/latest-edition': typeof CollectionsMenLatestEditionRoute
+  '/collections/women/best-sellers': typeof CollectionsWomenBestSellersRoute
+  '/collections/women/latest-edition': typeof CollectionsWomenLatestEditionRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -540,8 +584,8 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/collections/men': typeof CollectionsMenRoute
-  '/collections/women': typeof CollectionsWomenRoute
+  '/collections/men': typeof CollectionsMenRouteWithChildren
+  '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -555,6 +599,7 @@ export interface FileRoutesByTo {
   '/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/admin/designs': typeof AuthenticatedAdminDesignsRoute
+  '/admin/featured-collections': typeof AuthenticatedAdminFeaturedCollectionsRoute
   '/admin/health': typeof AuthenticatedAdminHealthRoute
   '/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/admin/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -581,6 +626,10 @@ export interface FileRoutesByTo {
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
+  '/collections/men/best-sellers': typeof CollectionsMenBestSellersRoute
+  '/collections/men/latest-edition': typeof CollectionsMenLatestEditionRoute
+  '/collections/women/best-sellers': typeof CollectionsWomenBestSellersRoute
+  '/collections/women/latest-edition': typeof CollectionsWomenLatestEditionRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -606,8 +655,8 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth_/callback': typeof AuthCallbackRoute
-  '/collections/men': typeof CollectionsMenRoute
-  '/collections/women': typeof CollectionsWomenRoute
+  '/collections/men': typeof CollectionsMenRouteWithChildren
+  '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
   '/_authenticated/account/favorites': typeof AuthenticatedAccountFavoritesRoute
@@ -621,6 +670,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/coupons': typeof AuthenticatedAdminCouponsRoute
   '/_authenticated/admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/_authenticated/admin/designs': typeof AuthenticatedAdminDesignsRoute
+  '/_authenticated/admin/featured-collections': typeof AuthenticatedAdminFeaturedCollectionsRoute
   '/_authenticated/admin/health': typeof AuthenticatedAdminHealthRoute
   '/_authenticated/admin/inventory': typeof AuthenticatedAdminInventoryRoute
   '/_authenticated/admin/marketing': typeof AuthenticatedAdminMarketingRoute
@@ -647,6 +697,10 @@ export interface FileRoutesById {
   '/api/storefront/settings': typeof ApiStorefrontSettingsRoute
   '/api/zippyy/auth-test': typeof ApiZippyyAuthTestRoute
   '/api/zippyy/webhook': typeof ApiZippyyWebhookRoute
+  '/collections/men/best-sellers': typeof CollectionsMenBestSellersRoute
+  '/collections/men/latest-edition': typeof CollectionsMenLatestEditionRoute
+  '/collections/women/best-sellers': typeof CollectionsWomenBestSellersRoute
+  '/collections/women/latest-edition': typeof CollectionsWomenLatestEditionRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -687,6 +741,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/designs'
+    | '/admin/featured-collections'
     | '/admin/health'
     | '/admin/inventory'
     | '/admin/marketing'
@@ -713,6 +768,10 @@ export interface FileRouteTypes {
     | '/api/storefront/settings'
     | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
+    | '/collections/men/best-sellers'
+    | '/collections/men/latest-edition'
+    | '/collections/women/best-sellers'
+    | '/collections/women/latest-edition'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -750,6 +809,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/designs'
+    | '/admin/featured-collections'
     | '/admin/health'
     | '/admin/inventory'
     | '/admin/marketing'
@@ -776,6 +836,10 @@ export interface FileRouteTypes {
     | '/api/storefront/settings'
     | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
+    | '/collections/men/best-sellers'
+    | '/collections/men/latest-edition'
+    | '/collections/women/best-sellers'
+    | '/collections/women/latest-edition'
     | '/admin'
   id:
     | '__root__'
@@ -815,6 +879,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/coupons'
     | '/_authenticated/admin/customers'
     | '/_authenticated/admin/designs'
+    | '/_authenticated/admin/featured-collections'
     | '/_authenticated/admin/health'
     | '/_authenticated/admin/inventory'
     | '/_authenticated/admin/marketing'
@@ -841,6 +906,10 @@ export interface FileRouteTypes {
     | '/api/storefront/settings'
     | '/api/zippyy/auth-test'
     | '/api/zippyy/webhook'
+    | '/collections/men/best-sellers'
+    | '/collections/men/latest-edition'
+    | '/collections/women/best-sellers'
+    | '/collections/women/latest-edition'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -865,8 +934,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiProductsRoute: typeof ApiProductsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
-  CollectionsMenRoute: typeof CollectionsMenRoute
-  CollectionsWomenRoute: typeof CollectionsWomenRoute
+  CollectionsMenRoute: typeof CollectionsMenRouteWithChildren
+  CollectionsWomenRoute: typeof CollectionsWomenRouteWithChildren
   ProductHandleRoute: typeof ProductHandleRoute
   TrackingWebhookRoute: typeof TrackingWebhookRoute
   ApiBrevoDiagnosticRoute: typeof ApiBrevoDiagnosticRoute
@@ -1144,6 +1213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminDesignsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/featured-collections': {
+      id: '/_authenticated/admin/featured-collections'
+      path: '/featured-collections'
+      fullPath: '/admin/featured-collections'
+      preLoaderRoute: typeof AuthenticatedAdminFeaturedCollectionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/health': {
       id: '/_authenticated/admin/health'
       path: '/health'
@@ -1326,6 +1402,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiZippyyWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collections/men/best-sellers': {
+      id: '/collections/men/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/collections/men/best-sellers'
+      preLoaderRoute: typeof CollectionsMenBestSellersRouteImport
+      parentRoute: typeof CollectionsMenRoute
+    }
+    '/collections/men/latest-edition': {
+      id: '/collections/men/latest-edition'
+      path: '/latest-edition'
+      fullPath: '/collections/men/latest-edition'
+      preLoaderRoute: typeof CollectionsMenLatestEditionRouteImport
+      parentRoute: typeof CollectionsMenRoute
+    }
+    '/collections/women/best-sellers': {
+      id: '/collections/women/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/collections/women/best-sellers'
+      preLoaderRoute: typeof CollectionsWomenBestSellersRouteImport
+      parentRoute: typeof CollectionsWomenRoute
+    }
+    '/collections/women/latest-edition': {
+      id: '/collections/women/latest-edition'
+      path: '/latest-edition'
+      fullPath: '/collections/women/latest-edition'
+      preLoaderRoute: typeof CollectionsWomenLatestEditionRouteImport
+      parentRoute: typeof CollectionsWomenRoute
+    }
   }
 }
 
@@ -1337,6 +1441,7 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminCouponsRoute: typeof AuthenticatedAdminCouponsRoute
   AuthenticatedAdminCustomersRoute: typeof AuthenticatedAdminCustomersRoute
   AuthenticatedAdminDesignsRoute: typeof AuthenticatedAdminDesignsRoute
+  AuthenticatedAdminFeaturedCollectionsRoute: typeof AuthenticatedAdminFeaturedCollectionsRoute
   AuthenticatedAdminHealthRoute: typeof AuthenticatedAdminHealthRoute
   AuthenticatedAdminInventoryRoute: typeof AuthenticatedAdminInventoryRoute
   AuthenticatedAdminMarketingRoute: typeof AuthenticatedAdminMarketingRoute
@@ -1363,6 +1468,8 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminCouponsRoute: AuthenticatedAdminCouponsRoute,
     AuthenticatedAdminCustomersRoute: AuthenticatedAdminCustomersRoute,
     AuthenticatedAdminDesignsRoute: AuthenticatedAdminDesignsRoute,
+    AuthenticatedAdminFeaturedCollectionsRoute:
+      AuthenticatedAdminFeaturedCollectionsRoute,
     AuthenticatedAdminHealthRoute: AuthenticatedAdminHealthRoute,
     AuthenticatedAdminInventoryRoute: AuthenticatedAdminInventoryRoute,
     AuthenticatedAdminMarketingRoute: AuthenticatedAdminMarketingRoute,
@@ -1404,6 +1511,33 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface CollectionsMenRouteChildren {
+  CollectionsMenBestSellersRoute: typeof CollectionsMenBestSellersRoute
+  CollectionsMenLatestEditionRoute: typeof CollectionsMenLatestEditionRoute
+}
+
+const CollectionsMenRouteChildren: CollectionsMenRouteChildren = {
+  CollectionsMenBestSellersRoute: CollectionsMenBestSellersRoute,
+  CollectionsMenLatestEditionRoute: CollectionsMenLatestEditionRoute,
+}
+
+const CollectionsMenRouteWithChildren = CollectionsMenRoute._addFileChildren(
+  CollectionsMenRouteChildren,
+)
+
+interface CollectionsWomenRouteChildren {
+  CollectionsWomenBestSellersRoute: typeof CollectionsWomenBestSellersRoute
+  CollectionsWomenLatestEditionRoute: typeof CollectionsWomenLatestEditionRoute
+}
+
+const CollectionsWomenRouteChildren: CollectionsWomenRouteChildren = {
+  CollectionsWomenBestSellersRoute: CollectionsWomenBestSellersRoute,
+  CollectionsWomenLatestEditionRoute: CollectionsWomenLatestEditionRoute,
+}
+
+const CollectionsWomenRouteWithChildren =
+  CollectionsWomenRoute._addFileChildren(CollectionsWomenRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -1425,8 +1559,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiProductsRoute: ApiProductsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
-  CollectionsMenRoute: CollectionsMenRoute,
-  CollectionsWomenRoute: CollectionsWomenRoute,
+  CollectionsMenRoute: CollectionsMenRouteWithChildren,
+  CollectionsWomenRoute: CollectionsWomenRouteWithChildren,
   ProductHandleRoute: ProductHandleRoute,
   TrackingWebhookRoute: TrackingWebhookRoute,
   ApiBrevoDiagnosticRoute: ApiBrevoDiagnosticRoute,

@@ -4,6 +4,27 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 17: Update Instagram Link & Dynamic Featured Collections (Best Sellers & Latest Edition)
+- **Date**: 2026-11-06
+- **Objective**: Replace all legacy Instagram links and `@riotous_store` handles with `https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw==` and `@riotous.store_`. Implement dynamic Best Sellers and Latest Edition sections for Men and Women, including database schema & migration, backend server functions, a dedicated "Featured Collections" admin console with reordering/preview/publish capabilities, 4 dedicated storefront pages, and connected navigation buttons.
+- **Files Modified/Created**:
+  - Modified: `src/components/site-footer.tsx`, `src/components/mobile-nav-drawer.tsx`, `src/lib/website-config.types.ts`, `src/lib/website-config.functions.ts`, `src/routes/contact.lazy.tsx`, `src/routes/about.tsx`, `src/routes/index.tsx`, `src/routes/llms[.]txt.ts`, `src/routes/collections.men.tsx`, `src/routes/collections.women.tsx`, `src/routes/shop.tsx`, `src/lib/catalog.ts`, `src/lib/db.ts`, `src/routeTree.gen.ts`, `src/routes/_authenticated/admin/route.tsx`, `docs/CHANGELOG.md`, `docs/TASK_HISTORY.md`.
+  - Created: `migrations/0009_featured_collections.sql`, `src/lib/featured-collections.functions.ts`, `src/routes/_authenticated/admin/featured-collections.tsx`, `src/routes/_authenticated/admin/featured-collections.lazy.tsx`, `src/components/featured-collection-view.tsx`, `src/routes/collections.men.best-sellers.tsx`, `src/routes/collections.men.latest-edition.tsx`, `src/routes/collections.women.best-sellers.tsx`, `src/routes/collections.women.latest-edition.tsx`, `scripts/test-featured-collections.ts`.
+- **Key Deliverables**:
+  1. **Universal Instagram Links**: Updated everywhere in the website (footer, drawer, contact, about, index, llms.txt, website config default & normalizer). All open in new tab with `target="_blank" rel="noopener noreferrer"`.
+  2. **Database Schema & Relational Tables**: Created `featured_collections` and `featured_collection_items` with unique constraint `(collection_id, product_id)` and ordered indexes, automatically provisioned in Cloudflare D1, Neon Postgres, and local mock SQL.
+  3. **Backend Server Functions**: Created `getPublicFeaturedCollection`, `adminListFeaturedCollections`, `adminGetFeaturedCollection`, `adminUpdateFeaturedCollection`, and `adminSearchProductsForCollection` with in-memory caching and real-time cache invalidation wired into `invalidateCatalogCache()`.
+  4. **Admin Panel "Featured Collections"**: Code-split admin console managing 4 collections (`men_best_sellers`, `men_latest_edition`, `women_best_sellers`, `women_latest_edition`) with product search, category filtering, multi-select, drag-up/down ordering, live storefront modal preview, enable/disable switches, and publish controls.
+  5. **4 Dedicated Storefront Routes**: Created `/collections/men/best-sellers`, `/collections/men/latest-edition`, `/collections/women/best-sellers`, and `/collections/women/latest-edition` with responsive product cards, breadcrumbs, and empty states.
+  6. **Connected Navigation**: Connected on-page "Shop Best Sellers" and "View Latest Edition" buttons in `collections.men.tsx` and `collections.women.tsx` to link to dedicated pages and display the curated products in their sections.
+- **Tests Performed**:
+  - Automated relational database & query test (`scripts/test-featured-collections.ts`): All 6 checks passed 100%.
+  - TypeScript validation (`npx tsc --noEmit`): 0 errors across entire repository.
+  - Production build (`npm run build`): Completed in 2.16s with clean client, SSR, and Cloudflare Worker bundles.
+- **Outcome**: Store owners can independently manage, reorder, preview, enable, and publish products across all 4 Men and Women collections directly from the admin panel without code changes, and all Instagram links direct to the correct profile.
+
+---
+
 ## Task 16: Admin Panel & Product Listing Performance Optimization
 - **Date**: 2026-11-06
 - **Objective**: Resolve slow loading issues across the admin dashboard (`/admin`), product catalog admin (`/admin/products`), storefront product listings (`/shop`), and department collection pages (`/collections/men`, `/collections/women`). Eliminate duplicate API calls, optimize database queries, add performance indexes, code-split heavy admin chunks, implement pagination on storefront and admin tables, scale client and server caching, and maintain real-time consistency on all admin mutations.

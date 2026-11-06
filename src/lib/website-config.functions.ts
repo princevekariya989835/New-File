@@ -85,6 +85,11 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
       socialLinks: {
         ...def.footer.socialLinks,
         ...(savedConfig.footer?.socialLinks || {}),
+        instagram:
+          !savedConfig.footer?.socialLinks?.instagram ||
+          savedConfig.footer.socialLinks.instagram.includes("riotous_store")
+            ? def.footer.socialLinks.instagram
+            : savedConfig.footer.socialLinks.instagram,
       },
     },
     sectionOrder: {
@@ -109,6 +114,11 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
     contactContent: {
       ...def.contactContent!,
       ...(savedConfig.contactContent || {}),
+      instagram:
+        !savedConfig.contactContent?.instagram ||
+        savedConfig.contactContent.instagram.includes("riotous_store")
+          ? def.contactContent!.instagram
+          : savedConfig.contactContent.instagram,
     },
     buy2get1Offer: {
       ...def.buy2get1Offer!,

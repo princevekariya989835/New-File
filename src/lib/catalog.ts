@@ -480,6 +480,11 @@ export function invalidateCatalogCache() {
   } catch {
     /* non-fatal */
   }
+  try {
+    import("./featured-collections.functions").then((m) => m.invalidateFeaturedCollectionCache()).catch(() => {});
+  } catch {
+    /* non-fatal */
+  }
 }
 
 export async function seedInitialProductsIfNeeded() {

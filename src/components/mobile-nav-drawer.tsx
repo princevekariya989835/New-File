@@ -113,7 +113,10 @@ export function MobileNavDrawer({
 
   // Social links from website configuration
   const socialLinks = config?.footer?.socialLinks;
-  const instagramUrl = socialLinks?.instagram || "https://www.instagram.com/riotous_store";
+  const instagramUrl =
+    !socialLinks?.instagram || socialLinks.instagram.includes("riotous_store")
+      ? "https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw=="
+      : socialLinks.instagram;
   const youtubeUrl = socialLinks?.youtube || "";
   const pinterestUrl = (socialLinks as any)?.pinterest || "";
 
@@ -468,7 +471,7 @@ export function MobileNavDrawer({
                 <a
                   href={instagramUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   aria-label="Instagram"
                   className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-700 hover:text-[#e50914] hover:bg-zinc-100 transition-colors"
                 >

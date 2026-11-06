@@ -280,25 +280,31 @@ export function SiteFooter({ customConfig }: { customConfig?: WebsiteConfig }) {
           </div>
           {socialList.length > 0 ? (
             <div className="flex items-center gap-3">
-              {socialList.map((s) => (
-                <a
-                  key={s.id}
-                  href={s.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={s.label || s.platform}
-                  className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
-                >
-                  {getSocialIcon(s.platform)}
-                </a>
-              ))}
+              {socialList.map((s) => {
+                const targetUrl =
+                  s.platform.toLowerCase() === "instagram" || s.url.includes("riotous_store")
+                    ? "https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw=="
+                    : s.url;
+                return (
+                  <a
+                    key={s.id}
+                    href={targetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={s.label || s.platform}
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
+                  >
+                    {getSocialIcon(s.platform)}
+                  </a>
+                );
+              })}
             </div>
           ) : (
             <div className="flex items-center gap-3">
               <a
-                href="https://www.instagram.com/riotous_store"
+                href="https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw=="
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border transition-colors hover:border-foreground hover:text-brand hover:bg-secondary/50"
               >
