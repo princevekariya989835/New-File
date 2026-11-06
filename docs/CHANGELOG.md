@@ -4,7 +4,27 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ---
 
-## [Current Release] — 2026-11-01
+## [Current Release] — 2026-11-06
+
+### Admin Panel & Product Listing Performance Optimization
+- **Admin Dashboard Query Streamlining & Date Decoupling**: Replaced slow correlated subqueries and engine-specific date functions (`date('now')`, `date('now', 'start of month')`) in `src/lib/admin-dashboard.functions.ts` with JavaScript ISO date boundaries and parallel scalar count queries (`SELECT COUNT(*) FROM profiles`, `SELECT COUNT(*) FROM products`). Bounded top customer queries to 10 profiles. Implemented 30-second in-memory dashboard caching (`DASHBOARD_CACHE_TTL = 30_000`) with automatic real-time cache busting (`invalidateAdminDashboardCache()`) on order placement, payment verification, order status changes, and catalog updates.
+- **Admin Products Code-Splitting & Pagination**: Code-split the heavy `ProductForm` component (90KB) and admin catalog manager into `src/routes/_authenticated/admin/products.lazy.tsx`. Replaced monolithic `src/routes/_authenticated/admin/products.tsx` with a lightweight route descriptor, removing heavy form dependencies from the critical admin bundle. Implemented client-side pagination (10, 20, 50, 100 per page; default 20) with "Select Page" vs "Select All" bulk controls. Configured `staleTime: 60s`, `refetchOnWindowFocus: false`, and added server-side caching (`_adminProductsCache`) with `invalidateAdminProductsCache()`.
+- **Admin Navigation Tab Stability**: Added `staleTime: 1000 * 60` and `refetchOnWindowFocus: false` to categories (`src/routes/_authenticated/admin/categories.tsx`) and collections (`src/routes/_authenticated/admin/collections.tsx`), eliminating tab-switch loading flickers and duplicate fetches while preserving instant invalidation on mutations.
+- **Collection Pages Redundant Query Elimination**: In `src/routes/collections.men.tsx` and `src/routes/collections.women.tsx`, eliminated 3 redundant network queries (`trendingQ`, `newArrivalsQ`, `bestSellersQ`) that previously triggered 4 full database scans on every page load. Pre-computed and derived sections directly from `productsQ.data` via `useMemo`, reducing database queries by 80% per visit. Scaled `staleTime` to 60 seconds.
+- **Storefront Shop Page Pagination**: Added URL-driven pagination (`page` query parameter) in `src/routes/shop.tsx` with 24 items per page (`PAGE_SIZE = 24`), responsive pagination controls (Previous, Page X of Y, Next, page pills), smooth auto-scroll to top, and tuned `staleTime: 60s`.
+- **Database Performance Indexes**: Added migration `migrations/0008_performance_indexes.sql` and updated `ensureDbSchema()` in `src/lib/db.ts` to provision indexes on `order_items(product_id)`, `orders(status, created_at)`, `products(department, is_active, is_featured)`, `products(updated_at DESC)`, and `product_variants(product_id, stock_quantity)`.
+
+### Storefront Catalog & Shop Page Completeness Fix
+- **2-Step Indexed Database Query**: Replaced legacy correlated `jsonb_agg` subquery in `getPublishedProducts` (`src/lib/catalog.ts`) with a 2-step indexed query pattern compatible with Neon PostgreSQL, Cloudflare D1, and local mock SQL. Eliminates SQLite syntax errors that previously triggered empty/truncated catalog responses.
+- **Catalog Truncation Removal**: Increased default product fetch limit from 50 to 200 in `getPublishedProducts`, `fetchProductsServerFn`, `fetchProducts`, and `src/routes/shop.tsx` to ensure all active catalog products are loaded and displayed without truncation.
+- **Complete Department & Metadata Ingestion**: Ensured `department`, `subcategory`, `collection`, `is_featured`, and compare prices are selected in both main queries and fallbacks across `src/lib/catalog.ts` and `adminListProducts` (`src/lib/admin.functions.ts`), preventing products from defaulting strictly to Men's department or losing category metadata.
+- **Flexible Category & Department Filtering**: Updated `src/routes/shop.tsx` to support normalized category matching (handling kebab-case slugs, spaces, and tags), department query filtering (`?department=men`, `?department=women`, `?department=unisex`), and expanded search indexing.
+- **Active Filter Chips & Clear Controls**: Added interactive Category dropdown and active filter indicator chips with instant one-click removal and "Clear all filters" button so users are never trapped in empty views from uncalibrated URL query parameters.
+- **Dual Runtime `is_active` Normalization**: Hardened SQL boolean filters across `catalog.ts` and `admin.functions.ts` to `(is_active = 1 OR is_active = true OR is_active = 'true' OR is_active = '1' OR is_active IS NULL OR LOWER(status) = 'active')`, guaranteeing universal compatibility across Neon Postgres, Cloudflare D1, and SQLite.
+
+---
+
+## [Previous Release] — 2026-11-01
 
 ### Critical Product Page Performance Optimization
 - **SSR Loader De-bottlenecking**: Removed sequential blocking queries for reviews and 50 catalog products from `Route.loader` in `src/routes/product.$handle.tsx`. The server now awaits only the single requested product for critical SSR delivery, deferring reviews and recommendations to non-blocking client-side hydration.

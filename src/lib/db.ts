@@ -976,7 +976,8 @@ export function getSql() {
 
         if (
           lower.includes("where") &&
-          (lower.includes("slug =") || lower.includes("id =") || lower.includes("id::text ="))
+          (/\b(p\.)?(slug|id)\s*=/i.test(lower) || lower.includes("id::text =")) &&
+          !lower.includes("product_id")
         ) {
           const matchVal = values[0] ? String(values[0]).toLowerCase() : "";
           const found = _mockProducts.find(
@@ -987,6 +988,20 @@ export function getSql() {
         }
 
         return _mockProducts.map((p) => mapProd(p, true));
+      }
+
+      // SELECT from product_variants
+      if (lower.includes("from product_variants")) {
+        if (lower.includes("where product_id in")) {
+          const ids = Array.isArray(values[0]) ? values[0].map(String) : values.map(String);
+          const idSet = new Set(ids.map((id) => id.toLowerCase().trim()));
+          return _mockVariants.filter((v) => idSet.has(String(v.product_id).toLowerCase().trim()));
+        }
+        if (lower.includes("product_id =")) {
+          const id = values[0] ? String(values[0]).toLowerCase().trim() : "";
+          return _mockVariants.filter((v) => String(v.product_id).toLowerCase().trim() === id);
+        }
+        return [..._mockVariants];
       }
 
       // SELECT from profiles
@@ -1020,11 +1035,71 @@ export function getSql() {
 
       // SELECT from orders
       if (lower.includes("from orders") && !lower.includes("from reviews")) {
+        if (lower.includes("count(*)") && (lower.includes("total_sales") || lower.includes("sales_today") || lower.includes("total_orders"))) {
+          const validOrders = _mockOrders.filter((o) => !["Cancelled", "Returned", "Refunded"].includes(o.status));
+          const totalSales = validOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+          return [
+            {
+              total_orders: _mockOrders.length,
+              total_sales: totalSales,
+              sales_today: Math.round(totalSales * 0.25),
+              sales_month: totalSales,
+              revenue_orders_count: validOrders.length,
+              total_customers: _mockProfiles.length,
+              total_products: _mockProducts.length,
+            },
+          ];
+        }
+        if (lower.includes("status, count(*)") || lower.includes("count(*) as count from orders group by status")) {
+          const map = new Map<string, number>();
+          for (const o of _mockOrders) {
+            map.set(o.status, (map.get(o.status) || 0) + 1);
+          }
+          return Array.from(map.entries()).map(([status, count]) => ({ status, count }));
+        }
+        if (lower.includes("payment_status, count(*)") || lower.includes("count(*) as count from orders group by payment_status")) {
+          const map = new Map<string, number>();
+          for (const o of _mockOrders) {
+            map.set(o.payment_status, (map.get(o.payment_status) || 0) + 1);
+          }
+          return Array.from(map.entries()).map(([payment_status, count]) => ({ payment_status, count }));
+        }
+        if (lower.includes("substr(created_at") || lower.includes("group by substr(created_at")) {
+          const dayMap = new Map<string, { date: string; revenue: number; orders: number }>();
+          for (const o of _mockOrders) {
+            const d = (o.created_at ? new Date(o.created_at).toISOString() : new Date().toISOString()).slice(0, 10);
+            if (!dayMap.has(d)) dayMap.set(d, { date: d, revenue: 0, orders: 0 });
+            if (!["Cancelled", "Returned", "Refunded"].includes(o.status)) {
+              dayMap.get(d)!.revenue += Number(o.total_amount || 0);
+            }
+            dayMap.get(d)!.orders += 1;
+          }
+          return Array.from(dayMap.values());
+        }
         return [..._mockOrders];
       }
 
       // SELECT from order_items
       if (lower.includes("from order_items") && !lower.includes("from reviews")) {
+        if (lower.includes("product_name") || lower.includes("group by oi.product_name") || lower.includes("group by product_name")) {
+          const prodMap = new Map<string, { name: string; units: number; revenue: number }>();
+          for (const oi of _mockOrderItems) {
+            const name = oi.product_name || "Streetwear Tee";
+            if (!prodMap.has(name)) prodMap.set(name, { name, units: 0, revenue: 0 });
+            prodMap.get(name)!.units += Number(oi.quantity || 1);
+            prodMap.get(name)!.revenue += Number(oi.subtotal || oi.price || 0);
+          }
+          return Array.from(prodMap.values());
+        }
+        if (lower.includes("group by product_id") || lower.includes("sum(quantity) as sold_qty")) {
+          const prodMap = new Map<string, { product_id: string; sold_qty: number }>();
+          for (const oi of _mockOrderItems) {
+            const pid = String(oi.product_id || "");
+            if (!prodMap.has(pid)) prodMap.set(pid, { product_id: pid, sold_qty: 0 });
+            prodMap.get(pid)!.sold_qty += Number(oi.quantity || 1);
+          }
+          return Array.from(prodMap.values());
+        }
         return [..._mockOrderItems];
       }
 
@@ -1773,6 +1848,17 @@ export async function ensureDbSchema() {
               await sql`ALTER TABLE products ADD COLUMN back_showcase_subtitle TEXT`;
             } catch {
               /* column may already exist */
+            }
+
+            // High-Performance Query Indexes
+            try {
+              await sql`CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items (product_id)`;
+              await sql`CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders (status, created_at DESC)`;
+              await sql`CREATE INDEX IF NOT EXISTS idx_products_dept_status_feat ON products (department, is_active, is_featured DESC, created_at DESC)`;
+              await sql`CREATE INDEX IF NOT EXISTS idx_products_updated_at ON products (updated_at DESC)`;
+              await sql`CREATE INDEX IF NOT EXISTS idx_product_variants_prod_stock ON product_variants (product_id, stock_quantity)`;
+            } catch {
+              /* indexes setup handled */
             }
 
             // Ensure reviews table and initial authentic reviews are seeded

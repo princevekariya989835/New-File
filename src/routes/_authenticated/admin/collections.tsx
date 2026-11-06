@@ -73,6 +73,8 @@ function CollectionsPage() {
   const collectionsQ = useQuery({
     queryKey: ["admin", "collections"],
     queryFn: () => listFn(),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
   const refresh = () => {

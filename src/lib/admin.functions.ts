@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-utils";
 import { ensureDbSchema, getSql } from "@/lib/db";
 import { invalidateCatalogCache } from "@/lib/catalog";
+import { invalidateAdminDashboardCache } from "@/lib/admin-dashboard.functions";
 import { logServerSyncEvent } from "@/lib/server-logger";
 import {
   sendOrderShipped,
@@ -155,9 +156,20 @@ export const checkIsAdmin = createServerFn({ method: "GET" })
     return Boolean((context as any).isAdmin);
   });
 
+let _adminProductsCache: { data: AdminProduct[]; timestamp: number } | null = null;
+const ADMIN_PRODUCTS_CACHE_TTL = 30_000;
+
+export function invalidateAdminProductsCache() {
+  _adminProductsCache = null;
+}
+
 export const adminListProducts = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }): Promise<AdminProduct[]> => {
+    if (_adminProductsCache && Date.now() - _adminProductsCache.timestamp < ADMIN_PRODUCTS_CACHE_TTL) {
+      return _adminProductsCache.data;
+    }
+
     await assertAdmin(context as any);
     await ensureDbSchema();
     const sql = getSql();
@@ -262,11 +274,24 @@ export const adminListProducts = createServerFn({ method: "GET" })
         sizeStockByProd.set(pId, stockMap);
       }
     } catch {
-      rows = await sql`
-        SELECT id, name, slug, description, price, images, sizes, colors, color_variants, tags, stock_quantity, is_active, category
-        FROM products
-        ORDER BY updated_at DESC
-      `;
+      try {
+        rows = await sql`
+          SELECT 
+            id, name, slug, description, details_html, price, mrp, compare_at_price, is_tax_inclusive,
+            images, sizes, colors, color_variants, tags, stock_quantity, is_active, category,
+            department, subcategory, collection, is_featured,
+            features, care_instructions, manufacturing_info, size_measurements,
+            sku, front_showcase_image, back_showcase_image, front_showcase_title, front_showcase_subtitle, back_showcase_title, back_showcase_subtitle
+          FROM products
+          ORDER BY updated_at DESC
+        `;
+      } catch {
+        rows = await sql`
+          SELECT id, name, slug, description, price, images, sizes, colors, color_variants, tags, stock_quantity, is_active, category
+          FROM products
+          ORDER BY updated_at DESC
+        `;
+      }
       const productIds = rows.map((p: any) => String(p.id));
       let variants: any[] = [];
       if (productIds.length > 0) {
@@ -290,7 +315,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
       }
     }
 
-    return rows.map((p: any) => {
+    const result: AdminProduct[] = rows.map((p: any) => {
       const rawImgs = Array.isArray(p.images)
         ? p.images
         : typeof p.images === "string"
@@ -449,6 +474,9 @@ export const adminListProducts = createServerFn({ method: "GET" })
         backShowcaseSubtitle: p.back_showcase_subtitle || null,
       };
     });
+
+    _adminProductsCache = { data: result, timestamp: Date.now() };
+    return result;
   });
 
 export const adminAddInventory = createServerFn({ method: "POST" })
@@ -1479,6 +1507,7 @@ export const adminUpdateCategory = createServerFn({ method: "POST" })
 
     invalidateCatalogCache();
     await logAudit(context as any, "category.update", "category", data.id, { name: data.name, department: data.department });
+    invalidateAdminDashboardCache();
     return { ok: true };
   });
 
@@ -1512,6 +1541,7 @@ export const adminDeleteCategory = createServerFn({ method: "POST" })
     await sql`DELETE FROM categories WHERE id = ${data.id}`;
     invalidateCatalogCache();
     await logAudit(context as any, "category.delete", "category", data.id, {});
+    invalidateAdminDashboardCache();
     return { ok: true };
   });
 
@@ -1666,6 +1696,7 @@ export const adminUpdateCollection = createServerFn({ method: "POST" })
 
     invalidateCatalogCache();
     await logAudit(context as any, "collection.update", "collection", data.id, { name: data.name, department: data.department });
+    invalidateAdminDashboardCache();
     return { ok: true };
   });
 
@@ -1683,6 +1714,7 @@ export const adminDeleteCollection = createServerFn({ method: "POST" })
     await sql`DELETE FROM collections WHERE id = ${data.id}`;
     invalidateCatalogCache();
     await logAudit(context as any, "collection.delete", "collection", data.id, {});
+    invalidateAdminDashboardCache();
     return { ok: true };
   });
 
@@ -2411,6 +2443,8 @@ export async function executeOrderShippedTransition(
   } catch (emailErr) {
     console.warn("[Admin] Shipped email dispatch lookup failed (non-fatal):", emailErr);
   }
+
+  invalidateAdminDashboardCache();
 }
 
 export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
@@ -2520,6 +2554,7 @@ export const adminUpdateOrderStatus = createServerFn({ method: "POST" })
       }
     }
 
+    invalidateAdminDashboardCache();
     return { ok: true };
   });
 
@@ -2610,6 +2645,7 @@ export const adminBulkUpdateOrderStatus = createServerFn({ method: "POST" })
       status: data.status,
       count: data.orderIds.length,
     });
+    invalidateAdminDashboardCache();
     return { ok: true, updated: data.orderIds.length };
   });
 

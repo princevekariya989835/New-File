@@ -337,7 +337,9 @@ const AuthenticatedAdminProductsRoute =
     id: '/products',
     path: '/products',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_authenticated/admin/products.lazy').then((d) => d.Route),
+  )
 const AuthenticatedAdminReturnsRoute =
   AuthenticatedAdminReturnsRouteImport.update({
     id: '/returns',

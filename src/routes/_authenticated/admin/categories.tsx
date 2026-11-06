@@ -69,6 +69,8 @@ function CategoriesPage() {
   const categoriesQ = useQuery({
     queryKey: ["admin", "categories"],
     queryFn: () => listFn(),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
   });
 
   const refresh = () => {

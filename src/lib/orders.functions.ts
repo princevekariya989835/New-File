@@ -17,6 +17,8 @@ import { getPublicWebsiteConfig } from "@/lib/website-config.functions";
 import { syncOrderToZippyy } from "@/lib/zippyy";
 import { FALLBACK_PRODUCTS } from "@/lib/fallback-products";
 import { getSql, ensureDbSchema } from "@/lib/db";
+import { invalidateAdminDashboardCache } from "@/lib/admin-dashboard.functions";
+import { invalidateCatalogCache } from "@/lib/catalog";
 
 export function extractPrimaryImage(images: unknown): string | null {
   if (!images) return null;
@@ -840,6 +842,9 @@ export const placeOrder = createServerFn({ method: "POST" })
       console.warn("[Zippyy Auto-Dispatch] Error for COD order:", err),
     );
 
+    invalidateAdminDashboardCache();
+    invalidateCatalogCache();
+
     return {
       ok: true,
       orderId,
@@ -1434,6 +1439,9 @@ export const verifyOnlineOrderPayment = createServerFn({ method: "POST" })
       console.warn("[Zippyy Auto-Dispatch] Error for online order:", err),
     );
 
+    invalidateAdminDashboardCache();
+    invalidateCatalogCache();
+
     return {
       ok: true,
       orderId: String(order.id),
@@ -1545,6 +1553,9 @@ export const cancelMyOrder = createServerFn({ method: "POST" })
     } catch (cancelEmailErr) {
       console.warn("[Orders] Cancellation email notice:", cancelEmailErr);
     }
+
+    invalidateAdminDashboardCache();
+    invalidateCatalogCache();
 
     return { ok: true, restored: res.restoredCount, alreadyRestored: res.alreadyRestored };
   });

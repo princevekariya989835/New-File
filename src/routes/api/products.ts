@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/products")({
           const limitParam = url.searchParams.get("limit");
           const categoryParam = url.searchParams.get("category");
           const departmentParam = url.searchParams.get("department");
-          const limit = Math.min(200, Math.max(1, Number(limitParam) || 50));
+          const limit = Math.min(200, Math.max(1, Number(limitParam) || 200));
 
           let products = await getPublishedProducts(limit);
 
@@ -39,10 +39,20 @@ export const Route = createFileRoute("/api/products")({
 
           if (categoryParam && categoryParam.trim().toLowerCase() !== "all") {
             const cat = categoryParam.trim().toLowerCase();
+            const normCat = cat.replace(/[-_\s]+/g, " ");
             products = products.filter(
-              (p) =>
-                p.node.productType?.toLowerCase() === cat ||
-                p.node.tags?.some((t) => t.toLowerCase() === cat),
+              (p) => {
+                const pType = (p.node.productType || "").toLowerCase();
+                const normPType = pType.replace(/[-_\s]+/g, " ");
+                return (
+                  pType === cat ||
+                  normPType === normCat ||
+                  p.node.tags?.some((t) => {
+                    const lt = t.toLowerCase();
+                    return lt === cat || lt.replace(/[-_\s]+/g, " ") === normCat;
+                  })
+                );
+              },
             );
           }
 

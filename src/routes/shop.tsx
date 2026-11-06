@@ -6,6 +6,7 @@ import { ProductCard } from "@/components/product-card";
 import { EmptyProducts } from "@/components/empty-products";
 import { ShopSkeleton } from "@/components/shop/shop-skeleton";
 import { Search, X, AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -16,11 +17,11 @@ import {
 import { usePublishedWebsiteConfig } from "@/hooks/use-website-config";
 
 const productsQuery = {
-  queryKey: ["products", "catalog", 50],
-  queryFn: () => fetchProducts(50),
-  staleTime: 1000 * 5,
+  queryKey: ["products", "catalog", 200],
+  queryFn: () => fetchProducts(200),
+  staleTime: 1000 * 60,
   gcTime: 1000 * 60 * 5,
-  refetchOnWindowFocus: true,
+  refetchOnWindowFocus: false,
 };
 
 type ShopSearch = {
@@ -28,6 +29,8 @@ type ShopSearch = {
   size?: string;
   sort?: string;
   category?: string;
+  department?: string;
+  page?: number;
 };
 
 export const Route = createFileRoute("/shop")({
@@ -36,6 +39,8 @@ export const Route = createFileRoute("/shop")({
     size: typeof search.size === "string" ? search.size : undefined,
     sort: typeof search.sort === "string" ? search.sort : undefined,
     category: typeof search.category === "string" ? search.category : undefined,
+    department: typeof search.department === "string" ? search.department : undefined,
+    page: typeof search.page === "number" ? Math.max(1, search.page) : undefined,
   }),
   head: () => ({
     meta: [
@@ -98,10 +103,10 @@ export const Route = createFileRoute("/shop")({
     ],
   }),
   loader: async ({ context }) => {
-    // Fast non-blocking prefetch capped at 1500ms so SSR HTML contains products without freezing
+    // Fast non-blocking prefetch capped at 2500ms so SSR HTML contains products without freezing
     await Promise.race([
       context.queryClient.ensureQueryData(productsQuery),
-      new Promise((resolve) => setTimeout(resolve, 1500)),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
     ]).catch(() => { });
   },
   pendingComponent: () => (
@@ -148,6 +153,16 @@ function ShopPage() {
     return Array.from(s);
   }, [products]);
 
+  const categories = useMemo(() => {
+    const c = new Set<string>();
+    products.forEach((p) => {
+      if (p.node.productType && p.node.productType.trim()) {
+        c.add(p.node.productType.trim());
+      }
+    });
+    return Array.from(c).sort();
+  }, [products]);
+
   const handleQueryChange = (val: string) => {
     setQ(val);
     navigate({
@@ -159,12 +174,52 @@ function ShopPage() {
     });
   };
 
+  const clearAllFilters = () => {
+    setQ("");
+    setSize("all");
+    setSort("featured");
+    navigate({
+      search: {},
+      replace: true,
+    });
+  };
+
   const filtered = useMemo(() => {
     let list = products;
-    if (searchParams.category?.trim()) {
-      const cat = searchParams.category.toLowerCase().trim();
-      list = list.filter((p) => p.node.productType?.toLowerCase() === cat);
+
+    // Department filter (?department=men / ?department=women)
+    if (searchParams.department?.trim() && searchParams.department.toLowerCase().trim() !== "all") {
+      const dept = searchParams.department.toLowerCase().trim();
+      list = list.filter((p) => {
+        const pDept = (p.node.department || "men").toLowerCase().trim();
+        return pDept === dept || pDept === "unisex";
+      });
     }
+
+    // Category filter (?category=oversized-tees / ?category=men / etc.)
+    if (searchParams.category?.trim() && searchParams.category.toLowerCase().trim() !== "all") {
+      const rawCat = searchParams.category.toLowerCase().trim();
+      const normCat = rawCat.replace(/[-_\s]+/g, " ");
+      list = list.filter((p) => {
+        const pType = (p.node.productType || "").toLowerCase().trim();
+        const normPType = pType.replace(/[-_\s]+/g, " ");
+        const pDept = (p.node.department || "").toLowerCase().trim();
+
+        // Support department passed as category parameter
+        if (pDept === rawCat) return true;
+
+        // Exact or normalized match against productType
+        if (pType === rawCat || normPType === normCat) return true;
+
+        // Tag match
+        return (p.node.tags || []).some((t) => {
+          const lt = t.toLowerCase().trim();
+          return lt === rawCat || lt.replace(/[-_\s]+/g, " ") === normCat;
+        });
+      });
+    }
+
+    // Search query
     if (q.trim()) {
       const term = q.toLowerCase().trim();
       list = list.filter(
@@ -172,10 +227,12 @@ function ShopPage() {
           p.node.title.toLowerCase().includes(term) ||
           p.node.description?.toLowerCase().includes(term) ||
           p.node.productType?.toLowerCase().includes(term) ||
+          (p.node.department && p.node.department.toLowerCase().includes(term)) ||
           p.node.tags?.some((t) => t.toLowerCase().includes(term)),
       );
     }
 
+    // Size filter
     if (size !== "all") {
       list = list.filter((p) =>
         p.node.options.some(
@@ -185,6 +242,7 @@ function ShopPage() {
         ),
       );
     }
+
     const arr = [...list];
     if (sort === "price-asc") {
       arr.sort(
@@ -202,7 +260,35 @@ function ShopPage() {
       arr.sort((a, b) => a.node.title.localeCompare(b.node.title));
     }
     return arr;
-  }, [products, sort, size, q, searchParams.category]);
+  }, [products, sort, size, q, searchParams.category, searchParams.department]);
+
+  const PAGE_SIZE = 24;
+  const currentPage = Math.max(1, Number(searchParams.page) || 1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        page: newPage === 1 ? undefined : newPage,
+      }),
+      replace: true,
+    });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 350, behavior: "smooth" });
+    }
+  };
+
+  const hasActiveFilters = Boolean(
+    q.trim() ||
+    (searchParams.category && searchParams.category !== "all") ||
+    (searchParams.department && searchParams.department !== "all") ||
+    size !== "all"
+  );
 
   return (
     <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-10 md:py-24">
@@ -263,7 +349,33 @@ function ShopPage() {
                 {filtered.length} {filtered.length === 1 ? "item" : "items"}
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {categories.length > 0 && (
+                  <Select
+                    value={searchParams.category || "all"}
+                    onValueChange={(val) => {
+                      navigate({
+                        search: (prev) => ({
+                          ...prev,
+                          category: val === "all" ? undefined : val,
+                        }),
+                        replace: true,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-10 w-[140px] sm:w-[155px] rounded-full border-border bg-card/60">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {sizes.length > 0 && (
                   <Select value={size} onValueChange={setSize}>
                     <SelectTrigger className="h-10 w-[125px] sm:w-[130px] rounded-full border-border bg-card/60">
@@ -296,6 +408,82 @@ function ShopPage() {
         </div>
       )}
 
+      {/* Active Filter Chips */}
+      {hasActiveFilters && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">Active filters:</span>
+          {q.trim() && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium">
+              Search: "{q.trim()}"
+              <button
+                type="button"
+                onClick={() => handleQueryChange("")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 cursor-pointer"
+                aria-label="Remove search filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {searchParams.department && searchParams.department !== "all" && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium capitalize">
+              Department: {searchParams.department}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({ ...prev, department: undefined }),
+                    replace: true,
+                  })
+                }
+                className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 cursor-pointer"
+                aria-label="Remove department filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {searchParams.category && searchParams.category !== "all" && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium capitalize">
+              Category: {searchParams.category}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate({
+                    search: (prev) => ({ ...prev, category: undefined }),
+                    replace: true,
+                  })
+                }
+                className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 cursor-pointer"
+                aria-label="Remove category filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {size !== "all" && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium">
+              Size: {size}
+              <button
+                type="button"
+                onClick={() => setSize("all")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 cursor-pointer"
+                aria-label="Remove size filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="text-xs font-semibold text-brand-red underline-offset-4 hover:underline cursor-pointer ml-1"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       {/* Content Rendering: Loading, Error, Empty, and Success */}
       {isLoading && products.length === 0 ? (
         <ShopSkeleton count={8} />
@@ -318,33 +506,84 @@ function ShopPage() {
           </button>
         </div>
       ) : filtered.length === 0 ? (
-        q.trim() ? (
+        products.length > 0 ? (
           <div className="mx-auto max-w-md py-16 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Search className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-bold">No matching products found</h2>
+            <h2 className="text-xl font-bold">{noProductsFound}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              We couldn't find any products matching "{q}". Try searching for something else or
-              clearing the search filter.
+              {q.trim()
+                ? `We couldn't find any products matching "${q}". Try adjusting your filters or search keywords.`
+                : "No products match the selected filters. Try clearing your filters to view all products."}
             </p>
             <button
               type="button"
-              onClick={() => handleQueryChange("")}
+              onClick={clearAllFilters}
               className="mt-6 btn-primary bg-brand-red text-white hover:bg-brand-red/90"
             >
-              Clear Search & View All
+              Clear Filters & View All ({products.length})
             </button>
           </div>
         ) : (
           <EmptyProducts />
         )
       ) : (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
-          {filtered.map((p, idx) => (
-            <ProductCard key={p.node.id} product={p} priority={idx < 4} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
+            {paginatedProducts.map((p, idx) => (
+              <ProductCard key={p.node.id} product={p} priority={idx < 4} />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-14 flex flex-col sm:flex-row items-center justify-between border-t border-border pt-6 gap-4">
+              <span className="text-xs text-muted-foreground">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} products
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage <= 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className="h-9 px-3.5 rounded-full text-xs font-medium cursor-pointer"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const pNum = i + 1;
+                    const isCur = pNum === currentPage;
+                    return (
+                      <button
+                        key={pNum}
+                        type="button"
+                        onClick={() => handlePageChange(pNum)}
+                        className={`h-8 w-8 rounded-full text-xs font-semibold transition cursor-pointer ${
+                          isCur
+                            ? "bg-brand-red text-white"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {pNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className="h-9 px-3.5 rounded-full text-xs font-medium cursor-pointer"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -112,54 +112,24 @@ export function MenCollectionPage() {
         limit: 24,
         includeUnisex: true,
       }),
-    staleTime: 1000 * 10,
+    staleTime: 1000 * 60,
   });
 
-  // 3. Fetch Trending Men's products for Section 3
-  const trendingQ = useQuery({
-    queryKey: ["department-trending", "men"],
-    queryFn: () =>
-      fetchDepartmentProducts({
-        department: "men",
-        sort: "featured",
-        limit: 4,
-        includeUnisex: true,
-      }),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // 4. Fetch New Arrivals for Section 4
-  const newArrivalsQ = useQuery({
-    queryKey: ["department-new-arrivals", "men"],
-    queryFn: () =>
-      fetchDepartmentProducts({
-        department: "men",
-        sort: "newest",
-        limit: 4,
-        includeUnisex: true,
-      }),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // 5. Fetch Best Sellers based on real order sales for Section 5
-  const bestSellersQ = useQuery({
-    queryKey: ["department-best-sellers", "men"],
-    queryFn: () =>
-      fetchDepartmentProducts({
-        department: "men",
-        sort: "best-selling",
-        limit: 4,
-        includeUnisex: true,
-      }),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const categories = categoriesQ.data || [];
+  const categories = categoriesQ.data || productsQ.data?.categories || [];
   const catalogData = productsQ.data;
   const products = catalogData?.products || [];
-  const trendingProducts = trendingQ.data?.products || [];
-  const newArrivals = newArrivalsQ.data?.products || [];
-  const bestSellers = bestSellersQ.data?.products || [];
+  const trendingProducts = useMemo(
+    () => productsQ.data?.trending || [],
+    [productsQ.data?.trending]
+  );
+  const newArrivals = useMemo(
+    () => productsQ.data?.newArrivals || [],
+    [productsQ.data?.newArrivals]
+  );
+  const bestSellers = useMemo(
+    () => productsQ.data?.bestSellers || [],
+    [productsQ.data?.bestSellers]
+  );
 
   const updateSearch = (newParams: Partial<MenSearch>) => {
     navigate({

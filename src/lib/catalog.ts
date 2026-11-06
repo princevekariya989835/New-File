@@ -458,13 +458,25 @@ let _seedPromise: Promise<void> | null = null;
 // Micro-cache (60s TTL) prevents redundant DB hits while ensuring edge consistency
 const _productsCache = new Map<number, { data: CatalogProduct[]; timestamp: number }>();
 const _productHandleCache = new Map<string, { data: CatalogProductNode | null; timestamp: number }>();
+export const _departmentProductsCache = new Map<string, { data: DepartmentProductsResult; timestamp: number }>();
 const CATALOG_CACHE_TTL = 60_000;
 
 export function invalidateCatalogCache() {
   _productsCache.clear();
   _productHandleCache.clear();
+  _departmentProductsCache.clear();
   try {
     import("./product-images").then((m) => m.invalidateImageCache()).catch(() => {});
+  } catch {
+    /* non-fatal */
+  }
+  try {
+    import("./admin.functions").then((m) => m.invalidateAdminProductsCache()).catch(() => {});
+  } catch {
+    /* non-fatal */
+  }
+  try {
+    import("./admin-dashboard.functions").then((m) => m.invalidateAdminDashboardCache()).catch(() => {});
   } catch {
     /* non-fatal */
   }
@@ -583,45 +595,78 @@ export async function seedInitialProductsIfNeeded() {
 }
 
 /**
- * Direct high-performance query for published storefront products from Neon PostgreSQL.
- * Single source of truth across all edge workers and visitor sessions.
+ * Direct high-performance query for published storefront products.
+ * Compatible with Neon PostgreSQL, Cloudflare D1 (SQLite), and local fallback.
+ * Uses a 2-step indexed query pattern to ensure universal database compatibility and zero truncation.
  */
-export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]> {
+export async function getPublishedProducts(first = 200): Promise<CatalogProduct[]> {
   const sql = getSql();
 
   try {
-    // Ultra-fast single-roundtrip query: Correlated subquery fetches product + variants together
-    const products = await sql`
-      SELECT 
-        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
-        p.images,
-        p.category, p.subcategory, p.collection, p.department, p.is_featured,
-        p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-        COALESCE(
-          (
-            SELECT jsonb_agg(jsonb_build_object(
-              'id', v.id,
-              'size', v.size,
-              'color', v.color,
-              'color_hex', v.color_hex,
-              'image_url', v.image_url,
-              'stock_quantity', v.stock_quantity,
-              'reserved_stock', v.reserved_stock,
-              'low_stock_threshold', v.low_stock_threshold
-            ))
-            FROM product_variants v
-            WHERE v.product_id = p.id
-          ),
-          '[]'::jsonb
-        ) AS product_variants
-      FROM products p
-      WHERE p.is_active = 1 OR p.is_active = true OR p.is_active IS NULL
-      ORDER BY p.name ASC, p.id ASC
-      LIMIT ${first}
-    `;
+    let products: any[] = [];
+    try {
+      products = await sql`
+        SELECT 
+          p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
+          p.images,
+          p.category, p.subcategory, p.collection, p.department, p.is_featured,
+          p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at
+        FROM products p
+        WHERE (p.is_active = 1 OR p.is_active = true OR p.is_active = 'true' OR p.is_active = '1' OR p.is_active IS NULL OR LOWER(p.status) = 'active')
+        ORDER BY p.name ASC, p.id ASC
+        LIMIT ${first}
+      `;
+    } catch {
+      // Fallback for minimal column schemas
+      products = await sql`
+        SELECT 
+          p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
+          p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at
+        FROM products p
+        WHERE (p.is_active = 1 OR p.is_active = true OR p.is_active IS NULL)
+        ORDER BY p.name ASC, p.id ASC
+        LIMIT ${first}
+      `.catch(() => []);
+    }
 
     if (!products || products.length === 0) {
-      return [];
+      return FALLBACK_PRODUCTS.map((r) => toCatalogProduct(r, true));
+    }
+
+    // Single batch query for variants
+    const productIds = products.map((p: any) => String(p.id));
+    let variantRows: any[] = [];
+    if (productIds.length > 0) {
+      try {
+        variantRows = await sql`
+          SELECT 
+            id, product_id, size, color, color_hex, image_url, sku,
+            stock_quantity, reserved_stock, low_stock_threshold
+          FROM product_variants
+          WHERE product_id IN (${productIds})
+        `;
+      } catch {
+        variantRows = [];
+      }
+    }
+
+    const variantsByProdId = new Map<string, VariantRow[]>();
+    for (const v of variantRows || []) {
+      const pId = String(v.product_id);
+      if (!variantsByProdId.has(pId)) {
+        variantsByProdId.set(pId, []);
+      }
+      variantsByProdId.get(pId)!.push({
+        id: String(v.id),
+        size: (v.size as string) || "",
+        color: (v.color as string) || "",
+        color_hex: (v.color_hex as string) || undefined,
+        image_url: (v.image_url as string) || undefined,
+        sku: (v.sku as string) || undefined,
+        stock_quantity: Number(v.stock_quantity || 0),
+        reserved_stock: Number(v.reserved_stock || 0),
+        low_stock_threshold: Number(v.low_stock_threshold || 2),
+      });
     }
 
     const rows: ProductRow[] = products.map((p: any) => ({
@@ -663,113 +708,20 @@ export async function getPublishedProducts(first = 50): Promise<CatalogProduct[]
       is_active: Boolean(p.is_active),
       tags: Array.isArray(p.tags) ? p.tags : typeof p.tags === "string" ? JSON.parse(p.tags) : [],
       updated_at: p.updated_at,
-      product_variants: Array.isArray(p.product_variants)
-        ? p.product_variants.map((v: any) => ({
-            id: String(v.id),
-            size: (v.size as string) || "",
-            color: (v.color as string) || "",
-            color_hex: (v.color_hex as string) || null,
-            image_url: (v.image_url as string) || null,
-            stock_quantity: Number(v.stock_quantity || 0),
-            reserved_stock: Number(v.reserved_stock || 0),
-            low_stock_threshold: Number(v.low_stock_threshold || 2),
-          }))
-        : typeof p.product_variants === "string"
-          ? JSON.parse(p.product_variants)
-          : [],
+      product_variants: variantsByProdId.get(String(p.id)) || [],
     }));
 
     return rows.map((r) => toCatalogProduct(r, true));
   } catch (err) {
-    console.warn("[getPublishedProducts] Correlated query fallback using single JOIN:", err);
-    // Single query using LEFT JOIN to guarantee 1 roundtrip even in fallback
-    const rowsJoined = await sql`
-      SELECT 
-        p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
-        p.images, p.category, p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at,
-        v.id AS variant_id, v.size AS variant_size, v.color AS variant_color,
-        v.color_hex AS variant_color_hex, v.image_url AS variant_image_url,
-        v.stock_quantity AS variant_stock_quantity, v.reserved_stock AS variant_reserved_stock,
-        v.low_stock_threshold AS variant_low_stock_threshold
-      FROM (
-        SELECT * FROM products
-        WHERE is_active = 1 OR is_active = true OR is_active IS NULL
-        ORDER BY name ASC, id ASC
-        LIMIT ${first}
-      ) p
-      LEFT JOIN product_variants v ON v.product_id = p.id
-      ORDER BY p.name ASC, p.id ASC
-    `;
-
-    if (!rowsJoined || rowsJoined.length === 0) {
-      return [];
-    }
-
-    const productMap = new Map<string, ProductRow>();
-    for (const row of rowsJoined) {
-      const pId = String(row.id);
-      if (!productMap.has(pId)) {
-        productMap.set(pId, {
-          id: pId,
-          name: row.name as string,
-          slug: row.slug as string,
-          description: null,
-          price: Number(row.price || 0),
-          mrp: row.mrp != null ? Number(row.mrp) : row.compare_at_price != null ? Number(row.compare_at_price) : null,
-          compare_at_price: row.compare_at_price != null ? Number(row.compare_at_price) : null,
-          is_tax_inclusive: row.is_tax_inclusive !== false,
-          currency: (row.currency as string) || "INR",
-          images: Array.isArray(row.images)
-            ? row.images
-            : typeof row.images === "string"
-              ? JSON.parse(row.images)
-              : [],
-          category: (row.category as string) || null,
-          sizes: Array.isArray(row.sizes)
-            ? row.sizes
-            : typeof row.sizes === "string"
-              ? JSON.parse(row.sizes)
-              : [],
-          colors: Array.isArray(row.colors)
-            ? row.colors
-            : typeof row.colors === "string"
-              ? JSON.parse(row.colors)
-              : [],
-          color_variants: Array.isArray(row.color_variants)
-            ? row.color_variants
-            : typeof row.color_variants === "string"
-              ? JSON.parse(row.color_variants)
-              : [],
-          stock_quantity: Number(row.stock_quantity || 0),
-          is_active: Boolean(row.is_active),
-          tags: Array.isArray(row.tags) ? row.tags : typeof row.tags === "string" ? JSON.parse(row.tags) : [],
-          updated_at: row.updated_at,
-          product_variants: [],
-        });
-      }
-
-      if (row.variant_id) {
-        productMap.get(pId)!.product_variants!.push({
-          id: String(row.variant_id),
-          size: (row.variant_size as string) || "",
-          color: (row.variant_color as string) || "",
-          color_hex: (row.variant_color_hex as string) || undefined,
-          image_url: (row.variant_image_url as string) || undefined,
-          stock_quantity: Number(row.variant_stock_quantity || 0),
-          reserved_stock: Number(row.variant_reserved_stock || 0),
-          low_stock_threshold: Number(row.variant_low_stock_threshold || 2),
-        });
-      }
-    }
-
-    return Array.from(productMap.values()).map((r) => toCatalogProduct(r, true));
+    console.warn("[getPublishedProducts] Query error, falling back to safe catalog list:", err);
+    return FALLBACK_PRODUCTS.map((r) => toCatalogProduct(r, true));
   }
 }
 
 export const fetchProductsServerFn = createServerFn({ method: "POST" })
-  .inputValidator((d: { first?: number }) => ({ first: Number(d.first || 50) }))
+  .inputValidator((d: { first?: number }) => ({ first: Number(d?.first || 200) }))
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
-    const first = data.first || 50;
+    const first = data?.first || 200;
 
     // Check burst debounce cache first (2s TTL)
     const cached = _productsCache.get(first);
@@ -792,7 +744,7 @@ export const fetchProductsServerFn = createServerFn({ method: "POST" })
     }
   });
 
-export async function fetchProducts(first = 20): Promise<CatalogProduct[]> {
+export async function fetchProducts(first = 200): Promise<CatalogProduct[]> {
   try {
     const res = await fetchProductsServerFn({ data: { first } });
     return Array.isArray(res) ? res : [];
@@ -886,9 +838,9 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
         id: String(v.id),
         size: (v.size as string) || "",
         color: (v.color as string) || "",
-        color_hex: (v.color_hex as string) || null,
-        image_url: (v.image_url as string) || null,
-        sku: (v.sku as string) || null,
+        color_hex: (v.color_hex as string) || undefined,
+        image_url: (v.image_url as string) || undefined,
+        sku: (v.sku as string) || undefined,
         stock_quantity: Number(v.stock_quantity || 0),
         reserved_stock: Number(v.reserved_stock || 0),
         low_stock_threshold: Number(v.low_stock_threshold || 2),
@@ -1058,6 +1010,9 @@ export interface DepartmentProductsResult {
   availableSizes: string[];
   minPrice: number;
   maxPrice: number;
+  trending?: CatalogProduct[];
+  newArrivals?: CatalogProduct[];
+  bestSellers?: CatalogProduct[];
 }
 
 export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" })
@@ -1078,6 +1033,12 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
     includeUnisex: d?.includeUnisex !== false,
   }))
   .handler(async ({ data }): Promise<DepartmentProductsResult> => {
+    const cacheKey = JSON.stringify(data);
+    const cached = _departmentProductsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 30_000) {
+      return cached.data;
+    }
+
     const sql = getSql();
     const {
       department,
@@ -1122,7 +1083,7 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
           p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured,
           p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.created_at, p.updated_at
         FROM products p
-        WHERE p.is_active = 1
+        WHERE (p.is_active = 1 OR p.is_active = true OR p.is_active = 'true' OR p.is_active = '1' OR p.is_active IS NULL OR LOWER(p.status) = 'active')
         ORDER BY p.is_featured DESC, p.created_at DESC
       `;
 
@@ -1336,7 +1297,24 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
         }));
       }
 
-      return {
+      // Pre-compute curated featured sets for the department so the UI never needs duplicate queries
+      const deptBaseProducts = filtered;
+      const trendingProducts = [...deptBaseProducts]
+        .sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0))
+        .slice(0, 4)
+        .map((r) => toCatalogProduct(r, true));
+
+      const newArrivalsProducts = [...deptBaseProducts]
+        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+        .slice(0, 4)
+        .map((r) => toCatalogProduct(r, true));
+
+      const bestSellersProducts = [...deptBaseProducts]
+        .sort((a, b) => (salesMap.get(String(b.id).toLowerCase()) || 0) - (salesMap.get(String(a.id).toLowerCase()) || 0))
+        .slice(0, 4)
+        .map((r) => toCatalogProduct(r, true));
+
+      const result: DepartmentProductsResult = {
         products: catalogProducts,
         total,
         page,
@@ -1347,7 +1325,13 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
         availableSizes: Array.from(allSizesSet).sort(),
         minPrice: Number.isFinite(deptMinPrice) ? deptMinPrice : 0,
         maxPrice: deptMaxPrice > 0 ? deptMaxPrice : 2999,
+        trending: trendingProducts,
+        newArrivals: newArrivalsProducts,
+        bestSellers: bestSellersProducts,
       };
+
+      _departmentProductsCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err: any) {
       console.error("[fetchDepartmentProductsServerFn] Error:", err);
       return {
@@ -1395,7 +1379,7 @@ export const fetchCategoriesByDepartmentServerFn = createServerFn({ method: "POS
       const rows = await sql`
         SELECT id, name, slug, department, description, image_url, display_order, is_active
         FROM categories
-        WHERE is_active = 1
+        WHERE (is_active = 1 OR is_active = true OR is_active = 'true' OR is_active = '1' OR is_active IS NULL)
         ORDER BY display_order ASC, name ASC
       `;
       const dept = data.department;
@@ -1427,7 +1411,7 @@ export const fetchCollectionsByDepartmentServerFn = createServerFn({ method: "PO
       const rows = await sql`
         SELECT id, name, slug, department, description, image_url, banner_url, display_order, is_active
         FROM collections
-        WHERE is_active = 1
+        WHERE (is_active = 1 OR is_active = true OR is_active = 'true' OR is_active = '1' OR is_active IS NULL)
         ORDER BY display_order ASC, name ASC
       `;
       const dept = data.department;

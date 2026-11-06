@@ -71,7 +71,7 @@ export type AdminDashboard = {
 const VOID = new Set(["Cancelled", "Returned", "Refunded"]);
 
 let _dashboardCache: { data: AdminDashboard; timestamp: number } | null = null;
-const DASHBOARD_CACHE_TTL = 15_000;
+const DASHBOARD_CACHE_TTL = 30_000;
 
 export function invalidateAdminDashboardCache() {
   _dashboardCache = null;
@@ -98,7 +98,7 @@ export const getAdminNotifications = createServerFn({ method: "GET" })
         sql`
           SELECT id, name
           FROM products
-          WHERE is_active = true AND (stock_quantity - reserved_stock) <= 0
+          WHERE (is_active = 1 OR is_active = true OR is_active IS NULL) AND (stock_quantity - reserved_stock) <= 0
           LIMIT 5
         `,
       ]);
@@ -134,6 +134,10 @@ export const adminDashboard = createServerFn({ method: "GET" })
     }
 
     const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const monthStartStr = `${todayStr.slice(0, 7)}-01`;
+    const fourteenDaysAgoStr = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10);
+
     const daysMap = new Map<string, { revenue: number; orders: number }>();
     for (let i = 13; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 86400000);
@@ -147,6 +151,8 @@ export const adminDashboard = createServerFn({ method: "GET" })
 
       const [
         orderTotalsRes,
+        totalCustomersRes,
+        totalProductsRes,
         statusCountsRes,
         paymentCountsRes,
         recentOrdersRes,
@@ -159,43 +165,43 @@ export const adminDashboard = createServerFn({ method: "GET" })
           SELECT 
             COUNT(*) as total_orders,
             COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN total_amount ELSE 0 END), 0) as total_sales,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= date('now') THEN total_amount ELSE 0 END), 0) as sales_today,
-            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= date('now', 'start of month') THEN total_amount ELSE 0 END), 0) as sales_month,
-            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END) as revenue_orders_count,
-            (SELECT COUNT(*) FROM profiles) as total_customers,
-            (SELECT COUNT(*) FROM products) as total_products
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= ${todayStr} THEN total_amount ELSE 0 END), 0) as sales_today,
+            COALESCE(SUM(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') AND created_at >= ${monthStartStr} THEN total_amount ELSE 0 END), 0) as sales_month,
+            COUNT(CASE WHEN status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN 1 ELSE NULL END) as revenue_orders_count
           FROM orders
-        `,
-        sql`
-          SELECT status, COUNT(*) as count FROM orders GROUP BY status
-        `,
-        sql`
-          SELECT payment_status, COUNT(*) as count FROM orders GROUP BY payment_status
-        `,
+        `.catch(() => []),
+        sql`SELECT COUNT(*) as count FROM profiles`.catch(() => [{ count: 0 }]),
+        sql`SELECT COUNT(*) as count FROM products WHERE (is_active = 1 OR is_active = true OR is_active IS NULL)`.catch(() => [{ count: 0 }]),
+        sql`SELECT status, COUNT(*) as count FROM orders GROUP BY status`.catch(() => []),
+        sql`SELECT payment_status, COUNT(*) as count FROM orders GROUP BY payment_status`.catch(() => []),
         sql`
           SELECT id, order_number, created_at, total_amount, currency, status, payment_status, shipping_name, shipping_email
           FROM orders
           ORDER BY created_at DESC
           LIMIT 10
-        `,
+        `.catch(() => []),
         sql`
           SELECT id, name, stock_quantity, reserved_stock, low_stock_threshold, is_active
           FROM products
-          WHERE is_active = 1 OR is_active = true
+          WHERE is_active = 1 OR is_active = true OR is_active IS NULL
           ORDER BY (stock_quantity - reserved_stock) ASC
           LIMIT 100
-        `,
+        `.catch(() => []),
         sql`
           SELECT 
             p.id, p.email, p.full_name, p.created_at,
             COUNT(o.id) as orders,
             COALESCE(SUM(CASE WHEN o.status NOT IN ('Cancelled', 'Returned', 'Refunded') THEN o.total_amount ELSE 0 END), 0) as spent
-          FROM profiles p
+          FROM (
+            SELECT id, email, full_name, created_at
+            FROM profiles
+            ORDER BY created_at DESC
+            LIMIT 10
+          ) p
           LEFT JOIN orders o ON p.id = o.user_id
           GROUP BY p.id, p.email, p.full_name, p.created_at
           ORDER BY p.created_at DESC
-          LIMIT 10
-        `,
+        `.catch(() => []),
         sql`
           SELECT 
             oi.product_name as name,
@@ -207,39 +213,59 @@ export const adminDashboard = createServerFn({ method: "GET" })
           GROUP BY oi.product_name
           ORDER BY units DESC
           LIMIT 5
-        `,
+        `.catch(() => []),
         sql`
           SELECT 
             substr(created_at, 1, 10) as date,
             COALESCE(SUM(total_amount), 0) as revenue,
             COUNT(*) as orders
           FROM orders
-          WHERE created_at >= date('now', '-14 days')
+          WHERE created_at >= ${fourteenDaysAgoStr}
             AND status NOT IN ('Cancelled', 'Returned', 'Refunded')
           GROUP BY substr(created_at, 1, 10)
           ORDER BY date ASC
-        `,
+        `.catch(() => []),
       ]);
 
-      const orderTotals = orderTotalsRes[0] || {};
-      const counts = orderTotals;
-
       const statusCounts: Record<string, number> = {};
-      for (const row of statusCountsRes as any[]) {
+      for (const row of (statusCountsRes || []) as any[]) {
         if (row?.status) statusCounts[row.status] = Number(row.count || 0);
       }
 
       const paymentCounts: Record<string, number> = {};
-      for (const row of paymentCountsRes as any[]) {
+      for (const row of (paymentCountsRes || []) as any[]) {
         if (row?.payment_status) paymentCounts[row.payment_status] = Number(row.count || 0);
       }
 
-      const currency = (recentOrdersRes[0]?.currency as string) || "INR";
-      const totalOrders = Number(orderTotals.total_orders || 0);
-      const totalSales = Number(orderTotals.total_sales || 0);
-      const salesToday = Number(orderTotals.sales_today || 0);
-      const salesMonth = Number(orderTotals.sales_month || 0);
-      const revOrdersCount = Number(orderTotals.revenue_orders_count || 0);
+      const currency = (recentOrdersRes?.[0]?.currency as string) || "INR";
+      let totalOrders = 0;
+      let totalSales = 0;
+      let salesToday = 0;
+      let salesMonth = 0;
+      let revOrdersCount = 0;
+
+      const firstTotalRow = orderTotalsRes?.[0];
+      if (firstTotalRow && "total_orders" in firstTotalRow) {
+        totalOrders = Number(firstTotalRow.total_orders || 0);
+        totalSales = Number(firstTotalRow.total_sales || 0);
+        salesToday = Number(firstTotalRow.sales_today || 0);
+        salesMonth = Number(firstTotalRow.sales_month || 0);
+        revOrdersCount = Number(firstTotalRow.revenue_orders_count || 0);
+      } else if (Array.isArray(orderTotalsRes)) {
+        totalOrders = orderTotalsRes.length;
+        for (const o of orderTotalsRes) {
+          if (!VOID.has(o.status)) {
+            const amt = Number(o.total_amount || 0);
+            totalSales += amt;
+            revOrdersCount++;
+            if (o.created_at && o.created_at >= todayStr) salesToday += amt;
+            if (o.created_at && o.created_at >= monthStartStr) salesMonth += amt;
+          }
+        }
+      }
+
+      const totalCustomers = Number(totalCustomersRes?.[0]?.count ?? firstTotalRow?.total_customers ?? 0);
+      const totalProducts = Number(totalProductsRes?.[0]?.count ?? firstTotalRow?.total_products ?? 0);
 
       // Populate daily sales
       for (const row of salesByDayRes as any[]) {
@@ -326,8 +352,8 @@ export const adminDashboard = createServerFn({ method: "GET" })
           salesToday,
           salesMonth,
           orders: totalOrders,
-          products: Number(counts.total_products || 0),
-          customers: Number(counts.total_customers || 0),
+          products: totalProducts,
+          customers: totalCustomers,
           avgOrderValue: revOrdersCount > 0 ? Math.round(totalSales / revOrdersCount) : 0,
         },
         statusCounts,
