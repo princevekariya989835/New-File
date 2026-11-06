@@ -232,13 +232,13 @@ export function MenCollectionPage() {
               </div>
             </div>
 
-            {/* Right Model Imagery */}
-            <div className="relative lg:col-span-6">
+            {/* Right Model Imagery - Clickable to Latest Edition */}
+            <Link to="/men/latest-edition" className="relative lg:col-span-6 block group cursor-pointer">
               <div className="relative mx-auto aspect-[4/5] w-full max-w-[540px] overflow-hidden rounded-2xl bg-[#F3F3F3] shadow-2xl">
                 <img
                   src="/assets/hero-model.jpg"
                   alt="RIOTOUS Men Streetwear Collection"
-                  className="h-full w-full object-cover object-top transition duration-700 hover:scale-105"
+                  className="h-full w-full object-cover object-top transition duration-700 group-hover:scale-105"
                   loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
@@ -247,14 +247,16 @@ export function MenCollectionPage() {
                     <span className="text-[10px] font-mono uppercase tracking-widest text-white/80">
                       Core Heavyweight Drops
                     </span>
-                    <h3 className="text-xl font-bold uppercase tracking-tight">Oversized DTF Street Tees</h3>
+                    <h3 className="text-xl font-bold uppercase tracking-tight group-hover:text-red-400 transition-colors">
+                      Oversized DTF Street Tees
+                    </h3>
                   </div>
-                  <div className="rounded-full bg-white/20 p-2.5 backdrop-blur-md">
+                  <div className="rounded-full bg-white/20 p-2.5 backdrop-blur-md group-hover:bg-red-600 transition-colors">
                     <ArrowRight className="h-5 w-5" />
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -299,16 +301,16 @@ export function MenCollectionPage() {
         <section className="border-b border-[#F3F3F3] bg-white py-16 md:py-24">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-12">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
-              <div>
+              <Link to="/men/latest-edition" className="group block">
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#ED171F]">
                   <Clock className="h-3.5 w-3.5" /> Latest Season Drops
                 </div>
-                <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl">
+                <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl group-hover:text-[#ED171F] transition-colors">
                   LATEST EDITION
                 </h2>
-              </div>
+              </Link>
               <Link
-                to="/collections/men/latest-edition"
+                to="/men/latest-edition"
                 className="text-xs font-bold uppercase tracking-wider text-[#111111] hover:text-[#ED171F] flex items-center gap-1.5 transition"
               >
                 View Latest Edition <ArrowRight className="h-4 w-4" />
@@ -331,16 +333,16 @@ export function MenCollectionPage() {
         <section className="border-b border-[#F3F3F3] bg-[#F3F3F3]/50 py-16 md:py-24">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-12">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
-              <div>
+              <Link to="/men/best-sellers" className="group block">
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#ED171F]">
                   <TrendingUp className="h-3.5 w-3.5" /> Verified Customer Favorites
                 </div>
-                <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl">
+                <h2 className="text-3xl font-black uppercase tracking-tight text-[#111111] md:text-5xl group-hover:text-[#ED171F] transition-colors">
                   BEST SELLERS
                 </h2>
-              </div>
+              </Link>
               <Link
-                to="/collections/men/best-sellers"
+                to="/men/best-sellers"
                 className="text-xs font-bold uppercase tracking-wider text-[#111111] hover:text-[#ED171F] flex items-center gap-1.5 transition"
               >
                 Shop Best Sellers <ArrowRight className="h-4 w-4" />

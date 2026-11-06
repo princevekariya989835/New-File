@@ -123,6 +123,8 @@ export interface CatalogProductNode {
   frontShowcaseSubtitle?: string | null;
   backShowcaseTitle?: string | null;
   backShowcaseSubtitle?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface CatalogProduct {
@@ -446,6 +448,8 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       frontShowcaseSubtitle: row.front_showcase_subtitle || (row as any).frontShowcaseSubtitle || null,
       backShowcaseTitle: row.back_showcase_title || (row as any).backShowcaseTitle || null,
       backShowcaseSubtitle: row.back_showcase_subtitle || (row as any).backShowcaseSubtitle || null,
+      createdAt: row.created_at || (row as any).createdAt || null,
+      updatedAt: row.updated_at || (row as any).updatedAt || null,
     },
   };
 }

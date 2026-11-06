@@ -24,6 +24,18 @@ All public storefront routes are server-side rendered (SSR) and configured with 
 | `/terms` | `src/routes/terms.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/terms`) | Static Policy | Terms of service |
 | `/shipping-policy` | `src/routes/shipping-policy.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/shipping-policy`) | Static Policy | Shipping timelines & courier dispatch rules |
 | `/refund-policy` | `src/routes/refund-policy.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/refund-policy`) | Static Policy | 7-day return policy and refund guidelines |
+| `/collections/men` | `src/routes/collections.men.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/collections/men`) | `products`, `featured_collections` | Men's department hub, hero banner, Latest Edition & Best Sellers |
+| `/collections/women` | `src/routes/collections.women.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/collections/women`) | `products`, `featured_collections` | Women's department hub, hero banner, Latest Edition & Best Sellers |
+| `/men` | `src/routes/men.tsx` | N/A (Direct) | No | Permanent redirect to `/collections/men` | Static | Alias redirect |
+| `/women` | `src/routes/women.tsx` | N/A (Direct) | No | Permanent redirect to `/collections/women` | Static | Alias redirect |
+| `/men/best-sellers` | `src/routes/men.best-sellers.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Dedicated Men's Best Sellers collection page with sort & category filters |
+| `/men/latest-edition` | `src/routes/men.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Dedicated Men's Latest Edition collection page with sort & category filters |
+| `/women/best-sellers` | `src/routes/women.best-sellers.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Dedicated Women's Best Sellers collection page with sort & category filters |
+| `/women/latest-edition` | `src/routes/women.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Dedicated Women's Latest Edition collection page with sort & category filters |
+| `/collections/men/best-sellers` | `src/routes/collections.men.best-sellers.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Men's Best Sellers |
+| `/collections/men/latest-edition` | `src/routes/collections.men.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Men's Latest Edition |
+| `/collections/women/best-sellers` | `src/routes/collections.women.best-sellers.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Women's Best Sellers |
+| `/collections/women/latest-edition` | `src/routes/collections.women.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Women's Latest Edition |
 
 ---
 
@@ -67,6 +79,7 @@ Protected by `src/routes/_authenticated/admin/route.tsx`. Requires staff role (`
 | `/admin/customers` | `src/routes/_authenticated/admin/customers.tsx` | `customers.lazy.tsx` | Customer spend analytics, user profiles |
 | `/admin/coupons` | `src/routes/_authenticated/admin/coupons.tsx` | `coupons.lazy.tsx` | Promo code creation, usage caps, discount validation |
 | `/admin/offers` | `src/routes/_authenticated/admin/offers.tsx` | `offers.lazy.tsx` | Product-level promotional deal cards |
+| `/admin/featured-collections` | `src/routes/_authenticated/admin/featured-collections.tsx` | `featured-collections.lazy.tsx` | Dynamic Best Sellers & Latest Edition collection curator (Men & Women) |
 | `/admin/designs` | `src/routes/_authenticated/admin/designs.tsx` | N/A (Direct) | Inspection of custom design submissions from `/design` |
 | `/admin/storefront`| `src/routes/_authenticated/admin/storefront.tsx` | `storefront.lazy.tsx` | Homepage content, hero banners, curated collections |
 | `/admin/marketing` | `src/routes/_authenticated/admin/marketing.tsx` | `marketing.lazy.tsx` | Marketing campaigns, banner schedules |

@@ -18,6 +18,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DesignRouteImport } from './routes/design'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MenRouteImport } from './routes/men'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -27,13 +28,18 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WomenRouteImport } from './routes/women'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as ApiProductsRouteImport } from './routes/api/products'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as CollectionsMenRouteImport } from './routes/collections.men'
 import { Route as CollectionsWomenRouteImport } from './routes/collections.women'
+import { Route as MenBestSellersRouteImport } from './routes/men.best-sellers'
+import { Route as MenLatestEditionRouteImport } from './routes/men.latest-edition'
 import { Route as ProductHandleRouteImport } from './routes/product.$handle'
 import { Route as TrackingWebhookRouteImport } from './routes/tracking.webhook'
+import { Route as WomenBestSellersRouteImport } from './routes/women.best-sellers'
+import { Route as WomenLatestEditionRouteImport } from './routes/women.latest-edition'
 import { Route as AuthenticatedAccountFavoritesRouteImport } from './routes/_authenticated/account.favorites'
 import { Route as AuthenticatedAccountOrdersRouteImport } from './routes/_authenticated/account.orders'
 import { Route as AuthenticatedAccountReturnsRouteImport } from './routes/_authenticated/account.returns'
@@ -122,6 +128,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MenRoute = MenRouteImport.update({
+  id: '/men',
+  path: '/men',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -167,6 +178,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WomenRoute = WomenRouteImport.update({
+  id: '/women',
+  path: '/women',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -192,6 +208,16 @@ const CollectionsWomenRoute = CollectionsWomenRouteImport.update({
   path: '/collections/women',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MenBestSellersRoute = MenBestSellersRouteImport.update({
+  id: '/best-sellers',
+  path: '/best-sellers',
+  getParentRoute: () => MenRoute,
+} as any)
+const MenLatestEditionRoute = MenLatestEditionRouteImport.update({
+  id: '/latest-edition',
+  path: '/latest-edition',
+  getParentRoute: () => MenRoute,
+} as any)
 const ProductHandleRoute = ProductHandleRouteImport.update({
   id: '/product/$handle',
   path: '/product/$handle',
@@ -201,6 +227,16 @@ const TrackingWebhookRoute = TrackingWebhookRouteImport.update({
   id: '/tracking/webhook',
   path: '/tracking/webhook',
   getParentRoute: () => rootRouteImport,
+} as any)
+const WomenBestSellersRoute = WomenBestSellersRouteImport.update({
+  id: '/best-sellers',
+  path: '/best-sellers',
+  getParentRoute: () => WomenRoute,
+} as any)
+const WomenLatestEditionRoute = WomenLatestEditionRouteImport.update({
+  id: '/latest-edition',
+  path: '/latest-edition',
+  getParentRoute: () => WomenRoute,
 } as any)
 const AuthenticatedAccountFavoritesRoute =
   AuthenticatedAccountFavoritesRouteImport.update({
@@ -504,6 +540,7 @@ export interface FileRoutesByFullPath {
   '/design': typeof DesignRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/men': typeof MenRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -513,13 +550,18 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/women': typeof WomenRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
+  '/men/best-sellers': typeof MenBestSellersRoute
+  '/men/latest-edition': typeof MenLatestEditionRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
+  '/women/best-sellers': typeof WomenBestSellersRoute
+  '/women/latest-edition': typeof WomenLatestEditionRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -573,6 +615,7 @@ export interface FileRoutesByTo {
   '/design': typeof DesignRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/men': typeof MenRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -582,12 +625,17 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/women': typeof WomenRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
+  '/men/best-sellers': typeof MenBestSellersRoute
+  '/men/latest-edition': typeof MenLatestEditionRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
+  '/women/best-sellers': typeof WomenBestSellersRoute
+  '/women/latest-edition': typeof WomenLatestEditionRoute
   '/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -643,6 +691,7 @@ export interface FileRoutesById {
   '/design': typeof DesignRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/men': typeof MenRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/refund-policy': typeof RefundPolicyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -652,13 +701,18 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/women': typeof WomenRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
+  '/men/best-sellers': typeof MenBestSellersRoute
+  '/men/latest-edition': typeof MenLatestEditionRoute
   '/product/$handle': typeof ProductHandleRoute
   '/tracking/webhook': typeof TrackingWebhookRoute
+  '/women/best-sellers': typeof WomenBestSellersRoute
+  '/women/latest-edition': typeof WomenLatestEditionRoute
   '/_authenticated/account/favorites': typeof AuthenticatedAccountFavoritesRoute
   '/_authenticated/account/orders': typeof AuthenticatedAccountOrdersRoute
   '/_authenticated/account/returns': typeof AuthenticatedAccountReturnsRoute
@@ -714,6 +768,7 @@ export interface FileRouteTypes {
     | '/design'
     | '/llms.txt'
     | '/login'
+    | '/men'
     | '/privacy'
     | '/refund-policy'
     | '/reset-password'
@@ -723,13 +778,18 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/women'
     | '/admin'
     | '/api/products'
     | '/auth/callback'
     | '/collections/men'
     | '/collections/women'
+    | '/men/best-sellers'
+    | '/men/latest-edition'
     | '/product/$handle'
     | '/tracking/webhook'
+    | '/women/best-sellers'
+    | '/women/latest-edition'
     | '/account/favorites'
     | '/account/orders'
     | '/account/returns'
@@ -783,6 +843,7 @@ export interface FileRouteTypes {
     | '/design'
     | '/llms.txt'
     | '/login'
+    | '/men'
     | '/privacy'
     | '/refund-policy'
     | '/reset-password'
@@ -792,12 +853,17 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/women'
     | '/api/products'
     | '/auth/callback'
     | '/collections/men'
     | '/collections/women'
+    | '/men/best-sellers'
+    | '/men/latest-edition'
     | '/product/$handle'
     | '/tracking/webhook'
+    | '/women/best-sellers'
+    | '/women/latest-edition'
     | '/account/favorites'
     | '/account/orders'
     | '/account/returns'
@@ -852,6 +918,7 @@ export interface FileRouteTypes {
     | '/design'
     | '/llms.txt'
     | '/login'
+    | '/men'
     | '/privacy'
     | '/refund-policy'
     | '/reset-password'
@@ -861,13 +928,18 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/women'
     | '/_authenticated/admin'
     | '/api/products'
     | '/auth_/callback'
     | '/collections/men'
     | '/collections/women'
+    | '/men/best-sellers'
+    | '/men/latest-edition'
     | '/product/$handle'
     | '/tracking/webhook'
+    | '/women/best-sellers'
+    | '/women/latest-edition'
     | '/_authenticated/account/favorites'
     | '/_authenticated/account/orders'
     | '/_authenticated/account/returns'
@@ -923,6 +995,7 @@ export interface RootRouteChildren {
   DesignRoute: typeof DesignRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
+  MenRoute: typeof MenRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -932,6 +1005,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  WomenRoute: typeof WomenRouteWithChildren
   ApiProductsRoute: typeof ApiProductsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CollectionsMenRoute: typeof CollectionsMenRouteWithChildren
@@ -1017,6 +1091,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/men': {
+      id: '/men'
+      path: '/men'
+      fullPath: '/men'
+      preLoaderRoute: typeof MenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -1080,6 +1161,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/women': {
+      id: '/women'
+      path: '/women'
+      fullPath: '/women'
+      preLoaderRoute: typeof WomenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -1115,6 +1203,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CollectionsWomenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/men/best-sellers': {
+      id: '/men/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/men/best-sellers'
+      preLoaderRoute: typeof MenBestSellersRouteImport
+      parentRoute: typeof MenRoute
+    }
+    '/men/latest-edition': {
+      id: '/men/latest-edition'
+      path: '/latest-edition'
+      fullPath: '/men/latest-edition'
+      preLoaderRoute: typeof MenLatestEditionRouteImport
+      parentRoute: typeof MenRoute
+    }
     '/product/$handle': {
       id: '/product/$handle'
       path: '/product/$handle'
@@ -1128,6 +1230,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/tracking/webhook'
       preLoaderRoute: typeof TrackingWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/women/best-sellers': {
+      id: '/women/best-sellers'
+      path: '/best-sellers'
+      fullPath: '/women/best-sellers'
+      preLoaderRoute: typeof WomenBestSellersRouteImport
+      parentRoute: typeof WomenRoute
+    }
+    '/women/latest-edition': {
+      id: '/women/latest-edition'
+      path: '/latest-edition'
+      fullPath: '/women/latest-edition'
+      preLoaderRoute: typeof WomenLatestEditionRouteImport
+      parentRoute: typeof WomenRoute
     }
     '/_authenticated/account/favorites': {
       id: '/_authenticated/account/favorites'
@@ -1511,6 +1627,30 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface MenRouteChildren {
+  MenBestSellersRoute: typeof MenBestSellersRoute
+  MenLatestEditionRoute: typeof MenLatestEditionRoute
+}
+
+const MenRouteChildren: MenRouteChildren = {
+  MenBestSellersRoute: MenBestSellersRoute,
+  MenLatestEditionRoute: MenLatestEditionRoute,
+}
+
+const MenRouteWithChildren = MenRoute._addFileChildren(MenRouteChildren)
+
+interface WomenRouteChildren {
+  WomenBestSellersRoute: typeof WomenBestSellersRoute
+  WomenLatestEditionRoute: typeof WomenLatestEditionRoute
+}
+
+const WomenRouteChildren: WomenRouteChildren = {
+  WomenBestSellersRoute: WomenBestSellersRoute,
+  WomenLatestEditionRoute: WomenLatestEditionRoute,
+}
+
+const WomenRouteWithChildren = WomenRoute._addFileChildren(WomenRouteChildren)
+
 interface CollectionsMenRouteChildren {
   CollectionsMenBestSellersRoute: typeof CollectionsMenBestSellersRoute
   CollectionsMenLatestEditionRoute: typeof CollectionsMenLatestEditionRoute
@@ -1548,6 +1688,7 @@ const rootRouteChildren: RootRouteChildren = {
   DesignRoute: DesignRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
+  MenRoute: MenRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -1557,6 +1698,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  WomenRoute: WomenRouteWithChildren,
   ApiProductsRoute: ApiProductsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CollectionsMenRoute: CollectionsMenRouteWithChildren,

@@ -12,12 +12,19 @@ All notable architecture, database, and system modifications are recorded in thi
 - **Backend Management Server Functions** (`src/lib/featured-collections.functions.ts`): Implemented `getPublicFeaturedCollection`, `adminListFeaturedCollections`, `adminGetFeaturedCollection`, `adminUpdateFeaturedCollection`, and `adminSearchProductsForCollection` with 30s in-memory caching and real-time invalidation wired into `invalidateCatalogCache()`.
 - **Admin Panel "Featured Collections" Console** (`src/routes/_authenticated/admin/featured-collections.lazy.tsx`): Added dedicated admin navigation entry and code-split management interface with independent tabs for all 4 collections, drag/reorder controls, product search & multi-select, enable/disable switches, live storefront modal preview, and unsaved changes tracking.
 - **Dedicated Storefront Collection Pages**: Created dedicated routes:
-  - `/collections/men/best-sellers` (`src/routes/collections.men.best-sellers.tsx`)
-  - `/collections/men/latest-edition` (`src/routes/collections.men.latest-edition.tsx`)
-  - `/collections/women/best-sellers` (`src/routes/collections.women.best-sellers.tsx`)
-  - `/collections/women/latest-edition` (`src/routes/collections.women.latest-edition.tsx`)
-  Powered by reusable `src/components/featured-collection-view.tsx` with responsive product cards, brand metadata, and clean empty states.
-- **Frontend Navigation & Section Wiring**: Connected on-page "Shop Best Sellers" and "View Latest Edition" buttons in `src/routes/collections.men.tsx` and `src/routes/collections.women.tsx` to redirect to their respective dedicated pages, and wired on-page showcase sections to display the admin-curated featured collection items.
+  - Direct URLs:
+    - `/men/best-sellers` (`src/routes/men.best-sellers.tsx`)
+    - `/men/latest-edition` (`src/routes/men.latest-edition.tsx`)
+    - `/women/best-sellers` (`src/routes/women.best-sellers.tsx`)
+    - `/women/latest-edition` (`src/routes/women.latest-edition.tsx`)
+  - Collection Aliases:
+    - `/collections/men/best-sellers` (`src/routes/collections.men.best-sellers.tsx`)
+    - `/collections/men/latest-edition` (`src/routes/collections.men.latest-edition.tsx`)
+    - `/collections/women/best-sellers` (`src/routes/collections.women.best-sellers.tsx`)
+    - `/collections/women/latest-edition` (`src/routes/collections.women.latest-edition.tsx`)
+  - Department Root Redirects: `/men` -> `/collections/men`, `/women` -> `/collections/women`.
+  Powered by reusable `src/components/featured-collection-view.tsx` with responsive product cards, category filtering, search input, sort options (Featured Order, Price: Low to High, Price: High to Low, Newest Drops), brand metadata, and clean empty states.
+- **Frontend Navigation & Section Wiring**: Connected on-page "Shop Best Sellers" and "View Latest Edition" buttons and headings in `src/routes/collections.men.tsx` and `src/routes/collections.women.tsx` to redirect to their respective dedicated pages (`/men/best-sellers`, `/men/latest-edition`, `/women/best-sellers`, `/women/latest-edition`), wrapped hero model cards with clickable links to `/men/latest-edition` and `/women/latest-edition`, and wired on-page showcase sections to display the admin-curated featured collection items.
 
 ### Admin Panel & Product Listing Performance Optimization
 - **Admin Dashboard Query Streamlining & Date Decoupling**: Replaced slow correlated subqueries and engine-specific date functions (`date('now')`, `date('now', 'start of month')`) in `src/lib/admin-dashboard.functions.ts` with JavaScript ISO date boundaries and parallel scalar count queries (`SELECT COUNT(*) FROM profiles`, `SELECT COUNT(*) FROM products`). Bounded top customer queries to 10 profiles. Implemented 30-second in-memory dashboard caching (`DASHBOARD_CACHE_TTL = 30_000`) with automatic real-time cache busting (`invalidateAdminDashboardCache()`) on order placement, payment verification, order status changes, and catalog updates.
