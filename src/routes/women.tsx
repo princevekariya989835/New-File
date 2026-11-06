@@ -5,3 +5,4 @@ export const Route = createFileRoute("/women")({
     throw redirect({ to: "/collections/women", replace: true });
   },
 });
+
