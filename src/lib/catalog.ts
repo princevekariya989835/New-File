@@ -92,6 +92,7 @@ export interface CatalogProductNode {
   description: string;
   detailsHtml?: string | null;
   department?: "men" | "women" | "unisex";
+  productionType?: "dtf" | "embroidery";
   subcategory?: string | null;
   collection?: string | null;
   isFeatured?: boolean;
@@ -425,6 +426,7 @@ export function toCatalogProduct(row: ProductRow, isListing = false): CatalogPro
       discountPercentage,
       isTaxInclusive,
       department: (row.department as "men" | "women" | "unisex") || "men",
+      productionType: (row.production_type as "dtf" | "embroidery") || "dtf",
       subcategory: row.subcategory ?? null,
       collection: row.collection ?? null,
       isFeatured: Boolean(row.is_featured),
@@ -618,7 +620,7 @@ export async function getPublishedProducts(first = 200): Promise<CatalogProduct[
         SELECT 
           p.id, p.name, p.slug, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive, p.currency,
           p.images,
-          p.category, p.subcategory, p.collection, p.department, p.is_featured,
+          p.category, p.subcategory, p.collection, p.department, p.production_type, p.is_featured,
           p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.updated_at
         FROM products p
         WHERE (p.is_active = 1 OR p.is_active = true OR p.is_active = 'true' OR p.is_active = '1' OR p.is_active IS NULL OR LOWER(p.status) = 'active')
@@ -697,6 +699,7 @@ export async function getPublishedProducts(first = 200): Promise<CatalogProduct[
       subcategory: (p.subcategory as string) || null,
       collection: (p.collection as string) || null,
       department: (p.department as "men" | "women" | "unisex") || "men",
+      production_type: (p.production_type as "dtf" | "embroidery") || "dtf",
       is_featured: Boolean(p.is_featured),
       sizes: Array.isArray(p.sizes)
         ? p.sizes
@@ -911,6 +914,7 @@ export async function getProductByHandleDirect(handle: string): Promise<CatalogP
         subcategory: (p.subcategory as string) || null,
         collection: (p.collection as string) || null,
         department: (p.department as "men" | "women" | "unisex") || "men",
+        production_type: (p.production_type as "dtf" | "embroidery") || "dtf",
         is_featured: Boolean(p.is_featured),
         sizes: Array.isArray(p.sizes)
           ? p.sizes
@@ -1089,7 +1093,7 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
       const rows = await sql`
         SELECT 
           p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
-          p.images, p.category, p.subcategory, p.collection, p.department, p.is_featured,
+          p.images, p.category, p.subcategory, p.collection, p.department, p.production_type, p.is_featured,
           p.sizes, p.colors, p.color_variants, p.stock_quantity, p.is_active, p.tags, p.created_at, p.updated_at
         FROM products p
         WHERE (p.is_active = 1 OR p.is_active = true OR p.is_active = 'true' OR p.is_active = '1' OR p.is_active IS NULL OR LOWER(p.status) = 'active')
@@ -1116,6 +1120,7 @@ export const fetchDepartmentProductsServerFn = createServerFn({ method: "POST" }
         subcategory: (p.subcategory as string) || null,
         collection: (p.collection as string) || null,
         department: (p.department as "men" | "women" | "unisex") || "men",
+        production_type: (p.production_type as "dtf" | "embroidery") || "dtf",
         is_featured: Boolean(p.is_featured),
         sizes: Array.isArray(p.sizes)
           ? p.sizes
@@ -1441,3 +1446,18 @@ export async function fetchCollectionsByDepartment(department?: "men" | "women" 
     return [];
   }
 }
+
+export const fetchEmbroideryProductsServerFn = createServerFn({ method: "POST" })
+  .inputValidator((d?: { q?: string; category?: string; sort?: string }) => ({
+    q: d?.q ? String(d?.q).trim() : undefined,
+    category: d?.category ? String(d?.category).trim() : undefined,
+    sort: d?.sort || "featured",
+  }))
+  .handler(async (): Promise<CatalogProduct[]> => {
+    const all = await getPublishedProducts(200);
+    return all.filter((p) => {
+      const pType = (p.node.productionType || (p.node as any).production_type || "dtf").toLowerCase().trim();
+      return pType === "embroidery";
+    });
+  });
+

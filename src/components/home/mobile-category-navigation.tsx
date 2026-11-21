@@ -40,10 +40,10 @@ const DEFAULT_MOBILE_CATEGORIES: MobileCategoryItem[] = [
     fallbackUrl: "/products/zoro-black-1.jpg",
   },
   {
-    id: "mob-cat-oversized",
-    name: "OVERSIZED TEES",
-    link: "/shop?q=oversized",
-    imageUrl: "/assets/tee-olive-front.webp",
+    id: "mob-cat-embroidery",
+    name: "EMBROIDERY",
+    link: "/collections/embroidery",
+    imageUrl: "/assets/collections/collection-oversized.jpg",
     fallbackUrl: "/products/zoro-olive-1.jpg",
   },
   {
@@ -72,10 +72,17 @@ export function MobileCategoryNavigation({ collections }: MobileCategoryNavigati
     if (collections && collections.length > 0) {
       const customMatches = collections
         .filter((c) => c.enabled !== false)
-        .map((c) => ({
+        .map((c, idx) => ({
           id: `col-${c.id}`,
           name: c.title.toUpperCase(),
-          link: c.link || "/shop",
+          link:
+            c.link && c.link !== "/shop"
+              ? c.link
+              : idx === 1
+                ? "/design"
+                : idx === 2
+                  ? "/collections/embroidery"
+                  : "/shop",
           imageUrl: c.imageUrl || "/products/zoro-black-1.jpg",
           fallbackUrl: "/products/zoro-black-1.jpg",
         }));

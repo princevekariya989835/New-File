@@ -206,10 +206,10 @@ const COLLECTION_CARD_PRESETS = [
     objectPosition: "object-top",
   },
   {
-    key: "oversized",
-    eyebrow: "NEW SILHOUETTES",
-    title: "Oversized",
-    description: "Relaxed fit. Everyday style.",
+    key: "embroidery",
+    eyebrow: "EMBROIDERY COLLECTION",
+    title: "Embroidery",
+    description: "Premium embroidery. Made to stand out.",
     fallbackImg: "/assets/collections/collection-oversized.jpg",
     objectPosition: "object-top",
   },
@@ -335,7 +335,14 @@ export function WebsiteHomepageContent({
                     const displayTitle = rawTitle.replace(/\bDTF\s*/i, "").trim() || preset.title;
                     const eyebrow = preset.eyebrow;
                     const description = (c as any).description || preset.description;
-                    const link = c.link || (idx === 1 ? "/design" : "/shop");
+                    const link =
+                      c.link && c.link !== "/shop"
+                        ? c.link
+                        : idx === 1
+                          ? "/design"
+                          : idx === 2
+                            ? "/collections/embroidery"
+                            : "/shop";
 
                     return (
                       <div

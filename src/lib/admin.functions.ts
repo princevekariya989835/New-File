@@ -70,6 +70,8 @@ export type AdminProduct = {
   subcategory?: string | null;
   collection?: string | null;
   department: "men" | "women" | "unisex";
+  productionType?: "dtf" | "embroidery";
+  production_type?: "dtf" | "embroidery";
   isFeatured?: boolean;
   sizeStock?: Record<string, number>;
   frontShowcaseImage?: string | null;
@@ -182,7 +184,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
         SELECT 
           p.id, p.name, p.slug, p.description, p.details_html, p.price, p.mrp, p.compare_at_price, p.is_tax_inclusive,
           p.images, p.sizes, p.colors, p.color_variants, p.tags, p.stock_quantity, p.is_active, p.category,
-          p.department, p.subcategory, p.collection, p.is_featured,
+          p.department, p.subcategory, p.collection, p.is_featured, p.production_type,
           p.features, p.care_instructions, p.manufacturing_info, p.size_measurements,
           p.sku, p.front_showcase_image, p.back_showcase_image, p.front_showcase_title, p.front_showcase_subtitle, p.back_showcase_title, p.back_showcase_subtitle,
           COALESCE(
@@ -279,7 +281,7 @@ export const adminListProducts = createServerFn({ method: "GET" })
           SELECT 
             id, name, slug, description, details_html, price, mrp, compare_at_price, is_tax_inclusive,
             images, sizes, colors, color_variants, tags, stock_quantity, is_active, category,
-            department, subcategory, collection, is_featured,
+            department, subcategory, collection, is_featured, production_type,
             features, care_instructions, manufacturing_info, size_measurements,
             sku, front_showcase_image, back_showcase_image, front_showcase_title, front_showcase_subtitle, back_showcase_title, back_showcase_subtitle
           FROM products
@@ -464,6 +466,8 @@ export const adminListProducts = createServerFn({ method: "GET" })
         subcategory: p.subcategory ?? null,
         collection: p.collection ?? null,
         department: (p.department as "men" | "women" | "unisex") || "men",
+        productionType: (p.production_type as "dtf" | "embroidery") || "dtf",
+        production_type: (p.production_type as "dtf" | "embroidery") || "dtf",
         isFeatured: Boolean(p.is_featured),
         sizeStock: sizeStockByProd.get(String(p.id)) || {},
         frontShowcaseImage: p.front_showcase_image || null,
@@ -847,11 +851,11 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
       try {
         await sql`
           INSERT INTO products (
-            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, subcategory, collection, department, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements,
+            id, name, slug, sku, description, details_html, price, base_price, mrp, compare_at_price, is_tax_inclusive, currency, images, category, subcategory, collection, department, production_type, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags, features, care_instructions, manufacturing_info, size_measurements,
             front_showcase_image, back_showcase_image, front_showcase_title, front_showcase_subtitle, back_showcase_title, back_showcase_subtitle
           ) VALUES (
             ${productId}, ${values.name}, ${slug}, ${values.sku || null}, ${values.description}, ${values.details_html}, ${values.price}, ${values.price}, ${values.mrp}, ${values.compare_at_price}, ${values.is_tax_inclusive}, 'INR',
-            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
+            ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.production_type || 'dtf'}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
             ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb,
             ${JSON.stringify(values.features)}::jsonb, ${JSON.stringify(values.care_instructions)}::jsonb,
             ${JSON.stringify(values.manufacturing_info)}::jsonb, ${JSON.stringify(values.size_measurements)}::jsonb,
@@ -868,10 +872,10 @@ export const adminCreateProduct = createServerFn({ method: "POST" })
         ) {
           await sql`
             INSERT INTO products (
-              id, name, slug, description, price, currency, images, category, sizes, colors, color_variants, stock_quantity, is_active, tags
+              id, name, slug, description, price, currency, images, category, subcategory, collection, department, production_type, is_featured, sizes, colors, color_variants, stock_quantity, is_active, tags
             ) VALUES (
               ${productId}, ${values.name}, ${slug}, ${values.description}, ${values.price}, 'INR',
-              ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
+              ${JSON.stringify(values.images)}::jsonb, ${values.category}, ${values.subcategory}, ${values.collection}, ${values.department}, ${values.production_type || 'dtf'}, ${values.is_featured}, ${JSON.stringify(values.sizes)}::jsonb,
               ${JSON.stringify(values.colors)}::jsonb, ${JSON.stringify(values.color_variants || [])}::jsonb, ${values.stock_quantity}, ${values.is_active}, ${JSON.stringify(values.tags)}::jsonb
             );
           `;
@@ -1078,6 +1082,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           subcategory = ${values.subcategory},
           collection = ${values.collection},
           department = ${values.department},
+          production_type = ${values.production_type || 'dtf'},
           is_featured = ${values.is_featured},
           sizes = ${JSON.stringify(values.sizes)}::jsonb,
           colors = ${JSON.stringify(values.colors)}::jsonb,
@@ -1112,6 +1117,7 @@ export const adminUpdateProduct = createServerFn({ method: "POST" })
           subcategory = ${values.subcategory},
           collection = ${values.collection},
           department = ${values.department},
+          production_type = ${values.production_type || 'dtf'},
           is_featured = ${values.is_featured},
             sizes = ${JSON.stringify(values.sizes)}::jsonb,
             colors = ${JSON.stringify(values.colors)}::jsonb,

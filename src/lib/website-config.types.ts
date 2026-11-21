@@ -48,6 +48,7 @@ export interface WebsiteCollectionItem {
   id: string;
   title: string;
   tag: string;
+  description?: string;
   link: string;
   imageUrl?: string;
   bgColor?: string;
@@ -384,9 +385,10 @@ export const DEFAULT_WEBSITE_CONFIG: WebsiteConfig = {
     },
     {
       id: "col_3",
-      title: "Oversized",
-      tag: "New silhouettes",
-      link: "/shop",
+      title: "Embroidery",
+      tag: "EMBROIDERY COLLECTION",
+      description: "Premium embroidery. Made to stand out.",
+      link: "/collections/embroidery",
       imageUrl: "/assets/collections/collection-oversized.jpg",
       bgColor: "bg-neutral-900",
       enabled: true,

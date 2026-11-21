@@ -4,6 +4,44 @@ This document tracks completed engineering tasks, the files modified, verificati
 
 ---
 
+## Task 18: Embroidery Category & Production Type Management
+- **Date**: 2026-11-21
+- **Objective**: Implement two clearly distinguishable product production types across RIOTOUS (`DTF Printing` and `Embroidery`). Update homepage promotional card 3 from Oversized to Embroidery (heading, label, description, and link to dedicated listing page). Add required `Printing / Production Type` field to Admin Add & Edit Product forms. Build dedicated storefront Embroidery Collection page (`/collections/embroidery` and `/embroidery`) with real-time updates and clean empty states. Implement color-based search and filtering combined with production type filtering in the admin panel using real dynamic variant data.
+- **Files Modified/Created**:
+  - Modified: `src/components/website-homepage-content.tsx`, `src/components/home/mobile-category-navigation.tsx`, `src/lib/website-config.types.ts`, `src/lib/website-config.functions.ts`, `src/lib/admin-utils.ts`, `src/lib/admin.functions.ts`, `src/components/admin/product-ui.tsx`, `src/routes/_authenticated/admin/products.lazy.tsx`, `src/lib/catalog.ts`, `src/lib/fallback-products.ts`, `src/lib/fallback-products-manager.server.ts`, `src/lib/db.ts`, `src/routeTree.gen.ts`, `docs/DATABASE_SCHEMA.md`, `docs/ROUTES_AND_PAGES.md`, `docs/CHANGELOG.md`, `docs/TASK_HISTORY.md`.
+  - Created: `migrations/0010_production_type.sql`, `src/components/embroidery-collection-view.tsx`, `src/routes/collections.embroidery.tsx`, `src/routes/embroidery.tsx`, `scripts/test-embroidery-feature.ts`.
+- **Key Deliverables**:
+  1. **Homepage Card 3 (Embroidery)**:
+     - Heading changed from "Oversized" to "Embroidery".
+     - Eyebrow label changed to "EMBROIDERY COLLECTION".
+     - Description changed to "Premium embroidery. Made to stand out."
+     - Preserved image, dimensions, aspect ratio, typography, overlay, and positioning.
+     - Entire card and circular arrow button link directly to `/collections/embroidery`.
+     - Mobile navigation drawer and compact selector updated seamlessly.
+  2. **Database Field (`production_type`)**:
+     - Added column `production_type TEXT DEFAULT 'dtf'` and index `idx_products_prod_type`.
+     - Auto-provisioned in `ensureDbSchema()` for Cloudflare D1, Neon Postgres, and mock SQL.
+     - Existing products retain current data and default to `'dtf'`.
+  3. **Admin Panel Product Management**:
+     - Added required dropdown **Printing / Production Type** (`DTF Printing` vs `Embroidery`) to product creation and edit forms.
+     - Saved permanently in database on creation (`adminCreateProduct`) and editing (`adminUpdateProduct`).
+     - Added visual status badges on admin product table (`Embroidery` vs `DTF`).
+  4. **Admin Color-Based & Production Type Filtering**:
+     - Added Production Type filter dropdown (`All Production Types`, `DTF Printing`, `Embroidery`).
+     - Added dynamic Color filter dropdown populated from all product and color variant records.
+     - Enabled composite filtering (e.g. Embroidery + Black) with instant filter reset.
+  5. **Dedicated Storefront Embroidery Page**:
+     - Created `/collections/embroidery` and `/embroidery` with full metadata and canonical URLs.
+     - Displays strictly Embroidery products, with category filtering pills, live search bar, sort dropdown, `ProductCard` grid, and empty state message.
+     - Server function `fetchEmbroideryProductsServerFn` with real-time cache invalidation on admin mutations.
+- **Tests Performed**:
+  - Automated feature validation (`scripts/test-embroidery-feature.ts`): 100% passed across schema, input normalization, DB insert, embroidery collection isolation, color filtering combination, and homepage config normalization.
+  - TypeScript validation (`npx tsc --noEmit`): 0 errors across entire repository.
+  - Production build (`npm run build`): Client bundle, SSR bundle, and Cloudflare Worker module compiled cleanly in 2.05s.
+- **Outcome**: RIOTOUS now natively supports both DTF Printing and Embroidery products with complete frontend collection discovery, admin CRUD, color filtering, and edge cache invalidation.
+
+---
+
 ## Task 17: Update Instagram Link & Dynamic Featured Collections (Best Sellers & Latest Edition)
 - **Date**: 2026-11-06
 - **Objective**: Replace all legacy Instagram links and `@riotous_store` handles with `https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw==` and `@riotous.store_`. Implement dynamic Best Sellers and Latest Edition sections for Men and Women, including database schema & migration, backend server functions, a dedicated "Featured Collections" admin console with reordering/preview/publish capabilities, 4 dedicated storefront pages, and connected navigation buttons.

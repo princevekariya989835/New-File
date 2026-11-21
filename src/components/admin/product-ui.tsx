@@ -59,6 +59,7 @@ export type ProductFormValues = {
   subcategory?: string;
   collection?: string;
   department: "men" | "women" | "unisex";
+  productionType?: "dtf" | "embroidery";
   isFeatured?: boolean;
   images: string[];
   colors: string[];
@@ -1679,6 +1680,7 @@ const EMPTY_FORM: ProductFormValues = {
   subcategory: "",
   collection: "",
   department: "men",
+  productionType: "dtf",
   isFeatured: false,
   images: [],
   colors: ["Black"],
@@ -1721,6 +1723,7 @@ export function ProductForm({
     ...(initial ?? EMPTY_FORM),
     colorVariants: initial?.colorVariants ?? [],
     department: initial?.department || "men",
+    productionType: initial?.productionType || (initial as any)?.production_type || "dtf",
     subcategory: initial?.subcategory || "",
     collection: initial?.collection || "",
     isFeatured: Boolean(initial?.isFeatured),
@@ -1919,6 +1922,19 @@ export function ProductForm({
               <option value="men">Men</option>
               <option value="women">Women</option>
               <option value="unisex">Unisex (Both Men &amp; Women)</option>
+            </select>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Printing / Production Type *</Label>
+            <select
+              value={values.productionType || "dtf"}
+              onChange={(e) => set("productionType", e.target.value as "dtf" | "embroidery")}
+              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              required
+            >
+              <option value="dtf">DTF Printing</option>
+              <option value="embroidery">Embroidery</option>
             </select>
           </div>
 

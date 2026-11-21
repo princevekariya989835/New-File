@@ -94,6 +94,7 @@ export interface ProductRow {
   subcategory?: string | null;
   collection?: string | null;
   department?: "men" | "women" | "unisex";
+  production_type?: "dtf" | "embroidery";
   is_featured?: boolean | number;
   sizes: string[];
   colors: string[];

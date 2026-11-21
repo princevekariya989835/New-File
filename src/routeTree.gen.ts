@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DesignRouteImport } from './routes/design'
+import { Route as EmbroideryRouteImport } from './routes/embroidery'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MenRouteImport } from './routes/men'
@@ -32,6 +33,7 @@ import { Route as WomenRouteImport } from './routes/women'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as ApiProductsRouteImport } from './routes/api/products'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
+import { Route as CollectionsEmbroideryRouteImport } from './routes/collections.embroidery'
 import { Route as CollectionsMenRouteImport } from './routes/collections.men'
 import { Route as CollectionsWomenRouteImport } from './routes/collections.women'
 import { Route as MenBestSellersRouteImport } from './routes/men.best-sellers'
@@ -118,6 +120,11 @@ const DesignRoute = DesignRouteImport.update({
   path: '/design',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/design.lazy').then((d) => d.Route))
+const EmbroideryRoute = EmbroideryRouteImport.update({
+  id: '/embroidery',
+  path: '/embroidery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   id: '/llms.txt',
   path: '/llms.txt',
@@ -196,6 +203,11 @@ const ApiProductsRoute = ApiProductsRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth_/callback',
   path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionsEmbroideryRoute = CollectionsEmbroideryRouteImport.update({
+  id: '/collections/embroidery',
+  path: '/collections/embroidery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CollectionsMenRoute = CollectionsMenRouteImport.update({
@@ -538,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/embroidery': typeof EmbroideryRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/men': typeof MenRouteWithChildren
@@ -554,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/collections/embroidery': typeof CollectionsEmbroideryRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/men/best-sellers': typeof MenBestSellersRoute
@@ -613,6 +627,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/embroidery': typeof EmbroideryRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/men': typeof MenRouteWithChildren
@@ -628,6 +643,7 @@ export interface FileRoutesByTo {
   '/women': typeof WomenRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/collections/embroidery': typeof CollectionsEmbroideryRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/men/best-sellers': typeof MenBestSellersRoute
@@ -689,6 +705,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/design': typeof DesignRoute
+  '/embroidery': typeof EmbroideryRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/men': typeof MenRouteWithChildren
@@ -705,6 +722,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/api/products': typeof ApiProductsRoute
   '/auth_/callback': typeof AuthCallbackRoute
+  '/collections/embroidery': typeof CollectionsEmbroideryRoute
   '/collections/men': typeof CollectionsMenRouteWithChildren
   '/collections/women': typeof CollectionsWomenRouteWithChildren
   '/men/best-sellers': typeof MenBestSellersRoute
@@ -766,6 +784,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/embroidery'
     | '/llms.txt'
     | '/login'
     | '/men'
@@ -782,6 +801,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/products'
     | '/auth/callback'
+    | '/collections/embroidery'
     | '/collections/men'
     | '/collections/women'
     | '/men/best-sellers'
@@ -841,6 +861,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/embroidery'
     | '/llms.txt'
     | '/login'
     | '/men'
@@ -856,6 +877,7 @@ export interface FileRouteTypes {
     | '/women'
     | '/api/products'
     | '/auth/callback'
+    | '/collections/embroidery'
     | '/collections/men'
     | '/collections/women'
     | '/men/best-sellers'
@@ -916,6 +938,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/contact'
     | '/design'
+    | '/embroidery'
     | '/llms.txt'
     | '/login'
     | '/men'
@@ -932,6 +955,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/api/products'
     | '/auth_/callback'
+    | '/collections/embroidery'
     | '/collections/men'
     | '/collections/women'
     | '/men/best-sellers'
@@ -993,6 +1017,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   DesignRoute: typeof DesignRoute
+  EmbroideryRoute: typeof EmbroideryRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   MenRoute: typeof MenRouteWithChildren
@@ -1008,6 +1033,7 @@ export interface RootRouteChildren {
   WomenRoute: typeof WomenRouteWithChildren
   ApiProductsRoute: typeof ApiProductsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CollectionsEmbroideryRoute: typeof CollectionsEmbroideryRoute
   CollectionsMenRoute: typeof CollectionsMenRouteWithChildren
   CollectionsWomenRoute: typeof CollectionsWomenRouteWithChildren
   ProductHandleRoute: typeof ProductHandleRoute
@@ -1075,6 +1101,13 @@ declare module '@tanstack/react-router' {
       path: '/design'
       fullPath: '/design'
       preLoaderRoute: typeof DesignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embroidery': {
+      id: '/embroidery'
+      path: '/embroidery'
+      fullPath: '/embroidery'
+      preLoaderRoute: typeof EmbroideryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/llms.txt': {
@@ -1187,6 +1220,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collections/embroidery': {
+      id: '/collections/embroidery'
+      path: '/collections/embroidery'
+      fullPath: '/collections/embroidery'
+      preLoaderRoute: typeof CollectionsEmbroideryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/collections/men': {
@@ -1686,6 +1726,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   DesignRoute: DesignRoute,
+  EmbroideryRoute: EmbroideryRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   MenRoute: MenRouteWithChildren,
@@ -1701,6 +1742,7 @@ const rootRouteChildren: RootRouteChildren = {
   WomenRoute: WomenRouteWithChildren,
   ApiProductsRoute: ApiProductsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  CollectionsEmbroideryRoute: CollectionsEmbroideryRoute,
   CollectionsMenRoute: CollectionsMenRouteWithChildren,
   CollectionsWomenRoute: CollectionsWomenRouteWithChildren,
   ProductHandleRoute: ProductHandleRoute,

@@ -36,6 +36,8 @@ All public storefront routes are server-side rendered (SSR) and configured with 
 | `/collections/men/latest-edition` | `src/routes/collections.men.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Men's Latest Edition |
 | `/collections/women/best-sellers` | `src/routes/collections.women.best-sellers.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Women's Best Sellers |
 | `/collections/women/latest-edition` | `src/routes/collections.women.latest-edition.tsx` | N/A (Direct) | No | `index, follow` | `featured_collections`, `products` | Alias for Women's Latest Edition |
+| `/collections/embroidery` | `src/routes/collections.embroidery.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/collections/embroidery`) | `products` (`production_type = 'embroidery'`) | Dedicated Embroidery Products Listing Page with category & sort filters |
+| `/embroidery` | `src/routes/embroidery.tsx` | N/A (Direct) | No | `index, follow` (Canonical: `https://riotous.store/collections/embroidery`) | `products` (`production_type = 'embroidery'`) | Dedicated Embroidery direct route alias |
 
 ---
 

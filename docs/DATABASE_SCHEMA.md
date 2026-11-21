@@ -90,6 +90,8 @@ The database access layer is centralized in `src/lib/db.ts`:
    - `currency` (TEXT, DEFAULT `'INR'`).
    - `images` (TEXT/JSON): Array of image URLs.
    - `category` (TEXT): Category name.
+   - `department` (TEXT, DEFAULT `'men'`): Target department (`'men'`, `'women'`, `'unisex'`).
+   - `production_type` (TEXT, DEFAULT `'dtf'`): Printing / Production method (`'dtf'` for DTF Printing, `'embroidery'` for Embroidery).
    - `sizes` (TEXT/JSON): Available sizes (e.g. `['S', 'M', 'L', 'XL', 'XXL']`).
    - `colors` (TEXT/JSON): Available colors.
    - `color_variants` (TEXT/JSON): Array of color variant objects (`{ name, hex, images }`).

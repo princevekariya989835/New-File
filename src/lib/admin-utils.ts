@@ -272,6 +272,8 @@ export type ProductInput = {
   subcategory?: string | null;
   collection?: string | null;
   department?: "men" | "women" | "unisex";
+  productionType?: "dtf" | "embroidery";
+  production_type?: "dtf" | "embroidery";
   isFeatured?: boolean | number;
   stock?: number;
   sizeStock?: Record<string, number>;
@@ -511,6 +513,10 @@ export function normalizeProductInput(d: ProductInput) {
     department: ["men", "women", "unisex"].includes(String(d.department || "men").toLowerCase().trim())
       ? (String(d.department).toLowerCase().trim() as "men" | "women" | "unisex")
       : "men",
+    production_type:
+      String(d.productionType || d.production_type || "dtf").toLowerCase().trim() === "embroidery"
+        ? ("embroidery" as const)
+        : ("dtf" as const),
     is_featured: d.isFeatured ? 1 : 0,
     stock_quantity: totalStock,
     sizeStock,

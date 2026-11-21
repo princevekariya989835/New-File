@@ -4,7 +4,34 @@ All notable architecture, database, and system modifications are recorded in thi
 
 ---
 
-## [Current Release] — 2026-11-06
+## [Current Release] — 2026-11-21
+
+### Embroidery Category & Production Type Management
+- **Homepage Card 3 Update (Embroidery)**:
+  - Replaced the third card heading from **Oversized** to **Embroidery**.
+  - Updated eyebrow label to **EMBROIDERY COLLECTION**.
+  - Updated card description to **Premium embroidery. Made to stand out.**
+  - Preserved original image (`/assets/collections/collection-oversized.jpg`), dimensions, aspect ratio, typography, overlay, and positioning.
+  - Linked whole card and circular arrow button to `/collections/embroidery` across desktop and mobile.
+  - Updated `DEFAULT_WEBSITE_CONFIG`, `mergeWithDefaults`, and `MobileCategoryNavigation`.
+- **Database Schema & Relational Field (`production_type`)**:
+  - Added migration `migrations/0010_production_type.sql` creating `production_type TEXT DEFAULT 'dtf'` on `products` and `CREATE INDEX idx_products_prod_type ON products (production_type)`.
+  - Added runtime column provisioning and index creation to `ensureDbSchema()` in `src/lib/db.ts` for Cloudflare D1, Neon PostgreSQL, and mock SQL.
+  - Initialized existing catalog records with default value `'dtf'`.
+- **Admin Panel Product Management (Printing / Production Type)**:
+  - Added required field **Printing / Production Type** (`DTF Printing` vs `Embroidery`) to `ProductForm` (`src/components/admin/product-ui.tsx`).
+  - Supported permanent persistence on product creation (`adminCreateProduct`) and editing (`adminUpdateProduct`) in `src/lib/admin.functions.ts` and `src/lib/admin-utils.ts`.
+  - Added visual badges on admin product table (`Embroidery` vs `DTF`).
+- **Admin Panel Color-Based & Production Type Filtering**:
+  - Added **Production Type** filter dropdown (`All Production Types`, `DTF Printing`, `Embroidery`) in `src/routes/_authenticated/admin/products.lazy.tsx`.
+  - Added dynamic **Color** filter dropdown populated from actual colors saved against products and variant matrices (`p.colors` and `p.colorVariants`).
+  - Implemented multi-condition filtering allowing admins to combine Color (e.g. `Black`) with Production Type (e.g. `Embroidery`) and instant filter reset.
+- **Dedicated Storefront Embroidery Collection Page**:
+  - Created `src/components/embroidery-collection-view.tsx` with responsive product cards (`ProductCard`), live search bar, category filtering pills, sort options (Featured, Price: Low to High, Price: High to Low, Newest Drops), and empty state.
+  - Created routes `/collections/embroidery` (`src/routes/collections.embroidery.tsx`) and `/embroidery` (`src/routes/embroidery.tsx`) with canonical SEO tags.
+  - Created server function `fetchEmbroideryProductsServerFn` in `src/lib/catalog.ts` with automatic cache invalidation upon any admin product mutation.
+
+## [Previous Release] — 2026-11-06
 
 ### Instagram Link Update & Dynamic Featured Collections (Best Sellers & Latest Edition)
 - **Universal Instagram URL Update**: Replaced legacy Instagram links and `@riotous_store` handles across the entire codebase (`site-footer.tsx`, `mobile-nav-drawer.tsx`, `website-config.types.ts`, `website-config.functions.ts`, `contact.lazy.tsx`, `about.tsx`, `index.tsx`, `llms.txt`) with the verified link `https://www.instagram.com/riotous.store_?utm_source=ig_web_button_share_sheet&srtk=ZDNlZDc0MzIxNw==` and handle `@riotous.store_`. All external links enforce `target="_blank" rel="noopener noreferrer"`.

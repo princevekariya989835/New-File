@@ -12,7 +12,7 @@ import {
 /**
  * Deep merge helper to ensure older or partial configs retain default fields.
  */
-function mergeWithDefaults(savedConfig: any): WebsiteConfig {
+export function mergeWithDefaults(savedConfig: any): WebsiteConfig {
   if (!savedConfig || typeof savedConfig !== "object") {
     return JSON.parse(JSON.stringify(DEFAULT_WEBSITE_CONFIG));
   }
@@ -46,11 +46,20 @@ function mergeWithDefaults(savedConfig: any): WebsiteConfig {
         : def.navigation,
     collections:
       Array.isArray(savedConfig.collections) && savedConfig.collections.length > 0
-        ? savedConfig.collections.map((c: any, i: number) => ({
-            ...(def.collections[i] || {}),
-            ...c,
-            imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/assets/collections/collection-printed-tees.jpg",
-          }))
+        ? savedConfig.collections.map((c: any, i: number) => {
+            const base = {
+              ...(def.collections[i] || {}),
+              ...c,
+              imageUrl: c.imageUrl || def.collections[i]?.imageUrl || "/assets/collections/collection-printed-tees.jpg",
+            };
+            if (c.id === "col_3" || i === 2 || (c.title && c.title.toLowerCase().trim() === "oversized")) {
+              base.title = "Embroidery";
+              base.tag = "EMBROIDERY COLLECTION";
+              base.description = "Premium embroidery. Made to stand out.";
+              base.link = "/collections/embroidery";
+            }
+            return base;
+          })
         : def.collections,
     featuredProducts: {
       ...def.featuredProducts,

@@ -55,6 +55,8 @@ function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DRAFT">("ALL");
   const [stockFilter, setStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK">("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [productionTypeFilter, setProductionTypeFilter] = useState<"ALL" | "dtf" | "embroidery">("ALL");
+  const [colorFilter, setColorFilter] = useState("ALL");
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -149,6 +151,23 @@ function ProductsPage() {
     [products],
   );
 
+  const availableColors = useMemo(() => {
+    const colorSet = new Set<string>();
+    products.forEach((p) => {
+      (p.colors || []).forEach((c) => {
+        if (c && typeof c === "string" && c.trim()) {
+          colorSet.add(c.trim());
+        }
+      });
+      (p.colorVariants || []).forEach((cv) => {
+        if (cv?.name && cv.name.trim()) {
+          colorSet.add(cv.name.trim());
+        }
+      });
+    });
+    return Array.from(colorSet).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
   // Filter products
   const visible = useMemo(
     () =>
@@ -165,15 +184,31 @@ function ProductsPage() {
         if (stockFilter === "IN_STOCK" && p.totalInventory <= 0) return false;
         if (stockFilter === "OUT_OF_STOCK" && p.totalInventory > 0) return false;
         if (categoryFilter !== "ALL" && (p.category ?? "") !== categoryFilter) return false;
+
+        // Production Type Filter
+        if (productionTypeFilter !== "ALL") {
+          const pType = (p.productionType || (p as any).production_type || "dtf").toLowerCase().trim();
+          if (pType !== productionTypeFilter) return false;
+        }
+
+        // Color Filter (matches p.colors or p.colorVariants)
+        if (colorFilter !== "ALL") {
+          const targetColor = colorFilter.toLowerCase().trim();
+          const hasColor =
+            (p.colors || []).some((c) => c && c.toLowerCase().trim() === targetColor) ||
+            (p.colorVariants || []).some((cv) => cv?.name && cv.name.toLowerCase().trim() === targetColor);
+          if (!hasColor) return false;
+        }
+
         return true;
       }),
-    [products, departmentFilter, search, statusFilter, stockFilter, categoryFilter],
+    [products, departmentFilter, search, statusFilter, stockFilter, categoryFilter, productionTypeFilter, colorFilter],
   );
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [departmentFilter, search, statusFilter, stockFilter, categoryFilter, pageSize]);
+  }, [departmentFilter, search, statusFilter, stockFilter, categoryFilter, productionTypeFilter, colorFilter, pageSize]);
 
   // Paginated slice
   const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
@@ -287,6 +322,7 @@ function ProductsPage() {
             subcategory: editing.subcategory ?? "",
             collection: editing.collection ?? "",
             department: editing.department || "men",
+            productionType: editing.productionType || (editing as any).production_type || "dtf",
             isFeatured: Boolean(editing.isFeatured),
             images: editing.images,
             colors: editing.colors,
@@ -406,7 +442,36 @@ function ProductsPage() {
             ))}
           </select>
 
-          {(search || statusFilter !== "ALL" || stockFilter !== "ALL" || categoryFilter !== "ALL" || departmentFilter !== "ALL") && (
+          <select
+            className="h-9 rounded-md border bg-background px-2.5 text-xs shadow-xs"
+            value={productionTypeFilter}
+            onChange={(e) => setProductionTypeFilter(e.target.value as typeof productionTypeFilter)}
+          >
+            <option value="ALL">All Production Types</option>
+            <option value="dtf">DTF Printing</option>
+            <option value="embroidery">Embroidery</option>
+          </select>
+
+          <select
+            className="h-9 rounded-md border bg-background px-2.5 text-xs shadow-xs"
+            value={colorFilter}
+            onChange={(e) => setColorFilter(e.target.value)}
+          >
+            <option value="ALL">All Colors ({availableColors.length})</option>
+            {availableColors.map((col) => (
+              <option key={col} value={col}>
+                {col}
+              </option>
+            ))}
+          </select>
+
+          {(search ||
+            statusFilter !== "ALL" ||
+            stockFilter !== "ALL" ||
+            categoryFilter !== "ALL" ||
+            departmentFilter !== "ALL" ||
+            productionTypeFilter !== "ALL" ||
+            colorFilter !== "ALL") && (
             <Button
               size="sm"
               variant="ghost"
@@ -417,6 +482,8 @@ function ProductsPage() {
                 setStatusFilter("ALL");
                 setStockFilter("ALL");
                 setCategoryFilter("ALL");
+                setProductionTypeFilter("ALL");
+                setColorFilter("ALL");
               }}
             >
               Reset Filters
@@ -608,6 +675,20 @@ function ProductsPage() {
                         }`}
                       >
                         {dept}
+                      </Badge>
+
+                      {/* Production Type Badge */}
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-semibold uppercase tracking-wider ${
+                          (p.productionType || (p as any).production_type || "dtf") === "embroidery"
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                            : "bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-500/20"
+                        }`}
+                      >
+                        {(p.productionType || (p as any).production_type || "dtf") === "embroidery"
+                          ? "Embroidery"
+                          : "DTF"}
                       </Badge>
 
                       {p.category && (

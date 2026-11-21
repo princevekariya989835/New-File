@@ -66,6 +66,7 @@ export function getDatabaseEngineName(): string {
 // In-memory database store for local dev when neither D1 nor DATABASE_URL is set
 const _mockProducts: any[] = FALLBACK_PRODUCTS.map((p) => ({
   ...p,
+  production_type: (p as any).production_type || (p as any).productionType || "dtf",
   images: [...p.images],
   sizes: [...p.sizes],
   colors: [...p.colors],
@@ -1019,6 +1020,7 @@ export function getSql() {
 
           return {
             ...p,
+            production_type: p.production_type || "dtf",
             mrp: p.mrp ?? p.compare_at_price ?? p.price,
             compare_at_price: p.compare_at_price ?? p.mrp ?? p.price,
             product_variants: prodVariants,
@@ -1577,20 +1579,31 @@ export function getSql() {
             }
           }
         }
+        const prodType =
+          values.some((v) => typeof v === "string" && v.toLowerCase() === "embroidery") ||
+          lower.includes("'embroidery'")
+            ? "embroidery"
+            : "dtf";
+        const existingIdx = _mockProducts.findIndex((p) => String(p.id) === String(id));
         const newProd = {
           id,
           name,
           slug,
+          production_type: prodType,
           images: images.length ? images : ["/placeholder-tee.jpg"],
           sizes: ["S", "M", "L", "XL", "XXL"],
-          colors: ["Black"],
+          colors: ["Black", "Maroon"],
           stock_quantity: 25,
           is_active: 1,
           tags: ["New"],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-        _mockProducts.push(newProd);
+        if (existingIdx >= 0) {
+          _mockProducts[existingIdx] = { ..._mockProducts[existingIdx], ...newProd };
+        } else {
+          _mockProducts.push(newProd);
+        }
         return [{ id }];
       }
 
@@ -2005,6 +2018,16 @@ export async function ensureDbSchema() {
               await sql`ALTER TABLE products ADD COLUMN back_showcase_subtitle TEXT`;
             } catch {
               /* column may already exist */
+            }
+            try {
+              await sql`ALTER TABLE products ADD COLUMN production_type TEXT DEFAULT 'dtf'`;
+            } catch {
+              /* column may already exist */
+            }
+            try {
+              await sql`CREATE INDEX IF NOT EXISTS idx_products_prod_type ON products (production_type)`;
+            } catch {
+              /* index setup handled */
             }
 
             // High-Performance Query Indexes
